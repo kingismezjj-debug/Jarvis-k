@@ -1,0 +1,13 @@
+{
+  "name": "@jarvis-k/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && esbuild src/preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/preload.cjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@jarvis-k/contracts": "*"
+  }
+}
