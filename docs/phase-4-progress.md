@@ -617,3 +617,21 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 34 test files and 183 tests.
+
+### Wave 4.26: Boundary Guard Regression Coverage
+
+- Status: complete.
+- Added a Vitest regression test for `scripts/check-boundaries.mjs` using an
+  isolated minimal workspace fixture.
+- Covered the happy path where a minimal workspace has no runtime dependencies.
+- Covered the failure path where a workspace declares `onnxruntime-node`,
+  proving that the Phase 4.5 model-runtime dependency guard fails closed.
+- Kept the regression test fixture synthetic; it does not install packages,
+  download models, invoke providers, or add real runtime dependencies.
+
+### Current Gate
+
+- Targeted boundary script test: PASS, 1 test file and 2 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 35 test files and 185 tests.
