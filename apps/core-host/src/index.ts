@@ -5,7 +5,8 @@ import {
 import {
   recommendedModelCandidates,
   StaticModelRegistry,
-  StaticModelCandidateRegistry
+  StaticModelCandidateRegistry,
+  PolicyModelInstallationPlanner
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
@@ -139,6 +140,7 @@ const modelRegistry = new StaticModelRegistry([]);
 const modelCandidateRegistry = new StaticModelCandidateRegistry(
   recommendedModelCandidates
 );
+const modelInstallationPlanner = new PolicyModelInstallationPlanner();
 const modelLifecycleManager = new FileSystemModelLifecycleManager({
   rootDirectory: resolveModelDirectoryPath(),
   fetchArtifact: async () => {
@@ -175,7 +177,8 @@ runtime = new CoreRuntime(
   capabilityProvider,
   modelRegistry,
   modelLifecycleManager,
-  modelCandidateRegistry
+  modelCandidateRegistry,
+  modelInstallationPlanner
 );
 
 let inboundQueue = Promise.resolve();

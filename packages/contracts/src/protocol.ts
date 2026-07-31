@@ -155,6 +155,16 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
+    type: z.literal("agent.previewModelInstallability"),
+    payload: z
+      .object({
+        modelId: z.string().min(1).max(300),
+        allowYellowRisk: z.boolean().optional(),
+        allowUnknownRisk: z.boolean().optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.getMemoryHealth"),
     payload: EmptyPayloadSchema
   }),
@@ -544,6 +554,19 @@ export const ModelInventoryItemSchema = z
 
 export type ModelInventoryItem = z.infer<
   typeof ModelInventoryItemSchema
+>;
+
+export const ModelInstallabilityReportSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    allowed: z.boolean(),
+    reasons: z.array(z.string().min(1).max(500)).default([]),
+    runtimeMode: DeviceRuntimeModeSchema
+  })
+  .strict();
+
+export type ModelInstallabilityReport = z.infer<
+  typeof ModelInstallabilityReportSchema
 >;
 
 export const ProviderSelectionSchema = z

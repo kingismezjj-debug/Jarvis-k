@@ -121,6 +121,7 @@ export default function App() {
     exportMemorySnapshot,
     importMemorySnapshot,
     modelCandidates,
+    modelInstallabilityReports,
     modelInventory,
     modelManifests,
     openVoiceSettings,
@@ -166,6 +167,12 @@ export default function App() {
   ).length
   const downloadableCandidateCount = modelCandidates.filter(
     (item) => item.downloadEnabled
+  ).length
+  const installableModelCount = modelInstallabilityReports.filter(
+    (item) => item.allowed
+  ).length
+  const blockedModelCount = modelInstallabilityReports.filter(
+    (item) => !item.allowed
   ).length
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -606,6 +613,8 @@ export default function App() {
               <dl className="divide-y divide-border border-y text-[11px]">
                 <Metric label="CANDIDATES" value={String(modelCandidates.length)} />
                 <Metric label="MANIFESTS" value={String(modelManifests.length)} />
+                <Metric label="INSTALLABLE" value={String(installableModelCount)} tone="success" />
+                <Metric label="BLOCKED" value={String(blockedModelCount)} tone="warning" />
                 <Metric label="LOCAL MODELS" value={String(modelInventory.length)} />
                 <Metric label="DOWNLOADABLE" value={String(downloadableCandidateCount)} />
                 <Metric label="LOADED" value={String(loadedModelCount)} tone="accent" />

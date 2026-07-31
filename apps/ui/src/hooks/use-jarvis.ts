@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
+  ModelInstallabilityReportSchema,
   ModelInventoryItemSchema,
   ModelCandidateSchema,
   ModelManifestSchema,
@@ -9,6 +10,7 @@ import {
   type CoreSnapshot,
   type EventEnvelope,
   type ModelInventoryItem,
+  type ModelInstallabilityReport,
   type ModelCandidate,
   type ModelManifest,
 } from "@jarvis-k/contracts"
@@ -23,6 +25,9 @@ export function useJarvis() {
   const [connection, setConnection] = useState<CoreConnection>("connecting")
   const [error, setError] = useState<string | null>(null)
   const [modelInventory, setModelInventory] = useState<ModelInventoryItem[]>([])
+  const [modelInstallabilityReports, setModelInstallabilityReports] = useState<
+    ModelInstallabilityReport[]
+  >([])
   const [modelCandidates, setModelCandidates] = useState<ModelCandidate[]>([])
   const [modelManifests, setModelManifests] = useState<ModelManifest[]>([])
   const [sending, setSending] = useState(false)
@@ -173,6 +178,36 @@ export function useJarvis() {
         return false
       }
 
+      const installabilityReportResults = await Promise.all(
+        manifests.data.map((manifest) =>
+          window.jarvis.sendCommand({
+            type: "agent.previewModelInstallability",
+            payload: {
+              modelId: manifest.id,
+            },
+          })
+        )
+      )
+      const failedInstallabilityReport = installabilityReportResults.find(
+        (result) => !result.ok
+      )
+      if (failedInstallabilityReport && !failedInstallabilityReport.ok) {
+        setError(failedInstallabilityReport.error.message)
+        return false
+      }
+      const installabilityReports = ModelInstallabilityReportSchema.array().safeParse(
+        installabilityReportResults.map(
+          (result) =>
+            result.ok
+              ? (result.data as { report?: unknown } | undefined)?.report
+              : undefined
+        )
+      )
+      if (!installabilityReports.success) {
+        setError("Core returned invalid model installability reports.")
+        return false
+      }
+
       const inventoryResult = await window.jarvis.sendCommand({
         type: "agent.listModelInventory",
         payload: {},
@@ -206,6 +241,7 @@ export function useJarvis() {
       }
 
       setModelManifests(manifests.data)
+      setModelInstallabilityReports(installabilityReports.data)
       setModelInventory(inventory.data)
       setModelCandidates(candidates.data)
       setError(null)
@@ -299,6 +335,7 @@ export function useJarvis() {
     importMemorySnapshot,
     modelCandidates,
     modelInventory,
+    modelInstallabilityReports,
     modelManifests,
     openVoiceSettings,
     probeCore,

@@ -11,6 +11,7 @@ import {
   Message,
   MemoryHealth,
   MemoryHealthSchema,
+  ModelInstallabilityReportSchema,
   ModelCandidateSchema,
   ModelInventoryItemSchema,
   ModelManifestSchema,
@@ -24,6 +25,7 @@ import {
 import type {
   CapabilityProvider,
   ModelCandidateRegistry,
+  ModelInstallationPlanner,
   ModelLifecycleManager,
   ModelRegistry
 } from "@jarvis-k/capabilities";
@@ -55,7 +57,8 @@ export class CoreRuntime {
     private readonly capabilityProvider?: CapabilityProvider,
     private readonly modelRegistry?: ModelRegistry,
     private readonly modelLifecycleManager?: ModelLifecycleManager,
-    private readonly modelCandidateRegistry?: ModelCandidateRegistry
+    private readonly modelCandidateRegistry?: ModelCandidateRegistry,
+    private readonly modelInstallationPlanner?: ModelInstallationPlanner
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -255,6 +258,55 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_INVENTORY_FAILED",
             message: "Unable to list local model inventory.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.previewModelInstallability": {
+        if (!this.modelRegistry || !this.modelInstallationPlanner) {
+          return this.modelsUnavailable(envelope);
+        }
+        if (!this.capabilityProvider) {
+          return this.capabilitiesUnavailable(envelope);
+        }
+        try {
+          const manifest = await this.modelRegistry.getManifest(
+            envelope.command.payload.modelId
+          );
+          if (!manifest) {
+            return this.failure(envelope, {
+              code: "MODEL_MANIFEST_NOT_FOUND",
+              message: "Model manifest was not found.",
+              retryable: false
+            });
+          }
+          this.capabilities = CapabilitySnapshotSchema.parse(
+            await this.capabilityProvider.inspect()
+          );
+          const report = await this.modelInstallationPlanner.preview({
+            manifest: ModelManifestSchema.parse(manifest),
+            device: this.capabilities.device,
+            ...(envelope.command.payload.allowYellowRisk === undefined
+              ? {}
+              : {
+                  allowYellowRisk:
+                    envelope.command.payload.allowYellowRisk
+                }),
+            ...(envelope.command.payload.allowUnknownRisk === undefined
+              ? {}
+              : {
+                  allowUnknownRisk:
+                    envelope.command.payload.allowUnknownRisk
+                })
+          });
+          return this.success(envelope, {
+            report: ModelInstallabilityReportSchema.parse(report)
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_INSTALLABILITY_FAILED",
+            message: "Unable to preview model installability.",
             retryable: true
           });
         }

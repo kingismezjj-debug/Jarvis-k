@@ -5,6 +5,7 @@ import {
   CommandEnvelopeSchema,
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
+  ModelInstallabilityReportSchema,
   PROTOCOL_VERSION,
   CoreVoiceAudioMessageSchema,
   MemorySnapshotSchema,
@@ -194,6 +195,19 @@ describe("protocol contracts", () => {
         capability: "ocr"
       }
     });
+    const preview = createCommandEnvelope({
+      type: "agent.previewModelInstallability",
+      payload: {
+        modelId: "vendor/local-stt-small",
+        allowYellowRisk: true
+      }
+    });
+    const report = ModelInstallabilityReportSchema.parse({
+      modelId: "vendor/local-stt-small",
+      allowed: false,
+      reasons: ["Model artifact must have a SHA-256 digest."],
+      runtimeMode: "standard"
+    });
 
     expect(CommandEnvelopeSchema.parse(manifests).command.type).toBe(
       "agent.listModelManifests"
@@ -204,6 +218,10 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(inventory).command.type).toBe(
       "agent.listModelInventory"
     );
+    expect(CommandEnvelopeSchema.parse(preview).command.type).toBe(
+      "agent.previewModelInstallability"
+    );
+    expect(report.allowed).toBe(false);
   });
 
   it("validates provider-neutral audio frame metadata", () => {

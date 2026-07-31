@@ -8,6 +8,7 @@ import {
   type VoicePermissionState,
   type VoiceSnapshot,
   type ModelInventoryItem,
+  type ModelInstallabilityReport,
   type ModelCandidate,
   type ModelManifest,
   createCommandEnvelope
@@ -15,6 +16,8 @@ import {
 import type {
   CapabilityProvider,
   ModelCandidateRegistry,
+  ModelInstallationPlanner,
+  ModelInstallationPreviewInput,
   ModelLifecycleManager,
   ModelRegistry
 } from "@jarvis-k/capabilities";
@@ -515,12 +518,29 @@ class FakeModelLifecycleManager implements ModelLifecycleManager {
   }
 }
 
+class FakeModelInstallationPlanner implements ModelInstallationPlanner {
+  public previewed: ModelInstallationPreviewInput | undefined;
+
+  public async preview(
+    input: ModelInstallationPreviewInput
+  ): Promise<ModelInstallabilityReport> {
+    this.previewed = input;
+    return {
+      modelId: input.manifest.id,
+      allowed: false,
+      reasons: ["Fake planner blocked installability."],
+      runtimeMode: input.device.recommendedMode
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
   modelRegistry?: ModelRegistry,
   modelLifecycleManager?: ModelLifecycleManager,
-  modelCandidateRegistry?: ModelCandidateRegistry
+  modelCandidateRegistry?: ModelCandidateRegistry,
+  modelInstallationPlanner?: ModelInstallationPlanner
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -532,7 +552,8 @@ function createRuntime(
     capabilityProvider,
     modelRegistry,
     modelLifecycleManager,
-    modelCandidateRegistry
+    modelCandidateRegistry,
+    modelInstallationPlanner
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -773,6 +794,39 @@ describe("CoreRuntime", () => {
         }
       ]
     });
+  });
+
+  it("previews model installability through injected governance ports", async () => {
+    const registry = new FakeModelRegistry();
+    const planner = new FakeModelInstallationPlanner();
+    const { runtime } = createRuntime(
+      undefined,
+      new FakeCapabilityProvider(),
+      registry,
+      new FakeModelLifecycleManager(),
+      new FakeModelCandidateRegistry(),
+      planner
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.previewModelInstallability",
+        payload: {
+          modelId: registry.manifest.id
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      report: {
+        modelId: registry.manifest.id,
+        allowed: false,
+        reasons: ["Fake planner blocked installability."],
+        runtimeMode: "standard"
+      }
+    });
+    expect(planner.previewed?.manifest.id).toBe(registry.manifest.id);
   });
 
   it("exports and imports memory snapshots through the injected repository", async () => {

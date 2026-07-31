@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PolicyModelInstallationPlanner,
   validateInstallableManifest,
   type ManifestInstallationDecision
 } from "../src";
@@ -48,6 +49,21 @@ describe("manifest installation policy", () => {
     expect(decision.allowed).toBe(false);
     expect(decision.reasons.join(" ")).toContain("memory");
     expect(decision.reasons.join(" ")).toContain("VRAM");
+  });
+
+  it("previews installability through the default planner", async () => {
+    const planner = new PolicyModelInstallationPlanner();
+    const report = await planner.preview({
+      manifest: manifest({ licenseRisk: "yellow" }),
+      device: device()
+    });
+
+    expect(report).toMatchObject({
+      modelId: "vendor/local-stt-small",
+      allowed: false,
+      runtimeMode: "local_enhanced"
+    });
+    expect(report.reasons.join(" ")).toContain("Yellow");
   });
 });
 

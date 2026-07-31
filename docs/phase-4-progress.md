@@ -147,3 +147,31 @@
 - `npm run verify`: PASS, 24 test files and 133 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+## 2026-07-31
+
+### Wave 4.7: Model Installability Preview Surface
+
+- Status: complete.
+- Added a provider-neutral installability report DTO and
+  `agent.previewModelInstallability` command so callers can inspect why a
+  manifest is or is not currently installable before any download path exists.
+- Added a `ModelInstallationPlanner` port in `@jarvis-k/capabilities` and a
+  default policy-backed planner that adapts the existing installability safety
+  gate into transport-safe reports.
+- Updated Core to resolve manifests and device capability snapshots through
+  injected ports before delegating preview decisions to the planner.
+- Composed the policy-backed planner in `apps/core-host`, keeping the concrete
+  wiring in the existing composition root.
+- Updated the React HUD model governance panel to show installable and blocked
+  manifest counts from DTOs only.
+- Kept real model downloads, install actions, Hugging Face/CDN access, Python
+  runtimes, CUDA, ONNX, and model libraries out of this wave.
+
+### Current Gate
+
+- Targeted contracts/capabilities/core/UI tests: PASS, 4 test files and 40 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 24 test files and 135 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

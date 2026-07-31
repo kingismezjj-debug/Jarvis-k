@@ -3,6 +3,7 @@ import type {
   DeviceCapability,
   LocalModelCapability,
   ModelCandidate,
+  ModelInstallabilityReport,
   ModelInventoryItem,
   ModelManifest
 } from "@jarvis-k/contracts";
@@ -54,6 +55,19 @@ export interface ModelDownloadProgress {
   phase: "resuming" | "downloading" | "verifying" | "complete";
   downloadedBytes: number;
   totalBytes?: number;
+}
+
+export interface ModelInstallationPlanner {
+  preview(
+    input: ModelInstallationPreviewInput
+  ): Promise<ModelInstallabilityReport>;
+}
+
+export interface ModelInstallationPreviewInput {
+  manifest: ModelManifest;
+  device: DeviceCapability;
+  allowYellowRisk?: boolean;
+  allowUnknownRisk?: boolean;
 }
 
 export interface ModelLifecycleManager {
