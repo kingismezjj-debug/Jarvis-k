@@ -76,6 +76,19 @@ describe("check-boundaries script", () => {
       )
     });
   });
+
+  it("fails when Core imports a concrete persistence adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "core"),
+      "import { SqliteMemoryRepository } from \"@jarvis-k/memory-sqlite\";\nvoid SqliteMemoryRepository;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/memory-sqlite"
+      )
+    });
+  });
 });
 
 async function createMinimalWorkspace(root: string): Promise<void> {

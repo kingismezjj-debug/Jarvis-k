@@ -654,3 +654,24 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 35 test files and 186 tests.
+
+### Wave 4.28: Core Adapter Boundary Regression Coverage
+
+- Status: complete.
+- Extended the boundary script regression test to cover Core importing a
+  concrete persistence adapter directly.
+- Added a synthetic `@jarvis-k/memory-sqlite` import fixture under
+  `packages/core` and asserted that `scripts/check-boundaries.mjs` fails with
+  a forbidden workspace package violation.
+- Reinforced that Core must keep using injected Memory ports and must not
+  couple to SQLite or other concrete adapters.
+- Kept the fixture synthetic and local to a temporary workspace; it does not
+  touch real memory databases, provider configuration, downloads, model
+  artifacts, or runtime dependencies.
+
+### Current Gate
+
+- Targeted boundary script test: PASS, 1 test file and 4 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 35 test files and 187 tests.
