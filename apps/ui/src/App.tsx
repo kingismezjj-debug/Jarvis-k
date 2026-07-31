@@ -49,6 +49,16 @@ const primaryNavigation: NavItem[] = [
   { label: "Activity", icon: Activity },
 ]
 
+const activeModelOperationPhases = new Set([
+  "queued",
+  "prechecking",
+  "downloading",
+  "verifying",
+  "loading",
+  "releasing",
+  "removing",
+])
+
 function eventLabel(envelope: EventEnvelope) {
   const event = envelope.event
   switch (event.type) {
@@ -126,6 +136,7 @@ export default function App() {
     modelInstallabilityReports,
     modelInventory,
     modelManifests,
+    modelOperations,
     openVoiceSettings,
     probeCore,
     refreshCapabilities,
@@ -175,6 +186,9 @@ export default function App() {
   ).length
   const blockedModelCount = modelInstallabilityReports.filter(
     (item) => !item.allowed
+  ).length
+  const activeModelOperationCount = modelOperations.filter((item) =>
+    activeModelOperationPhases.has(item.phase)
   ).length
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -617,6 +631,8 @@ export default function App() {
                 <Metric label="MANIFESTS" value={String(modelManifests.length)} />
                 <Metric label="INSTALLABLE" value={String(installableModelCount)} tone="success" />
                 <Metric label="BLOCKED" value={String(blockedModelCount)} tone="warning" />
+                <Metric label="OPERATIONS" value={String(modelOperations.length)} />
+                <Metric label="ACTIVE OPS" value={String(activeModelOperationCount)} tone="warning" />
                 <Metric label="LOCAL MODELS" value={String(modelInventory.length)} />
                 <Metric label="DOWNLOADABLE" value={String(downloadableCandidateCount)} />
                 <Metric label="LOADED" value={String(loadedModelCount)} tone="accent" />

@@ -190,6 +190,13 @@ describe("protocol contracts", () => {
       type: "agent.listModelInventory",
       payload: {}
     });
+    const operations = createCommandEnvelope({
+      type: "agent.listModelOperations",
+      payload: {
+        activeOnly: true,
+        limit: 25
+      }
+    });
     const candidates = createCommandEnvelope({
       type: "agent.listModelCandidates",
       payload: {
@@ -218,6 +225,9 @@ describe("protocol contracts", () => {
     );
     expect(CommandEnvelopeSchema.parse(inventory).command.type).toBe(
       "agent.listModelInventory"
+    );
+    expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
+      "agent.listModelOperations"
     );
     expect(CommandEnvelopeSchema.parse(preview).command.type).toBe(
       "agent.previewModelInstallability"

@@ -11,6 +11,7 @@ import {
   type ModelInstallabilityReport,
   type ModelCandidate,
   type ModelManifest,
+  type ModelOperationSnapshot,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 import type {
@@ -19,6 +20,8 @@ import type {
   ModelInstallationPlanner,
   ModelInstallationPreviewInput,
   ModelLifecycleManager,
+  ModelOperationListOptions,
+  ModelOperationSupervisor,
   ModelRegistry
 } from "@jarvis-k/capabilities";
 import type {
@@ -534,13 +537,56 @@ class FakeModelInstallationPlanner implements ModelInstallationPlanner {
   }
 }
 
+class FakeModelOperationSupervisor implements ModelOperationSupervisor {
+  public readonly operation: ModelOperationSnapshot = {
+    operationId: "model-op-test",
+    modelId: "vendor/local-stt-small",
+    capability: "speech_to_text",
+    phase: "queued",
+    createdAt: "2026-07-31T00:00:00.000Z",
+    updatedAt: "2026-07-31T00:00:00.000Z",
+    reasons: []
+  };
+
+  public async start(): Promise<ModelOperationSnapshot> {
+    return { ...this.operation, reasons: [...this.operation.reasons] };
+  }
+
+  public async update(): Promise<ModelOperationSnapshot> {
+    return { ...this.operation, reasons: [...this.operation.reasons] };
+  }
+
+  public async cancel(): Promise<ModelOperationSnapshot> {
+    return {
+      ...this.operation,
+      phase: "cancelled",
+      reasons: ["Fake cancellation."]
+    };
+  }
+
+  public async get(
+    operationId: string
+  ): Promise<ModelOperationSnapshot | undefined> {
+    return operationId === this.operation.operationId
+      ? { ...this.operation, reasons: [...this.operation.reasons] }
+      : undefined;
+  }
+
+  public async list(
+    _options: ModelOperationListOptions = {}
+  ): Promise<ModelOperationSnapshot[]> {
+    return [{ ...this.operation, reasons: [...this.operation.reasons] }];
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
   modelRegistry?: ModelRegistry,
   modelLifecycleManager?: ModelLifecycleManager,
   modelCandidateRegistry?: ModelCandidateRegistry,
-  modelInstallationPlanner?: ModelInstallationPlanner
+  modelInstallationPlanner?: ModelInstallationPlanner,
+  modelOperationSupervisor?: ModelOperationSupervisor
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -553,7 +599,8 @@ function createRuntime(
     modelRegistry,
     modelLifecycleManager,
     modelCandidateRegistry,
-    modelInstallationPlanner
+    modelInstallationPlanner,
+    modelOperationSupervisor
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -827,6 +874,46 @@ describe("CoreRuntime", () => {
       }
     });
     expect(planner.previewed?.manifest.id).toBe(registry.manifest.id);
+  });
+
+  it("lists model operations through the injected supervisor", async () => {
+    const supervisor = new FakeModelOperationSupervisor();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      new FakeModelRegistry(),
+      new FakeModelLifecycleManager(),
+      new FakeModelCandidateRegistry(),
+      new FakeModelInstallationPlanner(),
+      supervisor
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listModelOperations",
+        payload: {
+          activeOnly: true
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      operations: [
+        {
+          operationId: supervisor.operation.operationId,
+          phase: "queued"
+        }
+      ],
+      snapshot: {
+        modelOperations: [
+          {
+            operationId: supervisor.operation.operationId
+          }
+        ]
+      }
+    });
+    expect(runtime.getSnapshot().modelOperations).toHaveLength(1);
   });
 
   it("exports and imports memory snapshots through the injected repository", async () => {

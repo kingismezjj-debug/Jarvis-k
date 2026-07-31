@@ -201,3 +201,30 @@
 - `npm run verify`: PASS, 25 test files and 140 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+## 2026-07-31
+
+### Wave 4.9: Model Operation Query Surface
+
+- Status: complete.
+- Added `agent.listModelOperations` and a `modelOperations` snapshot field so
+  model operation state can be queried and observed before install execution
+  exists.
+- Updated Core to read model operations through an injected
+  `ModelOperationSupervisor`, cache validated snapshots, and publish standard
+  model operation update events through a provider-neutral entry point.
+- Composed the in-memory model operation supervisor in `apps/core-host`.
+- Updated the React HUD model governance panel to show total and active model
+  operation counts from DTOs only.
+- Extended desktop smoke coverage to call the model operation query through
+  the existing renderer bridge.
+- Kept real model downloads, install commands, Hugging Face/CDN access, Python
+  runtimes, CUDA, ONNX, and model libraries out of this wave.
+
+### Current Gate
+
+- Targeted contracts/core/UI tests: PASS, 3 test files and 38 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 25 test files and 141 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

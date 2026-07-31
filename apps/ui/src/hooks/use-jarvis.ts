@@ -5,6 +5,7 @@ import {
   ModelInventoryItemSchema,
   ModelCandidateSchema,
   ModelManifestSchema,
+  ModelOperationSnapshotSchema,
   MemorySnapshotSchema,
   type AppCommand,
   type CoreSnapshot,
@@ -13,6 +14,7 @@ import {
   type ModelInstallabilityReport,
   type ModelCandidate,
   type ModelManifest,
+  type ModelOperationSnapshot,
 } from "@jarvis-k/contracts"
 
 type CoreConnection = "connecting" | "online" | "restarting" | "offline"
@@ -28,6 +30,7 @@ export function useJarvis() {
   const [modelInstallabilityReports, setModelInstallabilityReports] = useState<
     ModelInstallabilityReport[]
   >([])
+  const [modelOperations, setModelOperations] = useState<ModelOperationSnapshot[]>([])
   const [modelCandidates, setModelCandidates] = useState<ModelCandidate[]>([])
   const [modelManifests, setModelManifests] = useState<ModelManifest[]>([])
   const [sending, setSending] = useState(false)
@@ -224,6 +227,22 @@ export function useJarvis() {
         return false
       }
 
+      const operationsResult = await window.jarvis.sendCommand({
+        type: "agent.listModelOperations",
+        payload: {},
+      })
+      if (!operationsResult.ok) {
+        setError(operationsResult.error.message)
+        return false
+      }
+      const operations = ModelOperationSnapshotSchema.array().safeParse(
+        (operationsResult.data as { operations?: unknown } | undefined)?.operations
+      )
+      if (!operations.success) {
+        setError("Core returned invalid model operations.")
+        return false
+      }
+
       const candidatesResult = await window.jarvis.sendCommand({
         type: "agent.listModelCandidates",
         payload: {},
@@ -243,6 +262,7 @@ export function useJarvis() {
       setModelManifests(manifests.data)
       setModelInstallabilityReports(installabilityReports.data)
       setModelInventory(inventory.data)
+      setModelOperations(operations.data)
       setModelCandidates(candidates.data)
       setError(null)
       return true
@@ -337,6 +357,7 @@ export function useJarvis() {
     modelInventory,
     modelInstallabilityReports,
     modelManifests,
+    modelOperations,
     openVoiceSettings,
     probeCore,
     refreshCapabilities,

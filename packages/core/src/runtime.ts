@@ -15,6 +15,8 @@ import {
   ModelCandidateSchema,
   ModelInventoryItemSchema,
   ModelManifestSchema,
+  ModelOperationSnapshot,
+  ModelOperationSnapshotSchema,
   MemorySnapshot,
   PROTOCOL_VERSION,
   StructuredError,
@@ -27,6 +29,7 @@ import type {
   ModelCandidateRegistry,
   ModelInstallationPlanner,
   ModelLifecycleManager,
+  ModelOperationSupervisor,
   ModelRegistry
 } from "@jarvis-k/capabilities";
 import type { MemoryRepository } from "@jarvis-k/memory";
@@ -48,6 +51,7 @@ export class CoreRuntime {
   private activeConversationId: string | undefined;
   private memoryHealth: MemoryHealth | undefined;
   private capabilities: CapabilitySnapshot | undefined;
+  private readonly modelOperations: ModelOperationSnapshot[] = [];
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -58,7 +62,8 @@ export class CoreRuntime {
     private readonly modelRegistry?: ModelRegistry,
     private readonly modelLifecycleManager?: ModelLifecycleManager,
     private readonly modelCandidateRegistry?: ModelCandidateRegistry,
-    private readonly modelInstallationPlanner?: ModelInstallationPlanner
+    private readonly modelInstallationPlanner?: ModelInstallationPlanner,
+    private readonly modelOperationSupervisor?: ModelOperationSupervisor
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -129,6 +134,14 @@ export class CoreRuntime {
         : {}),
       ...(this.memoryHealth ? { memoryHealth: this.memoryHealth } : {}),
       ...(this.capabilities ? { capabilities: this.capabilities } : {}),
+      modelOperations: this.modelOperations.map((operation) => ({
+        ...operation,
+        ...(operation.progress
+          ? { progress: { ...operation.progress } }
+          : {}),
+        reasons: [...operation.reasons],
+        ...(operation.error ? { error: { ...operation.error } } : {})
+      })),
       tasks: []
     };
   }
@@ -258,6 +271,39 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_INVENTORY_FAILED",
             message: "Unable to list local model inventory.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listModelOperations": {
+        if (!this.modelOperationSupervisor) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const operations = await this.modelOperationSupervisor.list({
+            ...(envelope.command.payload.modelId === undefined
+              ? {}
+              : { modelId: envelope.command.payload.modelId }),
+            ...(envelope.command.payload.activeOnly === undefined
+              ? {}
+              : { activeOnly: envelope.command.payload.activeOnly }),
+            ...(envelope.command.payload.limit === undefined
+              ? {}
+              : { limit: envelope.command.payload.limit })
+          });
+          this.replaceModelOperations(operations);
+          const snapshot = this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            operations: this.modelOperations.map((operation) =>
+              ModelOperationSnapshotSchema.parse(operation)
+            ),
+            snapshot
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_OPERATIONS_FAILED",
+            message: "Unable to list model operations.",
             retryable: true
           });
         }
@@ -523,6 +569,29 @@ export class CoreRuntime {
     this.publishSnapshot(this.activeVoiceCorrelationId);
   }
 
+  public handleModelOperationUpdated(
+    operation: ModelOperationSnapshot,
+    correlationId?: string
+  ): void {
+    const parsed = ModelOperationSnapshotSchema.parse(operation);
+    const index = this.modelOperations.findIndex(
+      (item) => item.operationId === parsed.operationId
+    );
+    if (index >= 0) {
+      this.modelOperations[index] = parsed;
+    } else {
+      this.modelOperations.unshift(parsed);
+    }
+    this.publish(
+      {
+        type: "model.operation.updated",
+        payload: parsed
+      },
+      correlationId
+    );
+    this.publishSnapshot(correlationId);
+  }
+
   private publishSnapshot(correlationId?: string): CoreSnapshot {
     const nextSequenceId = this.sequenceId + 1;
     const snapshot = {
@@ -608,6 +677,18 @@ export class CoreRuntime {
       }))
     );
     this.activeConversationId = snapshot.activeConversationId;
+  }
+
+  private replaceModelOperations(
+    operations: ModelOperationSnapshot[]
+  ): void {
+    this.modelOperations.splice(
+      0,
+      this.modelOperations.length,
+      ...operations.map((operation) =>
+        ModelOperationSnapshotSchema.parse(operation)
+      )
+    );
   }
 
   private async resolveMessageConversationId(

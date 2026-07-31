@@ -56,6 +56,8 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("DOWNLOADABLE");
     expect(appSource).toContain("INSTALLABLE");
     expect(appSource).toContain("BLOCKED");
+    expect(appSource).toContain("OPERATIONS");
+    expect(appSource).toContain("ACTIVE OPS");
     expect(appSource).toContain("refreshModelGovernance");
   });
 

@@ -155,6 +155,16 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
+    type: z.literal("agent.listModelOperations"),
+    payload: z
+      .object({
+        modelId: z.string().min(1).max(300).optional(),
+        activeOnly: z.boolean().optional(),
+        limit: z.number().int().min(1).max(500).optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.previewModelInstallability"),
     payload: z
       .object({
@@ -692,6 +702,7 @@ export const CoreSnapshotSchema = z
     activeConversationId: z.string().min(1).max(128).optional(),
     memoryHealth: MemoryHealthSchema.optional(),
     capabilities: CapabilitySnapshotSchema.optional(),
+    modelOperations: z.array(ModelOperationSnapshotSchema).default([]),
     tasks: z.array(TaskSchema)
   })
   .strict();
