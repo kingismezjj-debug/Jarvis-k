@@ -655,6 +655,104 @@ export type EmbeddingGenerationResult = z.infer<
   typeof EmbeddingGenerationResultSchema
 >;
 
+const OcrImageBytesSchema = z.custom<Uint8Array>(
+  (value) =>
+    value instanceof Uint8Array ||
+    (ArrayBuffer.isView(value) &&
+      "BYTES_PER_ELEMENT" in value &&
+      value.BYTES_PER_ELEMENT === 1),
+  "Expected image bytes as Uint8Array."
+);
+
+export const OcrImageInputSchema = z
+  .object({
+    id: z.string().min(1).max(128).optional(),
+    mimeType: z.enum([
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/bmp"
+    ]),
+    bytes: OcrImageBytesSchema,
+    width: z.number().int().positive().max(100_000).optional(),
+    height: z.number().int().positive().max(100_000).optional()
+  })
+  .strict()
+  .superRefine((image, ctx) => {
+    if (image.bytes.byteLength > 20 * 1024 * 1024) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bytes"],
+        message: "OCR image input must not exceed 20 MiB."
+      });
+    }
+  });
+
+export type OcrImageInput = z.infer<typeof OcrImageInputSchema>;
+
+export const OcrBoundingBoxSchema = z
+  .object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+    width: z.number().positive().max(1),
+    height: z.number().positive().max(1)
+  })
+  .strict()
+  .superRefine((box, ctx) => {
+    if (box.x + box.width > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["width"],
+        message: "OCR bounding box must stay within normalized image width."
+      });
+    }
+    if (box.y + box.height > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["height"],
+        message: "OCR bounding box must stay within normalized image height."
+      });
+    }
+  });
+
+export type OcrBoundingBox = z.infer<typeof OcrBoundingBoxSchema>;
+
+export const OcrTextBlockSchema = z
+  .object({
+    text: z.string().trim().min(1).max(20_000),
+    confidence: z.number().min(0).max(1).optional(),
+    boundingBox: OcrBoundingBoxSchema.optional()
+  })
+  .strict();
+
+export type OcrTextBlock = z.infer<typeof OcrTextBlockSchema>;
+
+export const OcrRecognitionRequestSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    image: OcrImageInputSchema,
+    languages: z.array(z.enum(["zh", "en"])).min(1).max(8).optional()
+  })
+  .strict();
+
+export type OcrRecognitionRequest = z.infer<
+  typeof OcrRecognitionRequestSchema
+>;
+
+export const OcrRecognitionResultSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    imageId: z.string().min(1).max(128).optional(),
+    text: z.string().max(100_000),
+    blocks: z.array(OcrTextBlockSchema).max(2000).default([]),
+    recognizedAt: z.string().datetime()
+  })
+  .strict();
+
+export type OcrRecognitionResult = z.infer<
+  typeof OcrRecognitionResultSchema
+>;
+
 export const ModelInstallabilityReportSchema = z
   .object({
     modelId: z.string().min(1).max(300),

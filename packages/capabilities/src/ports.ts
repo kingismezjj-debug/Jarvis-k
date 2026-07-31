@@ -13,6 +13,8 @@ import type {
   ModelOperationSnapshot,
   ModelRuntime,
   ModelRuntimeAdapterDescriptor,
+  OcrRecognitionRequest,
+  OcrRecognitionResult,
   ResourceSchedulerDiagnostics,
   StructuredError
 } from "@jarvis-k/contracts";
@@ -116,6 +118,12 @@ export interface EmbeddingInferenceProvider {
   embed(
     request: EmbeddingGenerationRequest
   ): Promise<EmbeddingGenerationResult>;
+}
+
+export interface OcrRecognitionProvider {
+  recognize(
+    request: OcrRecognitionRequest
+  ): Promise<OcrRecognitionResult>;
 }
 
 export interface ModelInstallWorkflowOrchestrator {

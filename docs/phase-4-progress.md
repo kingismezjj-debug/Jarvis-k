@@ -419,3 +419,25 @@
 - `npm run typecheck`: PASS.
 - `npm run check:boundaries`: PASS.
 - `npm run verify`: PASS, 29 test files and 160 tests.
+
+### Wave 4.18: OCR Recognition Port Boundary
+
+- Status: complete.
+- Added provider-neutral OCR request/result/block DTOs with image byte limits,
+  supported image MIME types, optional language hints, confidence values, and
+  normalized bounding boxes.
+- Added an `OcrRecognitionProvider` port in `@jarvis-k/capabilities` for future
+  local OCR providers without binding Core to Paddle, ONNX, Python, or another
+  runtime.
+- Added an unavailable OCR provider that fails closed until a real provider is
+  deliberately composed.
+- Kept screenshot/file capture policy, arbitrary file path access, real OCR
+  execution, model downloads, Python, CUDA, ONNX, Paddle, and Hugging Face
+  access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/OCR/embedding tests: PASS, 3 test files and 22 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 30 test files and 163 tests.

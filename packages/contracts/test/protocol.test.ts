@@ -9,6 +9,9 @@ import {
   ModelInstallabilityReportSchema,
   ModelRuntimeAdapterDescriptorSchema,
   ModelOperationSnapshotSchema,
+  OcrBoundingBoxSchema,
+  OcrRecognitionResultSchema,
+  OcrRecognitionRequestSchema,
   PROTOCOL_VERSION,
   ResourceSchedulerDiagnosticsSchema,
   CoreVoiceAudioMessageSchema,
@@ -304,6 +307,54 @@ describe("protocol contracts", () => {
         generatedAt: "2026-07-31T00:00:00.000Z"
       })
     ).toThrow("Embedding vector length");
+  });
+
+  it("accepts provider-neutral OCR requests and results", () => {
+    expect(
+      OcrRecognitionRequestSchema.parse({
+        modelId: "jarvis-fixture/local-ocr-smoke",
+        image: {
+          id: "image-1",
+          mimeType: "image/png",
+          bytes: new Uint8Array([137, 80, 78, 71]),
+          width: 640,
+          height: 480
+        },
+        languages: ["zh", "en"]
+      })
+    ).toMatchObject({
+      modelId: "jarvis-fixture/local-ocr-smoke"
+    });
+    expect(
+      OcrRecognitionResultSchema.parse({
+        modelId: "jarvis-fixture/local-ocr-smoke",
+        imageId: "image-1",
+        text: "Jarvis-K",
+        blocks: [
+          {
+            text: "Jarvis-K",
+            confidence: 0.99,
+            boundingBox: {
+              x: 0.1,
+              y: 0.2,
+              width: 0.3,
+              height: 0.1
+            }
+          }
+        ],
+        recognizedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      text: "Jarvis-K"
+    });
+    expect(() =>
+      OcrBoundingBoxSchema.parse({
+        x: 0.9,
+        y: 0,
+        width: 0.2,
+        height: 0.1
+      })
+    ).toThrow("normalized image width");
   });
 
   it("accepts provider-neutral model operation events", () => {
