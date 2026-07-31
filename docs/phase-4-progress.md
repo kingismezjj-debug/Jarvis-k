@@ -675,3 +675,28 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 35 test files and 187 tests.
+
+### Wave 4.29: UI And Desktop Boundary Regression Coverage
+
+- Status: complete.
+- Extended the boundary script regression test to cover UI importing capability
+  policy directly.
+- Added a synthetic `@jarvis-k/capabilities` import fixture under `apps/ui` and
+  asserted that `scripts/check-boundaries.mjs` fails with a forbidden workspace
+  package violation.
+- Added a synthetic `@jarvis-k/voice-adapter-xunfei` import fixture under
+  `apps/desktop` and asserted that Desktop cannot import concrete provider
+  adapters directly.
+- Reinforced that UI consumes contracts DTOs and sends intents only, while
+  Desktop owns IPC/supervision/security and leaves provider composition to
+  `apps/core-host`.
+- Kept the fixtures synthetic and local to a temporary workspace; they do not
+  touch credentials, provider URLs, downloads, model artifacts, or runtime
+  dependencies.
+
+### Current Gate
+
+- Targeted boundary script test: PASS, 1 test file and 6 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 35 test files and 189 tests.

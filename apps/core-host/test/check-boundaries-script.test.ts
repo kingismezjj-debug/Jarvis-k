@@ -89,6 +89,32 @@ describe("check-boundaries script", () => {
       )
     });
   });
+
+  it("fails when UI imports capability policy directly", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "ui"),
+      "import { StaticModelRegistry } from \"@jarvis-k/capabilities\";\nvoid StaticModelRegistry;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/capabilities"
+      )
+    });
+  });
+
+  it("fails when Desktop imports a concrete voice provider adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "desktop"),
+      "import { XunfeiRtasrProvider } from \"@jarvis-k/voice-adapter-xunfei\";\nvoid XunfeiRtasrProvider;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/voice-adapter-xunfei"
+      )
+    });
+  });
 });
 
 async function createMinimalWorkspace(root: string): Promise<void> {
