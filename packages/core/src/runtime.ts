@@ -8,6 +8,7 @@ import {
   Conversation,
   CoreSnapshot,
   EventEnvelope,
+  InferenceProviderDescriptorSchema,
   Message,
   MemoryHealth,
   MemoryHealthSchema,
@@ -29,6 +30,7 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  InferenceProviderRegistry,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
   ModelInstallationPlanner,
@@ -73,7 +75,8 @@ export class CoreRuntime {
     private readonly modelOperationSupervisor?: ModelOperationSupervisor,
     private readonly resourceScheduler?: ResourceScheduler,
     private readonly modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
-    private readonly modelRuntimeRegistry?: ModelRuntimeRegistry
+    private readonly modelRuntimeRegistry?: ModelRuntimeRegistry,
+    private readonly inferenceProviderRegistry?: InferenceProviderRegistry
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -305,6 +308,31 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_RUNTIME_REGISTRY_FAILED",
             message: "Unable to list model runtime adapters.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listInferenceProviders": {
+        if (!this.inferenceProviderRegistry) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const providers =
+            await this.inferenceProviderRegistry.listProviders({
+              ...(envelope.command.payload.capability
+                ? { capability: envelope.command.payload.capability }
+                : {})
+            });
+          return this.success(envelope, {
+            providers: providers.map((provider) =>
+              InferenceProviderDescriptorSchema.parse(provider)
+            )
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "INFERENCE_PROVIDER_REGISTRY_FAILED",
+            message: "Unable to list inference providers.",
             retryable: true
           });
         }

@@ -142,6 +142,13 @@ try {
     if (!runtimeAdaptersResult.ok) {
       throw new Error(runtimeAdaptersResult.error.message);
     }
+    const inferenceProvidersResult = await window.jarvis.sendCommand({
+      type: "agent.listInferenceProviders",
+      payload: {}
+    });
+    if (!inferenceProvidersResult.ok) {
+      throw new Error(inferenceProvidersResult.error.message);
+    }
     const candidatesResult = await window.jarvis.sendCommand({
       type: "agent.listModelCandidates",
       payload: {}
@@ -152,17 +159,28 @@ try {
     const manifests = manifestsResult.data?.manifests;
     const inventory = inventoryResult.data?.inventory;
     const runtimeAdapters = runtimeAdaptersResult.data?.runtimeAdapters;
+    const inferenceProviders =
+      inferenceProvidersResult.data?.providers;
     const candidates = candidatesResult.data?.candidates;
     if (
       !Array.isArray(manifests) ||
       !Array.isArray(inventory) ||
       !Array.isArray(runtimeAdapters) ||
+      !Array.isArray(inferenceProviders) ||
       !Array.isArray(candidates)
     ) {
       throw new Error("Model governance commands returned invalid data.");
     }
     if (runtimeAdapters.length !== 0) {
       throw new Error("Desktop smoke expected no configured runtime adapters.");
+    }
+    if (
+      inferenceProviders.length < 4 ||
+      inferenceProviders.some((provider) => provider.status === "available")
+    ) {
+      throw new Error(
+        "Desktop smoke expected registered but unavailable inference providers."
+      );
     }
     const firstManifest = manifests[0];
     if (!firstManifest?.id) {
@@ -230,6 +248,10 @@ try {
       manifestCount: manifests.length,
       inventoryCount: inventory.length,
       runtimeAdapterCount: runtimeAdapters.length,
+      inferenceProviderCount: inferenceProviders.length,
+      availableInferenceProviderCount: inferenceProviders.filter(
+        (provider) => provider.status === "available"
+      ).length,
       operationCount: operations.length,
       preparedOperationPhase: preparedOperation.phase,
       activeResourceLeaseCount: resourceDiagnostics.activeLeaseCount

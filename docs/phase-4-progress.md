@@ -485,3 +485,29 @@
 - `npm run typecheck`: PASS.
 - `npm run check:boundaries`: PASS.
 - `npm run verify`: PASS, 32 test files and 169 tests.
+
+### Wave 4.21: Inference Provider Availability Surface
+
+- Status: complete.
+- Added provider-neutral inference provider descriptors so the runtime can
+  distinguish available, degraded, and unconfigured capability providers.
+- Added an `InferenceProviderRegistry` port and a static implementation in
+  `@jarvis-k/capabilities`.
+- Added `agent.listInferenceProviders`; Core reads descriptors only through the
+  injected registry and validates them with contracts schemas.
+- Composed unconfigured descriptors for embedding, OCR, intent routing, and
+  reranking in `apps/core-host`.
+- Updated the HUD model governance panel and desktop smoke coverage to show
+  registered inference provider count and available provider count.
+- Kept inference execution, provider-specific configuration, model downloads,
+  Python, CUDA, ONNX, and Hugging Face access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/capabilities/core/UI tests: PASS, 4 test files and
+  51 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 33 test files and 173 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

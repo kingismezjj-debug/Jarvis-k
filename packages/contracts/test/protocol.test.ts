@@ -6,6 +6,7 @@ import {
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
   EmbeddingGenerationResultSchema,
+  InferenceProviderDescriptorSchema,
   IntentRoutingRequestSchema,
   IntentRoutingResultSchema,
   ModelInstallabilityReportSchema,
@@ -204,6 +205,12 @@ describe("protocol contracts", () => {
       type: "agent.listModelRuntimeAdapters",
       payload: {}
     });
+    const inferenceProviders = createCommandEnvelope({
+      type: "agent.listInferenceProviders",
+      payload: {
+        capability: "embedding"
+      }
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -254,6 +261,9 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(runtimeAdapters).command.type).toBe(
       "agent.listModelRuntimeAdapters"
     );
+    expect(CommandEnvelopeSchema.parse(inferenceProviders).command.type).toBe(
+      "agent.listInferenceProviders"
+    );
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
     );
@@ -280,6 +290,22 @@ describe("protocol contracts", () => {
     ).toMatchObject({
       runtime: "onnxruntime",
       capabilities: ["embedding"]
+    });
+  });
+
+  it("accepts provider-neutral inference provider descriptors", () => {
+    expect(
+      InferenceProviderDescriptorSchema.parse({
+        capability: "embedding",
+        provider: "embedding.unconfigured",
+        status: "unconfigured",
+        execution: "disabled",
+        reasons: ["No embedding provider has been composed."]
+      })
+    ).toMatchObject({
+      capability: "embedding",
+      status: "unconfigured",
+      modelIds: []
     });
   });
 

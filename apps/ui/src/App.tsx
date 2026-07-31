@@ -132,6 +132,7 @@ export default function App() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    inferenceProviders,
     modelCandidates,
     modelInstallabilityReports,
     modelInventory,
@@ -181,6 +182,9 @@ export default function App() {
   ).length
   const downloadableCandidateCount = modelCandidates.filter(
     (item) => item.downloadEnabled
+  ).length
+  const availableInferenceProviderCount = inferenceProviders.filter(
+    (item) => item.status === "available"
   ).length
   const installableModelCount = modelInstallabilityReports.filter(
     (item) => item.allowed
@@ -634,6 +638,12 @@ export default function App() {
               <dl className="divide-y divide-border border-y text-[11px]">
                 <Metric label="CANDIDATES" value={String(modelCandidates.length)} />
                 <Metric label="MANIFESTS" value={String(modelManifests.length)} />
+                <Metric label="PROVIDERS" value={String(inferenceProviders.length)} />
+                <Metric
+                  label="AVAILABLE"
+                  value={String(availableInferenceProviderCount)}
+                  tone="success"
+                />
                 <Metric label="INSTALLABLE" value={String(installableModelCount)} tone="success" />
                 <Metric label="BLOCKED" value={String(blockedModelCount)} tone="warning" />
                 <Metric label="OPERATIONS" value={String(modelOperations.length)} />

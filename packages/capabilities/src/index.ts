@@ -7,6 +7,7 @@ export * from "./policy-model-install-workflow-orchestrator";
 export * from "./policy-model-installation-planner";
 export * from "./ports";
 export * from "./recommended-model-candidates";
+export * from "./static-inference-provider-registry";
 export * from "./static-model-candidate-registry";
 export * from "./static-model-registry";
 export * from "./unavailable-embedding-provider";

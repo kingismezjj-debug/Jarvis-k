@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
+  InferenceProviderDescriptorSchema,
   ModelInstallabilityReportSchema,
   ModelInventoryItemSchema,
   ModelCandidateSchema,
@@ -11,6 +12,7 @@ import {
   type AppCommand,
   type CoreSnapshot,
   type EventEnvelope,
+  type InferenceProviderDescriptor,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
   type ModelCandidate,
@@ -35,6 +37,9 @@ export function useJarvis() {
   const [modelOperations, setModelOperations] = useState<ModelOperationSnapshot[]>([])
   const [modelCandidates, setModelCandidates] = useState<ModelCandidate[]>([])
   const [modelManifests, setModelManifests] = useState<ModelManifest[]>([])
+  const [inferenceProviders, setInferenceProviders] = useState<
+    InferenceProviderDescriptor[]
+  >([])
   const [resourceDiagnostics, setResourceDiagnostics] =
     useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
@@ -280,12 +285,29 @@ export function useJarvis() {
         return false
       }
 
+      const providersResult = await window.jarvis.sendCommand({
+        type: "agent.listInferenceProviders",
+        payload: {},
+      })
+      if (!providersResult.ok) {
+        setError(providersResult.error.message)
+        return false
+      }
+      const providers = InferenceProviderDescriptorSchema.array().safeParse(
+        (providersResult.data as { providers?: unknown } | undefined)?.providers
+      )
+      if (!providers.success) {
+        setError("Core returned invalid inference provider descriptors.")
+        return false
+      }
+
       setModelManifests(manifests.data)
       setModelInstallabilityReports(installabilityReports.data)
       setModelInventory(inventory.data)
       setModelOperations(operations.data)
       setResourceDiagnostics(resourceDiagnostics.data)
       setModelCandidates(candidates.data)
+      setInferenceProviders(providers.data)
       setError(null)
       return true
     } finally {
@@ -375,6 +397,7 @@ export function useJarvis() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    inferenceProviders,
     modelCandidates,
     modelInventory,
     modelInstallabilityReports,

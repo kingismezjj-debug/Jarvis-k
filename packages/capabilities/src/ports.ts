@@ -3,6 +3,7 @@ import type {
   DeviceCapability,
   EmbeddingGenerationRequest,
   EmbeddingGenerationResult,
+  InferenceProviderDescriptor,
   IntentRoutingRequest,
   IntentRoutingResult,
   LocalModelCapability,
@@ -95,6 +96,16 @@ export interface ModelLifecycleManager {
 export interface ModelRuntimeRegistry {
   listDescriptors(): Promise<ModelRuntimeAdapterDescriptor[]>;
   getAdapter(manifest: ModelManifest): Promise<ModelRuntimeAdapter | undefined>;
+}
+
+export interface InferenceProviderRegistry {
+  listProviders(
+    options?: InferenceProviderRegistryListOptions
+  ): Promise<InferenceProviderDescriptor[]>;
+}
+
+export interface InferenceProviderRegistryListOptions {
+  capability?: LocalModelCapability;
 }
 
 export interface ModelRuntimeAdapter {

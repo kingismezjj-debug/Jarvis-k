@@ -7,6 +7,7 @@ import {
   recommendedModelCandidates,
   StaticModelRegistry,
   StaticModelCandidateRegistry,
+  StaticInferenceProviderRegistry,
   PolicyModelInstallationPlanner,
   PolicyModelInstallWorkflowOrchestrator,
   InMemoryModelOperationSupervisor,
@@ -163,6 +164,40 @@ const modelLifecycleManager = new FileSystemModelLifecycleManager({
   }
 });
 const modelRuntimeRegistry = new UnavailableModelRuntimeRegistry();
+const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
+  {
+    capability: "embedding",
+    provider: "embedding.unconfigured",
+    status: "unconfigured",
+    execution: "disabled",
+    modelIds: [],
+    reasons: ["No embedding provider has been composed."]
+  },
+  {
+    capability: "ocr",
+    provider: "ocr.unconfigured",
+    status: "unconfigured",
+    execution: "disabled",
+    modelIds: [],
+    reasons: ["No OCR provider has been composed."]
+  },
+  {
+    capability: "intent_router",
+    provider: "intent-router.unconfigured",
+    status: "unconfigured",
+    execution: "disabled",
+    modelIds: [],
+    reasons: ["No intent routing provider has been composed."]
+  },
+  {
+    capability: "reranker",
+    provider: "reranker.unconfigured",
+    status: "unconfigured",
+    execution: "disabled",
+    modelIds: [],
+    reasons: ["No reranking provider has been composed."]
+  }
+]);
 const voiceEngine = new VoiceEngine({
   provider:
     process.env.JARVIS_K_SMOKE_VOICE === "1"
@@ -198,7 +233,8 @@ runtime = new CoreRuntime(
   modelOperationSupervisor,
   resourceScheduler,
   modelInstallWorkflowOrchestrator,
-  modelRuntimeRegistry
+  modelRuntimeRegistry,
+  inferenceProviderRegistry
 );
 
 let inboundQueue = Promise.resolve();

@@ -159,6 +159,14 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
+    type: z.literal("agent.listInferenceProviders"),
+    payload: z
+      .object({
+        capability: z.lazy(() => LocalModelCapabilitySchema).optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({
@@ -523,6 +531,31 @@ export const ModelRuntimeAdapterDescriptorSchema = z
 
 export type ModelRuntimeAdapterDescriptor = z.infer<
   typeof ModelRuntimeAdapterDescriptorSchema
+>;
+
+export const InferenceProviderStatusSchema = z.enum([
+  "available",
+  "unconfigured",
+  "degraded"
+]);
+
+export type InferenceProviderStatus = z.infer<
+  typeof InferenceProviderStatusSchema
+>;
+
+export const InferenceProviderDescriptorSchema = z
+  .object({
+    capability: LocalModelCapabilitySchema,
+    provider: z.string().min(1).max(128),
+    status: InferenceProviderStatusSchema,
+    execution: z.enum(["local", "cloud", "system", "disabled"]),
+    modelIds: z.array(z.string().min(1).max(300)).default([]),
+    reasons: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type InferenceProviderDescriptor = z.infer<
+  typeof InferenceProviderDescriptorSchema
 >;
 
 export const ModelDistributionStatusSchema = z.enum([

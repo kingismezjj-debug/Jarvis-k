@@ -7,6 +7,7 @@ import {
   type VoiceMode,
   type VoicePermissionState,
   type VoiceSnapshot,
+  type InferenceProviderDescriptor,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
   type ModelCandidate,
@@ -18,6 +19,7 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  InferenceProviderRegistry,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
   ModelInstallWorkflowPrepareInput,
@@ -657,6 +659,27 @@ class FakeModelRuntimeRegistry implements ModelRuntimeRegistry {
   }
 }
 
+class FakeInferenceProviderRegistry implements InferenceProviderRegistry {
+  public readonly descriptor: InferenceProviderDescriptor = {
+    capability: "embedding",
+    provider: "embedding.fake",
+    status: "available",
+    execution: "local",
+    modelIds: ["jarvis-fixture/local-embedding-smoke"],
+    reasons: ["Fake provider is available."]
+  };
+
+  public async listProviders(): Promise<InferenceProviderDescriptor[]> {
+    return [
+      {
+        ...this.descriptor,
+        modelIds: [...this.descriptor.modelIds],
+        reasons: [...this.descriptor.reasons]
+      }
+    ];
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -667,7 +690,8 @@ function createRuntime(
   modelOperationSupervisor?: ModelOperationSupervisor,
   resourceScheduler?: ResourceScheduler,
   modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
-  modelRuntimeRegistry?: ModelRuntimeRegistry
+  modelRuntimeRegistry?: ModelRuntimeRegistry,
+  inferenceProviderRegistry?: InferenceProviderRegistry
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -684,7 +708,8 @@ function createRuntime(
     modelOperationSupervisor,
     resourceScheduler,
     modelInstallWorkflowOrchestrator,
-    modelRuntimeRegistry
+    modelRuntimeRegistry,
+    inferenceProviderRegistry
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -1039,6 +1064,43 @@ describe("CoreRuntime", () => {
           runtime: "system",
           capabilities: ["embedding"],
           accelerationBackends: ["cpu"]
+        }
+      ]
+    });
+  });
+
+  it("lists inference providers through the injected registry", async () => {
+    const registry = new FakeInferenceProviderRegistry();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      registry
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listInferenceProviders",
+        payload: {
+          capability: "embedding"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      providers: [
+        {
+          capability: "embedding",
+          provider: "embedding.fake",
+          status: "available"
         }
       ]
     });
