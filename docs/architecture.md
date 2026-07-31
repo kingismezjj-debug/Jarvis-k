@@ -45,13 +45,21 @@ Xunfei RTASR adapter   Memory repository
 9. The renderer owns display-only state and always requests a fresh snapshot
    after load.
 10. Supervisor event sequence IDs stay monotonic across Core restarts.
-11. Core persistence is intentionally deferred until the SQLite repository is
-   introduced in phase 3. Core can depend on memory interfaces, but not on
-   SQLite implementation details.
+11. Core persistence flows through injected memory interfaces for startup
+   hydration and accepted-message writes. Core does not depend on SQLite
+   implementation details.
 12. The desktop app does not open a local HTTP port.
-13. `packages/memory` owns provider-neutral memory contracts and schemas.
-14. `packages/memory-sqlite` owns database schema, deterministic ordering, file
-   persistence, and snapshot restore behavior.
+13. `packages/memory` owns provider-neutral memory contracts, recall ports,
+   summary records, and schemas.
+14. `packages/memory-sqlite` owns database schema, migrations, deterministic
+   ordering, file persistence, and snapshot restore behavior.
+15. Memory health, export, and import are exposed through provider-neutral
+   memory ports and `packages/contracts` commands. The UI maintenance surface
+   uses snapshot JSON through the existing desktop bridge and never imports a
+   concrete Memory adapter.
+16. Conversation management is exposed through `packages/contracts` DTOs and
+   Core commands. UI and Desktop consume protocol commands only; neither layer
+   imports Memory or SQLite packages.
 
 ## Restart policy
 

@@ -226,14 +226,7 @@ process.on("unhandledRejection", (reason) => {
 
 void runtime
   .hydrateMemory()
-  .then(() => runtime.announceReady())
-  .catch((error: unknown) => {
-    console.error(
-      "[core-host] Memory initialization failed:",
-      error instanceof Error ? error.message : "unknown error"
-    );
-    process.exit(1);
-  });
+  .finally(() => runtime.announceReady());
 
 interface CoreHostVoiceProviderConfiguration {
   language: "zh" | "en";

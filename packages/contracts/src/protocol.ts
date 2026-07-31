@@ -129,10 +129,59 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
-    type: z.literal("agent.sendMessage"),
+    type: z.literal("agent.getMemoryHealth"),
+    payload: EmptyPayloadSchema
+  }),
+  z.object({
+    type: z.literal("agent.exportMemorySnapshot"),
+    payload: EmptyPayloadSchema
+  }),
+  z.object({
+    type: z.literal("agent.importMemorySnapshot"),
+    payload: z
+      .object({
+        snapshot: z.lazy(() => MemorySnapshotSchema)
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("agent.listConversations"),
+    payload: z
+      .object({
+        limit: z.number().int().min(1).max(500).optional()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("agent.createConversation"),
+    payload: z
+      .object({
+        title: z.string().trim().min(1).max(200).optional()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("agent.selectConversation"),
+    payload: z
+      .object({
+        conversationId: z.string().min(1).max(128)
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("agent.renameConversation"),
     payload: z
       .object({
         conversationId: z.string().min(1).max(128),
+        title: z.string().trim().min(1).max(200)
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("agent.sendMessage"),
+    payload: z
+      .object({
+        conversationId: z.string().min(1).max(128).optional(),
         text: z.string().trim().min(1).max(20_000)
       })
       .strict()
@@ -271,6 +320,54 @@ export const MessageSchema = z
 
 export type Message = z.infer<typeof MessageSchema>;
 
+export const ConversationSchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    title: z.string().trim().min(1).max(200),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    lastMessageAt: z.string().datetime().optional()
+  })
+  .strict();
+
+export type Conversation = z.infer<typeof ConversationSchema>;
+
+export const MemoryHealthSchema = z
+  .object({
+    status: z.enum(["ok", "degraded"]),
+    checkedAt: z.string().datetime(),
+    code: z.string().min(1).max(128).optional(),
+    message: z.string().min(1).max(2_000).optional()
+  })
+  .strict();
+
+export type MemoryHealth = z.infer<typeof MemoryHealthSchema>;
+
+export const MemorySummarySchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    conversationId: z.string().min(1).max(128),
+    text: z.string().trim().min(1).max(20_000),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    fromMessageId: z.string().min(1).max(128).optional(),
+    toMessageId: z.string().min(1).max(128).optional()
+  })
+  .strict();
+
+export type MemorySummary = z.infer<typeof MemorySummarySchema>;
+
+export const MemorySnapshotSchema = z
+  .object({
+    messages: z.array(MessageSchema),
+    conversations: z.array(ConversationSchema).default([]),
+    summaries: z.array(MemorySummarySchema).default([]),
+    activeConversationId: z.string().min(1).max(128).optional()
+  })
+  .strict();
+
+export type MemorySnapshot = z.infer<typeof MemorySnapshotSchema>;
+
 export const TaskSchema = z
   .object({
     id: z.string().min(1),
@@ -314,6 +411,9 @@ export const CoreSnapshotSchema = z
     updatedAt: z.string().datetime(),
     voice: VoiceSnapshotSchema,
     messages: z.array(MessageSchema),
+    conversations: z.array(ConversationSchema).default([]),
+    activeConversationId: z.string().min(1).max(128).optional(),
+    memoryHealth: MemoryHealthSchema.optional(),
     tasks: z.array(TaskSchema)
   })
   .strict();

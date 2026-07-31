@@ -6,6 +6,7 @@ import {
   CoreInboundMessageSchema,
   PROTOCOL_VERSION,
   CoreVoiceAudioMessageSchema,
+  MemorySnapshotSchema,
   VoiceAudioFrameSchema,
   VoiceAudioFrameMetadataSchema,
   createCommandEnvelope
@@ -75,6 +76,67 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(startPtt).protocolVersion).toBe(
       PROTOCOL_VERSION
     );
+  });
+
+  it("accepts provider-neutral conversation commands", () => {
+    const list = createCommandEnvelope({
+      type: "agent.listConversations",
+      payload: { limit: 50 }
+    });
+    const rename = createCommandEnvelope({
+      type: "agent.renameConversation",
+      payload: {
+        conversationId: "primary",
+        title: "Planning"
+      }
+    });
+    const sendToActive = createCommandEnvelope({
+      type: "agent.sendMessage",
+      payload: {
+        text: "Use the active conversation"
+      }
+    });
+
+    expect(CommandEnvelopeSchema.parse(list).command.type).toBe(
+      "agent.listConversations"
+    );
+    expect(CommandEnvelopeSchema.parse(rename).command.type).toBe(
+      "agent.renameConversation"
+    );
+    expect(CommandEnvelopeSchema.parse(sendToActive).command.type).toBe(
+      "agent.sendMessage"
+    );
+  });
+
+  it("accepts provider-neutral memory snapshot commands", () => {
+    const exported = createCommandEnvelope({
+      type: "agent.exportMemorySnapshot",
+      payload: {}
+    });
+    const imported = createCommandEnvelope({
+      type: "agent.importMemorySnapshot",
+      payload: {
+        snapshot: MemorySnapshotSchema.parse({
+          messages: [],
+          activeConversationId: "primary"
+        })
+      }
+    });
+
+    expect(CommandEnvelopeSchema.parse(exported).command.type).toBe(
+      "agent.exportMemorySnapshot"
+    );
+    expect(CommandEnvelopeSchema.parse(imported).command.type).toBe(
+      "agent.importMemorySnapshot"
+    );
+    expect(
+      CommandEnvelopeSchema.parse(imported).command.payload.snapshot
+    ).toMatchObject({
+      messages: [],
+      conversations: [],
+      summaries: [],
+      activeConversationId: "primary"
+    });
   });
 
   it("validates provider-neutral audio frame metadata", () => {

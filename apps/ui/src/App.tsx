@@ -2,15 +2,21 @@ import { useMemo, useState, type FormEvent } from "react"
 import {
   Activity,
   Bot,
+  Check,
   CheckCircle2,
   CircleAlert,
+  Download,
   ListTodo,
   MessageSquare,
   Mic2,
   PanelLeft,
+  Pencil,
+  Plus,
   RefreshCw,
   Send,
   Settings,
+  Upload,
+  X,
   type LucideIcon,
 } from "lucide-react"
 import type { EventEnvelope } from "@jarvis-k/contracts"
@@ -20,6 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Tooltip,
   TooltipContent,
@@ -108,20 +115,39 @@ function NavigationButton({ item }: { item: NavItem }) {
 export default function App() {
   const {
     connection,
+    createConversation,
     error,
     events,
+    exportMemorySnapshot,
+    importMemorySnapshot,
     openVoiceSettings,
     probeCore,
+    refreshMemoryHealth,
+    renameConversation,
     sendCommand,
     sendMessage,
+    selectConversation,
     sending,
     snapshot,
   } = useJarvis()
   const [draft, setDraft] = useState("")
+  const [memorySnapshotDraft, setMemorySnapshotDraft] = useState("")
+  const [renaming, setRenaming] = useState(false)
+  const [conversationTitleDraft, setConversationTitleDraft] = useState("")
 
   const coreOnline = connection === "online"
   const ptt = usePttCapture(sendCommand, coreOnline)
   const recentEvents = useMemo(() => events.slice(0, 12), [events])
+  const conversations = snapshot?.conversations ?? []
+  const activeConversation =
+    conversations.find((item) => item.id === snapshot?.activeConversationId) ??
+    conversations[0]
+  const visibleMessages =
+    activeConversation && snapshot?.messages
+      ? snapshot.messages.filter(
+          (message) => message.conversationId === activeConversation.id
+        )
+      : (snapshot?.messages ?? [])
   const voiceTranscript = snapshot?.voice.transcript?.text ?? ""
   const voiceRms = `${Math.round(ptt.audioDiagnostics.rms * 100)}%`
   const voicePeak = `${Math.round(ptt.audioDiagnostics.peak * 100)}%`
@@ -132,6 +158,32 @@ export default function App() {
     if (!text || sending) return
     const accepted = await sendMessage(text)
     if (accepted) setDraft("")
+  }
+
+  async function handleRenameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!activeConversation || sending) return
+    const title = conversationTitleDraft.trim()
+    if (!title) return
+    const renamed = await renameConversation(activeConversation.id, title)
+    if (renamed) {
+      setRenaming(false)
+      setConversationTitleDraft("")
+    }
+  }
+
+  async function handleExportMemorySnapshot() {
+    const snapshotJson = await exportMemorySnapshot()
+    if (snapshotJson) {
+      setMemorySnapshotDraft(snapshotJson)
+    }
+  }
+
+  async function handleImportMemorySnapshot() {
+    const imported = await importMemorySnapshot(memorySnapshotDraft)
+    if (imported) {
+      void refreshMemoryHealth()
+    }
   }
 
   return (
@@ -246,15 +298,131 @@ export default function App() {
 
         <main className="flex min-h-0 min-w-0 flex-col bg-background">
           <div className="flex h-[70px] shrink-0 items-center justify-between border-b px-7">
-            <div>
-              <h2 className="text-sm font-semibold">Primary Session</h2>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold">
+                {activeConversation?.title ?? "Primary Session"}
+              </h2>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                snapshot restored / sequence {snapshot?.sequenceId ?? 0}
+                sequence {snapshot?.sequenceId ?? 0}
+                {snapshot?.activeConversationId
+                  ? ` / active ${snapshot.activeConversationId.slice(-8)}`
+                  : ""}
               </p>
             </div>
-            <Badge className="rounded-md text-[10px] text-accent" variant="secondary">
-              LOCAL CONTRACT
-            </Badge>
+            <div className="flex items-center gap-2">
+              {renaming && activeConversation ? (
+                <form className="flex items-center gap-1.5" onSubmit={handleRenameSubmit}>
+                  <Input
+                    aria-label="Conversation title"
+                    className="h-8 w-[180px] rounded-md text-xs"
+                    data-testid="conversation-title-input"
+                    onChange={(event) => setConversationTitleDraft(event.target.value)}
+                    value={conversationTitleDraft}
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Save conversation title"
+                        className="size-8 rounded-md"
+                        data-testid="save-conversation-title"
+                        disabled={!conversationTitleDraft.trim() || sending}
+                        size="icon-sm"
+                        type="submit"
+                      >
+                        <Check className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Save conversation title</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Cancel conversation rename"
+                        className="size-8 rounded-md"
+                        data-testid="cancel-conversation-rename"
+                        onClick={() => {
+                          setRenaming(false)
+                          setConversationTitleDraft("")
+                        }}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Cancel conversation rename</TooltipContent>
+                  </Tooltip>
+                </form>
+              ) : (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Rename conversation"
+                        className="size-8 rounded-md"
+                        data-testid="rename-conversation"
+                        disabled={!activeConversation || sending}
+                        onClick={() => {
+                          setConversationTitleDraft(activeConversation?.title ?? "")
+                          setRenaming(true)
+                        }}
+                        size="icon-sm"
+                        variant="ghost"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Rename conversation</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="New conversation"
+                        className="size-8 rounded-md"
+                        data-testid="new-conversation"
+                        disabled={sending}
+                        onClick={() => void createConversation()}
+                        size="icon-sm"
+                        variant="outline"
+                      >
+                        <Plus className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>New conversation</TooltipContent>
+                  </Tooltip>
+                </>
+              )}
+              <Badge className="rounded-md text-[10px] text-accent" variant="secondary">
+                LOCAL CONTRACT
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex h-[48px] shrink-0 items-center gap-2 overflow-x-auto border-b px-6">
+            {conversations.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No local conversations yet.</p>
+            ) : (
+              conversations.map((conversation) => {
+                const active = conversation.id === snapshot?.activeConversationId
+                return (
+                  <Button
+                    className={cn(
+                      "h-8 max-w-[220px] shrink-0 rounded-md px-2.5 text-xs",
+                      active && "border-primary text-primary"
+                    )}
+                    data-testid="conversation-tab"
+                    disabled={sending || active}
+                    key={conversation.id}
+                    onClick={() => void selectConversation(conversation.id)}
+                    type="button"
+                    variant={active ? "outline" : "ghost"}
+                  >
+                    <span className="truncate">{conversation.title}</span>
+                  </Button>
+                )
+              })
+            )}
           </div>
 
           <ScrollArea className="min-h-0 flex-1">
@@ -271,7 +439,7 @@ export default function App() {
                 </div>
               </div>
 
-              {snapshot?.messages.map((message) => (
+              {visibleMessages.map((message) => (
                 <div className="flex justify-end" key={message.id}>
                   <div className="max-w-[72%] rounded-md bg-secondary px-3.5 py-2.5 text-sm leading-5">
                     {message.text}
@@ -361,7 +529,10 @@ export default function App() {
                   <Button
                     aria-label="Probe Core"
                     className="rounded-md"
-                    onClick={() => void probeCore()}
+                    onClick={() => {
+                      void probeCore()
+                      void refreshMemoryHealth()
+                    }}
                     size="icon-sm"
                     variant="ghost"
                   >
@@ -376,6 +547,11 @@ export default function App() {
 
             <dl className="shrink-0 divide-y divide-border border-y text-[11px]">
               <Metric label="CORE HEALTH" value={snapshot?.health ?? connection} tone="success" />
+              <Metric
+                label="MEMORY"
+                value={snapshot?.memoryHealth?.status ?? "unknown"}
+                tone={snapshot?.memoryHealth?.status === "degraded" ? "warning" : "success"}
+              />
               <Metric label="VOICE ENGINE" value={snapshot?.voice.state ?? "disabled"} tone="warning" />
               <Metric label="MIC PERMISSION" value={snapshot?.voice.permission ?? "unknown"} />
               <Metric label="VOICE FRAMES" value={String(ptt.audioDiagnostics.framesSent)} />
@@ -384,6 +560,57 @@ export default function App() {
               <Metric label="TRANSPORT" value="IPC" tone="accent" />
               <Metric label="SEQUENCE" value={String(snapshot?.sequenceId ?? 0).padStart(4, "0")} />
             </dl>
+
+            <div className="mt-4 shrink-0">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Memory Snapshot</h3>
+                <div className="flex items-center gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Export memory snapshot"
+                        className="size-8 rounded-md"
+                        data-testid="export-memory-snapshot"
+                        disabled={sending}
+                        onClick={() => void handleExportMemorySnapshot()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Download className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Export memory snapshot</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Import memory snapshot"
+                        className="size-8 rounded-md"
+                        data-testid="import-memory-snapshot"
+                        disabled={!memorySnapshotDraft.trim() || sending}
+                        onClick={() => void handleImportMemorySnapshot()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Upload className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Import memory snapshot</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <Textarea
+                aria-label="Memory snapshot JSON"
+                className="h-[96px] resize-none rounded-md bg-input/45 font-mono text-[10px] leading-4"
+                data-testid="memory-snapshot-json"
+                onChange={(event) => setMemorySnapshotDraft(event.target.value)}
+                placeholder="Memory snapshot JSON"
+                spellCheck={false}
+                value={memorySnapshotDraft}
+              />
+            </div>
 
             <div className="mt-5 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Recent Events</h3>

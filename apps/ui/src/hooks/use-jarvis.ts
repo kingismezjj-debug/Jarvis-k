@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
+  MemorySnapshotSchema,
   type AppCommand,
   type CoreSnapshot,
   type EventEnvelope,
@@ -88,10 +89,92 @@ export function useJarvis() {
       sendCommand({
         type: "agent.sendMessage",
         payload: {
-          conversationId: "primary",
           text,
         },
       }),
+    [sendCommand]
+  )
+
+  const createConversation = useCallback(
+    async () =>
+      sendCommand({
+        type: "agent.createConversation",
+        payload: {},
+      }),
+    [sendCommand]
+  )
+
+  const selectConversation = useCallback(
+    async (conversationId: string) =>
+      sendCommand({
+        type: "agent.selectConversation",
+        payload: { conversationId },
+      }),
+    [sendCommand]
+  )
+
+  const renameConversation = useCallback(
+    async (conversationId: string, title: string) =>
+      sendCommand({
+        type: "agent.renameConversation",
+        payload: { conversationId, title },
+      }),
+    [sendCommand]
+  )
+
+  const refreshMemoryHealth = useCallback(
+    async () =>
+      sendCommand({
+        type: "agent.getMemoryHealth",
+        payload: {},
+      }),
+    [sendCommand]
+  )
+
+  const exportMemorySnapshot = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return null
+    }
+
+    setSending(true)
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.exportMemorySnapshot",
+        payload: {},
+      })
+      if (!result.ok) {
+        setError(result.error.message)
+        return null
+      }
+      const snapshot = MemorySnapshotSchema.safeParse(
+        (result.data as { snapshot?: unknown } | undefined)?.snapshot
+      )
+      if (!snapshot.success) {
+        setError("Core returned an invalid memory snapshot.")
+        return null
+      }
+      setError(null)
+      return JSON.stringify(snapshot.data, null, 2)
+    } finally {
+      setSending(false)
+    }
+  }, [])
+
+  const importMemorySnapshot = useCallback(
+    async (snapshotJson: string) => {
+      let snapshot: ReturnType<typeof MemorySnapshotSchema.parse>
+      try {
+        snapshot = MemorySnapshotSchema.parse(JSON.parse(snapshotJson))
+      } catch {
+        setError("Memory snapshot JSON is invalid.")
+        return false
+      }
+      return sendCommand({
+        type: "agent.importMemorySnapshot",
+        payload: { snapshot },
+      })
+    },
     [sendCommand]
   )
 
@@ -126,12 +209,18 @@ export function useJarvis() {
   return {
     connection,
     error,
+    createConversation,
     events,
+    exportMemorySnapshot,
+    importMemorySnapshot,
     openVoiceSettings,
     probeCore,
+    refreshMemoryHealth,
     refreshSnapshot,
+    renameConversation,
     sendCommand,
     sendMessage,
+    selectConversation,
     sending,
     snapshot,
   }

@@ -25,4 +25,19 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("VOICE RMS");
     expect(appSource).toContain("VOICE PEAK");
   });
+
+  it("renders local memory conversation controls visibly", () => {
+    expect(appSource).toContain('data-testid="conversation-tab"');
+    expect(appSource).toContain("MEMORY");
+    expect(appSource).toContain("createConversation");
+    expect(appSource).toContain("renameConversation");
+  });
+
+  it("renders local memory maintenance controls visibly", () => {
+    expect(appSource).toContain('data-testid="export-memory-snapshot"');
+    expect(appSource).toContain('data-testid="import-memory-snapshot"');
+    expect(appSource).toContain('data-testid="memory-snapshot-json"');
+    expect(appSource).toContain("exportMemorySnapshot");
+    expect(appSource).toContain("importMemorySnapshot");
+  });
 });

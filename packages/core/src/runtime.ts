@@ -3,9 +3,13 @@ import {
   CommandEnvelope,
   CommandEnvelopeSchema,
   CommandResult,
+  Conversation,
   CoreSnapshot,
   EventEnvelope,
   Message,
+  MemoryHealth,
+  MemoryHealthSchema,
+  MemorySnapshot,
   PROTOCOL_VERSION,
   StructuredError,
   VoiceCommand,
@@ -24,8 +28,12 @@ export class CoreRuntime {
   private readonly coreInstanceId = createId("core");
   private readonly startedAt: string;
   private readonly messages: Message[] = [];
+  private readonly conversations: Conversation[] = [];
   private sequenceId = 0;
   private activeVoiceCorrelationId: string | undefined;
+  private health: CoreSnapshot["health"] = "ready";
+  private activeConversationId: string | undefined;
+  private memoryHealth: MemoryHealth | undefined;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -40,13 +48,21 @@ export class CoreRuntime {
     if (!this.memoryRepository) {
       return;
     }
-    await this.memoryRepository.initialize();
-    const snapshot = await this.memoryRepository.getSnapshot();
-    this.messages.splice(
-      0,
-      this.messages.length,
-      ...snapshot.messages.map((message) => ({ ...message }))
-    );
+    try {
+      await this.memoryRepository.initialize();
+      const health = await this.memoryRepository.checkHealth();
+      this.memoryHealth = MemoryHealthSchema.parse(health);
+      if (health.status !== "ok") {
+        this.health = "degraded";
+        return;
+      }
+      const snapshot = await this.memoryRepository.getSnapshot();
+      this.replaceMemorySnapshot(snapshot);
+      this.health = "ready";
+    } catch {
+      this.health = "degraded";
+      this.memoryHealth = this.degradedMemoryHealth();
+    }
   }
 
   public announceReady(): void {
@@ -68,11 +84,18 @@ export class CoreRuntime {
       protocolVersion: PROTOCOL_VERSION,
       coreInstanceId: this.coreInstanceId,
       sequenceId: this.sequenceId,
-      health: "ready",
+      health: this.health,
       startedAt: this.startedAt,
       updatedAt: this.now().toISOString(),
       voice: this.voiceEngine.getSnapshot(),
       messages: this.messages.map((message) => ({ ...message })),
+      conversations: this.conversations.map((conversation) => ({
+        ...conversation
+      })),
+      ...(this.activeConversationId
+        ? { activeConversationId: this.activeConversationId }
+        : {}),
+      ...(this.memoryHealth ? { memoryHealth: this.memoryHealth } : {}),
       tasks: []
     };
   }
@@ -86,7 +109,7 @@ export class CoreRuntime {
           {
             type: "system.health",
             payload: {
-              status: "ready",
+              status: this.health === "degraded" ? "degraded" : "ready",
               uptimeMs: Math.max(
                 0,
                 this.now().getTime() - new Date(this.startedAt).getTime()
@@ -97,7 +120,7 @@ export class CoreRuntime {
         );
         return this.success(envelope, {
           coreInstanceId: this.coreInstanceId,
-          status: "ready"
+          status: this.health === "degraded" ? "degraded" : "ready"
         });
 
       case "agent.getSnapshot": {
@@ -105,10 +128,161 @@ export class CoreRuntime {
         return this.success(envelope, snapshot);
       }
 
+      case "agent.getMemoryHealth": {
+        const memoryHealth = await this.refreshMemoryHealth();
+        return this.success(envelope, {
+          memoryHealth
+        });
+      }
+
+      case "agent.exportMemorySnapshot": {
+        if (!this.memoryRepository) {
+          return this.memoryUnavailable(envelope);
+        }
+        try {
+          const snapshot = await this.memoryRepository.exportSnapshot();
+          this.health = "ready";
+          return this.success(envelope, {
+            snapshot
+          });
+        } catch {
+          this.health = "degraded";
+          return this.memoryUnavailable(envelope);
+        }
+      }
+
+      case "agent.importMemorySnapshot": {
+        if (!this.memoryRepository) {
+          return this.memoryUnavailable(envelope);
+        }
+        try {
+          await this.memoryRepository.importSnapshot(
+            envelope.command.payload.snapshot
+          );
+          const snapshot = await this.memoryRepository.getSnapshot();
+          this.replaceMemorySnapshot(snapshot);
+          await this.refreshMemoryHealth();
+          const coreSnapshot = this.publishSnapshot(
+            envelope.correlationId
+          );
+          return this.success(envelope, {
+            imported: true,
+            snapshot: coreSnapshot
+          });
+        } catch {
+          this.health = "degraded";
+          return this.memoryUnavailable(envelope);
+        }
+      }
+
+      case "agent.listConversations": {
+        if (!this.memoryRepository) {
+          return this.memoryUnavailable(envelope);
+        }
+        try {
+          const conversations =
+            await this.memoryRepository.listConversations(
+              envelope.command.payload.limit === undefined
+                ? {}
+                : { limit: envelope.command.payload.limit }
+            );
+          const activeConversationId =
+            await this.memoryRepository.getActiveConversationId();
+          this.replaceConversations(conversations);
+          this.activeConversationId = activeConversationId;
+          this.health = "ready";
+          const snapshot = this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            conversations,
+            activeConversationId,
+            snapshot
+          });
+        } catch {
+          this.health = "degraded";
+          return this.memoryUnavailable(envelope);
+        }
+      }
+
+      case "agent.createConversation": {
+        if (!this.memoryRepository) {
+          return this.memoryUnavailable(envelope);
+        }
+        const now = this.now().toISOString();
+        try {
+          const conversation =
+            await this.memoryRepository.upsertConversation({
+              id: createId("conv"),
+              title: envelope.command.payload.title ?? "New conversation",
+              createdAt: now,
+              updatedAt: now
+            });
+          await this.memoryRepository.setActiveConversationId(
+            conversation.id
+          );
+          await this.refreshConversationState();
+          this.health = "ready";
+          this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            conversation,
+            activeConversationId: conversation.id
+          });
+        } catch {
+          this.health = "degraded";
+          return this.memoryUnavailable(envelope);
+        }
+      }
+
+      case "agent.selectConversation": {
+        if (!this.memoryRepository) {
+          return this.memoryUnavailable(envelope);
+        }
+        try {
+          await this.memoryRepository.setActiveConversationId(
+            envelope.command.payload.conversationId
+          );
+          await this.refreshConversationState();
+          this.health = "ready";
+          this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            activeConversationId:
+              envelope.command.payload.conversationId
+          });
+        } catch {
+          this.health = "degraded";
+          return this.memoryUnavailable(envelope);
+        }
+      }
+
+      case "agent.renameConversation": {
+        if (!this.memoryRepository) {
+          return this.memoryUnavailable(envelope);
+        }
+        try {
+          const conversation =
+            await this.memoryRepository.updateConversation({
+              id: envelope.command.payload.conversationId,
+              title: envelope.command.payload.title,
+              updatedAt: this.now().toISOString()
+            });
+          await this.refreshConversationState();
+          this.health = "ready";
+          this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            conversation
+          });
+        } catch {
+          this.health = "degraded";
+          return this.memoryUnavailable(envelope);
+        }
+      }
+
       case "agent.sendMessage": {
+        const conversationId = await this.resolveMessageConversationId(
+          envelope.command.payload.conversationId
+        );
         const message: Message = {
           id: createId("msg"),
-          conversationId: envelope.command.payload.conversationId,
+          conversationId,
           role: "user",
           text: envelope.command.payload.text,
           createdAt: this.now().toISOString()
@@ -116,13 +290,23 @@ export class CoreRuntime {
         if (this.memoryRepository) {
           try {
             await this.memoryRepository.appendMessage(message);
+            if (!this.activeConversationId) {
+              await this.memoryRepository.setActiveConversationId(
+                conversationId
+              );
+            }
+            await this.refreshConversationState();
+            this.health = "ready";
           } catch {
+            this.health = "degraded";
             return this.failure(envelope, {
               code: "MEMORY_WRITE_FAILED",
               message: "Unable to persist the accepted message.",
               retryable: true
             });
           }
+        } else {
+          this.upsertLocalConversationForMessage(message);
         }
         this.messages.push(message);
         this.publish(
@@ -183,6 +367,127 @@ export class CoreRuntime {
       ...(correlationId ? { correlationId } : {})
     };
     this.eventSink(envelope);
+  }
+
+  private async refreshMemoryHealth(): Promise<MemoryHealth> {
+    if (!this.memoryRepository) {
+      this.memoryHealth = MemoryHealthSchema.parse({
+        status: "ok",
+        checkedAt: this.now().toISOString()
+      });
+      return this.memoryHealth;
+    }
+    try {
+      this.memoryHealth = MemoryHealthSchema.parse(
+        await this.memoryRepository.checkHealth()
+      );
+      this.health =
+        this.memoryHealth.status === "ok" ? "ready" : "degraded";
+      return this.memoryHealth;
+    } catch {
+      this.health = "degraded";
+      this.memoryHealth = this.degradedMemoryHealth();
+      return this.memoryHealth;
+    }
+  }
+
+  private async refreshConversationState(): Promise<void> {
+    if (!this.memoryRepository) {
+      return;
+    }
+    this.replaceConversations(
+      await this.memoryRepository.listConversations()
+    );
+    this.activeConversationId =
+      await this.memoryRepository.getActiveConversationId();
+  }
+
+  private replaceConversations(conversations: Conversation[]): void {
+    this.conversations.splice(
+      0,
+      this.conversations.length,
+      ...conversations.map((conversation) => ({ ...conversation }))
+    );
+  }
+
+  private replaceMemorySnapshot(snapshot: MemorySnapshot): void {
+    this.messages.splice(
+      0,
+      this.messages.length,
+      ...snapshot.messages.map((message) => ({ ...message }))
+    );
+    this.conversations.splice(
+      0,
+      this.conversations.length,
+      ...snapshot.conversations.map((conversation) => ({
+        ...conversation
+      }))
+    );
+    this.activeConversationId = snapshot.activeConversationId;
+  }
+
+  private async resolveMessageConversationId(
+    explicitConversationId: string | undefined
+  ): Promise<string> {
+    if (explicitConversationId) {
+      return explicitConversationId;
+    }
+    if (this.activeConversationId) {
+      return this.activeConversationId;
+    }
+    if (this.memoryRepository) {
+      try {
+        const activeConversationId =
+          await this.memoryRepository.getActiveConversationId();
+        if (activeConversationId) {
+          this.activeConversationId = activeConversationId;
+          return activeConversationId;
+        }
+      } catch {
+        this.health = "degraded";
+      }
+    }
+    return "primary";
+  }
+
+  private upsertLocalConversationForMessage(message: Message): void {
+    const existing = this.conversations.find(
+      (conversation) => conversation.id === message.conversationId
+    );
+    if (!existing) {
+      this.conversations.push({
+        id: message.conversationId,
+        title: this.defaultConversationTitle(message),
+        createdAt: message.createdAt,
+        updatedAt: message.createdAt,
+        lastMessageAt: message.createdAt
+      });
+      this.activeConversationId ??= message.conversationId;
+      return;
+    }
+    existing.updatedAt =
+      message.createdAt > existing.updatedAt
+        ? message.createdAt
+        : existing.updatedAt;
+    existing.lastMessageAt =
+      existing.lastMessageAt === undefined ||
+      message.createdAt > existing.lastMessageAt
+        ? message.createdAt
+        : existing.lastMessageAt;
+  }
+
+  private defaultConversationTitle(message: Message): string {
+    const text = message.text.trim().replace(/\s+/g, " ");
+    return text.length > 0 ? text.slice(0, 80) : message.conversationId;
+  }
+
+  private degradedMemoryHealth(): MemoryHealth {
+    return MemoryHealthSchema.parse({
+      status: "degraded",
+      checkedAt: this.now().toISOString(),
+      code: "MEMORY_UNAVAILABLE",
+      message: "Memory store is unavailable."
+    });
   }
 
   private async handleVoiceCommand(
@@ -262,5 +567,13 @@ export class CoreRuntime {
       ok: false,
       error
     };
+  }
+
+  private memoryUnavailable(envelope: CommandEnvelope): CommandResult {
+    return this.failure(envelope, {
+      code: "MEMORY_UNAVAILABLE",
+      message: "Memory store is unavailable.",
+      retryable: true
+    });
   }
 }

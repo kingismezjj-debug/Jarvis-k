@@ -9,9 +9,19 @@ import {
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 import type {
+  Conversation,
+  ConversationCreateInput,
+  ConversationListOptions,
+  ConversationUpdateInput,
+  MemoryHealth,
+  MemorySummary,
   MemoryRepository,
   MemorySnapshot,
-  MessageListOptions
+  MemorySnapshotInput,
+  MessageListOptions,
+  RecentMessageListOptions,
+  SummaryListOptions,
+  SummaryWriteInput
 } from "@jarvis-k/memory";
 import type {
   VoiceActionResult,
@@ -149,17 +159,111 @@ class FakeVoiceEngine implements VoiceEnginePort {
 class FakeMemoryRepository implements MemoryRepository {
   public initialized = false;
   public readonly messages: Message[];
+  public readonly conversations: Conversation[] = [];
+  public readonly summaries: MemorySummary[] = [];
+  public activeConversationId: string | undefined;
+  public healthStatus: MemoryHealth["status"] = "ok";
+  public throwOnInitialize = false;
+  public throwOnAppend = false;
 
   public constructor(seed: Message[] = []) {
     this.messages = seed.map((message) => ({ ...message }));
   }
 
   public async initialize(): Promise<void> {
+    if (this.throwOnInitialize) {
+      throw new Error("Memory unavailable.");
+    }
     this.initialized = true;
   }
 
+  public async checkHealth(): Promise<MemoryHealth> {
+    return {
+      status: this.healthStatus,
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      ...(this.healthStatus === "degraded"
+        ? {
+            code: "MEMORY_UNAVAILABLE",
+            message: "Memory store is unavailable."
+          }
+        : {})
+    };
+  }
+
+  public async upsertConversation(
+    input: ConversationCreateInput
+  ): Promise<Conversation> {
+    const existingIndex = this.conversations.findIndex(
+      (conversation) => conversation.id === input.id
+    );
+    const now = new Date().toISOString();
+    const conversation: Conversation = {
+      id: input.id,
+      title: input.title,
+      createdAt: input.createdAt ?? now,
+      updatedAt: input.updatedAt ?? input.createdAt ?? now,
+      ...(input.lastMessageAt ? { lastMessageAt: input.lastMessageAt } : {})
+    };
+    if (existingIndex >= 0) {
+      this.conversations[existingIndex] = { ...conversation };
+    } else {
+      this.conversations.push({ ...conversation });
+    }
+    return { ...conversation };
+  }
+
+  public async updateConversation(
+    input: ConversationUpdateInput
+  ): Promise<Conversation> {
+    const conversation = this.conversations.find(
+      (item) => item.id === input.id
+    );
+    if (!conversation) {
+      throw new Error(`Conversation ${input.id} does not exist.`);
+    }
+    conversation.title = input.title ?? conversation.title;
+    conversation.updatedAt = input.updatedAt ?? new Date().toISOString();
+    return { ...conversation };
+  }
+
+  public async listConversations(
+    options: ConversationListOptions = {}
+  ): Promise<Conversation[]> {
+    return this.conversations
+      .slice(0, options.limit)
+      .map((conversation) => ({ ...conversation }));
+  }
+
+  public async getActiveConversationId(): Promise<string | undefined> {
+    return this.activeConversationId;
+  }
+
+  public async setActiveConversationId(
+    conversationId: string
+  ): Promise<void> {
+    this.activeConversationId = conversationId;
+  }
+
   public async appendMessage(message: Message): Promise<Message> {
+    if (this.throwOnAppend) {
+      throw new Error("Memory write failed.");
+    }
     this.messages.push({ ...message });
+    const existing = this.conversations.find(
+      (conversation) => conversation.id === message.conversationId
+    );
+    if (!existing) {
+      this.conversations.push({
+        id: message.conversationId,
+        title: message.text,
+        createdAt: message.createdAt,
+        updatedAt: message.createdAt,
+        lastMessageAt: message.createdAt
+      });
+    } else {
+      existing.updatedAt = message.createdAt;
+      existing.lastMessageAt = message.createdAt;
+    }
     return { ...message };
   }
 
@@ -176,18 +280,98 @@ class FakeMemoryRepository implements MemoryRepository {
       .map((message) => ({ ...message }));
   }
 
+  public async listRecentMessages(
+    options: RecentMessageListOptions
+  ): Promise<Message[]> {
+    return this.messages
+      .filter((message) =>
+        options.conversationId
+          ? message.conversationId === options.conversationId
+          : true
+      )
+      .slice(-options.limit)
+      .map((message) => ({ ...message }));
+  }
+
+  public async upsertSummary(
+    input: SummaryWriteInput
+  ): Promise<MemorySummary> {
+    const existingIndex = this.summaries.findIndex(
+      (summary) => summary.id === input.id
+    );
+    const now = new Date().toISOString();
+    const summary: MemorySummary = {
+      id: input.id,
+      conversationId: input.conversationId,
+      text: input.text,
+      createdAt: input.createdAt ?? now,
+      updatedAt: input.updatedAt ?? input.createdAt ?? now,
+      ...(input.fromMessageId ? { fromMessageId: input.fromMessageId } : {}),
+      ...(input.toMessageId ? { toMessageId: input.toMessageId } : {})
+    };
+    if (existingIndex >= 0) {
+      this.summaries[existingIndex] = { ...summary };
+    } else {
+      this.summaries.push({ ...summary });
+    }
+    return { ...summary };
+  }
+
+  public async listSummaries(
+    options: SummaryListOptions = {}
+  ): Promise<MemorySummary[]> {
+    return this.summaries
+      .filter((summary) =>
+        options.conversationId
+          ? summary.conversationId === options.conversationId
+          : true
+      )
+      .slice(0, options.limit)
+      .map((summary) => ({ ...summary }));
+  }
+
   public async getSnapshot(): Promise<MemorySnapshot> {
     return {
-      messages: await this.listMessages()
+      messages: await this.listMessages(),
+      conversations: await this.listConversations(),
+      summaries: await this.listSummaries(),
+      ...(this.activeConversationId
+        ? { activeConversationId: this.activeConversationId }
+        : {})
     };
   }
 
-  public async restoreSnapshot(snapshot: MemorySnapshot): Promise<void> {
+  public async restoreSnapshot(snapshot: MemorySnapshotInput): Promise<void> {
     this.messages.splice(
       0,
       this.messages.length,
       ...snapshot.messages.map((message) => ({ ...message }))
     );
+    this.conversations.splice(
+      0,
+      this.conversations.length,
+      ...(snapshot.conversations ?? []).map((conversation) => ({
+        ...conversation
+      }))
+    );
+    this.summaries.splice(
+      0,
+      this.summaries.length,
+      ...(snapshot.summaries ?? []).map((summary) => ({
+        ...summary
+      }))
+    );
+    this.activeConversationId = snapshot.activeConversationId;
+  }
+
+  public async exportSnapshot(): Promise<MemorySnapshot> {
+    return this.getSnapshot();
+  }
+
+  public async importSnapshot(
+    snapshot: MemorySnapshotInput
+  ): Promise<void> {
+    await this.restoreSnapshot(snapshot);
   }
 
   public async close(): Promise<void> {
@@ -239,12 +423,23 @@ describe("CoreRuntime", () => {
         createdAt: "2026-07-30T00:00:00.000Z"
       }
     ]);
+    await memoryRepository.upsertConversation({
+      id: "primary",
+      title: "Primary",
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:00:00.000Z"
+    });
+    await memoryRepository.setActiveConversationId("primary");
     const { runtime } = createRuntime(memoryRepository);
 
     await runtime.hydrateMemory();
 
     expect(runtime.getSnapshot().messages.map((message) => message.id))
       .toEqual(["msg-seed"]);
+    expect(runtime.getSnapshot().conversations.map((item) => item.id))
+      .toEqual(["primary"]);
+    expect(runtime.getSnapshot().activeConversationId).toBe("primary");
+    expect(runtime.getSnapshot().memoryHealth?.status).toBe("ok");
 
     const result = await runtime.handle(
       createCommandEnvelope({
@@ -259,6 +454,248 @@ describe("CoreRuntime", () => {
     expect(result.ok).toBe(true);
     expect(memoryRepository.messages).toHaveLength(2);
     expect(runtime.getSnapshot().messages).toHaveLength(2);
+  });
+
+  it("manages conversations through memory commands", async () => {
+    const memoryRepository = new FakeMemoryRepository();
+    const { runtime } = createRuntime(memoryRepository);
+    await runtime.hydrateMemory();
+
+    const create = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.createConversation",
+        payload: { title: "Planning" }
+      })
+    );
+
+    expect(create.ok).toBe(true);
+    const created = create.ok
+      ? (create.data as { conversation: { id: string; title: string } })
+          .conversation
+      : undefined;
+    expect(created?.title).toBe("Planning");
+    expect(runtime.getSnapshot().activeConversationId).toBe(created?.id);
+
+    const rename = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.renameConversation",
+        payload: {
+          conversationId: created?.id ?? "",
+          title: "Renamed"
+        }
+      })
+    );
+    expect(rename.ok).toBe(true);
+
+    const list = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listConversations",
+        payload: {}
+      })
+    );
+    expect(list.ok).toBe(true);
+    expect(runtime.getSnapshot().conversations[0]?.title).toBe("Renamed");
+  });
+
+  it("uses the active conversation when sending messages without an explicit id", async () => {
+    const memoryRepository = new FakeMemoryRepository();
+    await memoryRepository.upsertConversation({
+      id: "active",
+      title: "Active",
+      createdAt: "2026-07-31T00:00:00.000Z",
+      updatedAt: "2026-07-31T00:00:00.000Z"
+    });
+    await memoryRepository.setActiveConversationId("active");
+    const { runtime } = createRuntime(memoryRepository);
+    await runtime.hydrateMemory();
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          text: "Send to active"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(memoryRepository.messages.at(-1)?.conversationId).toBe("active");
+  });
+
+  it("returns provider-neutral memory health", async () => {
+    const memoryRepository = new FakeMemoryRepository();
+    const { runtime } = createRuntime(memoryRepository);
+    await runtime.hydrateMemory();
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getMemoryHealth",
+        payload: {}
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      memoryHealth: {
+        status: "ok"
+      }
+    });
+  });
+
+  it("exports and imports memory snapshots through the injected repository", async () => {
+    const memoryRepository = new FakeMemoryRepository();
+    const { runtime } = createRuntime(memoryRepository);
+    await runtime.hydrateMemory();
+
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Before export"
+        }
+      })
+    );
+
+    const exported = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.exportMemorySnapshot",
+        payload: {}
+      })
+    );
+
+    expect(exported.ok).toBe(true);
+    expect(exported.ok ? exported.data : undefined).toMatchObject({
+      snapshot: {
+        messages: [
+          {
+            conversationId: "primary",
+            text: "Before export"
+          }
+        ]
+      }
+    });
+
+    const imported = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.importMemorySnapshot",
+        payload: {
+          snapshot: {
+            messages: [
+              {
+                id: "msg-restored",
+                conversationId: "restored",
+                role: "user",
+                text: "After import",
+                createdAt: "2026-07-31T00:00:00.000Z"
+              }
+            ],
+            conversations: [
+              {
+                id: "restored",
+                title: "Restored",
+                createdAt: "2026-07-31T00:00:00.000Z",
+                updatedAt: "2026-07-31T00:00:00.000Z",
+                lastMessageAt: "2026-07-31T00:00:00.000Z"
+              }
+            ],
+            summaries: [],
+            activeConversationId: "restored"
+          }
+        }
+      })
+    );
+
+    expect(imported.ok).toBe(true);
+    expect(memoryRepository.messages.map((message) => message.id)).toEqual([
+      "msg-restored"
+    ]);
+    expect(runtime.getSnapshot()).toMatchObject({
+      activeConversationId: "restored",
+      messages: [
+        {
+          id: "msg-restored",
+          text: "After import"
+        }
+      ],
+      conversations: [
+        {
+          id: "restored",
+          title: "Restored"
+        }
+      ]
+    });
+  });
+
+  it("reports degraded health when memory hydration is unavailable", async () => {
+    const memoryRepository = new FakeMemoryRepository([
+      {
+        id: "msg-seed",
+        conversationId: "primary",
+        role: "system",
+        text: "Recovered from disk",
+        createdAt: "2026-07-30T00:00:00.000Z"
+      }
+    ]);
+    memoryRepository.throwOnInitialize = true;
+    const { events, runtime } = createRuntime(memoryRepository);
+
+    await runtime.hydrateMemory();
+    runtime.announceReady();
+
+    expect(runtime.getSnapshot().health).toBe("degraded");
+    expect(runtime.getSnapshot().messages).toEqual([]);
+    expect(events.at(-1)?.event.type).toBe("state.snapshot");
+    expect(
+      events.at(-1)?.event.type === "state.snapshot"
+        ? events.at(-1)?.event.payload.health
+        : undefined
+    ).toBe("degraded");
+
+    const ping = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.ping",
+        payload: { sentAt: "2026-07-31T00:00:00.000Z" }
+      })
+    );
+
+    expect(ping.ok).toBe(true);
+    expect(ping.ok ? ping.data : undefined).toMatchObject({
+      status: "degraded"
+    });
+  });
+
+  it("reports degraded health when memory health checks fail", async () => {
+    const memoryRepository = new FakeMemoryRepository();
+    memoryRepository.healthStatus = "degraded";
+    const { runtime } = createRuntime(memoryRepository);
+
+    await runtime.hydrateMemory();
+
+    expect(runtime.getSnapshot().health).toBe("degraded");
+  });
+
+  it("marks runtime degraded when memory writes fail", async () => {
+    const memoryRepository = new FakeMemoryRepository();
+    memoryRepository.throwOnAppend = true;
+    const { runtime } = createRuntime(memoryRepository);
+
+    await runtime.hydrateMemory();
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Persist me"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe(
+      "MEMORY_WRITE_FAILED"
+    );
+    expect(runtime.getSnapshot().health).toBe("degraded");
   });
 
   it("delegates voice commands to the injected engine", async () => {

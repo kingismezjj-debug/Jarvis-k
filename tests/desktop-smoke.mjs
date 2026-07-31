@@ -93,6 +93,116 @@ try {
   await window.getByTestId("command-input").fill(message);
   await window.getByTestId("send-command").click();
   await window.getByTestId("message-list").getByText(message).waitFor();
+  await window.getByTestId("conversation-tab").first().waitFor();
+
+  const firstConversationId = await window.evaluate(async () => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable for conversation smoke.");
+    }
+    const result = await window.jarvis.getSnapshot();
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+    const snapshot = result.data;
+    if (
+      !snapshot ||
+      typeof snapshot !== "object" ||
+      !("activeConversationId" in snapshot) ||
+      typeof snapshot.activeConversationId !== "string"
+    ) {
+      throw new Error("Core snapshot did not expose an active conversation.");
+    }
+    return snapshot.activeConversationId;
+  });
+
+  await window.getByTestId("new-conversation").click();
+  await window.getByRole("heading", { name: "New conversation" }).waitFor();
+  await window.getByTestId("rename-conversation").click();
+  await window.getByTestId("conversation-title-input").fill(
+    "Smoke Conversation"
+  );
+  await window.getByTestId("save-conversation-title").click();
+  await window.getByRole("heading", { name: "Smoke Conversation" }).waitFor();
+
+  const secondMessage = `Conversation smoke ${new Date().toISOString()}`;
+  await window.getByTestId("command-input").fill(secondMessage);
+  await window.getByTestId("send-command").click();
+  await window.getByTestId("message-list").getByText(secondMessage).waitFor();
+  await window
+    .getByTestId("message-list")
+    .getByText(message)
+    .waitFor({ state: "detached" });
+  const secondConversationId = await window.evaluate(async () => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable for conversation snapshot.");
+    }
+    const result = await window.jarvis.getSnapshot();
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+    const snapshot = result.data;
+    if (
+      !snapshot ||
+      typeof snapshot !== "object" ||
+      !("activeConversationId" in snapshot) ||
+      typeof snapshot.activeConversationId !== "string"
+    ) {
+      throw new Error("Second conversation did not become active.");
+    }
+    return snapshot.activeConversationId;
+  });
+
+  const memorySnapshotSmoke = await window.evaluate(async () => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable for memory snapshot smoke.");
+    }
+    const exportResult = await window.jarvis.sendCommand({
+      type: "agent.exportMemorySnapshot",
+      payload: {}
+    });
+    if (!exportResult.ok) {
+      throw new Error(exportResult.error.message);
+    }
+    const snapshot = exportResult.data?.snapshot;
+    if (
+      !snapshot ||
+      !Array.isArray(snapshot.messages) ||
+      snapshot.messages.length < 2 ||
+      !Array.isArray(snapshot.conversations) ||
+      snapshot.conversations.length < 2
+    ) {
+      throw new Error("Memory export did not include conversation data.");
+    }
+    const importResult = await window.jarvis.sendCommand({
+      type: "agent.importMemorySnapshot",
+      payload: { snapshot }
+    });
+    if (!importResult.ok) {
+      throw new Error(importResult.error.message);
+    }
+    return {
+      exportedMessages: snapshot.messages.length,
+      exportedConversations: snapshot.conversations.length
+    };
+  });
+
+  await window.evaluate(async (conversationId) => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable for conversation select.");
+    }
+    const result = await window.jarvis.sendCommand({
+      type: "agent.selectConversation",
+      payload: { conversationId }
+    });
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+  }, firstConversationId);
+  await window.getByTestId("message-list").getByText(message).waitFor();
+  await window
+    .getByTestId("message-list")
+    .getByText(secondMessage)
+    .waitFor({ state: "detached" });
 
   await window.evaluate(() => {
     localStorage.setItem("jarvis-k-smoke-capture-stop-count", "0");
@@ -442,7 +552,10 @@ try {
   );
   const coreAfterSoak = await findCoreProcess(electronApp.process().pid);
 
-  process.kill(coreProcess.ProcessId);
+  const coreInstanceBeforeRestart = await window
+    .getByTestId("core-instance")
+    .innerText();
+  process.kill(coreAfterSoak.ProcessId);
   await window.getByTestId("core-status").getByText("ONLINE").waitFor({
     timeout: 15_000,
   });
@@ -453,9 +566,45 @@ try {
       )?.textContent;
       return Boolean(current && current !== previousInstance);
     },
-    initialInstance,
+    coreInstanceBeforeRestart,
     { timeout: 15_000 }
   );
+  await window.getByRole("heading", { name: /Desktop smoke/ }).waitFor();
+  await window.getByTestId("message-list").getByText(message).waitFor();
+  await window
+    .getByTestId("message-list")
+    .getByText(secondMessage)
+    .waitFor({ state: "detached" });
+  await window.evaluate(async (conversationId) => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable after Core restart.");
+    }
+    const result = await window.jarvis.sendCommand({
+      type: "agent.selectConversation",
+      payload: { conversationId }
+    });
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+  }, secondConversationId);
+  await window.getByRole("heading", { name: "Smoke Conversation" }).waitFor();
+  await window.getByTestId("message-list").getByText(secondMessage).waitFor();
+  await window
+    .getByTestId("message-list")
+    .getByText(message)
+    .waitFor({ state: "detached" });
+  await window.evaluate(async (conversationId) => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable after conversation restore.");
+    }
+    const result = await window.jarvis.sendCommand({
+      type: "agent.selectConversation",
+      payload: { conversationId }
+    });
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+  }, firstConversationId);
 
   const restartedCoreProcess = await findCoreProcess(electronApp.process().pid);
   const mainMemory = await electronApp.evaluate(() => process.memoryUsage());
@@ -477,6 +626,13 @@ try {
         ),
         releasedCaptureTracks,
         permissionScenarios: ["granted", "denied"],
+        conversationSmoke: {
+          firstConversationId,
+          secondConversationId,
+          exportedMessages: memorySnapshotSmoke.exportedMessages,
+          exportedConversations: memorySnapshotSmoke.exportedConversations,
+          restoredAfterCoreRestart: true
+        },
         pcmFixtureFrames: fixtureResult.frameCount,
         pcmFixtureTranscript: `deterministic fixture frames=${fixtureResult.frameCount}`,
         providerFaultRecoveries: 1,
