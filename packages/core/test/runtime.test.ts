@@ -8,11 +8,13 @@ import {
   type VoicePermissionState,
   type VoiceSnapshot,
   type ModelInventoryItem,
+  type ModelCandidate,
   type ModelManifest,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  ModelCandidateRegistry,
   ModelLifecycleManager,
   ModelRegistry
 } from "@jarvis-k/capabilities";
@@ -442,6 +444,41 @@ class FakeModelRegistry implements ModelRegistry {
   }
 }
 
+class FakeModelCandidateRegistry implements ModelCandidateRegistry {
+  public readonly candidate: ModelCandidate = {
+    id: "openai/whisper-large-v3-turbo",
+    capability: "speech_to_text",
+    source: "huggingface",
+    officialUrl: "https://huggingface.co/openai/whisper-large-v3-turbo",
+    license: "MIT",
+    licenseRisk: "yellow",
+    distributionRisk: "yellow",
+    runtime: "ctranslate2",
+    recommendedMode: "local_enhanced",
+    downloadEnabled: false,
+    audit: {
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      evidenceUrls: [
+        "https://huggingface.co/openai/whisper-large-v3-turbo"
+      ],
+      pinStatus: "pending_pin",
+      notes: ["Fake candidate."]
+    }
+  };
+
+  public async listCandidates(): Promise<ModelCandidate[]> {
+    return [{ ...this.candidate, audit: { ...this.candidate.audit } }];
+  }
+
+  public async getCandidate(
+    modelId: string
+  ): Promise<ModelCandidate | undefined> {
+    return modelId === this.candidate.id
+      ? { ...this.candidate, audit: { ...this.candidate.audit } }
+      : undefined;
+  }
+}
+
 class FakeModelLifecycleManager implements ModelLifecycleManager {
   public readonly inventory: ModelInventoryItem[] = [
     {
@@ -482,7 +519,8 @@ function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
   modelRegistry?: ModelRegistry,
-  modelLifecycleManager?: ModelLifecycleManager
+  modelLifecycleManager?: ModelLifecycleManager,
+  modelCandidateRegistry?: ModelCandidateRegistry
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -493,7 +531,8 @@ function createRuntime(
     memoryRepository,
     capabilityProvider,
     modelRegistry,
-    modelLifecycleManager
+    modelLifecycleManager,
+    modelCandidateRegistry
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -682,7 +721,8 @@ describe("CoreRuntime", () => {
       undefined,
       undefined,
       new FakeModelRegistry(),
-      new FakeModelLifecycleManager()
+      new FakeModelLifecycleManager(),
+      new FakeModelCandidateRegistry()
     );
 
     const manifests = await runtime.handle(
@@ -694,6 +734,12 @@ describe("CoreRuntime", () => {
     const inventory = await runtime.handle(
       createCommandEnvelope({
         type: "agent.listModelInventory",
+        payload: {}
+      })
+    );
+    const candidates = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listModelCandidates",
         payload: {}
       })
     );
@@ -715,6 +761,15 @@ describe("CoreRuntime", () => {
           manifest: {
             id: "vendor/local-stt-small"
           }
+        }
+      ]
+    });
+    expect(candidates.ok).toBe(true);
+    expect(candidates.ok ? candidates.data : undefined).toMatchObject({
+      candidates: [
+        {
+          id: "openai/whisper-large-v3-turbo",
+          downloadEnabled: false
         }
       ]
     });

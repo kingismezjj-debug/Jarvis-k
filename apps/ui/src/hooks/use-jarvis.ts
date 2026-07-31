@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
   ModelInventoryItemSchema,
+  ModelCandidateSchema,
   ModelManifestSchema,
   MemorySnapshotSchema,
   type AppCommand,
   type CoreSnapshot,
   type EventEnvelope,
   type ModelInventoryItem,
+  type ModelCandidate,
   type ModelManifest,
 } from "@jarvis-k/contracts"
 
@@ -21,6 +23,7 @@ export function useJarvis() {
   const [connection, setConnection] = useState<CoreConnection>("connecting")
   const [error, setError] = useState<string | null>(null)
   const [modelInventory, setModelInventory] = useState<ModelInventoryItem[]>([])
+  const [modelCandidates, setModelCandidates] = useState<ModelCandidate[]>([])
   const [modelManifests, setModelManifests] = useState<ModelManifest[]>([])
   const [sending, setSending] = useState(false)
 
@@ -186,8 +189,25 @@ export function useJarvis() {
         return false
       }
 
+      const candidatesResult = await window.jarvis.sendCommand({
+        type: "agent.listModelCandidates",
+        payload: {},
+      })
+      if (!candidatesResult.ok) {
+        setError(candidatesResult.error.message)
+        return false
+      }
+      const candidates = ModelCandidateSchema.array().safeParse(
+        (candidatesResult.data as { candidates?: unknown } | undefined)?.candidates
+      )
+      if (!candidates.success) {
+        setError("Core returned invalid model candidates.")
+        return false
+      }
+
       setModelManifests(manifests.data)
       setModelInventory(inventory.data)
+      setModelCandidates(candidates.data)
       setError(null)
       return true
     } finally {
@@ -277,6 +297,7 @@ export function useJarvis() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    modelCandidates,
     modelInventory,
     modelManifests,
     openVoiceSettings,

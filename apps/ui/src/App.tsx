@@ -120,6 +120,7 @@ export default function App() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    modelCandidates,
     modelInventory,
     modelManifests,
     openVoiceSettings,
@@ -162,6 +163,9 @@ export default function App() {
     snapshot?.capabilities?.device.accelerationBackends.join(", ") ?? "cpu"
   const loadedModelCount = modelInventory.filter(
     (item) => item.status === "loaded"
+  ).length
+  const downloadableCandidateCount = modelCandidates.filter(
+    (item) => item.downloadEnabled
   ).length
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -600,8 +604,10 @@ export default function App() {
                 </Tooltip>
               </div>
               <dl className="divide-y divide-border border-y text-[11px]">
+                <Metric label="CANDIDATES" value={String(modelCandidates.length)} />
                 <Metric label="MANIFESTS" value={String(modelManifests.length)} />
                 <Metric label="LOCAL MODELS" value={String(modelInventory.length)} />
+                <Metric label="DOWNLOADABLE" value={String(downloadableCandidateCount)} />
                 <Metric label="LOADED" value={String(loadedModelCount)} tone="accent" />
               </dl>
             </div>

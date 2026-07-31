@@ -1,6 +1,7 @@
 import type {
   CapabilitySnapshot,
   LocalModelCapability,
+  ModelCandidate,
   ModelInventoryItem,
   ModelManifest
 } from "@jarvis-k/contracts";
@@ -14,7 +15,19 @@ export interface ModelRegistry {
   getManifest(modelId: string): Promise<ModelManifest | undefined>;
 }
 
+export interface ModelCandidateRegistry {
+  listCandidates(
+    options?: ModelCandidateRegistryListOptions
+  ): Promise<ModelCandidate[]>;
+  getCandidate(modelId: string): Promise<ModelCandidate | undefined>;
+}
+
 export interface ModelRegistryListOptions {
+  capability?: LocalModelCapability;
+  includeRedRisk?: boolean;
+}
+
+export interface ModelCandidateRegistryListOptions {
   capability?: LocalModelCapability;
   includeRedRisk?: boolean;
 }

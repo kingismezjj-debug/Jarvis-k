@@ -142,6 +142,15 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .strict()
   }),
   z.object({
+    type: z.literal("agent.listModelCandidates"),
+    payload: z
+      .object({
+        capability: z.lazy(() => LocalModelCapabilitySchema).optional(),
+        includeRedRisk: z.boolean().optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.listModelInventory"),
     payload: EmptyPayloadSchema
   }),
@@ -494,6 +503,35 @@ export const ModelManifestSchema = z
   .strict();
 
 export type ModelManifest = z.infer<typeof ModelManifestSchema>;
+
+export const ModelAuditRecordSchema = z
+  .object({
+    checkedAt: z.string().datetime(),
+    evidenceUrls: z.array(z.string().url()).min(1),
+    pinStatus: z.enum(["candidate", "pending_pin", "pinned", "rejected"]),
+    notes: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type ModelAuditRecord = z.infer<typeof ModelAuditRecordSchema>;
+
+export const ModelCandidateSchema = z
+  .object({
+    id: z.string().min(1).max(300),
+    capability: LocalModelCapabilitySchema,
+    source: z.enum(["huggingface", "jarvis", "system", "third_party"]),
+    officialUrl: z.string().url(),
+    license: z.string().min(1).max(128),
+    licenseRisk: z.enum(["green", "yellow", "red", "unknown"]),
+    distributionRisk: z.enum(["green", "yellow", "red", "unknown"]),
+    runtime: ModelRuntimeSchema,
+    recommendedMode: DeviceRuntimeModeSchema.optional(),
+    downloadEnabled: z.literal(false),
+    audit: ModelAuditRecordSchema
+  })
+  .strict();
+
+export type ModelCandidate = z.infer<typeof ModelCandidateSchema>;
 
 export const ModelInventoryItemSchema = z
   .object({

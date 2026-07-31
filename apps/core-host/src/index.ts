@@ -2,7 +2,11 @@ import {
   CoreInboundMessageSchema,
   type CoreOutboundMessage
 } from "@jarvis-k/contracts";
-import { StaticModelRegistry } from "@jarvis-k/capabilities";
+import {
+  recommendedModelCandidates,
+  StaticModelRegistry,
+  StaticModelCandidateRegistry
+} from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import path from "node:path";
@@ -132,6 +136,9 @@ const memoryRepository = new SqliteMemoryRepository(
 );
 const capabilityProvider = new NodeDeviceCapabilityProvider();
 const modelRegistry = new StaticModelRegistry([]);
+const modelCandidateRegistry = new StaticModelCandidateRegistry(
+  recommendedModelCandidates
+);
 const modelLifecycleManager = new FileSystemModelLifecycleManager({
   rootDirectory: resolveModelDirectoryPath(),
   fetchArtifact: async () => {
@@ -167,7 +174,8 @@ runtime = new CoreRuntime(
   memoryRepository,
   capabilityProvider,
   modelRegistry,
-  modelLifecycleManager
+  modelLifecycleManager,
+  modelCandidateRegistry
 );
 
 let inboundQueue = Promise.resolve();

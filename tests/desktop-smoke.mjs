@@ -135,12 +135,28 @@ try {
     if (!inventoryResult.ok) {
       throw new Error(inventoryResult.error.message);
     }
+    const candidatesResult = await window.jarvis.sendCommand({
+      type: "agent.listModelCandidates",
+      payload: {}
+    });
+    if (!candidatesResult.ok) {
+      throw new Error(candidatesResult.error.message);
+    }
     const manifests = manifestsResult.data?.manifests;
     const inventory = inventoryResult.data?.inventory;
-    if (!Array.isArray(manifests) || !Array.isArray(inventory)) {
+    const candidates = candidatesResult.data?.candidates;
+    if (
+      !Array.isArray(manifests) ||
+      !Array.isArray(inventory) ||
+      !Array.isArray(candidates)
+    ) {
       throw new Error("Model governance commands returned invalid data.");
     }
     return {
+      candidateCount: candidates.length,
+      downloadableCandidateCount: candidates.filter(
+        (candidate) => candidate.downloadEnabled
+      ).length,
       manifestCount: manifests.length,
       inventoryCount: inventory.length
     };

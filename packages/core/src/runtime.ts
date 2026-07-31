@@ -11,6 +11,7 @@ import {
   Message,
   MemoryHealth,
   MemoryHealthSchema,
+  ModelCandidateSchema,
   ModelInventoryItemSchema,
   ModelManifestSchema,
   MemorySnapshot,
@@ -22,6 +23,7 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  ModelCandidateRegistry,
   ModelLifecycleManager,
   ModelRegistry
 } from "@jarvis-k/capabilities";
@@ -52,7 +54,8 @@ export class CoreRuntime {
     private readonly memoryRepository?: MemoryRepository,
     private readonly capabilityProvider?: CapabilityProvider,
     private readonly modelRegistry?: ModelRegistry,
-    private readonly modelLifecycleManager?: ModelLifecycleManager
+    private readonly modelLifecycleManager?: ModelLifecycleManager,
+    private readonly modelCandidateRegistry?: ModelCandidateRegistry
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -200,6 +203,37 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_REGISTRY_FAILED",
             message: "Unable to list model manifests.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listModelCandidates": {
+        if (!this.modelCandidateRegistry) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const candidates =
+            await this.modelCandidateRegistry.listCandidates({
+              ...(envelope.command.payload.capability
+                ? { capability: envelope.command.payload.capability }
+                : {}),
+              ...(envelope.command.payload.includeRedRisk === undefined
+                ? {}
+                : {
+                    includeRedRisk:
+                      envelope.command.payload.includeRedRisk
+                  })
+            });
+          return this.success(envelope, {
+            candidates: candidates.map((candidate) =>
+              ModelCandidateSchema.parse(candidate)
+            )
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_CANDIDATES_FAILED",
+            message: "Unable to list model candidates.",
             retryable: true
           });
         }

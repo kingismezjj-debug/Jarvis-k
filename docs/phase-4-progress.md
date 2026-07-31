@@ -77,6 +77,32 @@
 
 ## 2026-07-31
 
+### Wave 4.5: Model Candidate Seed And License Audit
+
+- Status: complete.
+- Added provider-neutral model candidate DTOs separate from installable model
+  manifests.
+- Added a static model candidate registry seeded with conservative candidates
+  for local STT, OCR, embedding, and rules-first intent routing.
+- Marked every seeded candidate as `downloadEnabled: false` with
+  `pending_pin` audit status so none can be treated as installable artifacts.
+- Added model candidate query support through Core and the existing renderer
+  bridge.
+- Added a model candidate audit document with evidence links and blockers
+  before any future download can be enabled.
+- Kept real model downloads, Python runtimes, CUDA/ONNX dependencies, and
+  Hugging Face/CDN access out of this wave.
+
+### Current Gate
+
+- Targeted capabilities/contracts/core/UI tests: PASS, 4 test files and 39 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 23 test files and 128 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+
+## 2026-07-31
+
 ### Wave 4.4: Model Governance Query Surface
 
 - Status: complete.

@@ -188,9 +188,18 @@ describe("protocol contracts", () => {
       type: "agent.listModelInventory",
       payload: {}
     });
+    const candidates = createCommandEnvelope({
+      type: "agent.listModelCandidates",
+      payload: {
+        capability: "ocr"
+      }
+    });
 
     expect(CommandEnvelopeSchema.parse(manifests).command.type).toBe(
       "agent.listModelManifests"
+    );
+    expect(CommandEnvelopeSchema.parse(candidates).command.type).toBe(
+      "agent.listModelCandidates"
     );
     expect(CommandEnvelopeSchema.parse(inventory).command.type).toBe(
       "agent.listModelInventory"

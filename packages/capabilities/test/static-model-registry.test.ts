@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { StaticModelRegistry } from "../src";
+import {
+  recommendedModelCandidates,
+  StaticModelCandidateRegistry,
+  StaticModelRegistry
+} from "../src";
 import type { ModelManifest } from "@jarvis-k/contracts";
 
 const manifests: ModelManifest[] = [
@@ -63,5 +67,34 @@ describe("StaticModelRegistry", () => {
     expect(
       (await registry.getManifest("vendor/local-stt-small"))?.licenseRisk
     ).toBe("green");
+  });
+});
+
+describe("recommended model candidates", () => {
+  it("keeps audited candidates disabled for download until pinned", async () => {
+    const registry = new StaticModelCandidateRegistry(
+      recommendedModelCandidates
+    );
+    const candidates = await registry.listCandidates();
+
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates.every((candidate) => !candidate.downloadEnabled)).toBe(
+      true
+    );
+    expect(
+      candidates.every((candidate) => candidate.audit.pinStatus === "pending_pin")
+    ).toBe(true);
+  });
+
+  it("filters candidates by capability", async () => {
+    const registry = new StaticModelCandidateRegistry(
+      recommendedModelCandidates
+    );
+
+    expect(
+      (await registry.listCandidates({ capability: "speech_to_text" })).map(
+        (candidate) => candidate.id
+      )
+    ).toContain("openai/whisper-large-v3-turbo");
   });
 });

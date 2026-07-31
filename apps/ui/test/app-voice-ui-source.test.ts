@@ -52,6 +52,8 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('data-testid="model-governance"');
     expect(appSource).toContain('data-testid="refresh-model-governance"');
     expect(appSource).toContain("Model Governance");
+    expect(appSource).toContain("CANDIDATES");
+    expect(appSource).toContain("DOWNLOADABLE");
     expect(appSource).toContain("refreshModelGovernance");
   });
 });
