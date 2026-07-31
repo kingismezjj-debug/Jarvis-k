@@ -3,6 +3,7 @@ import {
   type CoreOutboundMessage
 } from "@jarvis-k/contracts";
 import {
+  fixtureModelManifests,
   recommendedModelCandidates,
   StaticModelRegistry,
   StaticModelCandidateRegistry,
@@ -138,7 +139,7 @@ const memoryRepository = new SqliteMemoryRepository(
   memoryDatabasePath ? { filePath: memoryDatabasePath } : {}
 );
 const capabilityProvider = new NodeDeviceCapabilityProvider();
-const modelRegistry = new StaticModelRegistry([]);
+const modelRegistry = new StaticModelRegistry(fixtureModelManifests);
 const modelCandidateRegistry = new StaticModelCandidateRegistry(
   recommendedModelCandidates
 );

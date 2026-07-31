@@ -1,5 +1,6 @@
 export * from "./in-memory-model-operation-supervisor";
 export * from "./in-memory-resource-scheduler";
+export * from "./fixture-model-manifests";
 export * from "./manifest-installation-policy";
 export * from "./policy";
 export * from "./policy-model-install-workflow-orchestrator";

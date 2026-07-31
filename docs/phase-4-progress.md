@@ -305,3 +305,25 @@
   12 tests.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 27 test files and 150 tests.
+
+### Wave 4.13: Fixture Installable Manifest Seed
+
+- Status: complete.
+- Added Jarvis-owned fixture model manifests for local STT and embedding smoke
+  paths.
+- The fixtures are pinned, SHA-256 guarded, green license-risk, and use the
+  `system` runtime so they can exercise governance and installability surfaces
+  without implying a real model runtime dependency.
+- Composed the fixture manifests in `apps/core-host` through the existing
+  `StaticModelRegistry`.
+- Kept all real Hugging Face candidates disabled and did not add network
+  downloads, model artifacts, Python, CUDA, ONNX, or model execution paths.
+
+### Current Gate
+
+- Targeted capabilities fixture/policy/workflow tests: PASS, 3 test files and
+  15 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 27 test files and 152 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
