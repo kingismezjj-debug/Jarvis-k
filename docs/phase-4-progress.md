@@ -722,3 +722,27 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 35 test files and 190 tests.
+
+### Wave 4.31: Sensitive Artifact Guard
+
+- Status: complete.
+- Added `scripts/check-sensitive-artifacts.mjs` to scan tracked Git paths for
+  local `.env` files, committed model directories, and common model artifact
+  extensions without reading or printing file contents.
+- Added `npm run check:sensitive-artifacts` and wired it into `npm run verify`
+  and `npm run ci`.
+- Added Vitest coverage using isolated temporary Git repositories for clean
+  paths, tracked `.env.local`, and tracked `models/fixture/model.onnx`.
+- Updated `.gitignore`, developer onboarding, and security guidance so model
+  artifacts and local environment files are blocked by default and verified
+  before commit.
+- Kept the guard path-based only; it does not inspect credential values,
+  download models, invoke providers, or add runtime dependencies.
+
+### Current Gate
+
+- Targeted sensitive artifact script test: PASS, 1 test file and 3 tests.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 36 test files and 193 tests.

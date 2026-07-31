@@ -3,6 +3,17 @@ dist/
 coverage/
 artifacts/*.png
 artifacts/*.json
+models/
+*.bin
+*.ckpt
+*.ggml
+*.gguf
+*.onnx
+*.pb
+*.pt
+*.pth
+*.safetensors
+*.tflite
 *.log
 .env
 .env.*

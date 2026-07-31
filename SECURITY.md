@@ -26,10 +26,12 @@ its generated artifacts as credential-free.
 ```powershell
 rg -n --hidden --glob '!node_modules/**' --glob '!dist/**' `
   "appid=|signa=|apiKey|APIKey|secret|credential" .
+npm run check:sensitive-artifacts
 ```
 
 Review matches manually. Field names and test placeholders are expected; real
-values and signed URLs are not.
+values and signed URLs are not. The sensitive artifact guard checks tracked Git
+paths only; it does not print file contents.
 
 ## Real Provider Tests
 
@@ -42,4 +44,3 @@ npm run acceptance:xunfei
 
 The script records redacted status and metrics only. It must not print
 credentials or signed URLs.
-
