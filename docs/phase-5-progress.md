@@ -93,3 +93,34 @@ URLs, or external network access.
 - Fixture-enabled UI smoke: PASS. The Model Governance panel refreshed
   `embedding.fixture`, ran the fixture embedding action, and displayed
   `VECTOR DIMS` = 4, `VECTORS` = 1, and `INFERENCE` = `completed`.
+
+## Wave 5.4: Intent Router Fixture Execution
+
+- Status: complete.
+- Added a deterministic `intent_router` fixture provider to
+  `@jarvis-k/inference-adapter-fixture` with an explicit descriptor and
+  configuration report.
+- Added the pinned fixture manifest
+  `jarvis-fixture/local-intent-router-smoke`.
+- Added `agent.routeIntent` to the contracts and Core command surface.
+- Refactored Core inference execution into one provider-neutral supervised
+  operation helper shared by embedding and intent routing.
+- Intent routing uses the same `prechecking`, `executing`, `completed`,
+  `blocked`, and sanitized `failed` operation behavior as embedding.
+- Added a development observation button and read-only route metrics to the
+  existing UI Model Governance panel. The action remains disabled unless
+  `intent-router.fixture` reports `available`.
+- Kept all fixture behavior deterministic and offline. No model downloads,
+  credentials, provider URLs, native runtimes, or real inference dependencies
+  were added.
+
+### Current Gate
+
+- Targeted fixture/contracts/Core/UI tests: PASS, 5 test files and 63 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 38 test files and 205 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+- Fixture-enabled UI smoke: PASS. Both fixture actions completed; the UI
+  displayed `VECTOR DIMS` = 4, `VECTORS` = 1,
+  `INTENT` = `memory.search`, and `ROUTE` = `completed`.

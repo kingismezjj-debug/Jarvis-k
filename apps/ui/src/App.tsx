@@ -133,6 +133,7 @@ export default function App() {
     events,
     exportMemorySnapshot,
     fixtureEmbeddingProbe,
+    fixtureIntentProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -149,6 +150,7 @@ export default function App() {
     renameConversation,
     resourceDiagnostics,
     runFixtureEmbeddingProbe,
+    runFixtureIntentProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -195,6 +197,10 @@ export default function App() {
   )
   const fixtureEmbeddingAvailable =
     fixtureEmbeddingProvider?.status === "available"
+  const intentRouterProvider = inferenceProviders.find(
+    (item) => item.provider === "intent-router.fixture"
+  )
+  const intentRouterAvailable = intentRouterProvider?.status === "available"
   const requiredProviderConfigurationCount = inferenceProviderRequirements
     .flatMap((report) => report.requirements)
     .filter((requirement) => requirement.required && !requirement.configured)
@@ -634,6 +640,23 @@ export default function App() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
+                        aria-label="Run fixture intent routing"
+                        className="size-8 rounded-md"
+                        data-testid="run-fixture-intent"
+                        disabled={!intentRouterAvailable || sending}
+                        onClick={() => void runFixtureIntentProbe()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <MessageSquare className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Run fixture intent routing</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                         aria-label="Run fixture embedding"
                         className="size-8 rounded-md"
                         data-testid="run-fixture-embedding"
@@ -682,6 +705,11 @@ export default function App() {
                   tone={fixtureEmbeddingAvailable ? "success" : "warning"}
                 />
                 <Metric
+                  label="INTENT ROUTER"
+                  value={intentRouterProvider?.status ?? "unconfigured"}
+                  tone={intentRouterAvailable ? "success" : "warning"}
+                />
+                <Metric
                   label="REQUIRED"
                   value={String(requiredProviderConfigurationCount)}
                   tone="warning"
@@ -720,6 +748,19 @@ export default function App() {
                   value={fixtureEmbeddingProbe?.operationPhase ?? "idle"}
                   tone={
                     fixtureEmbeddingProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined
+                  }
+                />
+                <Metric
+                  label="INTENT"
+                  value={fixtureIntentProbe?.intent ?? "idle"}
+                />
+                <Metric
+                  label="ROUTE"
+                  value={fixtureIntentProbe?.operationPhase ?? "idle"}
+                  tone={
+                    fixtureIntentProbe?.operationPhase === "completed"
                       ? "success"
                       : undefined
                   }

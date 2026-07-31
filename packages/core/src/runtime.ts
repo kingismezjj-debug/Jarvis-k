@@ -13,6 +13,8 @@ import {
   InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
   InferencePreflightReportSchema,
+  IntentRoutingRequestSchema,
+  IntentRoutingResultSchema,
   Message,
   MemoryHealth,
   MemoryHealthSchema,
@@ -37,6 +39,7 @@ import type {
   EmbeddingInferenceProvider,
   InferenceExecutionPlanner,
   InferenceProviderRegistry,
+  IntentRoutingProvider,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
   ModelInstallationPlanner,
@@ -84,7 +87,8 @@ export class CoreRuntime {
     private readonly modelRuntimeRegistry?: ModelRuntimeRegistry,
     private readonly inferenceProviderRegistry?: InferenceProviderRegistry,
     private readonly inferenceExecutionPlanner?: InferenceExecutionPlanner,
-    private readonly embeddingInferenceProvider?: EmbeddingInferenceProvider
+    private readonly embeddingInferenceProvider?: EmbeddingInferenceProvider,
+    private readonly intentRoutingProvider?: IntentRoutingProvider
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -408,117 +412,40 @@ export class CoreRuntime {
       }
 
       case "agent.generateEmbeddings": {
-        if (
-          !this.modelRegistry ||
-          !this.inferenceExecutionPlanner ||
-          !this.embeddingInferenceProvider
-        ) {
+        if (!this.embeddingInferenceProvider) {
           return this.modelsUnavailable(envelope);
         }
-        let operation: ModelOperationSnapshot | undefined;
-        try {
-          const request = EmbeddingGenerationRequestSchema.parse(
-            envelope.command.payload
-          );
-          operation = await this.startModelOperation(
-            {
-              modelId: request.modelId,
-              capability: "embedding",
-              phase: "prechecking"
-            },
-            envelope.correlationId
-          );
-          const manifest = await this.modelRegistry.getManifest(
-            request.modelId
-          );
-          if (!manifest) {
-            operation = await this.updateModelOperation(
-              operation,
-              {
-                phase: "blocked",
-                reasons: ["Model manifest was not found."]
-              },
-              envelope.correlationId
-            );
-            return this.failure(envelope, {
-              code: "MODEL_MANIFEST_NOT_FOUND",
-              message: "Model manifest was not found.",
-              retryable: false,
-              ...(operation
-                ? { details: { operationId: operation.operationId } }
-                : {})
-            });
-          }
-          const report = await this.inferenceExecutionPlanner.preview({
-            capability: "embedding",
-            manifest: ModelManifestSchema.parse(manifest)
-          });
-          if (!report.allowed) {
-            operation = await this.updateModelOperation(
-              operation,
-              {
-                phase: "blocked",
-                reasons: report.reasons
-              },
-              envelope.correlationId
-            );
-            return this.failure(envelope, {
-              code: "INFERENCE_PREFLIGHT_BLOCKED",
-              message: "Inference preflight blocked embedding execution.",
-              retryable: false,
-              details: {
-                capability: report.capability,
-                modelId: report.modelId,
-                reasons: report.reasons,
-                ...(operation
-                  ? { operationId: operation.operationId }
-                  : {})
-              }
-            });
-          }
-          operation = await this.updateModelOperation(
-            operation,
-            {
-              phase: "executing",
-              reasons: ["Embedding inference preflight passed."]
-            },
-            envelope.correlationId
-          );
-          const result = await this.embeddingInferenceProvider.embed(
-            request
-          );
-          operation = await this.updateModelOperation(
-            operation,
-            {
-              phase: "completed",
-              reasons: ["Embedding inference completed."]
-            },
-            envelope.correlationId
-          );
-          return this.success(envelope, {
-            result: EmbeddingGenerationResultSchema.parse(result),
-            ...(operation ? { operation } : {})
-          });
-        } catch {
-          await this.updateModelOperation(
-            operation,
-            {
-              phase: "failed",
-              reasons: ["Embedding inference failed."],
-              error: {
-                code: "EMBEDDING_GENERATION_FAILED",
-                message: "Unable to generate embeddings.",
-                retryable: true
-              }
-            },
-            envelope.correlationId
-          );
-          return this.failure(envelope, {
-            code: "EMBEDDING_GENERATION_FAILED",
-            message: "Unable to generate embeddings.",
-            retryable: true
-          });
+        const request = EmbeddingGenerationRequestSchema.parse(
+          envelope.command.payload
+        );
+        return this.executeInferenceOperation(envelope, {
+          capability: "embedding",
+          modelId: request.modelId,
+          execute: () => this.embeddingInferenceProvider!.embed(request),
+          parseResult: (result) =>
+            EmbeddingGenerationResultSchema.parse(result),
+          completedReason: "Embedding inference completed.",
+          failureCode: "EMBEDDING_GENERATION_FAILED",
+          failureMessage: "Unable to generate embeddings."
+        });
+      }
+
+      case "agent.routeIntent": {
+        if (!this.intentRoutingProvider) {
+          return this.modelsUnavailable(envelope);
         }
+        const request = IntentRoutingRequestSchema.parse(
+          envelope.command.payload
+        );
+        return this.executeInferenceOperation(envelope, {
+          capability: "intent_router",
+          modelId: request.modelId,
+          execute: () => this.intentRoutingProvider!.route(request),
+          parseResult: (result) => IntentRoutingResultSchema.parse(result),
+          completedReason: "Intent routing inference completed.",
+          failureCode: "INTENT_ROUTING_FAILED",
+          failureMessage: "Unable to route intent."
+        });
       }
 
       case "agent.listModelOperations": {
@@ -913,6 +840,121 @@ export class CoreRuntime {
       correlationId
     );
     this.publishSnapshot(correlationId);
+  }
+
+  private async executeInferenceOperation<T>(
+    envelope: CommandEnvelope,
+    input: {
+      capability: ModelOperationSnapshot["capability"];
+      modelId: string;
+      execute: () => Promise<T>;
+      parseResult: (result: unknown) => T;
+      completedReason: string;
+      failureCode: string;
+      failureMessage: string;
+    }
+  ): Promise<CommandResult> {
+    if (!this.modelRegistry || !this.inferenceExecutionPlanner) {
+      return this.modelsUnavailable(envelope);
+    }
+
+    let operation: ModelOperationSnapshot | undefined;
+    try {
+      operation = await this.startModelOperation(
+        {
+          modelId: input.modelId,
+          capability: input.capability,
+          phase: "prechecking"
+        },
+        envelope.correlationId
+      );
+      const manifest = await this.modelRegistry.getManifest(input.modelId);
+      if (!manifest) {
+        operation = await this.updateModelOperation(
+          operation,
+          {
+            phase: "blocked",
+            reasons: ["Model manifest was not found."]
+          },
+          envelope.correlationId
+        );
+        return this.failure(envelope, {
+          code: "MODEL_MANIFEST_NOT_FOUND",
+          message: "Model manifest was not found.",
+          retryable: false,
+          ...(operation
+            ? { details: { operationId: operation.operationId } }
+            : {})
+        });
+      }
+
+      const report = await this.inferenceExecutionPlanner.preview({
+        capability: input.capability,
+        manifest: ModelManifestSchema.parse(manifest)
+      });
+      if (!report.allowed) {
+        operation = await this.updateModelOperation(
+          operation,
+          {
+            phase: "blocked",
+            reasons: report.reasons
+          },
+          envelope.correlationId
+        );
+        return this.failure(envelope, {
+          code: "INFERENCE_PREFLIGHT_BLOCKED",
+          message: "Inference preflight blocked execution.",
+          retryable: false,
+          details: {
+            capability: report.capability,
+            modelId: report.modelId,
+            reasons: report.reasons,
+            ...(operation ? { operationId: operation.operationId } : {})
+          }
+        });
+      }
+
+      operation = await this.updateModelOperation(
+        operation,
+        {
+          phase: "executing",
+          reasons: [`${input.capability} inference preflight passed.`]
+        },
+        envelope.correlationId
+      );
+      const result = input.parseResult(await input.execute());
+      operation = await this.updateModelOperation(
+        operation,
+        {
+          phase: "completed",
+          reasons: [input.completedReason]
+        },
+        envelope.correlationId
+      );
+      return this.success(envelope, {
+        result,
+        ...(operation ? { operation } : {})
+      });
+    } catch {
+      await this.updateModelOperation(
+        operation,
+        {
+          phase: "failed",
+          reasons: [input.failureMessage],
+          error: {
+            code: input.failureCode,
+            message: input.failureMessage,
+            retryable: true
+          }
+        },
+        envelope.correlationId
+      );
+      return this.failure(envelope, {
+        code: input.failureCode,
+        message: input.failureMessage,
+        retryable: true
+      });
+    }
   }
 
   private async startModelOperation(

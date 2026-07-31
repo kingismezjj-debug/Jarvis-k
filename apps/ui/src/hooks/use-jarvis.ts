@@ -4,6 +4,7 @@ import {
   EmbeddingGenerationResultSchema,
   InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
+  IntentRoutingResultSchema,
   ModelInstallabilityReportSchema,
   ModelInventoryItemSchema,
   ModelCandidateSchema,
@@ -17,6 +18,7 @@ import {
   type EventEnvelope,
   type InferenceProviderConfigurationReport,
   type InferenceProviderDescriptor,
+  type IntentRoutingResult,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
   type ModelCandidate,
@@ -29,12 +31,20 @@ type CoreConnection = "connecting" | "online" | "restarting" | "offline"
 
 const MAX_EVENTS = 40
 const FIXTURE_EMBEDDING_MODEL_ID = "jarvis-fixture/local-embedding-smoke"
+const FIXTURE_INTENT_ROUTER_MODEL_ID =
+  "jarvis-fixture/local-intent-router-smoke"
 
 export type FixtureEmbeddingProbe = {
   dimensions: number
   generatedAt: string
   operationPhase?: ModelOperationSnapshot["phase"]
   vectorCount: number
+}
+
+export type FixtureIntentProbe = {
+  candidateCount: number
+  intent?: string
+  operationPhase?: ModelOperationSnapshot["phase"]
 }
 
 export function useJarvis() {
@@ -56,6 +66,8 @@ export function useJarvis() {
     useState<InferenceProviderConfigurationReport[]>([])
   const [fixtureEmbeddingProbe, setFixtureEmbeddingProbe] =
     useState<FixtureEmbeddingProbe | null>(null)
+  const [fixtureIntentProbe, setFixtureIntentProbe] =
+    useState<FixtureIntentProbe | null>(null)
   const [resourceDiagnostics, setResourceDiagnostics] =
     useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
@@ -71,15 +83,7 @@ export function useJarvis() {
 
     if (envelope.event.type === "model.operation.updated") {
       const operation = envelope.event.payload
-      setModelOperations((current) => {
-        const existingIndex = current.findIndex(
-          (item) => item.operationId === operation.operationId
-        )
-        if (existingIndex < 0) return [operation, ...current]
-        return current.map((item, index) =>
-          index === existingIndex ? operation : item
-        )
-      })
+      setModelOperations((current) => upsertModelOperation(current, operation))
     }
 
     if (envelope.event.type === "system.core.lifecycle") {
@@ -398,20 +402,65 @@ export function useJarvis() {
         (result.data as { operation?: unknown } | undefined)?.operation
       )
       if (operation.success) {
-        setModelOperations((current) => {
-          const existingIndex = current.findIndex(
-            (item) => item.operationId === operation.data.operationId
-          )
-          if (existingIndex < 0) return [operation.data, ...current]
-          return current.map((item, index) =>
-            index === existingIndex ? operation.data : item
-          )
-        })
+        setModelOperations((current) =>
+          upsertModelOperation(current, operation.data)
+        )
       }
       setFixtureEmbeddingProbe(toFixtureEmbeddingProbe(
         embeddingResult.data,
         operation.success ? operation.data : undefined
       ))
+      setError(null)
+      return true
+    } finally {
+      setSending(false)
+    }
+  }, [])
+
+  const runFixtureIntentProbe = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return false
+    }
+
+    setSending(true)
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.routeIntent",
+        payload: {
+          modelId: FIXTURE_INTENT_ROUTER_MODEL_ID,
+          utterance: "search memory",
+          context: {
+            locale: "en",
+            allowedIntents: ["memory.search"],
+          },
+        },
+      })
+      if (!result.ok) {
+        setError(result.error.message)
+        return false
+      }
+      const intentResult = IntentRoutingResultSchema.safeParse(
+        (result.data as { result?: unknown } | undefined)?.result
+      )
+      if (!intentResult.success) {
+        setError("Core returned an invalid intent routing result.")
+        return false
+      }
+      const operation = ModelOperationSnapshotSchema.safeParse(
+        (result.data as { operation?: unknown } | undefined)?.operation
+      )
+      if (operation.success) {
+        setModelOperations((current) =>
+          upsertModelOperation(current, operation.data)
+        )
+      }
+      setFixtureIntentProbe(
+        toFixtureIntentProbe(
+          intentResult.data,
+          operation.success ? operation.data : undefined
+        )
+      )
       setError(null)
       return true
     } finally {
@@ -501,6 +550,7 @@ export function useJarvis() {
     events,
     exportMemorySnapshot,
     fixtureEmbeddingProbe,
+    fixtureIntentProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -518,6 +568,7 @@ export function useJarvis() {
     renameConversation,
     resourceDiagnostics,
     runFixtureEmbeddingProbe,
+    runFixtureIntentProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -536,4 +587,29 @@ function toFixtureEmbeddingProbe(
     ...(operation ? { operationPhase: operation.phase } : {}),
     vectorCount: result.vectors.length,
   }
+}
+
+function toFixtureIntentProbe(
+  result: IntentRoutingResult,
+  operation: ModelOperationSnapshot | undefined
+): FixtureIntentProbe {
+  const firstCandidate = result.candidates[0]
+  return {
+    candidateCount: result.candidates.length,
+    ...(firstCandidate ? { intent: firstCandidate.intent } : {}),
+    ...(operation ? { operationPhase: operation.phase } : {}),
+  }
+}
+
+function upsertModelOperation(
+  current: ModelOperationSnapshot[],
+  operation: ModelOperationSnapshot
+): ModelOperationSnapshot[] {
+  const existingIndex = current.findIndex(
+    (item) => item.operationId === operation.operationId
+  )
+  if (existingIndex < 0) return [operation, ...current]
+  return current.map((item, index) =>
+    index === existingIndex ? operation : item
+  )
 }

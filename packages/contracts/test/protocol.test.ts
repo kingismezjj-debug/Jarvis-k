@@ -234,6 +234,17 @@ describe("protocol contracts", () => {
         dimensions: 8
       }
     });
+    const intentRouting = createCommandEnvelope({
+      type: "agent.routeIntent",
+      payload: {
+        modelId: "jarvis-fixture/local-intent-router-smoke",
+        utterance: "search memory",
+        context: {
+          locale: "en",
+          allowedIntents: ["memory.search"]
+        }
+      }
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -296,6 +307,9 @@ describe("protocol contracts", () => {
     expect(
       CommandEnvelopeSchema.parse(embeddingGeneration).command.type
     ).toBe("agent.generateEmbeddings");
+    expect(CommandEnvelopeSchema.parse(intentRouting).command.type).toBe(
+      "agent.routeIntent"
+    );
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
     );

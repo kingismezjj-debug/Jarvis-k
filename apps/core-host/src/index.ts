@@ -19,7 +19,10 @@ import { CoreRuntime } from "@jarvis-k/core";
 import {
   createFixtureEmbeddingProviderConfigurationReport,
   createFixtureEmbeddingProviderDescriptor,
-  FixtureEmbeddingProvider
+  createFixtureIntentRouterConfigurationReport,
+  createFixtureIntentRouterDescriptor,
+  FixtureEmbeddingProvider,
+  FixtureIntentRoutingProvider
 } from "@jarvis-k/inference-adapter-fixture";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import path from "node:path";
@@ -183,6 +186,16 @@ const fixtureEmbeddingProviderConfigurationReport =
 const embeddingInferenceProvider = fixtureInferenceEnabled
   ? new FixtureEmbeddingProvider()
   : undefined;
+const intentRoutingProvider = fixtureInferenceEnabled
+  ? new FixtureIntentRoutingProvider()
+  : undefined;
+const fixtureIntentRouterDescriptor = createFixtureIntentRouterDescriptor({
+  enabled: fixtureInferenceEnabled
+});
+const fixtureIntentRouterConfigurationReport =
+  createFixtureIntentRouterConfigurationReport({
+    enabled: fixtureInferenceEnabled
+  });
 const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
   fixtureEmbeddingProviderDescriptor,
   {
@@ -193,14 +206,7 @@ const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
     modelIds: [],
     reasons: ["No OCR provider has been composed."]
   },
-  {
-    capability: "intent_router",
-    provider: "intent-router.unconfigured",
-    status: "unconfigured",
-    execution: "disabled",
-    modelIds: [],
-    reasons: ["No intent routing provider has been composed."]
-  },
+  fixtureIntentRouterDescriptor,
   {
     capability: "reranker",
     provider: "reranker.unconfigured",
@@ -235,32 +241,7 @@ const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
     ],
     reasons: ["OCR inference remains disabled until a provider is composed."]
   },
-  {
-    capability: "intent_router",
-    provider: "intent-router.unconfigured",
-    status: "unconfigured",
-    requirements: [
-      {
-        key: "routing_policy",
-        source: "manual",
-        required: true,
-        configured: false,
-        description: "Intent routing policy must be composed.",
-        reasons: ["No intent routing provider has been composed."]
-      },
-      {
-        key: "model_binding",
-        source: "manual",
-        required: false,
-        configured: false,
-        description: "Optional model-assisted routing binding is absent.",
-        reasons: ["No intent routing model binding has been configured."]
-      }
-    ],
-    reasons: [
-      "Intent routing inference remains disabled until a router is composed."
-    ]
-  },
+  fixtureIntentRouterConfigurationReport,
   {
     capability: "reranker",
     provider: "reranker.unconfigured",
@@ -330,7 +311,8 @@ runtime = new CoreRuntime(
   modelRuntimeRegistry,
   inferenceProviderRegistry,
   inferenceExecutionPlanner,
-  embeddingInferenceProvider
+  embeddingInferenceProvider,
+  intentRoutingProvider
 );
 
 let inboundQueue = Promise.resolve();

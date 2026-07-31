@@ -6,6 +6,13 @@ import {
   FIXTURE_EMBEDDING_PROVIDER_ID,
   FixtureEmbeddingProvider
 } from "../src";
+import {
+  createFixtureIntentRouterConfigurationReport,
+  createFixtureIntentRouterDescriptor,
+  FIXTURE_INTENT_ROUTER_MODEL_ID,
+  FIXTURE_INTENT_ROUTER_PROVIDER_ID,
+  FixtureIntentRoutingProvider
+} from "../src";
 
 describe("FixtureEmbeddingProvider", () => {
   it("reports unavailable until the explicit fixture flag is enabled", () => {
@@ -98,5 +105,47 @@ describe("FixtureEmbeddingProvider", () => {
         inputs: [{ text: "not bound" }]
       })
     ).rejects.toThrow("Fixture embedding provider is not bound to this model.");
+  });
+
+  it("routes deterministic intent fixtures with explicit availability reports", async () => {
+    expect(
+      createFixtureIntentRouterDescriptor({ enabled: true })
+    ).toMatchObject({
+      capability: "intent_router",
+      provider: FIXTURE_INTENT_ROUTER_PROVIDER_ID,
+      status: "available",
+      modelIds: [FIXTURE_INTENT_ROUTER_MODEL_ID]
+    });
+    expect(
+      createFixtureIntentRouterConfigurationReport({ enabled: false })
+    ).toMatchObject({
+      capability: "intent_router",
+      status: "unconfigured",
+      requirements: [
+        {
+          key: "JARVIS_K_ENABLE_FIXTURE_INFERENCE",
+          configured: false
+        }
+      ]
+    });
+
+    const provider = new FixtureIntentRoutingProvider({
+      now: () => new Date("2026-07-31T00:00:00.000Z")
+    });
+    await expect(
+      provider.route({
+        modelId: FIXTURE_INTENT_ROUTER_MODEL_ID,
+        utterance: "search memory"
+      })
+    ).resolves.toMatchObject({
+      modelId: FIXTURE_INTENT_ROUTER_MODEL_ID,
+      candidates: [
+        {
+          intent: "memory.search",
+          confidence: 0.98
+        }
+      ],
+      routedAt: "2026-07-31T00:00:00.000Z"
+    });
   });
 });

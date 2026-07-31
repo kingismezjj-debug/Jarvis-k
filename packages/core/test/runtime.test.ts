@@ -25,6 +25,7 @@ import type {
   InferenceExecutionPlanner,
   InferenceExecutionPreviewInput,
   InferenceProviderRegistry,
+  IntentRoutingProvider,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
   ModelInstallWorkflowPrepareInput,
@@ -785,6 +786,27 @@ class FakeEmbeddingInferenceProvider implements EmbeddingInferenceProvider {
   }
 }
 
+class FakeIntentRoutingProvider implements IntentRoutingProvider {
+  public calls = 0;
+
+  public async route() {
+    this.calls += 1;
+    return {
+      modelId: "jarvis-fixture/local-intent-router-smoke",
+      utterance: "search memory",
+      candidates: [
+        {
+          intent: "memory.search",
+          confidence: 0.98,
+          slots: {},
+          reasons: ["Fake intent fixture."]
+        }
+      ],
+      routedAt: "2026-07-31T00:00:00.000Z"
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -798,7 +820,8 @@ function createRuntime(
   modelRuntimeRegistry?: ModelRuntimeRegistry,
   inferenceProviderRegistry?: InferenceProviderRegistry,
   inferenceExecutionPlanner?: InferenceExecutionPlanner,
-  embeddingInferenceProvider?: EmbeddingInferenceProvider
+  embeddingInferenceProvider?: EmbeddingInferenceProvider,
+  intentRoutingProvider?: IntentRoutingProvider
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -818,7 +841,8 @@ function createRuntime(
     modelRuntimeRegistry,
     inferenceProviderRegistry,
     inferenceExecutionPlanner,
-    embeddingInferenceProvider
+    embeddingInferenceProvider,
+    intentRoutingProvider
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -837,6 +861,28 @@ function embeddingModelRegistry(): ModelRegistry {
     sha256:
       "2222222222222222222222222222222222222222222222222222222222222222",
     minMemoryBytes: 512 * 1024 * 1024,
+    licenseRisk: "green"
+  };
+  return {
+    listManifests: async () => [{ ...manifest }],
+    getManifest: async (modelId) =>
+      modelId === manifest.id ? { ...manifest } : undefined
+  };
+}
+
+function intentModelRegistry(): ModelRegistry {
+  const manifest: ModelManifest = {
+    id: "jarvis-fixture/local-intent-router-smoke",
+    capability: "intent_router",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-intent-router",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 1536,
+    sha256:
+      "3333333333333333333333333333333333333333333333333333333333333333",
+    minMemoryBytes: 256 * 1024 * 1024,
     licenseRisk: "green"
   };
   return {
@@ -1452,6 +1498,63 @@ describe("CoreRuntime", () => {
     ]);
     expect(runtime.getSnapshot().modelOperations[0]?.phase).toBe("blocked");
     expect(embeddingProvider.calls).toBe(0);
+  });
+
+  it("routes intents through the same supervised inference execution path", async () => {
+    const planner = new AllowingInferenceExecutionPlanner(true);
+    const intentProvider = new FakeIntentRoutingProvider();
+    const supervisor = new InMemoryModelOperationSupervisor(
+      () => new Date("2026-07-31T00:00:00.000Z")
+    );
+    const { events, runtime } = createRuntime(
+      undefined,
+      undefined,
+      intentModelRegistry(),
+      undefined,
+      undefined,
+      undefined,
+      supervisor,
+      undefined,
+      undefined,
+      undefined,
+      new FakeInferenceProviderRegistry(),
+      planner,
+      undefined,
+      intentProvider
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.routeIntent",
+        payload: {
+          modelId: "jarvis-fixture/local-intent-router-smoke",
+          utterance: "search memory"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      result: {
+        modelId: "jarvis-fixture/local-intent-router-smoke",
+        candidates: [
+          {
+            intent: "memory.search",
+            confidence: 0.98
+          }
+        ]
+      },
+      operation: {
+        phase: "completed"
+      }
+    });
+    expect(modelOperationPhases(events)).toEqual([
+      "prechecking",
+      "executing",
+      "completed"
+    ]);
+    expect(planner.previewed?.capability).toBe("intent_router");
+    expect(intentProvider.calls).toBe(1);
   });
 
   it("lists model operations through the injected supervisor", async () => {

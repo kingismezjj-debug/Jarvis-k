@@ -189,6 +189,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: z.lazy(() => EmbeddingGenerationRequestSchema)
   }),
   z.object({
+    type: z.literal("agent.routeIntent"),
+    payload: z.lazy(() => IntentRoutingRequestSchema)
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({

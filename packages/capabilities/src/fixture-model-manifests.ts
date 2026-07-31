@@ -28,5 +28,19 @@ export const fixtureModelManifests: ModelManifest[] = [
       "2222222222222222222222222222222222222222222222222222222222222222",
     minMemoryBytes: 512 * 1024 * 1024,
     licenseRisk: "green"
+  },
+  {
+    id: "jarvis-fixture/local-intent-router-smoke",
+    capability: "intent_router",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-intent-router",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 1536,
+    sha256:
+      "3333333333333333333333333333333333333333333333333333333333333333",
+    minMemoryBytes: 256 * 1024 * 1024,
+    licenseRisk: "green"
   }
 ];
