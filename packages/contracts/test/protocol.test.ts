@@ -215,6 +215,13 @@ describe("protocol contracts", () => {
         allowYellowRisk: true
       }
     });
+    const prepareInstall = createCommandEnvelope({
+      type: "agent.prepareModelInstall",
+      payload: {
+        modelId: "vendor/local-stt-small",
+        exclusiveGpu: false
+      }
+    });
     const report = ModelInstallabilityReportSchema.parse({
       modelId: "vendor/local-stt-small",
       allowed: false,
@@ -239,6 +246,9 @@ describe("protocol contracts", () => {
     );
     expect(CommandEnvelopeSchema.parse(preview).command.type).toBe(
       "agent.previewModelInstallability"
+    );
+    expect(CommandEnvelopeSchema.parse(prepareInstall).command.type).toBe(
+      "agent.prepareModelInstall"
     );
     expect(report.allowed).toBe(false);
   });

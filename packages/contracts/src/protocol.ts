@@ -169,6 +169,17 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
+    type: z.literal("agent.prepareModelInstall"),
+    payload: z
+      .object({
+        modelId: z.string().min(1).max(300),
+        allowYellowRisk: z.boolean().optional(),
+        allowUnknownRisk: z.boolean().optional(),
+        exclusiveGpu: z.boolean().optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.previewModelInstallability"),
     payload: z
       .object({

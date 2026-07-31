@@ -8,6 +8,7 @@ import {
   StaticModelRegistry,
   StaticModelCandidateRegistry,
   PolicyModelInstallationPlanner,
+  PolicyModelInstallWorkflowOrchestrator,
   InMemoryModelOperationSupervisor,
   InMemoryResourceScheduler
 } from "@jarvis-k/capabilities";
@@ -148,6 +149,12 @@ const modelOperationSupervisor = new InMemoryModelOperationSupervisor();
 const resourceScheduler = new InMemoryResourceScheduler({
   inspectDevice: async () => (await capabilityProvider.inspect()).device
 });
+const modelInstallWorkflowOrchestrator =
+  new PolicyModelInstallWorkflowOrchestrator({
+    installationPlanner: modelInstallationPlanner,
+    operationSupervisor: modelOperationSupervisor,
+    resourceScheduler
+  });
 const modelLifecycleManager = new FileSystemModelLifecycleManager({
   rootDirectory: resolveModelDirectoryPath(),
   fetchArtifact: async () => {
@@ -187,7 +194,8 @@ runtime = new CoreRuntime(
   modelCandidateRegistry,
   modelInstallationPlanner,
   modelOperationSupervisor,
-  resourceScheduler
+  resourceScheduler,
+  modelInstallWorkflowOrchestrator
 );
 
 let inboundQueue = Promise.resolve();

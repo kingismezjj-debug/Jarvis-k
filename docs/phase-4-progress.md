@@ -327,3 +327,29 @@
 - `npm run verify`: PASS, 27 test files and 152 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+### Wave 4.14: End-To-End Governance Dry-Run Smoke
+
+- Status: complete.
+- Added `agent.prepareModelInstall` as a provider-neutral dry-run command for
+  preparing model installs without enabling artifact fetch or model execution.
+- Core resolves manifests and device capabilities through injected ports, then
+  delegates install preparation to the injected
+  `ModelInstallWorkflowOrchestrator`.
+- Composed the policy-backed workflow orchestrator in `apps/core-host` using
+  the existing installability planner, operation supervisor, and resource
+  scheduler.
+- Extended desktop smoke coverage across manifest listing, installability
+  preview, dry-run workflow preparation, operation query, and resource
+  diagnostics.
+- Kept the command deliberately scoped to preparation; no download command,
+  artifact fetch, model loading, Python, CUDA, ONNX, or Hugging Face access was
+  added.
+
+### Current Gate
+
+- Targeted contracts/core/workflow tests: PASS, 3 test files and 36 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 27 test files and 153 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

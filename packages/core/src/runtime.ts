@@ -29,6 +29,7 @@ import {
 import type {
   CapabilityProvider,
   ModelCandidateRegistry,
+  ModelInstallWorkflowOrchestrator,
   ModelInstallationPlanner,
   ModelLifecycleManager,
   ModelOperationSupervisor,
@@ -68,7 +69,8 @@ export class CoreRuntime {
     private readonly modelCandidateRegistry?: ModelCandidateRegistry,
     private readonly modelInstallationPlanner?: ModelInstallationPlanner,
     private readonly modelOperationSupervisor?: ModelOperationSupervisor,
-    private readonly resourceScheduler?: ResourceScheduler
+    private readonly resourceScheduler?: ResourceScheduler,
+    private readonly modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -383,6 +385,62 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_INSTALLABILITY_FAILED",
             message: "Unable to preview model installability.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.prepareModelInstall": {
+        if (!this.modelRegistry || !this.modelInstallWorkflowOrchestrator) {
+          return this.modelsUnavailable(envelope);
+        }
+        if (!this.capabilityProvider) {
+          return this.capabilitiesUnavailable(envelope);
+        }
+        try {
+          const manifest = await this.modelRegistry.getManifest(
+            envelope.command.payload.modelId
+          );
+          if (!manifest) {
+            return this.failure(envelope, {
+              code: "MODEL_MANIFEST_NOT_FOUND",
+              message: "Model manifest was not found.",
+              retryable: false
+            });
+          }
+          this.capabilities = CapabilitySnapshotSchema.parse(
+            await this.capabilityProvider.inspect()
+          );
+          const operation =
+            await this.modelInstallWorkflowOrchestrator.prepare({
+              manifest: ModelManifestSchema.parse(manifest),
+              device: this.capabilities.device,
+              ...(envelope.command.payload.allowYellowRisk === undefined
+                ? {}
+                : {
+                    allowYellowRisk:
+                      envelope.command.payload.allowYellowRisk
+                  }),
+              ...(envelope.command.payload.allowUnknownRisk === undefined
+                ? {}
+                : {
+                    allowUnknownRisk:
+                      envelope.command.payload.allowUnknownRisk
+                  }),
+              ...(envelope.command.payload.exclusiveGpu === undefined
+                ? {}
+                : { exclusiveGpu: envelope.command.payload.exclusiveGpu })
+            });
+          const parsed = ModelOperationSnapshotSchema.parse(operation);
+          this.handleModelOperationUpdated(parsed, envelope.correlationId);
+          return this.success(envelope, {
+            operation: parsed,
+            snapshot: this.getSnapshot()
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_INSTALL_PREPARE_FAILED",
+            message: "Unable to prepare model install workflow.",
             retryable: true
           });
         }

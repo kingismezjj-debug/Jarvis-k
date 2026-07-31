@@ -135,6 +135,58 @@ try {
     if (!inventoryResult.ok) {
       throw new Error(inventoryResult.error.message);
     }
+    const candidatesResult = await window.jarvis.sendCommand({
+      type: "agent.listModelCandidates",
+      payload: {}
+    });
+    if (!candidatesResult.ok) {
+      throw new Error(candidatesResult.error.message);
+    }
+    const manifests = manifestsResult.data?.manifests;
+    const inventory = inventoryResult.data?.inventory;
+    const candidates = candidatesResult.data?.candidates;
+    if (
+      !Array.isArray(manifests) ||
+      !Array.isArray(inventory) ||
+      !Array.isArray(candidates)
+    ) {
+      throw new Error("Model governance commands returned invalid data.");
+    }
+    const firstManifest = manifests[0];
+    if (!firstManifest?.id) {
+      throw new Error("Model governance smoke expected a fixture manifest.");
+    }
+
+    const previewResult = await window.jarvis.sendCommand({
+      type: "agent.previewModelInstallability",
+      payload: {
+        modelId: firstManifest.id
+      }
+    });
+    if (!previewResult.ok) {
+      throw new Error(previewResult.error.message);
+    }
+    if (previewResult.data?.report?.allowed !== true) {
+      throw new Error("Fixture manifest was not installable in preview.");
+    }
+
+    const prepareResult = await window.jarvis.sendCommand({
+      type: "agent.prepareModelInstall",
+      payload: {
+        modelId: firstManifest.id
+      }
+    });
+    if (!prepareResult.ok) {
+      throw new Error(prepareResult.error.message);
+    }
+    const preparedOperation = prepareResult.data?.operation;
+    if (
+      preparedOperation?.modelId !== firstManifest.id ||
+      preparedOperation?.phase !== "queued"
+    ) {
+      throw new Error("Model install dry-run did not queue an operation.");
+    }
+
     const operationsResult = await window.jarvis.sendCommand({
       type: "agent.listModelOperations",
       payload: {}
@@ -149,27 +201,14 @@ try {
     if (!resourceResult.ok) {
       throw new Error(resourceResult.error.message);
     }
-    const candidatesResult = await window.jarvis.sendCommand({
-      type: "agent.listModelCandidates",
-      payload: {}
-    });
-    if (!candidatesResult.ok) {
-      throw new Error(candidatesResult.error.message);
-    }
-    const manifests = manifestsResult.data?.manifests;
-    const inventory = inventoryResult.data?.inventory;
     const operations = operationsResult.data?.operations;
     const resourceDiagnostics = resourceResult.data?.resourceDiagnostics;
-    const candidates = candidatesResult.data?.candidates;
     if (
-      !Array.isArray(manifests) ||
-      !Array.isArray(inventory) ||
       !Array.isArray(operations) ||
-      !Array.isArray(candidates) ||
       !resourceDiagnostics ||
       typeof resourceDiagnostics !== "object"
     ) {
-      throw new Error("Model governance commands returned invalid data.");
+      throw new Error("Model operation or resource diagnostics are invalid.");
     }
     return {
       candidateCount: candidates.length,
@@ -179,6 +218,7 @@ try {
       manifestCount: manifests.length,
       inventoryCount: inventory.length,
       operationCount: operations.length,
+      preparedOperationPhase: preparedOperation.phase,
       activeResourceLeaseCount: resourceDiagnostics.activeLeaseCount
     };
   });

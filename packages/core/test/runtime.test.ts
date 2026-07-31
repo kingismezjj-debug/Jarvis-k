@@ -18,6 +18,8 @@ import {
 import type {
   CapabilityProvider,
   ModelCandidateRegistry,
+  ModelInstallWorkflowOrchestrator,
+  ModelInstallWorkflowPrepareInput,
   ModelInstallationPlanner,
   ModelInstallationPreviewInput,
   ModelLifecycleManager,
@@ -608,6 +610,27 @@ class FakeResourceScheduler implements ResourceScheduler {
   }
 }
 
+class FakeModelInstallWorkflowOrchestrator
+  implements ModelInstallWorkflowOrchestrator
+{
+  public prepared: ModelInstallWorkflowPrepareInput | undefined;
+
+  public async prepare(
+    input: ModelInstallWorkflowPrepareInput
+  ): Promise<ModelOperationSnapshot> {
+    this.prepared = input;
+    return {
+      operationId: "model-op-prepare-test",
+      modelId: input.manifest.id,
+      capability: input.manifest.capability,
+      phase: "queued",
+      createdAt: "2026-07-31T00:00:00.000Z",
+      updatedAt: "2026-07-31T00:00:00.000Z",
+      reasons: ["Install workflow prepared; artifact fetch is not enabled."]
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -616,7 +639,8 @@ function createRuntime(
   modelCandidateRegistry?: ModelCandidateRegistry,
   modelInstallationPlanner?: ModelInstallationPlanner,
   modelOperationSupervisor?: ModelOperationSupervisor,
-  resourceScheduler?: ResourceScheduler
+  resourceScheduler?: ResourceScheduler,
+  modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -631,7 +655,8 @@ function createRuntime(
     modelCandidateRegistry,
     modelInstallationPlanner,
     modelOperationSupervisor,
-    resourceScheduler
+    resourceScheduler,
+    modelInstallWorkflowOrchestrator
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -905,6 +930,55 @@ describe("CoreRuntime", () => {
       }
     });
     expect(planner.previewed?.manifest.id).toBe(registry.manifest.id);
+  });
+
+  it("prepares model install workflows through an injected port", async () => {
+    const registry = new FakeModelRegistry();
+    const orchestrator = new FakeModelInstallWorkflowOrchestrator();
+    const { events, runtime } = createRuntime(
+      undefined,
+      new FakeCapabilityProvider(),
+      registry,
+      new FakeModelLifecycleManager(),
+      new FakeModelCandidateRegistry(),
+      new FakeModelInstallationPlanner(),
+      new FakeModelOperationSupervisor(),
+      new FakeResourceScheduler(),
+      orchestrator
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.prepareModelInstall",
+        payload: {
+          modelId: registry.manifest.id,
+          exclusiveGpu: false
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      operation: {
+        modelId: registry.manifest.id,
+        phase: "queued",
+        reasons: [
+          "Install workflow prepared; artifact fetch is not enabled."
+        ]
+      },
+      snapshot: {
+        modelOperations: [
+          {
+            operationId: "model-op-prepare-test",
+            phase: "queued"
+          }
+        ]
+      }
+    });
+    expect(orchestrator.prepared?.manifest.id).toBe(registry.manifest.id);
+    expect(orchestrator.prepared?.exclusiveGpu).toBe(false);
+    expect(events.some((event) => event.event.type === "model.operation.updated"))
+      .toBe(true);
   });
 
   it("lists model operations through the injected supervisor", async () => {
