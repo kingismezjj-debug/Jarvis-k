@@ -15,15 +15,16 @@ Core Host child process
     |
     | composition root for providers and persistence
     v
-Agent Core + Voice Engine
-    |                  |                 |
-    | injected port    | injected port   | injected port
-    v                  v                 v
-Xunfei RTASR adapter   Memory repository Device capability provider
-                       |                 |
-                       v                 v
-                       SQLite memory     Node/Windows capability probe
-                       adapter
+Agent Core + Voice Engine + Capability governance
+    |                  |                 |                    |
+    | injected port    | injected port   | injected port      | injected ports
+    v                  v                 v                    v
+Xunfei RTASR adapter   Memory repository Device capability provider Model governance
+                       |                 |                    |
+                       v                 v                    v
+                       SQLite memory     Node/Windows         Manifests, policy,
+                       adapter           capability probe     operations,
+                                                              resource leases
 ```
 
 ## Decisions
@@ -67,6 +68,16 @@ Xunfei RTASR adapter   Memory repository Device capability provider
 18. Local model governance starts with model manifests, runtime mode
    recommendations, and provider plans. Real model runtimes, downloads, and
    GPU schedulers must remain behind provider and lifecycle ports.
+19. Installable model manifests are separate from model candidates. Candidates
+   can document audit targets while remaining disabled; manifests must be
+   pinned, SHA-256 guarded, and policy checked before any lifecycle operation.
+20. Model install preparation is currently a dry-run workflow. It can create
+   supervised operation state and acquire/release resource leases, but it does
+   not fetch artifacts, load models, or execute model runtimes.
+21. `apps/core-host` composes the concrete file-system lifecycle skeleton,
+   static manifest registries, installability planner, operation supervisor,
+   and resource scheduler. Core depends only on the corresponding
+   `@jarvis-k/capabilities` ports.
 
 ## Restart policy
 
