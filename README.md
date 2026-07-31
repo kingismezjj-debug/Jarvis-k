@@ -1,12 +1,12 @@
 # Jarvis-K
 
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
-current baseline is **Phase 4 Local Capability And Model Governance
-Foundation**: the supervised runtime, React HUD, provider-neutral Voice Engine,
-browser microphone capture, Xunfei RTASR adapter, encrypted local voice
-settings, SQLite memory persistence, device capability inspection, model
-governance ports, installability policy, resource diagnostics, and dry-run
-model install preparation are in place.
+current baseline is **Phase 5 Fixture-Backed Inference Slice**: the supervised
+runtime, React HUD, provider-neutral Voice Engine, browser microphone capture,
+Xunfei RTASR adapter, encrypted local voice settings, SQLite memory
+persistence, device capability inspection, model governance ports,
+installability policy, resource diagnostics, dry-run model install
+preparation, and a deterministic fixture embedding provider are in place.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -20,6 +20,7 @@ They are not runtime dependencies.
 - Phase 4 local capability and model governance foundation: complete through
   inference preflight and provider configuration requirement reporting
 - Phase 4.5 inference readiness and safety gates: complete
+- Phase 5 fixture-backed embedding provider slice: started
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -86,6 +87,8 @@ the local settings window first. It must not be enabled in default CI.
 - `packages/capabilities`: provider-neutral device capability, model
   governance, installability, operation supervision, and resource scheduling
   ports.
+- `packages/inference-adapter-fixture`: deterministic test-only embedding
+  provider with no downloads, native runtime, or network access.
 - `packages/memory`: provider-neutral memory ports and schemas.
 - `packages/memory-sqlite`: SQLite-backed message, conversation, summary,
   health, export, and import persistence.
@@ -111,6 +114,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 4 completion](docs/phase-4-completion.md)
 - [Phase 4 progress](docs/phase-4-progress.md)
 - [Phase 4.5 inference readiness](docs/phase-4.5-inference-readiness.md)
+- [Phase 5 progress](docs/phase-5-progress.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

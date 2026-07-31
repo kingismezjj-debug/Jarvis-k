@@ -90,6 +90,9 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
    material, or runtime-specific implementation details.
 25. Phase 5 real-provider work must satisfy the Phase 4.5 readiness gates
    before adding downloads, model loading, or user-facing inference execution.
+26. The fixture inference adapter is a test-only provider package. It can be
+   composed by `apps/core-host` under `JARVIS_K_ENABLE_FIXTURE_INFERENCE=1`,
+   but Core still sees only provider-neutral inference ports.
 
 ## Restart policy
 

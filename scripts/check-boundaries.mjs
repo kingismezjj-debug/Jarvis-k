@@ -63,6 +63,22 @@ const packages = [
     ]
   },
   {
+    name: "inference-adapter-fixture",
+    root: path.join(root, "packages", "inference-adapter-fixture"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
     name: "memory",
     root: path.join(root, "packages", "memory"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
@@ -134,6 +150,7 @@ const packages = [
       "@jarvis-k/capabilities",
       "@jarvis-k/contracts",
       "@jarvis-k/core",
+      "@jarvis-k/inference-adapter-fixture",
       "@jarvis-k/memory-sqlite",
       "@jarvis-k/voice",
       "@jarvis-k/voice-adapter-xunfei"

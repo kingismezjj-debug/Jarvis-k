@@ -21,6 +21,7 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  EmbeddingInferenceProvider,
   InferenceExecutionPlanner,
   InferenceExecutionPreviewInput,
   InferenceProviderRegistry,
@@ -732,6 +733,57 @@ class FakeInferenceExecutionPlanner implements InferenceExecutionPlanner {
   }
 }
 
+class AllowingInferenceExecutionPlanner implements InferenceExecutionPlanner {
+  public previewed: InferenceExecutionPreviewInput | undefined;
+
+  public constructor(private readonly allowed: boolean) {}
+
+  public async preview(
+    input: InferenceExecutionPreviewInput
+  ): Promise<InferencePreflightReport> {
+    this.previewed = input;
+    return {
+      capability: input.capability,
+      modelId: input.manifest.id,
+      allowed: this.allowed,
+      providers: [
+        {
+          capability: input.capability,
+          provider: "embedding.fixture",
+          status: this.allowed ? "available" : "unconfigured",
+          execution: this.allowed ? "local" : "disabled",
+          modelIds: this.allowed ? [input.manifest.id] : [],
+          reasons: this.allowed
+            ? []
+            : ["Fixture provider is disabled for this test."]
+        }
+      ],
+      reasons: this.allowed
+        ? []
+        : ["Fake inference preflight blocked execution."]
+    };
+  }
+}
+
+class FakeEmbeddingInferenceProvider implements EmbeddingInferenceProvider {
+  public calls = 0;
+
+  public async embed() {
+    this.calls += 1;
+    return {
+      modelId: "jarvis-fixture/local-embedding-smoke",
+      dimensions: 3,
+      vectors: [
+        {
+          inputId: "input-1",
+          values: [0.1, 0.2, 0.3]
+        }
+      ],
+      generatedAt: "2026-07-31T00:00:00.000Z"
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -744,7 +796,8 @@ function createRuntime(
   modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
   modelRuntimeRegistry?: ModelRuntimeRegistry,
   inferenceProviderRegistry?: InferenceProviderRegistry,
-  inferenceExecutionPlanner?: InferenceExecutionPlanner
+  inferenceExecutionPlanner?: InferenceExecutionPlanner,
+  embeddingInferenceProvider?: EmbeddingInferenceProvider
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -763,10 +816,33 @@ function createRuntime(
     modelInstallWorkflowOrchestrator,
     modelRuntimeRegistry,
     inferenceProviderRegistry,
-    inferenceExecutionPlanner
+    inferenceExecutionPlanner,
+    embeddingInferenceProvider
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
+}
+
+function embeddingModelRegistry(): ModelRegistry {
+  const manifest: ModelManifest = {
+    id: "jarvis-fixture/local-embedding-smoke",
+    capability: "embedding",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-embedding",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 2048,
+    sha256:
+      "2222222222222222222222222222222222222222222222222222222222222222",
+    minMemoryBytes: 512 * 1024 * 1024,
+    licenseRisk: "green"
+  };
+  return {
+    listManifests: async () => [{ ...manifest }],
+    getManifest: async (modelId) =>
+      modelId === manifest.id ? { ...manifest } : undefined
+  };
 }
 
 describe("CoreRuntime", () => {
@@ -1242,6 +1318,96 @@ describe("CoreRuntime", () => {
       }
     });
     expect(planner.previewed?.manifest.id).toBe(modelRegistry.manifest.id);
+  });
+
+  it("generates embeddings through an injected provider after preflight passes", async () => {
+    const modelRegistry = embeddingModelRegistry();
+    const planner = new AllowingInferenceExecutionPlanner(true);
+    const embeddingProvider = new FakeEmbeddingInferenceProvider();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      modelRegistry,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new FakeInferenceProviderRegistry(),
+      planner,
+      embeddingProvider
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.generateEmbeddings",
+        payload: {
+          modelId: "jarvis-fixture/local-embedding-smoke",
+          inputs: [{ id: "input-1", text: "phase five fixture" }],
+          dimensions: 3
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      result: {
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        dimensions: 3,
+        vectors: [
+          {
+            inputId: "input-1",
+            values: [0.1, 0.2, 0.3]
+          }
+        ]
+      }
+    });
+    expect(planner.previewed?.capability).toBe("embedding");
+    expect(embeddingProvider.calls).toBe(1);
+  });
+
+  it("blocks embedding generation before calling a provider when preflight fails", async () => {
+    const planner = new AllowingInferenceExecutionPlanner(false);
+    const embeddingProvider = new FakeEmbeddingInferenceProvider();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      embeddingModelRegistry(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new FakeInferenceProviderRegistry(),
+      planner,
+      embeddingProvider
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.generateEmbeddings",
+        payload: {
+          modelId: "jarvis-fixture/local-embedding-smoke",
+          inputs: [{ id: "input-1", text: "phase five fixture" }]
+        }
+      })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error).toMatchObject({
+      code: "INFERENCE_PREFLIGHT_BLOCKED",
+      retryable: false,
+      details: {
+        capability: "embedding",
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        reasons: ["Fake inference preflight blocked execution."]
+      }
+    });
+    expect(embeddingProvider.calls).toBe(0);
   });
 
   it("lists model operations through the injected supervisor", async () => {

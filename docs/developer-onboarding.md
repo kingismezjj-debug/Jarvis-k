@@ -58,6 +58,17 @@ npm run acceptance:xunfei
 This requires local encrypted credentials saved through the settings window.
 It should be run manually, not in default CI.
 
+## 7. Optional Fixture Inference
+
+```powershell
+$env:JARVIS_K_ENABLE_FIXTURE_INFERENCE='1'
+npm run start
+```
+
+This enables only deterministic fixture embedding execution for development
+and tests. It does not download models, load native runtimes, call provider
+URLs, or require credentials.
+
 ## Commit Checklist
 
 - `npm run verify`

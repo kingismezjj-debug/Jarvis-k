@@ -16,6 +16,7 @@ const workspaceRoots = [
   path.join("packages", "contracts"),
   path.join("packages", "voice"),
   path.join("packages", "capabilities"),
+  path.join("packages", "inference-adapter-fixture"),
   path.join("packages", "memory"),
   path.join("packages", "memory-sqlite"),
   path.join("packages", "voice-capture-browser"),
@@ -86,6 +87,19 @@ describe("check-boundaries script", () => {
     await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
       stderr: expect.stringContaining(
         "imports forbidden workspace package @jarvis-k/memory-sqlite"
+      )
+    });
+  });
+
+  it("fails when Core imports a concrete inference adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "core"),
+      "import { FixtureEmbeddingProvider } from \"@jarvis-k/inference-adapter-fixture\";\nvoid FixtureEmbeddingProvider;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/inference-adapter-fixture"
       )
     });
   });

@@ -16,6 +16,11 @@ import {
   UnavailableModelRuntimeRegistry
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
+import {
+  createFixtureEmbeddingProviderConfigurationReport,
+  createFixtureEmbeddingProviderDescriptor,
+  FixtureEmbeddingProvider
+} from "@jarvis-k/inference-adapter-fixture";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import path from "node:path";
 import {
@@ -165,15 +170,21 @@ const modelLifecycleManager = new FileSystemModelLifecycleManager({
   }
 });
 const modelRuntimeRegistry = new UnavailableModelRuntimeRegistry();
+const fixtureInferenceEnabled =
+  process.env.JARVIS_K_ENABLE_FIXTURE_INFERENCE === "1";
+const fixtureEmbeddingProviderDescriptor =
+  createFixtureEmbeddingProviderDescriptor({
+    enabled: fixtureInferenceEnabled
+  });
+const fixtureEmbeddingProviderConfigurationReport =
+  createFixtureEmbeddingProviderConfigurationReport({
+    enabled: fixtureInferenceEnabled
+  });
+const embeddingInferenceProvider = fixtureInferenceEnabled
+  ? new FixtureEmbeddingProvider()
+  : undefined;
 const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
-  {
-    capability: "embedding",
-    provider: "embedding.unconfigured",
-    status: "unconfigured",
-    execution: "disabled",
-    modelIds: [],
-    reasons: ["No embedding provider has been composed."]
-  },
+  fixtureEmbeddingProviderDescriptor,
   {
     capability: "ocr",
     provider: "ocr.unconfigured",
@@ -199,30 +210,7 @@ const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
     reasons: ["No reranking provider has been composed."]
   }
 ], [
-  {
-    capability: "embedding",
-    provider: "embedding.unconfigured",
-    status: "unconfigured",
-    requirements: [
-      {
-        key: "runtime_adapter",
-        source: "runtime",
-        required: true,
-        configured: false,
-        description: "Embedding provider adapter must be composed.",
-        reasons: ["No embedding provider has been composed."]
-      },
-      {
-        key: "model_binding",
-        source: "manual",
-        required: true,
-        configured: false,
-        description: "Embedding provider must be bound to approved manifests.",
-        reasons: ["No embedding model binding has been configured."]
-      }
-    ],
-    reasons: ["Embedding inference remains disabled until a provider is composed."]
-  },
+  fixtureEmbeddingProviderConfigurationReport,
   {
     capability: "ocr",
     provider: "ocr.unconfigured",
@@ -341,7 +329,8 @@ runtime = new CoreRuntime(
   modelInstallWorkflowOrchestrator,
   modelRuntimeRegistry,
   inferenceProviderRegistry,
-  inferenceExecutionPlanner
+  inferenceExecutionPlanner,
+  embeddingInferenceProvider
 );
 
 let inboundQueue = Promise.resolve();

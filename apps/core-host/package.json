@@ -11,6 +11,7 @@
     "@jarvis-k/capabilities": "*",
     "@jarvis-k/contracts": "*",
     "@jarvis-k/core": "*",
+    "@jarvis-k/inference-adapter-fixture": "*",
     "@jarvis-k/memory-sqlite": "*",
     "@jarvis-k/voice": "*",
     "@jarvis-k/voice-adapter-xunfei": "*",

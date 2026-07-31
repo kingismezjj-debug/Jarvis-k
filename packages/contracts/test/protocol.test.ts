@@ -226,6 +226,14 @@ describe("protocol contracts", () => {
         modelId: "jarvis-fixture/local-embedding-smoke"
       }
     });
+    const embeddingGeneration = createCommandEnvelope({
+      type: "agent.generateEmbeddings",
+      payload: {
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        inputs: [{ id: "input-1", text: "phase five fixture" }],
+        dimensions: 8
+      }
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -285,6 +293,9 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(inferencePreflight).command.type).toBe(
       "agent.previewInferenceExecution"
     );
+    expect(
+      CommandEnvelopeSchema.parse(embeddingGeneration).command.type
+    ).toBe("agent.generateEmbeddings");
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
     );

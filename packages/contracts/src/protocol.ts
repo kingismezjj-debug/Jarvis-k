@@ -185,6 +185,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .strict()
   }),
   z.object({
+    type: z.literal("agent.generateEmbeddings"),
+    payload: z.lazy(() => EmbeddingGenerationRequestSchema)
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({

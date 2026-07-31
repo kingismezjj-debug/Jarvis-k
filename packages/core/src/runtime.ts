@@ -7,6 +7,8 @@ import {
   CommandResult,
   Conversation,
   CoreSnapshot,
+  EmbeddingGenerationRequestSchema,
+  EmbeddingGenerationResultSchema,
   EventEnvelope,
   InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
@@ -32,6 +34,7 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  EmbeddingInferenceProvider,
   InferenceExecutionPlanner,
   InferenceProviderRegistry,
   ModelCandidateRegistry,
@@ -80,7 +83,8 @@ export class CoreRuntime {
     private readonly modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
     private readonly modelRuntimeRegistry?: ModelRuntimeRegistry,
     private readonly inferenceProviderRegistry?: InferenceProviderRegistry,
-    private readonly inferenceExecutionPlanner?: InferenceExecutionPlanner
+    private readonly inferenceExecutionPlanner?: InferenceExecutionPlanner,
+    private readonly embeddingInferenceProvider?: EmbeddingInferenceProvider
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -398,6 +402,59 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "INFERENCE_PREFLIGHT_FAILED",
             message: "Unable to preview inference execution.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.generateEmbeddings": {
+        if (
+          !this.modelRegistry ||
+          !this.inferenceExecutionPlanner ||
+          !this.embeddingInferenceProvider
+        ) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const request = EmbeddingGenerationRequestSchema.parse(
+            envelope.command.payload
+          );
+          const manifest = await this.modelRegistry.getManifest(
+            request.modelId
+          );
+          if (!manifest) {
+            return this.failure(envelope, {
+              code: "MODEL_MANIFEST_NOT_FOUND",
+              message: "Model manifest was not found.",
+              retryable: false
+            });
+          }
+          const report = await this.inferenceExecutionPlanner.preview({
+            capability: "embedding",
+            manifest: ModelManifestSchema.parse(manifest)
+          });
+          if (!report.allowed) {
+            return this.failure(envelope, {
+              code: "INFERENCE_PREFLIGHT_BLOCKED",
+              message: "Inference preflight blocked embedding execution.",
+              retryable: false,
+              details: {
+                capability: report.capability,
+                modelId: report.modelId,
+                reasons: report.reasons
+              }
+            });
+          }
+          const result = await this.embeddingInferenceProvider.embed(
+            request
+          );
+          return this.success(envelope, {
+            result: EmbeddingGenerationResultSchema.parse(result)
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "EMBEDDING_GENERATION_FAILED",
+            message: "Unable to generate embeddings.",
             retryable: true
           });
         }
