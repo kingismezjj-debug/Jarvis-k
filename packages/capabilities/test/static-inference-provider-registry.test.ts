@@ -45,4 +45,55 @@ describe("StaticInferenceProviderRegistry", () => {
       })
     ]);
   });
+
+  it("lists defensive provider configuration requirement copies", async () => {
+    const registry = new StaticInferenceProviderRegistry(descriptors, [
+      {
+        capability: "embedding",
+        provider: "embedding.unconfigured",
+        status: "unconfigured",
+        requirements: [
+          {
+            key: "runtime_adapter",
+            source: "runtime",
+            required: true,
+            configured: false,
+            reasons: ["No embedding provider has been composed."]
+          }
+        ],
+        reasons: ["Provider is not configured."]
+      }
+    ]);
+    const first = (await registry.listConfigurationRequirements())[0];
+
+    first?.requirements[0]?.reasons.push("mutated");
+    first?.reasons.push("mutated");
+
+    await expect(registry.listConfigurationRequirements()).resolves.toEqual([
+      expect.objectContaining({
+        provider: "embedding.unconfigured",
+        requirements: [
+          expect.objectContaining({
+            key: "runtime_adapter",
+            reasons: ["No embedding provider has been composed."]
+          })
+        ],
+        reasons: ["Provider is not configured."]
+      })
+    ]);
+  });
+
+  it("synthesizes empty configuration reports from descriptors", async () => {
+    const registry = new StaticInferenceProviderRegistry(descriptors);
+
+    await expect(
+      registry.listConfigurationRequirements({ capability: "ocr" })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        capability: "ocr",
+        provider: "ocr.unconfigured",
+        requirements: []
+      })
+    ]);
+  });
 });

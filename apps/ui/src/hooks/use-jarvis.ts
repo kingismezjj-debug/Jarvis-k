@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
+  InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
   ModelInstallabilityReportSchema,
   ModelInventoryItemSchema,
@@ -12,6 +13,7 @@ import {
   type AppCommand,
   type CoreSnapshot,
   type EventEnvelope,
+  type InferenceProviderConfigurationReport,
   type InferenceProviderDescriptor,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
@@ -40,6 +42,8 @@ export function useJarvis() {
   const [inferenceProviders, setInferenceProviders] = useState<
     InferenceProviderDescriptor[]
   >([])
+  const [inferenceProviderRequirements, setInferenceProviderRequirements] =
+    useState<InferenceProviderConfigurationReport[]>([])
   const [resourceDiagnostics, setResourceDiagnostics] =
     useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
@@ -301,6 +305,23 @@ export function useJarvis() {
         return false
       }
 
+      const providerRequirementsResult = await window.jarvis.sendCommand({
+        type: "agent.listInferenceProviderRequirements",
+        payload: {},
+      })
+      if (!providerRequirementsResult.ok) {
+        setError(providerRequirementsResult.error.message)
+        return false
+      }
+      const providerRequirements =
+        InferenceProviderConfigurationReportSchema.array().safeParse(
+          (providerRequirementsResult.data as { reports?: unknown } | undefined)?.reports
+        )
+      if (!providerRequirements.success) {
+        setError("Core returned invalid inference provider requirements.")
+        return false
+      }
+
       setModelManifests(manifests.data)
       setModelInstallabilityReports(installabilityReports.data)
       setModelInventory(inventory.data)
@@ -308,6 +329,7 @@ export function useJarvis() {
       setResourceDiagnostics(resourceDiagnostics.data)
       setModelCandidates(candidates.data)
       setInferenceProviders(providers.data)
+      setInferenceProviderRequirements(providerRequirements.data)
       setError(null)
       return true
     } finally {
@@ -397,6 +419,7 @@ export function useJarvis() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    inferenceProviderRequirements,
     inferenceProviders,
     modelCandidates,
     modelInventory,

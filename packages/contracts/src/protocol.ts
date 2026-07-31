@@ -167,6 +167,14 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .strict()
   }),
   z.object({
+    type: z.literal("agent.listInferenceProviderRequirements"),
+    payload: z
+      .object({
+        capability: z.lazy(() => LocalModelCapabilitySchema).optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.previewInferenceExecution"),
     payload: z
       .object({
@@ -566,6 +574,48 @@ export const InferenceProviderDescriptorSchema = z
 
 export type InferenceProviderDescriptor = z.infer<
   typeof InferenceProviderDescriptorSchema
+>;
+
+export const InferenceProviderRequirementSourceSchema = z.enum([
+  "environment",
+  "safe_storage",
+  "file",
+  "runtime",
+  "manual",
+  "unknown"
+]);
+
+export type InferenceProviderRequirementSource = z.infer<
+  typeof InferenceProviderRequirementSourceSchema
+>;
+
+export const InferenceProviderRequirementSchema = z
+  .object({
+    key: z.string().min(1).max(128),
+    source: InferenceProviderRequirementSourceSchema,
+    required: z.boolean(),
+    configured: z.boolean(),
+    description: z.string().min(1).max(500).optional(),
+    reasons: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type InferenceProviderRequirement = z.infer<
+  typeof InferenceProviderRequirementSchema
+>;
+
+export const InferenceProviderConfigurationReportSchema = z
+  .object({
+    capability: LocalModelCapabilitySchema,
+    provider: z.string().min(1).max(128),
+    status: InferenceProviderStatusSchema,
+    requirements: z.array(InferenceProviderRequirementSchema).default([]),
+    reasons: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type InferenceProviderConfigurationReport = z.infer<
+  typeof InferenceProviderConfigurationReportSchema
 >;
 
 export const InferencePreflightReportSchema = z

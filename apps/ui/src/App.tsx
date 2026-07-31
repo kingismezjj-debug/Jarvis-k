@@ -132,6 +132,7 @@ export default function App() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    inferenceProviderRequirements,
     inferenceProviders,
     modelCandidates,
     modelInstallabilityReports,
@@ -186,6 +187,10 @@ export default function App() {
   const availableInferenceProviderCount = inferenceProviders.filter(
     (item) => item.status === "available"
   ).length
+  const requiredProviderConfigurationCount = inferenceProviderRequirements
+    .flatMap((report) => report.requirements)
+    .filter((requirement) => requirement.required && !requirement.configured)
+    .length
   const installableModelCount = modelInstallabilityReports.filter(
     (item) => item.allowed
   ).length
@@ -643,6 +648,11 @@ export default function App() {
                   label="AVAILABLE"
                   value={String(availableInferenceProviderCount)}
                   tone="success"
+                />
+                <Metric
+                  label="REQUIRED"
+                  value={String(requiredProviderConfigurationCount)}
+                  tone="warning"
                 />
                 <Metric label="INSTALLABLE" value={String(installableModelCount)} tone="success" />
                 <Metric label="BLOCKED" value={String(blockedModelCount)} tone="warning" />

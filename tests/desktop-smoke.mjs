@@ -149,6 +149,13 @@ try {
     if (!inferenceProvidersResult.ok) {
       throw new Error(inferenceProvidersResult.error.message);
     }
+    const providerRequirementsResult = await window.jarvis.sendCommand({
+      type: "agent.listInferenceProviderRequirements",
+      payload: {}
+    });
+    if (!providerRequirementsResult.ok) {
+      throw new Error(providerRequirementsResult.error.message);
+    }
     const candidatesResult = await window.jarvis.sendCommand({
       type: "agent.listModelCandidates",
       payload: {}
@@ -161,12 +168,15 @@ try {
     const runtimeAdapters = runtimeAdaptersResult.data?.runtimeAdapters;
     const inferenceProviders =
       inferenceProvidersResult.data?.providers;
+    const providerRequirements =
+      providerRequirementsResult.data?.reports;
     const candidates = candidatesResult.data?.candidates;
     if (
       !Array.isArray(manifests) ||
       !Array.isArray(inventory) ||
       !Array.isArray(runtimeAdapters) ||
       !Array.isArray(inferenceProviders) ||
+      !Array.isArray(providerRequirements) ||
       !Array.isArray(candidates)
     ) {
       throw new Error("Model governance commands returned invalid data.");
@@ -180,6 +190,16 @@ try {
     ) {
       throw new Error(
         "Desktop smoke expected registered but unavailable inference providers."
+      );
+    }
+    if (
+      providerRequirements.length < 4 ||
+      providerRequirements.some((report) =>
+        report.requirements.some((requirement) => requirement.configured)
+      )
+    ) {
+      throw new Error(
+        "Desktop smoke expected unavailable inference provider requirements."
       );
     }
     const embeddingManifest = manifests.find(
@@ -275,6 +295,7 @@ try {
       inventoryCount: inventory.length,
       runtimeAdapterCount: runtimeAdapters.length,
       inferenceProviderCount: inferenceProviders.length,
+      inferenceProviderRequirementCount: providerRequirements.length,
       availableInferenceProviderCount: inferenceProviders.filter(
         (provider) => provider.status === "available"
       ).length,

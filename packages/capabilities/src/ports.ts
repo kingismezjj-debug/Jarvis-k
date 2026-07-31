@@ -3,6 +3,7 @@ import type {
   DeviceCapability,
   EmbeddingGenerationRequest,
   EmbeddingGenerationResult,
+  InferenceProviderConfigurationReport,
   InferenceProviderDescriptor,
   InferencePreflightReport,
   IntentRoutingRequest,
@@ -103,6 +104,9 @@ export interface InferenceProviderRegistry {
   listProviders(
     options?: InferenceProviderRegistryListOptions
   ): Promise<InferenceProviderDescriptor[]>;
+  listConfigurationRequirements(
+    options?: InferenceProviderRegistryListOptions
+  ): Promise<InferenceProviderConfigurationReport[]>;
 }
 
 export interface InferenceProviderRegistryListOptions {

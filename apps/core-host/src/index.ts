@@ -198,6 +198,107 @@ const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
     modelIds: [],
     reasons: ["No reranking provider has been composed."]
   }
+], [
+  {
+    capability: "embedding",
+    provider: "embedding.unconfigured",
+    status: "unconfigured",
+    requirements: [
+      {
+        key: "runtime_adapter",
+        source: "runtime",
+        required: true,
+        configured: false,
+        description: "Embedding provider adapter must be composed.",
+        reasons: ["No embedding provider has been composed."]
+      },
+      {
+        key: "model_binding",
+        source: "manual",
+        required: true,
+        configured: false,
+        description: "Embedding provider must be bound to approved manifests.",
+        reasons: ["No embedding model binding has been configured."]
+      }
+    ],
+    reasons: ["Embedding inference remains disabled until a provider is composed."]
+  },
+  {
+    capability: "ocr",
+    provider: "ocr.unconfigured",
+    status: "unconfigured",
+    requirements: [
+      {
+        key: "runtime_adapter",
+        source: "runtime",
+        required: true,
+        configured: false,
+        description: "OCR provider adapter must be composed.",
+        reasons: ["No OCR provider has been composed."]
+      },
+      {
+        key: "model_binding",
+        source: "manual",
+        required: true,
+        configured: false,
+        description: "OCR provider must be bound to approved manifests.",
+        reasons: ["No OCR model binding has been configured."]
+      }
+    ],
+    reasons: ["OCR inference remains disabled until a provider is composed."]
+  },
+  {
+    capability: "intent_router",
+    provider: "intent-router.unconfigured",
+    status: "unconfigured",
+    requirements: [
+      {
+        key: "routing_policy",
+        source: "manual",
+        required: true,
+        configured: false,
+        description: "Intent routing policy must be composed.",
+        reasons: ["No intent routing provider has been composed."]
+      },
+      {
+        key: "model_binding",
+        source: "manual",
+        required: false,
+        configured: false,
+        description: "Optional model-assisted routing binding is absent.",
+        reasons: ["No intent routing model binding has been configured."]
+      }
+    ],
+    reasons: [
+      "Intent routing inference remains disabled until a router is composed."
+    ]
+  },
+  {
+    capability: "reranker",
+    provider: "reranker.unconfigured",
+    status: "unconfigured",
+    requirements: [
+      {
+        key: "runtime_adapter",
+        source: "runtime",
+        required: true,
+        configured: false,
+        description: "Reranking provider adapter must be composed.",
+        reasons: ["No reranking provider has been composed."]
+      },
+      {
+        key: "model_binding",
+        source: "manual",
+        required: true,
+        configured: false,
+        description: "Reranking provider must be bound to approved manifests.",
+        reasons: ["No reranking model binding has been configured."]
+      }
+    ],
+    reasons: [
+      "Reranking inference remains disabled until a provider is composed."
+    ]
+  }
 ]);
 const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
   inferenceProviderRegistry,

@@ -6,6 +6,7 @@ import {
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
   EmbeddingGenerationResultSchema,
+  InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
   InferencePreflightReportSchema,
   IntentRoutingRequestSchema,
@@ -212,6 +213,12 @@ describe("protocol contracts", () => {
         capability: "embedding"
       }
     });
+    const inferenceProviderRequirements = createCommandEnvelope({
+      type: "agent.listInferenceProviderRequirements",
+      payload: {
+        capability: "embedding"
+      }
+    });
     const inferencePreflight = createCommandEnvelope({
       type: "agent.previewInferenceExecution",
       payload: {
@@ -272,6 +279,9 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(inferenceProviders).command.type).toBe(
       "agent.listInferenceProviders"
     );
+    expect(
+      CommandEnvelopeSchema.parse(inferenceProviderRequirements).command.type
+    ).toBe("agent.listInferenceProviderRequirements");
     expect(CommandEnvelopeSchema.parse(inferencePreflight).command.type).toBe(
       "agent.previewInferenceExecution"
     );
@@ -317,6 +327,35 @@ describe("protocol contracts", () => {
       capability: "embedding",
       status: "unconfigured",
       modelIds: []
+    });
+  });
+
+  it("accepts provider-neutral inference provider requirements", () => {
+    expect(
+      InferenceProviderConfigurationReportSchema.parse({
+        capability: "embedding",
+        provider: "embedding.unconfigured",
+        status: "unconfigured",
+        requirements: [
+          {
+            key: "runtime_adapter",
+            source: "runtime",
+            required: true,
+            configured: false,
+            description: "Embedding runtime adapter must be composed.",
+            reasons: ["No embedding provider has been composed."]
+          }
+        ],
+        reasons: ["Provider is not configured."]
+      })
+    ).toMatchObject({
+      capability: "embedding",
+      requirements: [
+        {
+          key: "runtime_adapter",
+          configured: false
+        }
+      ]
     });
   });
 

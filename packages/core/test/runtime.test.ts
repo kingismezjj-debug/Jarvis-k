@@ -7,6 +7,7 @@ import {
   type VoiceMode,
   type VoicePermissionState,
   type VoiceSnapshot,
+  type InferenceProviderConfigurationReport,
   type InferenceProviderDescriptor,
   type InferencePreflightReport,
   type ModelInventoryItem,
@@ -681,6 +682,28 @@ class FakeInferenceProviderRegistry implements InferenceProviderRegistry {
       }
     ];
   }
+
+  public async listConfigurationRequirements(): Promise<
+    InferenceProviderConfigurationReport[]
+  > {
+    return [
+      {
+        capability: this.descriptor.capability,
+        provider: this.descriptor.provider,
+        status: this.descriptor.status,
+        requirements: [
+          {
+            key: "runtime_adapter",
+            source: "runtime",
+            required: true,
+            configured: true,
+            reasons: []
+          }
+        ],
+        reasons: []
+      }
+    ];
+  }
 }
 
 class FakeInferenceExecutionPlanner implements InferenceExecutionPlanner {
@@ -1132,6 +1155,50 @@ describe("CoreRuntime", () => {
           capability: "embedding",
           provider: "embedding.fake",
           status: "available"
+        }
+      ]
+    });
+  });
+
+  it("lists inference provider requirements through the injected registry", async () => {
+    const registry = new FakeInferenceProviderRegistry();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      registry
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listInferenceProviderRequirements",
+        payload: {
+          capability: "embedding"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      reports: [
+        {
+          capability: "embedding",
+          provider: "embedding.fake",
+          requirements: [
+            {
+              key: "runtime_adapter",
+              source: "runtime",
+              required: true,
+              configured: true
+            }
+          ]
         }
       ]
     });

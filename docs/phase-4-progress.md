@@ -540,3 +540,32 @@
 - `npm run verify`: PASS, 34 test files and 179 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+### Wave 4.23: Inference Provider Configuration Requirements
+
+- Status: complete.
+- Added provider-neutral configuration requirement DTOs so callers can inspect
+  why inference providers remain unconfigured without receiving secret values,
+  provider URLs, tokens, or runtime-specific implementation details.
+- Extended `InferenceProviderRegistry` with a read-only configuration
+  requirement query and updated `StaticInferenceProviderRegistry` to return
+  defensive report copies.
+- Added `agent.listInferenceProviderRequirements`; Core reads requirement
+  reports only through the injected registry and validates them with contracts
+  schemas.
+- Composed placeholder requirement reports for embedding, OCR, intent routing,
+  and reranking in `apps/core-host`, keeping all concrete wiring in the
+  composition root.
+- Updated the HUD model governance panel and desktop smoke coverage to show
+  required missing provider configuration counts from DTOs only.
+- Kept actual provider configuration, secrets, model execution, model loading,
+  downloads, Python, CUDA, ONNX, Paddle, and Hugging Face access out of this
+  wave.
+
+### Current Gate
+
+- Targeted contracts/capabilities/core tests: PASS, 3 test files and 49 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 34 test files and 183 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

@@ -8,6 +8,7 @@ import {
   Conversation,
   CoreSnapshot,
   EventEnvelope,
+  InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
   InferencePreflightReportSchema,
   Message,
@@ -336,6 +337,33 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "INFERENCE_PROVIDER_REGISTRY_FAILED",
             message: "Unable to list inference providers.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listInferenceProviderRequirements": {
+        if (!this.inferenceProviderRegistry) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const reports =
+            await this.inferenceProviderRegistry.listConfigurationRequirements(
+              {
+                ...(envelope.command.payload.capability
+                  ? { capability: envelope.command.payload.capability }
+                  : {})
+              }
+            );
+          return this.success(envelope, {
+            reports: reports.map((report) =>
+              InferenceProviderConfigurationReportSchema.parse(report)
+            )
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "INFERENCE_PROVIDER_REQUIREMENTS_FAILED",
+            message: "Unable to list inference provider requirements.",
             retryable: true
           });
         }
