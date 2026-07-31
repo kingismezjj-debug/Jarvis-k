@@ -25,10 +25,22 @@ describe("InMemoryModelOperationSupervisor", () => {
       operationId: started.operationId,
       phase: "available"
     });
+    const inference = await supervisor.start({
+      operationId: "model-op-inference",
+      modelId: "jarvis-fixture/local-embedding-smoke",
+      capability: "embedding",
+      phase: "executing"
+    });
+    const completed = await supervisor.update({
+      operationId: inference.operationId,
+      phase: "completed",
+      reasons: ["Embedding inference completed."]
+    });
 
     expect(started.phase).toBe("queued");
     expect(downloading.progress?.downloadedBytes).toBe(128);
     expect(available.phase).toBe("available");
+    expect(completed.phase).toBe("completed");
     expect(available.updatedAt > started.updatedAt).toBe(true);
   });
 
@@ -47,16 +59,23 @@ describe("InMemoryModelOperationSupervisor", () => {
       modelId: "vendor/local-ocr-small",
       capability: "ocr"
     });
+    const executing = await supervisor.start({
+      operationId: "model-op-executing",
+      modelId: "jarvis-fixture/local-embedding-smoke",
+      capability: "embedding",
+      phase: "executing"
+    });
     await supervisor.update({
       operationId: completed.operationId,
-      phase: "available"
+      phase: "completed"
     });
 
     const listed = await supervisor.list({ activeOnly: true });
     listed[0]?.reasons.push("mutated outside");
 
     expect(listed.map((operation) => operation.operationId)).toEqual([
-      active.operationId
+      active.operationId,
+      executing.operationId
     ]);
     expect((await supervisor.get(active.operationId))?.reasons).toEqual([]);
   });

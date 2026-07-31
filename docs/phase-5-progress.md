@@ -35,3 +35,31 @@ URLs, or external network access.
 - `npm run smoke:desktop:memory-degraded`: PASS.
 - Fixture-enabled Core Host IPC check: PASS for provider listing,
   requirements, preflight, and deterministic embedding generation.
+
+## Wave 5.2: Supervised Fixture Inference Execution
+
+- Status: complete.
+- Extended model operation phases with `executing` and `completed` so
+  inference execution can be represented without overloading install or load
+  states.
+- Updated Core embedding generation to create supervised operation snapshots
+  when a `ModelOperationSupervisor` is injected.
+- Successful embedding generation now reports `prechecking`, `executing`, and
+  `completed` operation updates before returning the deterministic fixture
+  result.
+- Blocked embedding generation now reports `prechecking` and `blocked` before
+  returning `INFERENCE_PREFLIGHT_BLOCKED`, and does not call the provider.
+- Failed embedding generation reports `failed` with a sanitized structured
+  error that does not expose provider internals.
+- UI active-operation filtering now treats `executing` as active while leaving
+  `completed` inactive.
+
+### Current Gate
+
+- Targeted contracts/capabilities/core tests: PASS, 3 test files and 50 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 37 test files and 201 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+- Fixture-enabled Core Host IPC check: PASS for supervised embedding phases
+  `prechecking`, `executing`, and `completed`.

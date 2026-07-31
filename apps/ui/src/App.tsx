@@ -55,6 +55,7 @@ const activeModelOperationPhases = new Set([
   "downloading",
   "verifying",
   "loading",
+  "executing",
   "releasing",
   "removing",
 ])

@@ -976,6 +976,8 @@ export const ModelOperationPhaseSchema = z.enum([
   "available",
   "loading",
   "loaded",
+  "executing",
+  "completed",
   "releasing",
   "removing",
   "cancelled",

@@ -577,7 +577,7 @@ describe("protocol contracts", () => {
       operationId: "model-op-1",
       modelId: "vendor/local-stt-small",
       capability: "speech_to_text",
-      phase: "downloading",
+      phase: "executing",
       createdAt: "2026-07-31T00:00:00.000Z",
       updatedAt: "2026-07-31T00:00:01.000Z",
       progress: {
@@ -594,9 +594,23 @@ describe("protocol contracts", () => {
     ).toMatchObject({
       type: "model.operation.updated",
       payload: {
-        phase: "downloading",
+        phase: "executing",
         reasons: []
       }
+    });
+
+    expect(
+      ModelOperationSnapshotSchema.parse({
+        operationId: "model-op-2",
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        capability: "embedding",
+        phase: "completed",
+        createdAt: "2026-07-31T00:00:00.000Z",
+        updatedAt: "2026-07-31T00:00:02.000Z",
+        reasons: ["Embedding inference completed."]
+      })
+    ).toMatchObject({
+      phase: "completed"
     });
   });
 

@@ -415,18 +415,38 @@ export class CoreRuntime {
         ) {
           return this.modelsUnavailable(envelope);
         }
+        let operation: ModelOperationSnapshot | undefined;
         try {
           const request = EmbeddingGenerationRequestSchema.parse(
             envelope.command.payload
+          );
+          operation = await this.startModelOperation(
+            {
+              modelId: request.modelId,
+              capability: "embedding",
+              phase: "prechecking"
+            },
+            envelope.correlationId
           );
           const manifest = await this.modelRegistry.getManifest(
             request.modelId
           );
           if (!manifest) {
+            operation = await this.updateModelOperation(
+              operation,
+              {
+                phase: "blocked",
+                reasons: ["Model manifest was not found."]
+              },
+              envelope.correlationId
+            );
             return this.failure(envelope, {
               code: "MODEL_MANIFEST_NOT_FOUND",
               message: "Model manifest was not found.",
-              retryable: false
+              retryable: false,
+              ...(operation
+                ? { details: { operationId: operation.operationId } }
+                : {})
             });
           }
           const report = await this.inferenceExecutionPlanner.preview({
@@ -434,6 +454,14 @@ export class CoreRuntime {
             manifest: ModelManifestSchema.parse(manifest)
           });
           if (!report.allowed) {
+            operation = await this.updateModelOperation(
+              operation,
+              {
+                phase: "blocked",
+                reasons: report.reasons
+              },
+              envelope.correlationId
+            );
             return this.failure(envelope, {
               code: "INFERENCE_PREFLIGHT_BLOCKED",
               message: "Inference preflight blocked embedding execution.",
@@ -441,17 +469,50 @@ export class CoreRuntime {
               details: {
                 capability: report.capability,
                 modelId: report.modelId,
-                reasons: report.reasons
+                reasons: report.reasons,
+                ...(operation
+                  ? { operationId: operation.operationId }
+                  : {})
               }
             });
           }
+          operation = await this.updateModelOperation(
+            operation,
+            {
+              phase: "executing",
+              reasons: ["Embedding inference preflight passed."]
+            },
+            envelope.correlationId
+          );
           const result = await this.embeddingInferenceProvider.embed(
             request
           );
+          operation = await this.updateModelOperation(
+            operation,
+            {
+              phase: "completed",
+              reasons: ["Embedding inference completed."]
+            },
+            envelope.correlationId
+          );
           return this.success(envelope, {
-            result: EmbeddingGenerationResultSchema.parse(result)
+            result: EmbeddingGenerationResultSchema.parse(result),
+            ...(operation ? { operation } : {})
           });
         } catch {
+          await this.updateModelOperation(
+            operation,
+            {
+              phase: "failed",
+              reasons: ["Embedding inference failed."],
+              error: {
+                code: "EMBEDDING_GENERATION_FAILED",
+                message: "Unable to generate embeddings.",
+                retryable: true
+              }
+            },
+            envelope.correlationId
+          );
           return this.failure(envelope, {
             code: "EMBEDDING_GENERATION_FAILED",
             message: "Unable to generate embeddings.",
@@ -852,6 +913,42 @@ export class CoreRuntime {
       correlationId
     );
     this.publishSnapshot(correlationId);
+  }
+
+  private async startModelOperation(
+    input: {
+      modelId: string;
+      capability: ModelOperationSnapshot["capability"];
+      phase: ModelOperationSnapshot["phase"];
+    },
+    correlationId?: string
+  ): Promise<ModelOperationSnapshot | undefined> {
+    if (!this.modelOperationSupervisor) {
+      return undefined;
+    }
+    const operation = await this.modelOperationSupervisor.start(input);
+    this.handleModelOperationUpdated(operation, correlationId);
+    return operation;
+  }
+
+  private async updateModelOperation(
+    operation: ModelOperationSnapshot | undefined,
+    input: {
+      phase: ModelOperationSnapshot["phase"];
+      reasons?: string[];
+      error?: StructuredError;
+    },
+    correlationId?: string
+  ): Promise<ModelOperationSnapshot | undefined> {
+    if (!operation || !this.modelOperationSupervisor) {
+      return operation;
+    }
+    const updated = await this.modelOperationSupervisor.update({
+      operationId: operation.operationId,
+      ...input
+    });
+    this.handleModelOperationUpdated(updated, correlationId);
+    return updated;
   }
 
   private publishSnapshot(correlationId?: string): CoreSnapshot {

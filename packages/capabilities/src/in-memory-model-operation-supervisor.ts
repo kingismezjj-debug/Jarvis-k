@@ -17,6 +17,7 @@ const ACTIVE_PHASES = new Set<ModelOperationPhase>([
   "downloading",
   "verifying",
   "loading",
+  "executing",
   "releasing",
   "removing"
 ]);

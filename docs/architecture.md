@@ -93,6 +93,10 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
 26. The fixture inference adapter is a test-only provider package. It can be
    composed by `apps/core-host` under `JARVIS_K_ENABLE_FIXTURE_INFERENCE=1`,
    but Core still sees only provider-neutral inference ports.
+27. Inference execution reports operation state through the existing
+   `ModelOperationSupervisor` port when it is injected. Provider failures are
+   mapped to sanitized structured errors before they enter contracts, events,
+   snapshots, or UI state.
 
 ## Restart policy
 

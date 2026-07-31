@@ -39,6 +39,7 @@ import type {
   ResourceRequest,
   ResourceScheduler
 } from "@jarvis-k/capabilities";
+import { InMemoryModelOperationSupervisor } from "@jarvis-k/capabilities";
 import type {
   Conversation,
   ConversationCreateInput,
@@ -845,6 +846,16 @@ function embeddingModelRegistry(): ModelRegistry {
   };
 }
 
+function modelOperationPhases(
+  events: EventEnvelope[]
+): ModelOperationSnapshot["phase"][] {
+  return events.flatMap((event) =>
+    event.event.type === "model.operation.updated"
+      ? [event.event.payload.phase]
+      : []
+  );
+}
+
 describe("CoreRuntime", () => {
   it("accepts a typed message command and publishes a recoverable snapshot", async () => {
     const { events, runtime } = createRuntime();
@@ -1324,14 +1335,17 @@ describe("CoreRuntime", () => {
     const modelRegistry = embeddingModelRegistry();
     const planner = new AllowingInferenceExecutionPlanner(true);
     const embeddingProvider = new FakeEmbeddingInferenceProvider();
-    const { runtime } = createRuntime(
+    const supervisor = new InMemoryModelOperationSupervisor(
+      () => new Date("2026-07-31T00:00:00.000Z")
+    );
+    const { events, runtime } = createRuntime(
       undefined,
       undefined,
       modelRegistry,
       undefined,
       undefined,
       undefined,
-      undefined,
+      supervisor,
       undefined,
       undefined,
       undefined,
@@ -1364,6 +1378,21 @@ describe("CoreRuntime", () => {
         ]
       }
     });
+    expect(
+      result.ok
+        ? (result.data as { operation?: { phase: string } }).operation
+        : undefined
+    ).toMatchObject({
+      phase: "completed"
+    });
+    expect(modelOperationPhases(events)).toEqual([
+      "prechecking",
+      "executing",
+      "completed"
+    ]);
+    expect(runtime.getSnapshot().modelOperations[0]?.phase).toBe(
+      "completed"
+    );
     expect(planner.previewed?.capability).toBe("embedding");
     expect(embeddingProvider.calls).toBe(1);
   });
@@ -1371,14 +1400,17 @@ describe("CoreRuntime", () => {
   it("blocks embedding generation before calling a provider when preflight fails", async () => {
     const planner = new AllowingInferenceExecutionPlanner(false);
     const embeddingProvider = new FakeEmbeddingInferenceProvider();
-    const { runtime } = createRuntime(
+    const supervisor = new InMemoryModelOperationSupervisor(
+      () => new Date("2026-07-31T00:00:00.000Z")
+    );
+    const { events, runtime } = createRuntime(
       undefined,
       undefined,
       embeddingModelRegistry(),
       undefined,
       undefined,
       undefined,
-      undefined,
+      supervisor,
       undefined,
       undefined,
       undefined,
@@ -1407,6 +1439,18 @@ describe("CoreRuntime", () => {
         reasons: ["Fake inference preflight blocked execution."]
       }
     });
+    expect(
+      (result.ok ? undefined : result.error.details) as
+        | { operationId?: string }
+        | undefined
+    ).toMatchObject({
+      operationId: expect.stringMatching(/^model-op-/)
+    });
+    expect(modelOperationPhases(events)).toEqual([
+      "prechecking",
+      "blocked"
+    ]);
+    expect(runtime.getSnapshot().modelOperations[0]?.phase).toBe("blocked");
     expect(embeddingProvider.calls).toBe(0);
   });
 
