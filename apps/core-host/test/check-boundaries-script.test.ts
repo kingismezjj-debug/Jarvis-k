@@ -63,6 +63,19 @@ describe("check-boundaries script", () => {
       )
     });
   });
+
+  it("fails when protected source imports a forbidden model runtime SDK", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "capabilities"),
+      "import { pipeline } from \"@huggingface/transformers\";\nvoid pipeline;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden runtime dependency @huggingface/transformers"
+      )
+    });
+  });
 });
 
 async function createMinimalWorkspace(root: string): Promise<void> {
@@ -81,6 +94,13 @@ async function writePackageManifest(
     path.join(root, "package.json"),
     `${JSON.stringify({ private: true, ...fields }, null, 2)}\n`
   );
+}
+
+async function writeSourceFile(
+  root: string,
+  contents: string
+): Promise<void> {
+  await writeFile(path.join(root, "src", "index.ts"), contents);
 }
 
 async function runBoundaryCheck(cwd: string): Promise<string> {

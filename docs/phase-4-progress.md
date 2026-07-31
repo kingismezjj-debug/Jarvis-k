@@ -635,3 +635,22 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 35 test files and 185 tests.
+
+### Wave 4.27: Runtime Import Guard Regression Coverage
+
+- Status: complete.
+- Extended the boundary script regression test to cover protected source files
+  that import forbidden model runtime SDKs directly.
+- Added a synthetic `@huggingface/transformers` import fixture and asserted
+  that `scripts/check-boundaries.mjs` fails closed with a clear dependency
+  boundary violation.
+- Kept the fixture synthetic and local to a temporary workspace; it does not
+  install packages, download models, invoke providers, or add real runtime
+  dependencies.
+
+### Current Gate
+
+- Targeted boundary script test: PASS, 1 test file and 3 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 35 test files and 186 tests.
