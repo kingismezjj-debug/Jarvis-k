@@ -511,3 +511,32 @@
 - `npm run verify`: PASS, 33 test files and 173 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+### Wave 4.22: Inference Execution Preflight
+
+- Status: complete.
+- Added provider-neutral inference preflight reports so future execution paths
+  can explain capability, provider, model, and resource blockers before any
+  inference provider is called.
+- Added an `InferenceExecutionPlanner` port and a policy implementation in
+  `@jarvis-k/capabilities`.
+- The policy checks manifest capability match, available provider descriptors,
+  provider/model compatibility, and conservative resource leases.
+- Added `agent.previewInferenceExecution`; Core resolves manifests through the
+  injected model registry and delegates preflight to the injected planner.
+- Composed the planner in `apps/core-host` using the existing inference
+  provider registry and resource scheduler.
+- Extended desktop smoke coverage to confirm the fixture embedding model is
+  blocked with an explanatory report while providers remain unconfigured.
+- Kept actual embedding/OCR/intent/rerank execution, provider calls, model
+  loading, downloads, Python, CUDA, ONNX, and Hugging Face access out of this
+  wave.
+
+### Current Gate
+
+- Targeted contracts/capabilities/core tests: PASS, 4 test files and 49 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 34 test files and 179 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

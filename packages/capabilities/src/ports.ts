@@ -4,6 +4,7 @@ import type {
   EmbeddingGenerationRequest,
   EmbeddingGenerationResult,
   InferenceProviderDescriptor,
+  InferencePreflightReport,
   IntentRoutingRequest,
   IntentRoutingResult,
   LocalModelCapability,
@@ -106,6 +107,18 @@ export interface InferenceProviderRegistry {
 
 export interface InferenceProviderRegistryListOptions {
   capability?: LocalModelCapability;
+}
+
+export interface InferenceExecutionPlanner {
+  preview(
+    input: InferenceExecutionPreviewInput
+  ): Promise<InferencePreflightReport>;
+}
+
+export interface InferenceExecutionPreviewInput {
+  capability: LocalModelCapability;
+  manifest: ModelManifest;
+  exclusiveGpu?: boolean;
 }
 
 export interface ModelRuntimeAdapter {

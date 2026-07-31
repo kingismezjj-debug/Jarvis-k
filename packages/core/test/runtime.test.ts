@@ -8,6 +8,7 @@ import {
   type VoicePermissionState,
   type VoiceSnapshot,
   type InferenceProviderDescriptor,
+  type InferencePreflightReport,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
   type ModelCandidate,
@@ -19,6 +20,8 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  InferenceExecutionPlanner,
+  InferenceExecutionPreviewInput,
   InferenceProviderRegistry,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
@@ -680,6 +683,32 @@ class FakeInferenceProviderRegistry implements InferenceProviderRegistry {
   }
 }
 
+class FakeInferenceExecutionPlanner implements InferenceExecutionPlanner {
+  public previewed: InferenceExecutionPreviewInput | undefined;
+
+  public async preview(
+    input: InferenceExecutionPreviewInput
+  ): Promise<InferencePreflightReport> {
+    this.previewed = input;
+    return {
+      capability: input.capability,
+      modelId: input.manifest.id,
+      allowed: false,
+      providers: [
+        {
+          capability: input.capability,
+          provider: "embedding.unconfigured",
+          status: "unconfigured",
+          execution: "disabled",
+          modelIds: [],
+          reasons: ["Fake provider is unavailable."]
+        }
+      ],
+      reasons: ["Fake inference preflight blocked execution."]
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -691,7 +720,8 @@ function createRuntime(
   resourceScheduler?: ResourceScheduler,
   modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
   modelRuntimeRegistry?: ModelRuntimeRegistry,
-  inferenceProviderRegistry?: InferenceProviderRegistry
+  inferenceProviderRegistry?: InferenceProviderRegistry,
+  inferenceExecutionPlanner?: InferenceExecutionPlanner
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -709,7 +739,8 @@ function createRuntime(
     resourceScheduler,
     modelInstallWorkflowOrchestrator,
     modelRuntimeRegistry,
-    inferenceProviderRegistry
+    inferenceProviderRegistry,
+    inferenceExecutionPlanner
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -1104,6 +1135,46 @@ describe("CoreRuntime", () => {
         }
       ]
     });
+  });
+
+  it("previews inference execution through the injected planner", async () => {
+    const modelRegistry = new FakeModelRegistry();
+    const planner = new FakeInferenceExecutionPlanner();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      modelRegistry,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new FakeInferenceProviderRegistry(),
+      planner
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.previewInferenceExecution",
+        payload: {
+          capability: "speech_to_text",
+          modelId: modelRegistry.manifest.id
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      report: {
+        capability: "speech_to_text",
+        modelId: modelRegistry.manifest.id,
+        allowed: false,
+        reasons: ["Fake inference preflight blocked execution."]
+      }
+    });
+    expect(planner.previewed?.manifest.id).toBe(modelRegistry.manifest.id);
   });
 
   it("lists model operations through the injected supervisor", async () => {

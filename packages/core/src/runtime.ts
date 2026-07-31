@@ -9,6 +9,7 @@ import {
   CoreSnapshot,
   EventEnvelope,
   InferenceProviderDescriptorSchema,
+  InferencePreflightReportSchema,
   Message,
   MemoryHealth,
   MemoryHealthSchema,
@@ -30,6 +31,7 @@ import {
 } from "@jarvis-k/contracts";
 import type {
   CapabilityProvider,
+  InferenceExecutionPlanner,
   InferenceProviderRegistry,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
@@ -76,7 +78,8 @@ export class CoreRuntime {
     private readonly resourceScheduler?: ResourceScheduler,
     private readonly modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
     private readonly modelRuntimeRegistry?: ModelRuntimeRegistry,
-    private readonly inferenceProviderRegistry?: InferenceProviderRegistry
+    private readonly inferenceProviderRegistry?: InferenceProviderRegistry,
+    private readonly inferenceExecutionPlanner?: InferenceExecutionPlanner
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -333,6 +336,40 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "INFERENCE_PROVIDER_REGISTRY_FAILED",
             message: "Unable to list inference providers.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.previewInferenceExecution": {
+        if (!this.modelRegistry || !this.inferenceExecutionPlanner) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const manifest = await this.modelRegistry.getManifest(
+            envelope.command.payload.modelId
+          );
+          if (!manifest) {
+            return this.failure(envelope, {
+              code: "MODEL_MANIFEST_NOT_FOUND",
+              message: "Model manifest was not found.",
+              retryable: false
+            });
+          }
+          const report = await this.inferenceExecutionPlanner.preview({
+            capability: envelope.command.payload.capability,
+            manifest: ModelManifestSchema.parse(manifest),
+            ...(envelope.command.payload.exclusiveGpu === undefined
+              ? {}
+              : { exclusiveGpu: envelope.command.payload.exclusiveGpu })
+          });
+          return this.success(envelope, {
+            report: InferencePreflightReportSchema.parse(report)
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "INFERENCE_PREFLIGHT_FAILED",
+            message: "Unable to preview inference execution.",
             retryable: true
           });
         }

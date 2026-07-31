@@ -3,6 +3,7 @@ export * from "./in-memory-resource-scheduler";
 export * from "./fixture-model-manifests";
 export * from "./manifest-installation-policy";
 export * from "./policy";
+export * from "./policy-inference-execution-planner";
 export * from "./policy-model-install-workflow-orchestrator";
 export * from "./policy-model-installation-planner";
 export * from "./ports";

@@ -167,6 +167,16 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .strict()
   }),
   z.object({
+    type: z.literal("agent.previewInferenceExecution"),
+    payload: z
+      .object({
+        capability: z.lazy(() => LocalModelCapabilitySchema),
+        modelId: z.string().min(1).max(300),
+        exclusiveGpu: z.boolean().optional()
+      })
+      .strict()
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({
@@ -556,6 +566,20 @@ export const InferenceProviderDescriptorSchema = z
 
 export type InferenceProviderDescriptor = z.infer<
   typeof InferenceProviderDescriptorSchema
+>;
+
+export const InferencePreflightReportSchema = z
+  .object({
+    capability: LocalModelCapabilitySchema,
+    modelId: z.string().min(1).max(300),
+    allowed: z.boolean(),
+    providers: z.array(InferenceProviderDescriptorSchema).default([]),
+    reasons: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type InferencePreflightReport = z.infer<
+  typeof InferencePreflightReportSchema
 >;
 
 export const ModelDistributionStatusSchema = z.enum([

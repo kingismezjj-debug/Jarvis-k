@@ -182,6 +182,32 @@ try {
         "Desktop smoke expected registered but unavailable inference providers."
       );
     }
+    const embeddingManifest = manifests.find(
+      (manifest) => manifest.capability === "embedding"
+    );
+    if (!embeddingManifest) {
+      throw new Error("Model governance smoke expected an embedding manifest.");
+    }
+    const inferencePreflightResult = await window.jarvis.sendCommand({
+      type: "agent.previewInferenceExecution",
+      payload: {
+        capability: "embedding",
+        modelId: embeddingManifest.id
+      }
+    });
+    if (!inferencePreflightResult.ok) {
+      throw new Error(inferencePreflightResult.error.message);
+    }
+    const inferencePreflight = inferencePreflightResult.data?.report;
+    if (
+      inferencePreflight?.allowed !== false ||
+      !Array.isArray(inferencePreflight.reasons) ||
+      inferencePreflight.reasons.length === 0
+    ) {
+      throw new Error(
+        "Inference preflight should explain unavailable providers."
+      );
+    }
     const firstManifest = manifests[0];
     if (!firstManifest?.id) {
       throw new Error("Model governance smoke expected a fixture manifest.");
@@ -252,6 +278,7 @@ try {
       availableInferenceProviderCount: inferenceProviders.filter(
         (provider) => provider.status === "available"
       ).length,
+      inferencePreflightAllowed: inferencePreflight.allowed,
       operationCount: operations.length,
       preparedOperationPhase: preparedOperation.phase,
       activeResourceLeaseCount: resourceDiagnostics.activeLeaseCount

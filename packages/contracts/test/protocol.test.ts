@@ -7,6 +7,7 @@ import {
   CoreInboundMessageSchema,
   EmbeddingGenerationResultSchema,
   InferenceProviderDescriptorSchema,
+  InferencePreflightReportSchema,
   IntentRoutingRequestSchema,
   IntentRoutingResultSchema,
   ModelInstallabilityReportSchema,
@@ -211,6 +212,13 @@ describe("protocol contracts", () => {
         capability: "embedding"
       }
     });
+    const inferencePreflight = createCommandEnvelope({
+      type: "agent.previewInferenceExecution",
+      payload: {
+        capability: "embedding",
+        modelId: "jarvis-fixture/local-embedding-smoke"
+      }
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -264,6 +272,9 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(inferenceProviders).command.type).toBe(
       "agent.listInferenceProviders"
     );
+    expect(CommandEnvelopeSchema.parse(inferencePreflight).command.type).toBe(
+      "agent.previewInferenceExecution"
+    );
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
     );
@@ -306,6 +317,30 @@ describe("protocol contracts", () => {
       capability: "embedding",
       status: "unconfigured",
       modelIds: []
+    });
+  });
+
+  it("accepts provider-neutral inference preflight reports", () => {
+    expect(
+      InferencePreflightReportSchema.parse({
+        capability: "embedding",
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        allowed: false,
+        providers: [
+          {
+            capability: "embedding",
+            provider: "embedding.unconfigured",
+            status: "unconfigured",
+            execution: "disabled",
+            modelIds: [],
+            reasons: ["No embedding provider has been composed."]
+          }
+        ],
+        reasons: ["No available inference provider is configured."]
+      })
+    ).toMatchObject({
+      capability: "embedding",
+      allowed: false
     });
   });
 

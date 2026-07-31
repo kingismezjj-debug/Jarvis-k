@@ -10,6 +10,7 @@ import {
   StaticInferenceProviderRegistry,
   PolicyModelInstallationPlanner,
   PolicyModelInstallWorkflowOrchestrator,
+  PolicyInferenceExecutionPlanner,
   InMemoryModelOperationSupervisor,
   InMemoryResourceScheduler,
   UnavailableModelRuntimeRegistry
@@ -198,6 +199,10 @@ const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
     reasons: ["No reranking provider has been composed."]
   }
 ]);
+const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
+  inferenceProviderRegistry,
+  resourceScheduler
+});
 const voiceEngine = new VoiceEngine({
   provider:
     process.env.JARVIS_K_SMOKE_VOICE === "1"
@@ -234,7 +239,8 @@ runtime = new CoreRuntime(
   resourceScheduler,
   modelInstallWorkflowOrchestrator,
   modelRuntimeRegistry,
-  inferenceProviderRegistry
+  inferenceProviderRegistry,
+  inferenceExecutionPlanner
 );
 
 let inboundQueue = Promise.resolve();
