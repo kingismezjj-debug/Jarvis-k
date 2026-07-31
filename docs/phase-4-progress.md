@@ -441,3 +441,25 @@
 - `npm run typecheck`: PASS.
 - `npm run check:boundaries`: PASS.
 - `npm run verify`: PASS, 30 test files and 163 tests.
+
+### Wave 4.19: Intent Routing Port Boundary
+
+- Status: complete.
+- Added provider-neutral intent routing request/result/candidate DTOs with
+  utterance limits, optional locale/conversation context, allow-listed intent
+  hints, confidence values, slots, and routing reasons.
+- Added an `IntentRoutingProvider` port in `@jarvis-k/capabilities` so future
+  rules-first or model-assisted routers can be injected without Core importing
+  a concrete implementation.
+- Added an unavailable intent routing provider that fails closed until a real
+  router is deliberately composed.
+- Kept command execution, tool invocation, LLM calls, real model execution,
+  Python, CUDA, ONNX, and Hugging Face access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/intent/OCR/embedding tests: PASS, 4 test files and
+  25 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 31 test files and 166 tests.

@@ -3,6 +3,8 @@ import type {
   DeviceCapability,
   EmbeddingGenerationRequest,
   EmbeddingGenerationResult,
+  IntentRoutingRequest,
+  IntentRoutingResult,
   LocalModelCapability,
   ModelCandidate,
   ModelInstallabilityReport,
@@ -124,6 +126,10 @@ export interface OcrRecognitionProvider {
   recognize(
     request: OcrRecognitionRequest
   ): Promise<OcrRecognitionResult>;
+}
+
+export interface IntentRoutingProvider {
+  route(request: IntentRoutingRequest): Promise<IntentRoutingResult>;
 }
 
 export interface ModelInstallWorkflowOrchestrator {

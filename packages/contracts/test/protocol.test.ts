@@ -6,6 +6,8 @@ import {
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
   EmbeddingGenerationResultSchema,
+  IntentRoutingRequestSchema,
+  IntentRoutingResultSchema,
   ModelInstallabilityReportSchema,
   ModelRuntimeAdapterDescriptorSchema,
   ModelOperationSnapshotSchema,
@@ -355,6 +357,58 @@ describe("protocol contracts", () => {
         height: 0.1
       })
     ).toThrow("normalized image width");
+  });
+
+  it("accepts provider-neutral intent routing requests and results", () => {
+    expect(
+      IntentRoutingRequestSchema.parse({
+        modelId: "jarvis-fixture/local-intent-smoke",
+        utterance: "open settings",
+        context: {
+          locale: "en",
+          activeConversationId: "primary",
+          allowedIntents: ["settings.open"]
+        }
+      })
+    ).toMatchObject({
+      utterance: "open settings"
+    });
+    expect(
+      IntentRoutingResultSchema.parse({
+        modelId: "jarvis-fixture/local-intent-smoke",
+        utterance: "open settings",
+        candidates: [
+          {
+            intent: "settings.open",
+            confidence: 0.95,
+            slots: {
+              panel: "voice"
+            },
+            reasons: ["Matched local command phrase."]
+          }
+        ],
+        routedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      candidates: [
+        {
+          intent: "settings.open"
+        }
+      ]
+    });
+    expect(() =>
+      IntentRoutingResultSchema.parse({
+        modelId: "jarvis-fixture/local-intent-smoke",
+        utterance: "open settings",
+        candidates: [
+          {
+            intent: "settings.open",
+            confidence: 1.1
+          }
+        ],
+        routedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toThrow();
   });
 
   it("accepts provider-neutral model operation events", () => {

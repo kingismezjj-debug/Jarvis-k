@@ -753,6 +753,54 @@ export type OcrRecognitionResult = z.infer<
   typeof OcrRecognitionResultSchema
 >;
 
+export const IntentRoutingContextSchema = z
+  .object({
+    locale: z.enum(["zh", "en"]).optional(),
+    activeConversationId: z.string().min(1).max(128).optional(),
+    allowedIntents: z.array(z.string().min(1).max(128)).max(200).optional()
+  })
+  .strict();
+
+export type IntentRoutingContext = z.infer<
+  typeof IntentRoutingContextSchema
+>;
+
+export const IntentRoutingRequestSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    utterance: z.string().trim().min(1).max(20_000),
+    context: IntentRoutingContextSchema.optional()
+  })
+  .strict();
+
+export type IntentRoutingRequest = z.infer<
+  typeof IntentRoutingRequestSchema
+>;
+
+export const IntentCandidateSchema = z
+  .object({
+    intent: z.string().min(1).max(128),
+    confidence: z.number().min(0).max(1),
+    slots: z.record(z.unknown()).default({}),
+    reasons: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type IntentCandidate = z.infer<typeof IntentCandidateSchema>;
+
+export const IntentRoutingResultSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    utterance: z.string().trim().min(1).max(20_000),
+    candidates: z.array(IntentCandidateSchema).max(20).default([]),
+    routedAt: z.string().datetime()
+  })
+  .strict();
+
+export type IntentRoutingResult = z.infer<
+  typeof IntentRoutingResultSchema
+>;
+
 export const ModelInstallabilityReportSchema = z
   .object({
     modelId: z.string().min(1).max(300),
