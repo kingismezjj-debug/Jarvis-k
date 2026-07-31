@@ -17,6 +17,7 @@ import {
   ModelManifestSchema,
   ModelOperationSnapshot,
   ModelOperationSnapshotSchema,
+  ModelRuntimeAdapterDescriptorSchema,
   MemorySnapshot,
   PROTOCOL_VERSION,
   ResourceSchedulerDiagnostics,
@@ -34,6 +35,7 @@ import type {
   ModelLifecycleManager,
   ModelOperationSupervisor,
   ModelRegistry,
+  ModelRuntimeRegistry,
   ResourceScheduler
 } from "@jarvis-k/capabilities";
 import type { MemoryRepository } from "@jarvis-k/memory";
@@ -70,7 +72,8 @@ export class CoreRuntime {
     private readonly modelInstallationPlanner?: ModelInstallationPlanner,
     private readonly modelOperationSupervisor?: ModelOperationSupervisor,
     private readonly resourceScheduler?: ResourceScheduler,
-    private readonly modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator
+    private readonly modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
+    private readonly modelRuntimeRegistry?: ModelRuntimeRegistry
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -281,6 +284,27 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_INVENTORY_FAILED",
             message: "Unable to list local model inventory.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listModelRuntimeAdapters": {
+        if (!this.modelRuntimeRegistry) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const descriptors =
+            await this.modelRuntimeRegistry.listDescriptors();
+          return this.success(envelope, {
+            runtimeAdapters: descriptors.map((descriptor) =>
+              ModelRuntimeAdapterDescriptorSchema.parse(descriptor)
+            )
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_RUNTIME_REGISTRY_FAILED",
+            message: "Unable to list model runtime adapters.",
             retryable: true
           });
         }

@@ -10,7 +10,8 @@ import {
   PolicyModelInstallationPlanner,
   PolicyModelInstallWorkflowOrchestrator,
   InMemoryModelOperationSupervisor,
-  InMemoryResourceScheduler
+  InMemoryResourceScheduler,
+  UnavailableModelRuntimeRegistry
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
@@ -161,6 +162,7 @@ const modelLifecycleManager = new FileSystemModelLifecycleManager({
     throw new Error("MODEL_FETCHER_NOT_CONFIGURED");
   }
 });
+const modelRuntimeRegistry = new UnavailableModelRuntimeRegistry();
 const voiceEngine = new VoiceEngine({
   provider:
     process.env.JARVIS_K_SMOKE_VOICE === "1"
@@ -195,7 +197,8 @@ runtime = new CoreRuntime(
   modelInstallationPlanner,
   modelOperationSupervisor,
   resourceScheduler,
-  modelInstallWorkflowOrchestrator
+  modelInstallWorkflowOrchestrator,
+  modelRuntimeRegistry
 );
 
 let inboundQueue = Promise.resolve();

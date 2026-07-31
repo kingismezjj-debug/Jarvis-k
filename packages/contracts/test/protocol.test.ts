@@ -6,6 +6,7 @@ import {
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
   ModelInstallabilityReportSchema,
+  ModelRuntimeAdapterDescriptorSchema,
   ModelOperationSnapshotSchema,
   PROTOCOL_VERSION,
   ResourceSchedulerDiagnosticsSchema,
@@ -191,6 +192,10 @@ describe("protocol contracts", () => {
       type: "agent.listModelInventory",
       payload: {}
     });
+    const runtimeAdapters = createCommandEnvelope({
+      type: "agent.listModelRuntimeAdapters",
+      payload: {}
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -238,6 +243,9 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(inventory).command.type).toBe(
       "agent.listModelInventory"
     );
+    expect(CommandEnvelopeSchema.parse(runtimeAdapters).command.type).toBe(
+      "agent.listModelRuntimeAdapters"
+    );
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
     );
@@ -251,6 +259,20 @@ describe("protocol contracts", () => {
       "agent.prepareModelInstall"
     );
     expect(report.allowed).toBe(false);
+  });
+
+  it("accepts provider-neutral model runtime adapter descriptors", () => {
+    expect(
+      ModelRuntimeAdapterDescriptorSchema.parse({
+        runtime: "onnxruntime",
+        capabilities: ["embedding"],
+        accelerationBackends: ["cpu", "directml"],
+        notes: ["Descriptor only; no provider details."]
+      })
+    ).toMatchObject({
+      runtime: "onnxruntime",
+      capabilities: ["embedding"]
+    });
   });
 
   it("accepts provider-neutral model operation events", () => {

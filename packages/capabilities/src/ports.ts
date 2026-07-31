@@ -10,6 +10,7 @@ import type {
   ModelOperationProgress,
   ModelOperationSnapshot,
   ModelRuntime,
+  ModelRuntimeAdapterDescriptor,
   ResourceSchedulerDiagnostics,
   StructuredError
 } from "@jarvis-k/contracts";
@@ -86,13 +87,6 @@ export interface ModelLifecycleManager {
 export interface ModelRuntimeRegistry {
   listDescriptors(): Promise<ModelRuntimeAdapterDescriptor[]>;
   getAdapter(manifest: ModelManifest): Promise<ModelRuntimeAdapter | undefined>;
-}
-
-export interface ModelRuntimeAdapterDescriptor {
-  runtime: ModelRuntime;
-  capabilities: LocalModelCapability[];
-  accelerationBackends: string[];
-  notes?: string[];
 }
 
 export interface ModelRuntimeAdapter {

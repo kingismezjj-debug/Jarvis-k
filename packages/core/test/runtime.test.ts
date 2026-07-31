@@ -12,6 +12,7 @@ import {
   type ModelCandidate,
   type ModelManifest,
   type ModelOperationSnapshot,
+  type ModelRuntimeAdapterDescriptor,
   type ResourceSchedulerDiagnostics,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
@@ -26,6 +27,7 @@ import type {
   ModelOperationListOptions,
   ModelOperationSupervisor,
   ModelRegistry,
+  ModelRuntimeRegistry,
   ResourceLease,
   ResourceRequest,
   ResourceScheduler
@@ -631,6 +633,30 @@ class FakeModelInstallWorkflowOrchestrator
   }
 }
 
+class FakeModelRuntimeRegistry implements ModelRuntimeRegistry {
+  public readonly descriptor: ModelRuntimeAdapterDescriptor = {
+    runtime: "system",
+    capabilities: ["embedding"],
+    accelerationBackends: ["cpu"],
+    notes: ["Fake runtime descriptor."]
+  };
+
+  public async listDescriptors(): Promise<ModelRuntimeAdapterDescriptor[]> {
+    return [
+      {
+        ...this.descriptor,
+        capabilities: [...this.descriptor.capabilities],
+        accelerationBackends: [...this.descriptor.accelerationBackends],
+        notes: [...(this.descriptor.notes ?? [])]
+      }
+    ];
+  }
+
+  public async getAdapter(): Promise<undefined> {
+    return undefined;
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -640,7 +666,8 @@ function createRuntime(
   modelInstallationPlanner?: ModelInstallationPlanner,
   modelOperationSupervisor?: ModelOperationSupervisor,
   resourceScheduler?: ResourceScheduler,
-  modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator
+  modelInstallWorkflowOrchestrator?: ModelInstallWorkflowOrchestrator,
+  modelRuntimeRegistry?: ModelRuntimeRegistry
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -656,7 +683,8 @@ function createRuntime(
     modelInstallationPlanner,
     modelOperationSupervisor,
     resourceScheduler,
-    modelInstallWorkflowOrchestrator
+    modelInstallWorkflowOrchestrator,
+    modelRuntimeRegistry
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -944,7 +972,8 @@ describe("CoreRuntime", () => {
       new FakeModelInstallationPlanner(),
       new FakeModelOperationSupervisor(),
       new FakeResourceScheduler(),
-      orchestrator
+      orchestrator,
+      new FakeModelRuntimeRegistry()
     );
 
     const result = await runtime.handle(
@@ -979,6 +1008,40 @@ describe("CoreRuntime", () => {
     expect(orchestrator.prepared?.exclusiveGpu).toBe(false);
     expect(events.some((event) => event.event.type === "model.operation.updated"))
       .toBe(true);
+  });
+
+  it("lists model runtime adapters through the injected registry", async () => {
+    const registry = new FakeModelRuntimeRegistry();
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      registry
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listModelRuntimeAdapters",
+        payload: {}
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      runtimeAdapters: [
+        {
+          runtime: "system",
+          capabilities: ["embedding"],
+          accelerationBackends: ["cpu"]
+        }
+      ]
+    });
   });
 
   it("lists model operations through the injected supervisor", async () => {

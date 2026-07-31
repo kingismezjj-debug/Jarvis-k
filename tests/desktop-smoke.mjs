@@ -135,6 +135,13 @@ try {
     if (!inventoryResult.ok) {
       throw new Error(inventoryResult.error.message);
     }
+    const runtimeAdaptersResult = await window.jarvis.sendCommand({
+      type: "agent.listModelRuntimeAdapters",
+      payload: {}
+    });
+    if (!runtimeAdaptersResult.ok) {
+      throw new Error(runtimeAdaptersResult.error.message);
+    }
     const candidatesResult = await window.jarvis.sendCommand({
       type: "agent.listModelCandidates",
       payload: {}
@@ -144,13 +151,18 @@ try {
     }
     const manifests = manifestsResult.data?.manifests;
     const inventory = inventoryResult.data?.inventory;
+    const runtimeAdapters = runtimeAdaptersResult.data?.runtimeAdapters;
     const candidates = candidatesResult.data?.candidates;
     if (
       !Array.isArray(manifests) ||
       !Array.isArray(inventory) ||
+      !Array.isArray(runtimeAdapters) ||
       !Array.isArray(candidates)
     ) {
       throw new Error("Model governance commands returned invalid data.");
+    }
+    if (runtimeAdapters.length !== 0) {
+      throw new Error("Desktop smoke expected no configured runtime adapters.");
     }
     const firstManifest = manifests[0];
     if (!firstManifest?.id) {
@@ -217,6 +229,7 @@ try {
       ).length,
       manifestCount: manifests.length,
       inventoryCount: inventory.length,
+      runtimeAdapterCount: runtimeAdapters.length,
       operationCount: operations.length,
       preparedOperationPhase: preparedOperation.phase,
       activeResourceLeaseCount: resourceDiagnostics.activeLeaseCount

@@ -155,6 +155,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
+    type: z.literal("agent.listModelRuntimeAdapters"),
+    payload: EmptyPayloadSchema
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({
@@ -507,6 +511,19 @@ export const ModelRuntimeSchema = z.enum([
 ]);
 
 export type ModelRuntime = z.infer<typeof ModelRuntimeSchema>;
+
+export const ModelRuntimeAdapterDescriptorSchema = z
+  .object({
+    runtime: ModelRuntimeSchema,
+    capabilities: z.array(LocalModelCapabilitySchema),
+    accelerationBackends: z.array(AccelerationBackendSchema).default([]),
+    notes: z.array(z.string().min(1).max(500)).default([])
+  })
+  .strict();
+
+export type ModelRuntimeAdapterDescriptor = z.infer<
+  typeof ModelRuntimeAdapterDescriptorSchema
+>;
 
 export const ModelDistributionStatusSchema = z.enum([
   "not_downloaded",

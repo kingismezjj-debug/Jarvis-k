@@ -1,10 +1,10 @@
 import type {
   ModelManifest,
-  ModelRuntime
+  ModelRuntime,
+  ModelRuntimeAdapterDescriptor
 } from "@jarvis-k/contracts";
 import type {
   ModelRuntimeAdapter,
-  ModelRuntimeAdapterDescriptor,
   ModelRuntimeRegistry
 } from "./ports";
 

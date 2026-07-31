@@ -373,3 +373,28 @@
 - `npm run typecheck`: PASS.
 - `npm run check:boundaries`: PASS.
 - `npm run verify`: PASS, 28 test files and 155 tests.
+
+### Wave 4.16: Runtime Adapter Query Surface
+
+- Status: complete.
+- Added a provider-neutral runtime adapter descriptor DTO and
+  `agent.listModelRuntimeAdapters` command.
+- Core lists runtime adapter descriptors only through an injected
+  `ModelRuntimeRegistry` port and validates returned descriptors with
+  `packages/contracts` schemas.
+- Composed an `UnavailableModelRuntimeRegistry` in `apps/core-host` so desktop
+  callers can observe that no real local runtime adapters are currently
+  configured.
+- Extended desktop smoke coverage to query runtime adapter descriptors and
+  assert that the current baseline does not advertise real runtimes.
+- Kept real model runtime dependencies, model execution, artifact downloads,
+  Python, CUDA, ONNX, and Hugging Face access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/core/runtime registry tests: PASS, 3 test files and
+  37 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 28 test files and 157 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
