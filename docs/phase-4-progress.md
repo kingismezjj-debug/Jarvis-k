@@ -746,3 +746,25 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 36 test files and 193 tests.
+
+### Wave 4.32: Local Database Artifact Guard
+
+- Status: complete.
+- Extended the sensitive artifact guard to block tracked local database
+  extensions: `.db`, `.sqlite`, and `.sqlite3`.
+- Updated `.gitignore` so local SQLite memory files and generic local database
+  artifacts are ignored by default.
+- Added a targeted regression test that tracks a synthetic `memory.sqlite`
+  file in a temporary Git repository and asserts that
+  `scripts/check-sensitive-artifacts.mjs` fails closed.
+- Kept the fixture synthetic and content-free; it does not touch real memory
+  databases, credentials, downloads, providers, model artifacts, or runtime
+  dependencies.
+
+### Current Gate
+
+- Targeted sensitive artifact script test: PASS, 1 test file and 4 tests.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 36 test files and 194 tests.

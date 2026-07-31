@@ -56,6 +56,16 @@ describe("check-sensitive-artifacts script", () => {
     });
   });
 
+  it("fails when a local database file is tracked", async () => {
+    await writeTrackedFile("memory.sqlite", "placeholder\n");
+
+    await expect(runArtifactCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "memory.sqlite has a forbidden sensitive artifact extension"
+      )
+    });
+  });
+
   async function writeTrackedFile(
     relativePath: string,
     contents: string

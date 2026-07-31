@@ -6,6 +6,7 @@ artifacts/*.json
 models/
 *.bin
 *.ckpt
+*.db
 *.ggml
 *.gguf
 *.onnx
@@ -13,6 +14,8 @@ models/
 *.pt
 *.pth
 *.safetensors
+*.sqlite
+*.sqlite3
 *.tflite
 *.log
 .env

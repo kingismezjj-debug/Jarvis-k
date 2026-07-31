@@ -14,6 +14,7 @@ const forbiddenPathSegments = new Set(["models"]);
 const forbiddenArtifactExtensions = new Set([
   ".bin",
   ".ckpt",
+  ".db",
   ".ggml",
   ".gguf",
   ".onnx",
@@ -21,6 +22,8 @@ const forbiddenArtifactExtensions = new Set([
   ".pt",
   ".pth",
   ".safetensors",
+  ".sqlite",
+  ".sqlite3",
   ".tflite"
 ]);
 
@@ -53,7 +56,7 @@ for (const filePath of trackedFiles) {
   }
 
   if (forbiddenArtifactExtensions.has(extension)) {
-    violations.push(`${normalized} has a forbidden model artifact extension`);
+    violations.push(`${normalized} has a forbidden sensitive artifact extension`);
   }
 }
 
