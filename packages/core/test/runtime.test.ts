@@ -36,6 +36,7 @@ import type {
   ModelOperationSupervisor,
   ModelRegistry,
   ModelRuntimeRegistry,
+  OcrRecognitionProvider,
   ResourceLease,
   ResourceRequest,
   ResourceScheduler
@@ -807,6 +808,32 @@ class FakeIntentRoutingProvider implements IntentRoutingProvider {
   }
 }
 
+class FakeOcrRecognitionProvider implements OcrRecognitionProvider {
+  public calls = 0;
+
+  public async recognize() {
+    this.calls += 1;
+    return {
+      modelId: "jarvis-fixture/local-ocr-smoke",
+      imageId: "fixture-image",
+      text: "fixture ocr text",
+      blocks: [
+        {
+          text: "fixture ocr text",
+          confidence: 0.99,
+          boundingBox: {
+            x: 0.1,
+            y: 0.1,
+            width: 0.8,
+            height: 0.2
+          }
+        }
+      ],
+      recognizedAt: "2026-07-31T00:00:00.000Z"
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -821,7 +848,8 @@ function createRuntime(
   inferenceProviderRegistry?: InferenceProviderRegistry,
   inferenceExecutionPlanner?: InferenceExecutionPlanner,
   embeddingInferenceProvider?: EmbeddingInferenceProvider,
-  intentRoutingProvider?: IntentRoutingProvider
+  intentRoutingProvider?: IntentRoutingProvider,
+  ocrRecognitionProvider?: OcrRecognitionProvider
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -842,7 +870,8 @@ function createRuntime(
     inferenceProviderRegistry,
     inferenceExecutionPlanner,
     embeddingInferenceProvider,
-    intentRoutingProvider
+    intentRoutingProvider,
+    ocrRecognitionProvider
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -882,6 +911,28 @@ function intentModelRegistry(): ModelRegistry {
     sizeBytes: 1536,
     sha256:
       "3333333333333333333333333333333333333333333333333333333333333333",
+    minMemoryBytes: 256 * 1024 * 1024,
+    licenseRisk: "green"
+  };
+  return {
+    listManifests: async () => [{ ...manifest }],
+    getManifest: async (modelId) =>
+      modelId === manifest.id ? { ...manifest } : undefined
+  };
+}
+
+function ocrModelRegistry(): ModelRegistry {
+  const manifest: ModelManifest = {
+    id: "jarvis-fixture/local-ocr-smoke",
+    capability: "ocr",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-ocr",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 4096,
+    sha256:
+      "4444444444444444444444444444444444444444444444444444444444444444",
     minMemoryBytes: 256 * 1024 * 1024,
     licenseRisk: "green"
   };
@@ -1555,6 +1606,74 @@ describe("CoreRuntime", () => {
     ]);
     expect(planner.previewed?.capability).toBe("intent_router");
     expect(intentProvider.calls).toBe(1);
+  });
+
+  it("recognizes OCR input through the same supervised path with binary DTOs", async () => {
+    const planner = new AllowingInferenceExecutionPlanner(true);
+    const ocrProvider = new FakeOcrRecognitionProvider();
+    const supervisor = new InMemoryModelOperationSupervisor(
+      () => new Date("2026-07-31T00:00:00.000Z")
+    );
+    const { events, runtime } = createRuntime(
+      undefined,
+      undefined,
+      ocrModelRegistry(),
+      undefined,
+      undefined,
+      undefined,
+      supervisor,
+      undefined,
+      undefined,
+      undefined,
+      new FakeInferenceProviderRegistry(),
+      planner,
+      undefined,
+      undefined,
+      ocrProvider
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.recognizeOcr",
+        payload: {
+          modelId: "jarvis-fixture/local-ocr-smoke",
+          image: {
+            id: "fixture-image",
+            mimeType: "image/png",
+            bytes: new Uint8Array([137, 80, 78, 71]),
+            width: 1,
+            height: 1
+          }
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      result: {
+        modelId: "jarvis-fixture/local-ocr-smoke",
+        imageId: "fixture-image",
+        text: "fixture ocr text",
+        blocks: [
+          {
+            text: "fixture ocr text",
+            boundingBox: {
+              width: 0.8
+            }
+          }
+        ]
+      },
+      operation: {
+        phase: "completed"
+      }
+    });
+    expect(modelOperationPhases(events)).toEqual([
+      "prechecking",
+      "executing",
+      "completed"
+    ]);
+    expect(planner.previewed?.capability).toBe("ocr");
+    expect(ocrProvider.calls).toBe(1);
   });
 
   it("lists model operations through the injected supervisor", async () => {

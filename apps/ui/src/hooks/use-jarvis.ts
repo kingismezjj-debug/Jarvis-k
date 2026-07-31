@@ -5,6 +5,7 @@ import {
   InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
   IntentRoutingResultSchema,
+  OcrRecognitionResultSchema,
   ModelInstallabilityReportSchema,
   ModelInventoryItemSchema,
   ModelCandidateSchema,
@@ -19,6 +20,7 @@ import {
   type InferenceProviderConfigurationReport,
   type InferenceProviderDescriptor,
   type IntentRoutingResult,
+  type OcrRecognitionResult,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
   type ModelCandidate,
@@ -33,6 +35,7 @@ const MAX_EVENTS = 40
 const FIXTURE_EMBEDDING_MODEL_ID = "jarvis-fixture/local-embedding-smoke"
 const FIXTURE_INTENT_ROUTER_MODEL_ID =
   "jarvis-fixture/local-intent-router-smoke"
+const FIXTURE_OCR_MODEL_ID = "jarvis-fixture/local-ocr-smoke"
 
 export type FixtureEmbeddingProbe = {
   dimensions: number
@@ -45,6 +48,12 @@ export type FixtureIntentProbe = {
   candidateCount: number
   intent?: string
   operationPhase?: ModelOperationSnapshot["phase"]
+}
+
+export type FixtureOcrProbe = {
+  blockCount: number
+  operationPhase?: ModelOperationSnapshot["phase"]
+  text: string
 }
 
 export function useJarvis() {
@@ -68,6 +77,8 @@ export function useJarvis() {
     useState<FixtureEmbeddingProbe | null>(null)
   const [fixtureIntentProbe, setFixtureIntentProbe] =
     useState<FixtureIntentProbe | null>(null)
+  const [fixtureOcrProbe, setFixtureOcrProbe] =
+    useState<FixtureOcrProbe | null>(null)
   const [resourceDiagnostics, setResourceDiagnostics] =
     useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
@@ -468,6 +479,59 @@ export function useJarvis() {
     }
   }, [])
 
+  const runFixtureOcrProbe = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return false
+    }
+
+    setSending(true)
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.recognizeOcr",
+        payload: {
+          modelId: FIXTURE_OCR_MODEL_ID,
+          image: {
+            id: "fixture-ui-image",
+            mimeType: "image/png",
+            bytes: new Uint8Array([137, 80, 78, 71]),
+            width: 1,
+            height: 1,
+          },
+        },
+      })
+      if (!result.ok) {
+        setError(result.error.message)
+        return false
+      }
+      const ocrResult = OcrRecognitionResultSchema.safeParse(
+        (result.data as { result?: unknown } | undefined)?.result
+      )
+      if (!ocrResult.success) {
+        setError("Core returned an invalid OCR result.")
+        return false
+      }
+      const operation = ModelOperationSnapshotSchema.safeParse(
+        (result.data as { operation?: unknown } | undefined)?.operation
+      )
+      if (operation.success) {
+        setModelOperations((current) =>
+          upsertModelOperation(current, operation.data)
+        )
+      }
+      setFixtureOcrProbe(
+        toFixtureOcrProbe(
+          ocrResult.data,
+          operation.success ? operation.data : undefined
+        )
+      )
+      setError(null)
+      return true
+    } finally {
+      setSending(false)
+    }
+  }, [])
+
   const exportMemorySnapshot = useCallback(async () => {
     if (!window.jarvis) {
       setError("Desktop bridge unavailable.")
@@ -551,6 +615,7 @@ export function useJarvis() {
     exportMemorySnapshot,
     fixtureEmbeddingProbe,
     fixtureIntentProbe,
+    fixtureOcrProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -569,6 +634,7 @@ export function useJarvis() {
     resourceDiagnostics,
     runFixtureEmbeddingProbe,
     runFixtureIntentProbe,
+    runFixtureOcrProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -598,6 +664,17 @@ function toFixtureIntentProbe(
     candidateCount: result.candidates.length,
     ...(firstCandidate ? { intent: firstCandidate.intent } : {}),
     ...(operation ? { operationPhase: operation.phase } : {}),
+  }
+}
+
+function toFixtureOcrProbe(
+  result: OcrRecognitionResult,
+  operation: ModelOperationSnapshot | undefined
+): FixtureOcrProbe {
+  return {
+    blockCount: result.blocks.length,
+    ...(operation ? { operationPhase: operation.phase } : {}),
+    text: result.text,
   }
 }
 

@@ -21,8 +21,11 @@ import {
   createFixtureEmbeddingProviderDescriptor,
   createFixtureIntentRouterConfigurationReport,
   createFixtureIntentRouterDescriptor,
+  createFixtureOcrConfigurationReport,
+  createFixtureOcrDescriptor,
   FixtureEmbeddingProvider,
-  FixtureIntentRoutingProvider
+  FixtureIntentRoutingProvider,
+  FixtureOcrProvider
 } from "@jarvis-k/inference-adapter-fixture";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import path from "node:path";
@@ -189,6 +192,9 @@ const embeddingInferenceProvider = fixtureInferenceEnabled
 const intentRoutingProvider = fixtureInferenceEnabled
   ? new FixtureIntentRoutingProvider()
   : undefined;
+const ocrRecognitionProvider = fixtureInferenceEnabled
+  ? new FixtureOcrProvider()
+  : undefined;
 const fixtureIntentRouterDescriptor = createFixtureIntentRouterDescriptor({
   enabled: fixtureInferenceEnabled
 });
@@ -196,16 +202,15 @@ const fixtureIntentRouterConfigurationReport =
   createFixtureIntentRouterConfigurationReport({
     enabled: fixtureInferenceEnabled
   });
+const fixtureOcrDescriptor = createFixtureOcrDescriptor({
+  enabled: fixtureInferenceEnabled
+});
+const fixtureOcrConfigurationReport = createFixtureOcrConfigurationReport({
+  enabled: fixtureInferenceEnabled
+});
 const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
   fixtureEmbeddingProviderDescriptor,
-  {
-    capability: "ocr",
-    provider: "ocr.unconfigured",
-    status: "unconfigured",
-    execution: "disabled",
-    modelIds: [],
-    reasons: ["No OCR provider has been composed."]
-  },
+  fixtureOcrDescriptor,
   fixtureIntentRouterDescriptor,
   {
     capability: "reranker",
@@ -217,30 +222,7 @@ const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
   }
 ], [
   fixtureEmbeddingProviderConfigurationReport,
-  {
-    capability: "ocr",
-    provider: "ocr.unconfigured",
-    status: "unconfigured",
-    requirements: [
-      {
-        key: "runtime_adapter",
-        source: "runtime",
-        required: true,
-        configured: false,
-        description: "OCR provider adapter must be composed.",
-        reasons: ["No OCR provider has been composed."]
-      },
-      {
-        key: "model_binding",
-        source: "manual",
-        required: true,
-        configured: false,
-        description: "OCR provider must be bound to approved manifests.",
-        reasons: ["No OCR model binding has been configured."]
-      }
-    ],
-    reasons: ["OCR inference remains disabled until a provider is composed."]
-  },
+  fixtureOcrConfigurationReport,
   fixtureIntentRouterConfigurationReport,
   {
     capability: "reranker",
@@ -312,7 +294,8 @@ runtime = new CoreRuntime(
   inferenceProviderRegistry,
   inferenceExecutionPlanner,
   embeddingInferenceProvider,
-  intentRoutingProvider
+  intentRoutingProvider,
+  ocrRecognitionProvider
 );
 
 let inboundQueue = Promise.resolve();

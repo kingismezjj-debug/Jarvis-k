@@ -13,6 +13,13 @@ import {
   FIXTURE_INTENT_ROUTER_PROVIDER_ID,
   FixtureIntentRoutingProvider
 } from "../src";
+import {
+  createFixtureOcrConfigurationReport,
+  createFixtureOcrDescriptor,
+  FIXTURE_OCR_MODEL_ID,
+  FIXTURE_OCR_PROVIDER_ID,
+  FixtureOcrProvider
+} from "../src";
 
 describe("FixtureEmbeddingProvider", () => {
   it("reports unavailable until the explicit fixture flag is enabled", () => {
@@ -146,6 +153,60 @@ describe("FixtureEmbeddingProvider", () => {
         }
       ],
       routedAt: "2026-07-31T00:00:00.000Z"
+    });
+  });
+
+  it("recognizes deterministic OCR fixtures from binary image input", async () => {
+    expect(createFixtureOcrDescriptor({ enabled: true })).toMatchObject({
+      capability: "ocr",
+      provider: FIXTURE_OCR_PROVIDER_ID,
+      status: "available",
+      modelIds: [FIXTURE_OCR_MODEL_ID]
+    });
+    expect(
+      createFixtureOcrConfigurationReport({ enabled: false })
+    ).toMatchObject({
+      capability: "ocr",
+      status: "unconfigured",
+      requirements: [
+        {
+          key: "JARVIS_K_ENABLE_FIXTURE_INFERENCE",
+          configured: false
+        }
+      ]
+    });
+
+    const provider = new FixtureOcrProvider({
+      now: () => new Date("2026-07-31T00:00:00.000Z")
+    });
+    await expect(
+      provider.recognize({
+        modelId: FIXTURE_OCR_MODEL_ID,
+        image: {
+          id: "fixture-image",
+          mimeType: "image/png",
+          bytes: new Uint8Array([137, 80, 78, 71]),
+          width: 1,
+          height: 1
+        }
+      })
+    ).resolves.toMatchObject({
+      modelId: FIXTURE_OCR_MODEL_ID,
+      imageId: "fixture-image",
+      text: "fixture ocr text",
+      blocks: [
+        {
+          text: "fixture ocr text",
+          confidence: 0.99,
+          boundingBox: {
+            x: 0.1,
+            y: 0.1,
+            width: 0.8,
+            height: 0.2
+          }
+        }
+      ],
+      recognizedAt: "2026-07-31T00:00:00.000Z"
     });
   });
 });

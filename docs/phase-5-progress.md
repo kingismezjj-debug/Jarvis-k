@@ -124,3 +124,33 @@ URLs, or external network access.
 - Fixture-enabled UI smoke: PASS. Both fixture actions completed; the UI
   displayed `VECTOR DIMS` = 4, `VECTORS` = 1,
   `INTENT` = `memory.search`, and `ROUTE` = `completed`.
+
+## Wave 5.5: OCR Fixture And Binary Input Boundary
+
+- Status: complete.
+- Added a deterministic OCR fixture provider to
+  `@jarvis-k/inference-adapter-fixture` with descriptor and configuration
+  reports.
+- Added the pinned fixture manifest `jarvis-fixture/local-ocr-smoke`.
+- Added `agent.recognizeOcr` to contracts and Core.
+- Reused the generic supervised inference execution helper for OCR, including
+  preflight, operation updates, blocked states, completed states, and
+  sanitized failures.
+- Validated OCR image input through the provider-neutral
+  `OcrRecognitionRequest` schema with `Uint8Array` bytes, MIME type, dimensions,
+  and normalized text block bounding boxes.
+- Added a development OCR observation button and read-only metrics to the UI.
+  The action remains disabled unless `ocr.fixture` reports `available`.
+- Kept OCR deterministic and offline. No image model, native runtime,
+  download path, credential, provider URL, or external execution was added.
+
+### Current Gate
+
+- Targeted OCR/contracts/Core/UI tests: PASS, 5 test files and 65 tests.
+- `npm run verify`: PASS, 38 test files and 207 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+- Fixture-enabled UI smoke: PASS. The Model Governance panel reported
+  `ocr.fixture` as `available`, ran the OCR fixture action, and displayed
+  `OCR TEXT` = `fixture ocr text`, `OCR BLOCKS` = `1`, and `OCR OPS` =
+  `completed`.

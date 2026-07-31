@@ -26,6 +26,8 @@ import {
   ModelOperationSnapshotSchema,
   ModelRuntimeAdapterDescriptorSchema,
   MemorySnapshot,
+  OcrRecognitionRequestSchema,
+  OcrRecognitionResultSchema,
   PROTOCOL_VERSION,
   ResourceSchedulerDiagnostics,
   ResourceSchedulerDiagnosticsSchema,
@@ -40,6 +42,7 @@ import type {
   InferenceExecutionPlanner,
   InferenceProviderRegistry,
   IntentRoutingProvider,
+  OcrRecognitionProvider,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
   ModelInstallationPlanner,
@@ -88,7 +91,8 @@ export class CoreRuntime {
     private readonly inferenceProviderRegistry?: InferenceProviderRegistry,
     private readonly inferenceExecutionPlanner?: InferenceExecutionPlanner,
     private readonly embeddingInferenceProvider?: EmbeddingInferenceProvider,
-    private readonly intentRoutingProvider?: IntentRoutingProvider
+    private readonly intentRoutingProvider?: IntentRoutingProvider,
+    private readonly ocrRecognitionProvider?: OcrRecognitionProvider
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -445,6 +449,24 @@ export class CoreRuntime {
           completedReason: "Intent routing inference completed.",
           failureCode: "INTENT_ROUTING_FAILED",
           failureMessage: "Unable to route intent."
+        });
+      }
+
+      case "agent.recognizeOcr": {
+        if (!this.ocrRecognitionProvider) {
+          return this.modelsUnavailable(envelope);
+        }
+        const request = OcrRecognitionRequestSchema.parse(
+          envelope.command.payload
+        );
+        return this.executeInferenceOperation(envelope, {
+          capability: "ocr",
+          modelId: request.modelId,
+          execute: () => this.ocrRecognitionProvider!.recognize(request),
+          parseResult: (result) => OcrRecognitionResultSchema.parse(result),
+          completedReason: "OCR inference completed.",
+          failureCode: "OCR_RECOGNITION_FAILED",
+          failureMessage: "Unable to recognize OCR input."
         });
       }
 

@@ -42,5 +42,19 @@ export const fixtureModelManifests: ModelManifest[] = [
       "3333333333333333333333333333333333333333333333333333333333333333",
     minMemoryBytes: 256 * 1024 * 1024,
     licenseRisk: "green"
+  },
+  {
+    id: "jarvis-fixture/local-ocr-smoke",
+    capability: "ocr",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-ocr",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 4096,
+    sha256:
+      "4444444444444444444444444444444444444444444444444444444444444444",
+    minMemoryBytes: 256 * 1024 * 1024,
+    licenseRisk: "green"
   }
 ];

@@ -245,6 +245,19 @@ describe("protocol contracts", () => {
         }
       }
     });
+    const ocrRecognition = createCommandEnvelope({
+      type: "agent.recognizeOcr",
+      payload: {
+        modelId: "jarvis-fixture/local-ocr-smoke",
+        image: {
+          id: "fixture-image",
+          mimeType: "image/png",
+          bytes: new Uint8Array([137, 80, 78, 71]),
+          width: 1,
+          height: 1
+        }
+      }
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -309,6 +322,9 @@ describe("protocol contracts", () => {
     ).toBe("agent.generateEmbeddings");
     expect(CommandEnvelopeSchema.parse(intentRouting).command.type).toBe(
       "agent.routeIntent"
+    );
+    expect(CommandEnvelopeSchema.parse(ocrRecognition).command.type).toBe(
+      "agent.recognizeOcr"
     );
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"

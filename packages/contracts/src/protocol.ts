@@ -193,6 +193,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: z.lazy(() => IntentRoutingRequestSchema)
   }),
   z.object({
+    type: z.literal("agent.recognizeOcr"),
+    payload: z.lazy(() => OcrRecognitionRequestSchema)
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({

@@ -134,6 +134,7 @@ export default function App() {
     exportMemorySnapshot,
     fixtureEmbeddingProbe,
     fixtureIntentProbe,
+    fixtureOcrProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -151,6 +152,7 @@ export default function App() {
     resourceDiagnostics,
     runFixtureEmbeddingProbe,
     runFixtureIntentProbe,
+    runFixtureOcrProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -201,6 +203,10 @@ export default function App() {
     (item) => item.provider === "intent-router.fixture"
   )
   const intentRouterAvailable = intentRouterProvider?.status === "available"
+  const ocrProvider = inferenceProviders.find(
+    (item) => item.provider === "ocr.fixture"
+  )
+  const ocrProviderAvailable = ocrProvider?.status === "available"
   const requiredProviderConfigurationCount = inferenceProviderRequirements
     .flatMap((report) => report.requirements)
     .filter((requirement) => requirement.required && !requirement.configured)
@@ -640,6 +646,23 @@ export default function App() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
+                        aria-label="Run fixture OCR"
+                        className="size-8 rounded-md"
+                        data-testid="run-fixture-ocr"
+                        disabled={!ocrProviderAvailable || sending}
+                        onClick={() => void runFixtureOcrProbe()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Activity className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Run fixture OCR</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                         aria-label="Run fixture intent routing"
                         className="size-8 rounded-md"
                         data-testid="run-fixture-intent"
@@ -710,6 +733,11 @@ export default function App() {
                   tone={intentRouterAvailable ? "success" : "warning"}
                 />
                 <Metric
+                  label="OCR"
+                  value={ocrProvider?.status ?? "unconfigured"}
+                  tone={ocrProviderAvailable ? "success" : "warning"}
+                />
+                <Metric
                   label="REQUIRED"
                   value={String(requiredProviderConfigurationCount)}
                   tone="warning"
@@ -761,6 +789,27 @@ export default function App() {
                   value={fixtureIntentProbe?.operationPhase ?? "idle"}
                   tone={
                     fixtureIntentProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined
+                  }
+                />
+                <Metric
+                  label="OCR TEXT"
+                  value={fixtureOcrProbe?.text ?? "idle"}
+                />
+                <Metric
+                  label="OCR BLOCKS"
+                  value={
+                    fixtureOcrProbe
+                      ? String(fixtureOcrProbe.blockCount)
+                      : "idle"
+                  }
+                />
+                <Metric
+                  label="OCR OPS"
+                  value={fixtureOcrProbe?.operationPhase ?? "idle"}
+                  tone={
+                    fixtureOcrProbe?.operationPhase === "completed"
                       ? "success"
                       : undefined
                   }
