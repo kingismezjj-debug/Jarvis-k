@@ -75,6 +75,29 @@
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
 
+### Wave 4.4: Model Governance Query Surface
+
+- Status: complete.
+- Added `agent.listModelManifests` and `agent.listModelInventory` commands.
+- Updated Core to query model manifests and local model inventory through
+  injected `ModelRegistry` and `ModelLifecycleManager` ports.
+- Composed an empty `StaticModelRegistry` and file-system lifecycle manager in
+  `apps/core-host`, keeping model storage implementation details out of Core.
+- Added a compact React HUD model governance panel that shows manifest count,
+  local inventory count, and loaded model count.
+- Extended desktop smoke coverage to call the model governance commands through
+  the existing renderer bridge using an isolated temporary model directory.
+- Kept real model download, install, update, delete, and Hugging Face/CDN access
+  out of this wave.
+
+### Current Gate
+
+- Targeted contracts/core/UI/core-host tests: PASS, 4 test files and 37 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 23 test files and 126 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+
 ## 2026-07-31
 
 ### Wave 4.5: Model Candidate Seed And License Audit
@@ -103,25 +126,24 @@
 
 ## 2026-07-31
 
-### Wave 4.4: Model Governance Query Surface
+### Wave 4.6: Installable Manifest Safety Gate
 
 - Status: complete.
-- Added `agent.listModelManifests` and `agent.listModelInventory` commands.
-- Updated Core to query model manifests and local model inventory through
-  injected `ModelRegistry` and `ModelLifecycleManager` ports.
-- Composed an empty `StaticModelRegistry` and file-system lifecycle manager in
-  `apps/core-host`, keeping model storage implementation details out of Core.
-- Added a compact React HUD model governance panel that shows manifest count,
-  local inventory count, and loaded model count.
-- Extended desktop smoke coverage to call the model governance commands through
-  the existing renderer bridge using an isolated temporary model directory.
-- Kept real model download, install, update, delete, and Hugging Face/CDN access
-  out of this wave.
+- Added a pure installability policy that blocks floating revisions, missing
+  SHA-256 digests, red or unknown license risk, yellow risk without explicit
+  approval, and devices below declared memory or VRAM minimums.
+- Updated the file-system model lifecycle manager so future downloads require
+  a device capability snapshot and must pass the installability policy before
+  any artifact fetch is attempted.
+- Kept the existing model candidates non-installable; no candidate is promoted
+  to a manifest in this wave.
+- Kept real network download, Hugging Face/CDN access, Python runtimes, CUDA,
+  ONNX, and model libraries out of this wave.
 
 ### Current Gate
 
-- Targeted contracts/core/UI/core-host tests: PASS, 4 test files and 37 tests.
+- Targeted manifest policy and lifecycle tests: PASS, 2 test files and 8 tests.
 - `npm run typecheck`: PASS.
-- `npm run verify`: PASS, 23 test files and 126 tests.
+- `npm run verify`: PASS, 24 test files and 133 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.

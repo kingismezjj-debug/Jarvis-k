@@ -1,5 +1,6 @@
 import type {
   CapabilitySnapshot,
+  DeviceCapability,
   LocalModelCapability,
   ModelCandidate,
   ModelInventoryItem,
@@ -42,6 +43,9 @@ export interface ModelDownloadManager {
 }
 
 export interface ModelDownloadOptions {
+  device?: DeviceCapability;
+  allowYellowRisk?: boolean;
+  allowUnknownRisk?: boolean;
   onProgress?: (progress: ModelDownloadProgress) => void;
 }
 

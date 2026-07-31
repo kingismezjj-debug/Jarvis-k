@@ -1,3 +1,4 @@
+export * from "./manifest-installation-policy";
 export * from "./policy";
 export * from "./ports";
 export * from "./recommended-model-candidates";

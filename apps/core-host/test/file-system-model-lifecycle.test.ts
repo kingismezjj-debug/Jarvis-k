@@ -3,7 +3,7 @@ import { appendFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ModelManifest } from "@jarvis-k/contracts";
+import type { DeviceCapability, ModelManifest } from "@jarvis-k/contracts";
 import {
   FileSystemModelLifecycleManager,
   type ArtifactFetcher
@@ -42,11 +42,12 @@ describe("FileSystemModelLifecycleManager", () => {
       now: () => new Date("2026-07-31T00:00:00.000Z")
     });
 
-    await expect(manager.download(manifest)).rejects.toThrow(
+    await expect(manager.download(manifest, { device: device() })).rejects.toThrow(
       "Network interrupted"
     );
     const progress: string[] = [];
     const inventory = await manager.download(manifest, {
+      device: device(),
       onProgress: (item) => progress.push(item.phase)
     });
 
@@ -71,7 +72,7 @@ describe("FileSystemModelLifecycleManager", () => {
       }
     });
 
-    await manager.download(manifest);
+    await manager.download(manifest, { device: device() });
     expect((await manager.listInventory())[0]?.status).toBe("available");
 
     const loaded = await manager.load(manifest.id);
@@ -92,9 +93,24 @@ describe("FileSystemModelLifecycleManager", () => {
     const manifest = manifestFor(Buffer.from("missing sha"));
     delete (manifest as Partial<ModelManifest>).sha256;
 
-    await expect(manager.download(manifest)).rejects.toThrow(
-      "MODEL_SHA256_REQUIRED"
+    await expect(manager.download(manifest, { device: device() })).rejects.toThrow(
+      "MODEL_INSTALLATION_BLOCKED"
     );
+  });
+
+  it("requires a device capability snapshot before fetching", async () => {
+    let fetched = false;
+    const manager = new FileSystemModelLifecycleManager({
+      rootDirectory: directory,
+      fetchArtifact: async () => {
+        fetched = true;
+      }
+    });
+
+    await expect(
+      manager.download(manifestFor(Buffer.from("device gate")))
+    ).rejects.toThrow("MODEL_DEVICE_CAPABILITY_REQUIRED");
+    expect(fetched).toBe(false);
   });
 });
 
@@ -110,5 +126,26 @@ function manifestFor(bytes: Buffer): ModelManifest {
     sizeBytes: bytes.byteLength,
     sha256: createHash("sha256").update(bytes).digest("hex"),
     licenseRisk: "green"
+  };
+}
+
+function device(): DeviceCapability {
+  return {
+    checkedAt: "2026-07-31T00:00:00.000Z",
+    platform: "win32",
+    arch: "x64",
+    cpuLogicalCores: 16,
+    totalMemoryBytes: 32 * 1024 * 1024 * 1024,
+    availableMemoryBytes: 16 * 1024 * 1024 * 1024,
+    gpus: [
+      {
+        name: "NVIDIA Test GPU",
+        vendor: "nvidia",
+        dedicatedMemoryBytes: 8 * 1024 * 1024 * 1024
+      }
+    ],
+    accelerationBackends: ["cpu", "cuda"],
+    recommendedMode: "local_enhanced",
+    reasons: []
   };
 }

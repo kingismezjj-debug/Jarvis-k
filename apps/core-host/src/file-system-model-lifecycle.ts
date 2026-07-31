@@ -3,6 +3,7 @@ import type {
   ModelDownloadOptions,
   ModelLifecycleManager
 } from "@jarvis-k/capabilities";
+import { validateInstallableManifest } from "@jarvis-k/capabilities";
 import {
   ModelInventoryItemSchema,
   ModelManifestSchema,
@@ -90,6 +91,19 @@ export class FileSystemModelLifecycleManager
     options: ModelDownloadOptions = {}
   ): Promise<ModelInventoryItem> {
     const parsedManifest = ModelManifestSchema.parse(manifest);
+    if (!options.device) {
+      throw new Error("MODEL_DEVICE_CAPABILITY_REQUIRED");
+    }
+    const installDecision = validateInstallableManifest(
+      parsedManifest,
+      options.device,
+      installationPolicyOptions(options)
+    );
+    if (!installDecision.allowed) {
+      throw new Error(
+        `MODEL_INSTALLATION_BLOCKED: ${installDecision.reasons.join(" ")}`
+      );
+    }
     if (!parsedManifest.sha256) {
       throw new Error("MODEL_SHA256_REQUIRED");
     }
@@ -276,4 +290,20 @@ async function sizeIfExists(filePath: string): Promise<number> {
 
 function safePathSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 180);
+}
+
+function installationPolicyOptions(
+  options: ModelDownloadOptions
+): {
+  allowYellowRisk?: boolean;
+  allowUnknownRisk?: boolean;
+} {
+  return {
+    ...(options.allowYellowRisk === undefined
+      ? {}
+      : { allowYellowRisk: options.allowYellowRisk }),
+    ...(options.allowUnknownRisk === undefined
+      ? {}
+      : { allowUnknownRisk: options.allowUnknownRisk })
+  };
 }
