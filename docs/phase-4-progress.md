@@ -228,3 +228,27 @@
 - `npm run verify`: PASS, 25 test files and 141 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+## 2026-07-31
+
+### Wave 4.10: Local Resource Scheduler Skeleton
+
+- Status: complete.
+- Added an in-memory `ResourceScheduler` implementation in
+  `@jarvis-k/capabilities` that grants conservative leases from a
+  provider-neutral `DeviceCapability` snapshot.
+- Added memory, VRAM, and exclusive GPU conflict checks so future local model
+  load/execute paths can avoid obvious resource overcommit before invoking any
+  runtime.
+- Added idempotent lease release behavior and defensive resource accounting.
+- Kept the scheduler implementation provider-neutral; it does not inspect the
+  host OS directly and does not depend on Electron, Node APIs, model runtimes,
+  CUDA, ONNX, Python, or Hugging Face/CDN access.
+- Kept real model downloads, install commands, model execution, and runtime
+  loading out of this wave.
+
+### Current Gate
+
+- Targeted resource scheduler tests: PASS, 1 test file and 3 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 26 test files and 144 tests.
