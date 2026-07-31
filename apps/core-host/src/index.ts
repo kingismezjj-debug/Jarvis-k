@@ -3,6 +3,8 @@ import {
   type CoreOutboundMessage
 } from "@jarvis-k/contracts";
 import { CoreRuntime } from "@jarvis-k/core";
+import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
+import path from "node:path";
 import {
   type AsrProviderCallbacks,
   type AsrProviderPort,
@@ -121,6 +123,10 @@ const scheduler = {
 const configurableProvider = new ConfigurableAsrProvider(
   unavailableProvider
 );
+const memoryDatabasePath = resolveMemoryDatabasePath();
+const memoryRepository = new SqliteMemoryRepository(
+  memoryDatabasePath ? { filePath: memoryDatabasePath } : {}
+);
 const voiceEngine = new VoiceEngine({
   provider:
     process.env.JARVIS_K_SMOKE_VOICE === "1"
@@ -145,7 +151,9 @@ runtime = new CoreRuntime(
       envelope: event
     });
   },
-  voiceEngine
+  voiceEngine,
+  () => new Date(),
+  memoryRepository
 );
 
 let inboundQueue = Promise.resolve();
@@ -216,7 +224,16 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
-runtime.announceReady();
+void runtime
+  .hydrateMemory()
+  .then(() => runtime.announceReady())
+  .catch((error: unknown) => {
+    console.error(
+      "[core-host] Memory initialization failed:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    process.exit(1);
+  });
 
 interface CoreHostVoiceProviderConfiguration {
   language: "zh" | "en";
@@ -260,4 +277,16 @@ function parseVoiceProviderConfigurationMessage(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function resolveMemoryDatabasePath(): string | undefined {
+  const explicitPath = process.env.JARVIS_K_MEMORY_DB_PATH?.trim();
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (!localAppData) {
+    return undefined;
+  }
+  return path.join(localAppData, "Jarvis-K", "memory.sqlite");
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type Message,
   type EventEnvelope,
   type VoiceEvent,
   type VoiceMode,
@@ -7,6 +8,11 @@ import {
   type VoiceSnapshot,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
+import type {
+  MemoryRepository,
+  MemorySnapshot,
+  MessageListOptions
+} from "@jarvis-k/memory";
 import type {
   VoiceActionResult,
   VoiceEnginePort
@@ -140,12 +146,63 @@ class FakeVoiceEngine implements VoiceEnginePort {
   }
 }
 
-function createRuntime() {
+class FakeMemoryRepository implements MemoryRepository {
+  public initialized = false;
+  public readonly messages: Message[];
+
+  public constructor(seed: Message[] = []) {
+    this.messages = seed.map((message) => ({ ...message }));
+  }
+
+  public async initialize(): Promise<void> {
+    this.initialized = true;
+  }
+
+  public async appendMessage(message: Message): Promise<Message> {
+    this.messages.push({ ...message });
+    return { ...message };
+  }
+
+  public async listMessages(
+    options: MessageListOptions = {}
+  ): Promise<Message[]> {
+    return this.messages
+      .filter((message) =>
+        options.conversationId
+          ? message.conversationId === options.conversationId
+          : true
+      )
+      .slice(0, options.limit)
+      .map((message) => ({ ...message }));
+  }
+
+  public async getSnapshot(): Promise<MemorySnapshot> {
+    return {
+      messages: await this.listMessages()
+    };
+  }
+
+  public async restoreSnapshot(snapshot: MemorySnapshot): Promise<void> {
+    this.messages.splice(
+      0,
+      this.messages.length,
+      ...snapshot.messages.map((message) => ({ ...message }))
+    );
+  }
+
+  public async close(): Promise<void> {
+    return;
+  }
+}
+
+function createRuntime(memoryRepository?: MemoryRepository) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
   const runtime = new CoreRuntime(
     (event) => events.push(event),
-    voiceEngine
+    voiceEngine,
+    undefined,
+    memoryRepository
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -170,6 +227,38 @@ describe("CoreRuntime", () => {
     expect(
       events.some((event) => event.event.type === "state.snapshot")
     ).toBe(true);
+  });
+
+  it("hydrates and persists messages through an injected memory repository", async () => {
+    const memoryRepository = new FakeMemoryRepository([
+      {
+        id: "msg-seed",
+        conversationId: "primary",
+        role: "system",
+        text: "Recovered from disk",
+        createdAt: "2026-07-30T00:00:00.000Z"
+      }
+    ]);
+    const { runtime } = createRuntime(memoryRepository);
+
+    await runtime.hydrateMemory();
+
+    expect(runtime.getSnapshot().messages.map((message) => message.id))
+      .toEqual(["msg-seed"]);
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Persist me"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(memoryRepository.messages).toHaveLength(2);
+    expect(runtime.getSnapshot().messages).toHaveLength(2);
   });
 
   it("delegates voice commands to the injected engine", async () => {

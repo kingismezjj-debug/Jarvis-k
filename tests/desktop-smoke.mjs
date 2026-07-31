@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
@@ -21,6 +22,14 @@ const pcmFixture = JSON.parse(
     "utf8"
   )
 );
+const smokeUserDataDirectory = await mkdtemp(
+  path.join(os.tmpdir(), "jarvis-k-desktop-smoke-")
+);
+const smokeMemoryDatabasePath = path.join(
+  smokeUserDataDirectory,
+  "memory.sqlite"
+);
+let electronApp;
 
 async function findCoreProcess(electronProcessId) {
   const script = [
@@ -54,21 +63,23 @@ async function findCoreProcess(electronProcessId) {
 }
 
 const startedAt = performance.now();
-const electronApp = await electron.launch({
-  args: [
-    "--use-fake-device-for-media-stream",
-    "--use-fake-ui-for-media-stream",
-    "apps/desktop/dist/main.js",
-  ],
-  cwd: rootDirectory,
-  env: {
-    ...process.env,
-    JARVIS_K_SMOKE_VOICE: "1",
-    JARVIS_K_SMOKE_PROVIDER_FAULT: "1",
-  },
-});
 
 try {
+  electronApp = await electron.launch({
+    args: [
+      `--user-data-dir=${smokeUserDataDirectory}`,
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+      "apps/desktop/dist/main.js",
+    ],
+    cwd: rootDirectory,
+    env: {
+      ...process.env,
+      JARVIS_K_SMOKE_VOICE: "1",
+      JARVIS_K_SMOKE_PROVIDER_FAULT: "1",
+      JARVIS_K_MEMORY_DB_PATH: smokeMemoryDatabasePath,
+    },
+  });
   const window = await electronApp.firstWindow();
   await window.getByTestId("jarvis-app").waitFor();
   await window.getByTestId("core-status").getByText("ONLINE").waitFor({
@@ -502,5 +513,8 @@ try {
     })
   );
 } finally {
-  await electronApp.close();
+  if (electronApp) {
+    await electronApp.close();
+  }
+  await rm(smokeUserDataDirectory, { force: true, recursive: true });
 }

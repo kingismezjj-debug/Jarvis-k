@@ -12,6 +12,7 @@ import {
   VoiceEvent,
   createId
 } from "@jarvis-k/contracts";
+import type { MemoryRepository } from "@jarvis-k/memory";
 import type {
   VoiceActionResult,
   VoiceEnginePort
@@ -29,9 +30,23 @@ export class CoreRuntime {
   public constructor(
     private readonly eventSink: EventSink,
     private readonly voiceEngine: VoiceEnginePort,
-    private readonly now: () => Date = () => new Date()
+    private readonly now: () => Date = () => new Date(),
+    private readonly memoryRepository?: MemoryRepository
   ) {
     this.startedAt = this.now().toISOString();
+  }
+
+  public async hydrateMemory(): Promise<void> {
+    if (!this.memoryRepository) {
+      return;
+    }
+    await this.memoryRepository.initialize();
+    const snapshot = await this.memoryRepository.getSnapshot();
+    this.messages.splice(
+      0,
+      this.messages.length,
+      ...snapshot.messages.map((message) => ({ ...message }))
+    );
   }
 
   public announceReady(): void {
@@ -98,6 +113,17 @@ export class CoreRuntime {
           text: envelope.command.payload.text,
           createdAt: this.now().toISOString()
         };
+        if (this.memoryRepository) {
+          try {
+            await this.memoryRepository.appendMessage(message);
+          } catch {
+            return this.failure(envelope, {
+              code: "MEMORY_WRITE_FAILED",
+              message: "Unable to persist the accepted message.",
+              retryable: true
+            });
+          }
+        }
         this.messages.push(message);
         this.publish(
           {

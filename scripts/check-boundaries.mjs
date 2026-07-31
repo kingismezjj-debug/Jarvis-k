@@ -18,6 +18,21 @@ const packages = [
     forbiddenImportPrefixes: ["electron", "node:", "react", "ws"]
   },
   {
+    name: "memory",
+    root: path.join(root, "packages", "memory"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: ["electron", "node:", "react", "ws", "sql.js"]
+  },
+  {
+    name: "memory-sqlite",
+    root: path.join(root, "packages", "memory-sqlite"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/contracts",
+      "@jarvis-k/memory"
+    ]),
+    forbiddenImportPrefixes: ["electron", "react", "ws"]
+  },
+  {
     name: "voice-capture-browser",
     root: path.join(root, "packages", "voice-capture-browser"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
@@ -34,9 +49,10 @@ const packages = [
     root: path.join(root, "packages", "core"),
     allowedWorkspaceImports: new Set([
       "@jarvis-k/contracts",
+      "@jarvis-k/memory",
       "@jarvis-k/voice"
     ]),
-    forbiddenImportPrefixes: ["electron", "react", "ws"]
+    forbiddenImportPrefixes: ["electron", "react", "ws", "sql.js"]
   },
   {
     name: "core-host",
@@ -44,6 +60,7 @@ const packages = [
     allowedWorkspaceImports: new Set([
       "@jarvis-k/contracts",
       "@jarvis-k/core",
+      "@jarvis-k/memory-sqlite",
       "@jarvis-k/voice",
       "@jarvis-k/voice-adapter-xunfei"
     ]),

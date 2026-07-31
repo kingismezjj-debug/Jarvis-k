@@ -1,4 +1,4 @@
-# Phase 2 Architecture
+# Phase 3 Architecture
 
 ```text
 React renderer
@@ -10,16 +10,19 @@ Electron desktop host
     | validated command IPC
     | bounded binary audio IPC
     | encrypted settings via safeStorage
-    v
+v
 Core Host child process
     |
-    | composition root
+    | composition root for providers and persistence
     v
 Agent Core + Voice Engine
-    |
-    | injected provider port
-    v
-Xunfei RTASR adapter
+    |                  |
+    | injected port    | injected port
+    v                  v
+Xunfei RTASR adapter   Memory repository
+                       |
+                       v
+                       SQLite memory adapter
 ```
 
 ## Decisions
@@ -43,8 +46,12 @@ Xunfei RTASR adapter
    after load.
 10. Supervisor event sequence IDs stay monotonic across Core restarts.
 11. Core persistence is intentionally deferred until the SQLite repository is
-   introduced in phase 3.
+   introduced in phase 3. Core can depend on memory interfaces, but not on
+   SQLite implementation details.
 12. The desktop app does not open a local HTTP port.
+13. `packages/memory` owns provider-neutral memory contracts and schemas.
+14. `packages/memory-sqlite` owns database schema, deterministic ordering, file
+   persistence, and snapshot restore behavior.
 
 ## Restart policy
 

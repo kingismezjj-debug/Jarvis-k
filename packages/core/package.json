@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@jarvis-k/contracts": "*",
+    "@jarvis-k/memory": "*",
     "@jarvis-k/voice": "*"
   }
 }
