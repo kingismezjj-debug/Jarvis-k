@@ -29,6 +29,7 @@ const smokeMemoryDatabasePath = path.join(
   smokeUserDataDirectory,
   "memory.sqlite"
 );
+const smokeModelDirectoryPath = path.join(smokeUserDataDirectory, "models");
 let electronApp;
 
 async function findCoreProcess(electronProcessId) {
@@ -78,6 +79,7 @@ try {
       JARVIS_K_SMOKE_VOICE: "1",
       JARVIS_K_SMOKE_PROVIDER_FAULT: "1",
       JARVIS_K_MEMORY_DB_PATH: smokeMemoryDatabasePath,
+      JARVIS_K_MODEL_DIR: smokeModelDirectoryPath,
     },
   });
   const window = await electronApp.firstWindow();
@@ -88,6 +90,61 @@ try {
   const startupMs = Math.round(performance.now() - startedAt);
   const initialInstance = await window.getByTestId("core-instance").innerText();
   const coreProcess = await findCoreProcess(electronApp.process().pid);
+  const capabilitySmoke = await window.evaluate(async () => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable for capability smoke.");
+    }
+    const result = await window.jarvis.sendCommand({
+      type: "agent.getCapabilities",
+      payload: {}
+    });
+    if (!result.ok) {
+      throw new Error(result.error.message);
+    }
+    const capabilities = result.data?.capabilities;
+    if (
+      !capabilities ||
+      typeof capabilities !== "object" ||
+      !("runtimeMode" in capabilities) ||
+      typeof capabilities.runtimeMode !== "string"
+    ) {
+      throw new Error("Core did not expose device capabilities.");
+    }
+    return {
+      runtimeMode: capabilities.runtimeMode,
+      gpuCount: capabilities.device?.gpus?.length ?? 0,
+      accelerationBackends:
+        capabilities.device?.accelerationBackends ?? []
+    };
+  });
+  const modelGovernanceSmoke = await window.evaluate(async () => {
+    if (!window.jarvis) {
+      throw new Error("Desktop bridge unavailable for model governance smoke.");
+    }
+    const manifestsResult = await window.jarvis.sendCommand({
+      type: "agent.listModelManifests",
+      payload: {}
+    });
+    if (!manifestsResult.ok) {
+      throw new Error(manifestsResult.error.message);
+    }
+    const inventoryResult = await window.jarvis.sendCommand({
+      type: "agent.listModelInventory",
+      payload: {}
+    });
+    if (!inventoryResult.ok) {
+      throw new Error(inventoryResult.error.message);
+    }
+    const manifests = manifestsResult.data?.manifests;
+    const inventory = inventoryResult.data?.inventory;
+    if (!Array.isArray(manifests) || !Array.isArray(inventory)) {
+      throw new Error("Model governance commands returned invalid data.");
+    }
+    return {
+      manifestCount: manifests.length,
+      inventoryCount: inventory.length
+    };
+  });
 
   const message = `Desktop smoke ${new Date().toISOString()}`;
   await window.getByTestId("command-input").fill(message);
@@ -626,6 +683,8 @@ try {
         ),
         releasedCaptureTracks,
         permissionScenarios: ["granted", "denied"],
+        capabilitySmoke,
+        modelGovernanceSmoke,
         conversationSmoke: {
           firstConversationId,
           secondConversationId,

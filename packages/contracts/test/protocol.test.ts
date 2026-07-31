@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AppEventSchema,
+  CapabilitySnapshotSchema,
   CommandEnvelopeSchema,
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
@@ -137,6 +138,63 @@ describe("protocol contracts", () => {
       summaries: [],
       activeConversationId: "primary"
     });
+  });
+
+  it("accepts provider-neutral capability commands and snapshots", () => {
+    const command = createCommandEnvelope({
+      type: "agent.getCapabilities",
+      payload: {}
+    });
+    const snapshot = CapabilitySnapshotSchema.parse({
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      runtimeMode: "standard",
+      device: {
+        checkedAt: "2026-07-31T00:00:00.000Z",
+        platform: "win32",
+        arch: "x64",
+        cpuLogicalCores: 16,
+        totalMemoryBytes: 16 * 1024 * 1024 * 1024,
+        availableMemoryBytes: 8 * 1024 * 1024 * 1024,
+        gpus: [],
+        accelerationBackends: ["cpu", "directml"],
+        recommendedMode: "standard",
+        reasons: ["Test capability snapshot."]
+      },
+      providerPlan: [
+        {
+          capability: "speech_to_text",
+          provider: "local_whisper",
+          execution: "local",
+          loadPolicy: "on_demand",
+          reason: "Test provider selection."
+        }
+      ]
+    });
+
+    expect(CommandEnvelopeSchema.parse(command).command.type).toBe(
+      "agent.getCapabilities"
+    );
+    expect(snapshot.modelInventory).toEqual([]);
+  });
+
+  it("accepts provider-neutral model governance commands", () => {
+    const manifests = createCommandEnvelope({
+      type: "agent.listModelManifests",
+      payload: {
+        capability: "speech_to_text"
+      }
+    });
+    const inventory = createCommandEnvelope({
+      type: "agent.listModelInventory",
+      payload: {}
+    });
+
+    expect(CommandEnvelopeSchema.parse(manifests).command.type).toBe(
+      "agent.listModelManifests"
+    );
+    expect(CommandEnvelopeSchema.parse(inventory).command.type).toBe(
+      "agent.listModelInventory"
+    );
   });
 
   it("validates provider-neutral audio frame metadata", () => {

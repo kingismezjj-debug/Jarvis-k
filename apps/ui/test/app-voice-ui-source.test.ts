@@ -40,4 +40,18 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("exportMemorySnapshot");
     expect(appSource).toContain("importMemorySnapshot");
   });
+
+  it("renders local capability runtime indicators visibly", () => {
+    expect(appSource).toContain("RUNTIME MODE");
+    expect(appSource).toContain("GPU COUNT");
+    expect(appSource).toContain("ACCELERATION");
+    expect(appSource).toContain("refreshCapabilities");
+  });
+
+  it("renders model governance controls visibly", () => {
+    expect(appSource).toContain('data-testid="model-governance"');
+    expect(appSource).toContain('data-testid="refresh-model-governance"');
+    expect(appSource).toContain("Model Governance");
+    expect(appSource).toContain("refreshModelGovernance");
+  });
 });

@@ -18,6 +18,12 @@ const packages = [
     forbiddenImportPrefixes: ["electron", "node:", "react", "ws"]
   },
   {
+    name: "capabilities",
+    root: path.join(root, "packages", "capabilities"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: ["electron", "node:", "react", "ws", "sql.js"]
+  },
+  {
     name: "memory",
     root: path.join(root, "packages", "memory"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
@@ -48,6 +54,7 @@ const packages = [
     name: "core",
     root: path.join(root, "packages", "core"),
     allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
       "@jarvis-k/contracts",
       "@jarvis-k/memory",
       "@jarvis-k/voice"
@@ -58,6 +65,7 @@ const packages = [
     name: "core-host",
     root: path.join(root, "apps", "core-host"),
     allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
       "@jarvis-k/contracts",
       "@jarvis-k/core",
       "@jarvis-k/memory-sqlite",

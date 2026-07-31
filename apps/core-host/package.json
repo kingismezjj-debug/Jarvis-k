@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@jarvis-k/capabilities": "*",
     "@jarvis-k/contracts": "*",
     "@jarvis-k/core": "*",
     "@jarvis-k/memory-sqlite": "*",

@@ -1,4 +1,4 @@
-# Phase 3 Architecture
+# Current Architecture
 
 ```text
 React renderer
@@ -16,13 +16,14 @@ Core Host child process
     | composition root for providers and persistence
     v
 Agent Core + Voice Engine
-    |                  |
-    | injected port    | injected port
-    v                  v
-Xunfei RTASR adapter   Memory repository
-                       |
-                       v
-                       SQLite memory adapter
+    |                  |                 |
+    | injected port    | injected port   | injected port
+    v                  v                 v
+Xunfei RTASR adapter   Memory repository Device capability provider
+                       |                 |
+                       v                 v
+                       SQLite memory     Node/Windows capability probe
+                       adapter
 ```
 
 ## Decisions
@@ -60,6 +61,12 @@ Xunfei RTASR adapter   Memory repository
 16. Conversation management is exposed through `packages/contracts` DTOs and
    Core commands. UI and Desktop consume protocol commands only; neither layer
    imports Memory or SQLite packages.
+17. Device capability inspection and provider selection are exposed through
+   provider-neutral `@jarvis-k/capabilities` ports and contracts DTOs. Concrete
+   Node/Windows probing stays in `apps/core-host`.
+18. Local model governance starts with model manifests, runtime mode
+   recommendations, and provider plans. Real model runtimes, downloads, and
+   GPU schedulers must remain behind provider and lifecycle ports.
 
 ## Restart policy
 

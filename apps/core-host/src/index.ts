@@ -2,6 +2,7 @@ import {
   CoreInboundMessageSchema,
   type CoreOutboundMessage
 } from "@jarvis-k/contracts";
+import { StaticModelRegistry } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import path from "node:path";
@@ -12,6 +13,8 @@ import {
   VoiceEngine
 } from "@jarvis-k/voice";
 import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
+import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
+import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider";
 import { NodeWebSocketFactory } from "./node-websocket-factory";
 
 function send(message: CoreOutboundMessage): void {
@@ -127,6 +130,14 @@ const memoryDatabasePath = resolveMemoryDatabasePath();
 const memoryRepository = new SqliteMemoryRepository(
   memoryDatabasePath ? { filePath: memoryDatabasePath } : {}
 );
+const capabilityProvider = new NodeDeviceCapabilityProvider();
+const modelRegistry = new StaticModelRegistry([]);
+const modelLifecycleManager = new FileSystemModelLifecycleManager({
+  rootDirectory: resolveModelDirectoryPath(),
+  fetchArtifact: async () => {
+    throw new Error("MODEL_FETCHER_NOT_CONFIGURED");
+  }
+});
 const voiceEngine = new VoiceEngine({
   provider:
     process.env.JARVIS_K_SMOKE_VOICE === "1"
@@ -153,7 +164,10 @@ runtime = new CoreRuntime(
   },
   voiceEngine,
   () => new Date(),
-  memoryRepository
+  memoryRepository,
+  capabilityProvider,
+  modelRegistry,
+  modelLifecycleManager
 );
 
 let inboundQueue = Promise.resolve();
@@ -224,9 +238,10 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
-void runtime
-  .hydrateMemory()
-  .finally(() => runtime.announceReady());
+void Promise.all([
+  runtime.hydrateMemory(),
+  runtime.hydrateCapabilities()
+]).finally(() => runtime.announceReady());
 
 interface CoreHostVoiceProviderConfiguration {
   language: "zh" | "en";
@@ -282,4 +297,16 @@ function resolveMemoryDatabasePath(): string | undefined {
     return undefined;
   }
   return path.join(localAppData, "Jarvis-K", "memory.sqlite");
+}
+
+function resolveModelDirectoryPath(): string {
+  const explicitPath = process.env.JARVIS_K_MODEL_DIR?.trim();
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (!localAppData) {
+    return path.resolve("models");
+  }
+  return path.join(localAppData, "Jarvis-K", "models");
 }

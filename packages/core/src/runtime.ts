@@ -1,5 +1,7 @@
 import {
   AppEvent,
+  CapabilitySnapshot,
+  CapabilitySnapshotSchema,
   CommandEnvelope,
   CommandEnvelopeSchema,
   CommandResult,
@@ -9,6 +11,8 @@ import {
   Message,
   MemoryHealth,
   MemoryHealthSchema,
+  ModelInventoryItemSchema,
+  ModelManifestSchema,
   MemorySnapshot,
   PROTOCOL_VERSION,
   StructuredError,
@@ -16,6 +20,11 @@ import {
   VoiceEvent,
   createId
 } from "@jarvis-k/contracts";
+import type {
+  CapabilityProvider,
+  ModelLifecycleManager,
+  ModelRegistry
+} from "@jarvis-k/capabilities";
 import type { MemoryRepository } from "@jarvis-k/memory";
 import type {
   VoiceActionResult,
@@ -34,14 +43,31 @@ export class CoreRuntime {
   private health: CoreSnapshot["health"] = "ready";
   private activeConversationId: string | undefined;
   private memoryHealth: MemoryHealth | undefined;
+  private capabilities: CapabilitySnapshot | undefined;
 
   public constructor(
     private readonly eventSink: EventSink,
     private readonly voiceEngine: VoiceEnginePort,
     private readonly now: () => Date = () => new Date(),
-    private readonly memoryRepository?: MemoryRepository
+    private readonly memoryRepository?: MemoryRepository,
+    private readonly capabilityProvider?: CapabilityProvider,
+    private readonly modelRegistry?: ModelRegistry,
+    private readonly modelLifecycleManager?: ModelLifecycleManager
   ) {
     this.startedAt = this.now().toISOString();
+  }
+
+  public async hydrateCapabilities(): Promise<void> {
+    if (!this.capabilityProvider) {
+      return;
+    }
+    try {
+      this.capabilities = CapabilitySnapshotSchema.parse(
+        await this.capabilityProvider.inspect()
+      );
+    } catch {
+      this.health = "degraded";
+    }
   }
 
   public async hydrateMemory(): Promise<void> {
@@ -96,6 +122,7 @@ export class CoreRuntime {
         ? { activeConversationId: this.activeConversationId }
         : {}),
       ...(this.memoryHealth ? { memoryHealth: this.memoryHealth } : {}),
+      ...(this.capabilities ? { capabilities: this.capabilities } : {}),
       tasks: []
     };
   }
@@ -126,6 +153,77 @@ export class CoreRuntime {
       case "agent.getSnapshot": {
         const snapshot = this.publishSnapshot(envelope.correlationId);
         return this.success(envelope, snapshot);
+      }
+
+      case "agent.getCapabilities": {
+        if (!this.capabilityProvider) {
+          return this.capabilitiesUnavailable(envelope);
+        }
+        try {
+          this.capabilities = CapabilitySnapshotSchema.parse(
+            await this.capabilityProvider.inspect()
+          );
+          const snapshot = this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            capabilities: this.capabilities,
+            snapshot
+          });
+        } catch {
+          this.health = "degraded";
+          return this.failure(envelope, {
+            code: "CAPABILITY_INSPECTION_FAILED",
+            message: "Unable to inspect local device capabilities.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listModelManifests": {
+        if (!this.modelRegistry) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const manifests = await this.modelRegistry.listManifests({
+            ...(envelope.command.payload.capability
+              ? { capability: envelope.command.payload.capability }
+              : {}),
+            ...(envelope.command.payload.includeRedRisk === undefined
+              ? {}
+              : { includeRedRisk: envelope.command.payload.includeRedRisk })
+          });
+          return this.success(envelope, {
+            manifests: manifests.map((manifest) =>
+              ModelManifestSchema.parse(manifest)
+            )
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_REGISTRY_FAILED",
+            message: "Unable to list model manifests.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.listModelInventory": {
+        if (!this.modelLifecycleManager) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          const inventory =
+            await this.modelLifecycleManager.listInventory();
+          return this.success(envelope, {
+            inventory: inventory.map((item) =>
+              ModelInventoryItemSchema.parse(item)
+            )
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "MODEL_INVENTORY_FAILED",
+            message: "Unable to list local model inventory.",
+            retryable: true
+          });
+        }
       }
 
       case "agent.getMemoryHealth": {
@@ -573,6 +671,24 @@ export class CoreRuntime {
     return this.failure(envelope, {
       code: "MEMORY_UNAVAILABLE",
       message: "Memory store is unavailable.",
+      retryable: true
+    });
+  }
+
+  private capabilitiesUnavailable(
+    envelope: CommandEnvelope
+  ): CommandResult {
+    return this.failure(envelope, {
+      code: "CAPABILITIES_UNAVAILABLE",
+      message: "Device capability inspection is unavailable.",
+      retryable: true
+    });
+  }
+
+  private modelsUnavailable(envelope: CommandEnvelope): CommandResult {
+    return this.failure(envelope, {
+      code: "MODEL_GOVERNANCE_UNAVAILABLE",
+      message: "Model governance is unavailable.",
       retryable: true
     });
   }

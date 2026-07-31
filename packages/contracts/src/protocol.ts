@@ -129,6 +129,23 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema
   }),
   z.object({
+    type: z.literal("agent.getCapabilities"),
+    payload: EmptyPayloadSchema
+  }),
+  z.object({
+    type: z.literal("agent.listModelManifests"),
+    payload: z
+      .object({
+        capability: z.lazy(() => LocalModelCapabilitySchema).optional(),
+        includeRedRisk: z.boolean().optional()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("agent.listModelInventory"),
+    payload: EmptyPayloadSchema
+  }),
+  z.object({
     type: z.literal("agent.getMemoryHealth"),
     payload: EmptyPayloadSchema
   }),
@@ -368,6 +385,157 @@ export const MemorySnapshotSchema = z
 
 export type MemorySnapshot = z.infer<typeof MemorySnapshotSchema>;
 
+export const DeviceRuntimeModeSchema = z.enum([
+  "lite",
+  "standard",
+  "local_enhanced",
+  "private_offline"
+]);
+
+export type DeviceRuntimeMode = z.infer<typeof DeviceRuntimeModeSchema>;
+
+export const AccelerationBackendSchema = z.enum([
+  "cpu",
+  "cuda",
+  "directml",
+  "openvino",
+  "onnxruntime"
+]);
+
+export type AccelerationBackend = z.infer<
+  typeof AccelerationBackendSchema
+>;
+
+export const GpuDeviceSchema = z
+  .object({
+    name: z.string().min(1).max(300),
+    vendor: z
+      .enum(["nvidia", "amd", "intel", "microsoft", "unknown"])
+      .optional(),
+    dedicatedMemoryBytes: z.number().int().nonnegative().optional(),
+    driverVersion: z.string().min(1).max(128).optional()
+  })
+  .strict();
+
+export type GpuDevice = z.infer<typeof GpuDeviceSchema>;
+
+export const DeviceCapabilitySchema = z
+  .object({
+    checkedAt: z.string().datetime(),
+    platform: z.enum(["win32", "darwin", "linux", "unknown"]),
+    arch: z.string().min(1).max(64),
+    cpuLogicalCores: z.number().int().positive(),
+    totalMemoryBytes: z.number().int().nonnegative(),
+    availableMemoryBytes: z.number().int().nonnegative(),
+    gpus: z.array(GpuDeviceSchema).default([]),
+    accelerationBackends: z.array(AccelerationBackendSchema).default([
+      "cpu"
+    ]),
+    recommendedMode: DeviceRuntimeModeSchema,
+    reasons: z.array(z.string().min(1).max(300)).default([])
+  })
+  .strict();
+
+export type DeviceCapability = z.infer<typeof DeviceCapabilitySchema>;
+
+export const LocalModelCapabilitySchema = z.enum([
+  "speech_to_text",
+  "text_to_speech",
+  "ocr",
+  "embedding",
+  "reranker",
+  "intent_router",
+  "vision"
+]);
+
+export type LocalModelCapability = z.infer<
+  typeof LocalModelCapabilitySchema
+>;
+
+export const ModelRuntimeSchema = z.enum([
+  "ctranslate2",
+  "onnxruntime",
+  "llama_cpp",
+  "transformers",
+  "paddle",
+  "system",
+  "remote"
+]);
+
+export type ModelRuntime = z.infer<typeof ModelRuntimeSchema>;
+
+export const ModelDistributionStatusSchema = z.enum([
+  "not_downloaded",
+  "available",
+  "loaded",
+  "unavailable",
+  "cloud_only"
+]);
+
+export type ModelDistributionStatus = z.infer<
+  typeof ModelDistributionStatusSchema
+>;
+
+export const ModelManifestSchema = z
+  .object({
+    id: z.string().min(1).max(300),
+    capability: LocalModelCapabilitySchema,
+    source: z.enum(["huggingface", "jarvis", "system", "third_party"]),
+    revision: z.string().min(1).max(128),
+    license: z.string().min(1).max(128),
+    runtime: ModelRuntimeSchema,
+    quantization: z.string().min(1).max(64).optional(),
+    sizeBytes: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    minMemoryBytes: z.number().int().nonnegative().optional(),
+    minVramBytes: z.number().int().nonnegative().optional(),
+    licenseRisk: z.enum(["green", "yellow", "red", "unknown"])
+  })
+  .strict();
+
+export type ModelManifest = z.infer<typeof ModelManifestSchema>;
+
+export const ModelInventoryItemSchema = z
+  .object({
+    manifest: ModelManifestSchema,
+    status: ModelDistributionStatusSchema,
+    installPath: z.string().min(1).max(500).optional(),
+    lastVerifiedAt: z.string().datetime().optional()
+  })
+  .strict();
+
+export type ModelInventoryItem = z.infer<
+  typeof ModelInventoryItemSchema
+>;
+
+export const ProviderSelectionSchema = z
+  .object({
+    capability: LocalModelCapabilitySchema,
+    provider: z.string().min(1).max(128),
+    execution: z.enum(["local", "cloud", "system", "disabled"]),
+    loadPolicy: z.enum(["resident", "on_demand", "remote", "disabled"]),
+    reason: z.string().min(1).max(500)
+  })
+  .strict();
+
+export type ProviderSelection = z.infer<
+  typeof ProviderSelectionSchema
+>;
+
+export const CapabilitySnapshotSchema = z
+  .object({
+    checkedAt: z.string().datetime(),
+    device: DeviceCapabilitySchema,
+    runtimeMode: DeviceRuntimeModeSchema,
+    providerPlan: z.array(ProviderSelectionSchema),
+    modelInventory: z.array(ModelInventoryItemSchema).default([])
+  })
+  .strict();
+
+export type CapabilitySnapshot = z.infer<
+  typeof CapabilitySnapshotSchema
+>;
+
 export const TaskSchema = z
   .object({
     id: z.string().min(1),
@@ -414,6 +582,7 @@ export const CoreSnapshotSchema = z
     conversations: z.array(ConversationSchema).default([]),
     activeConversationId: z.string().min(1).max(128).optional(),
     memoryHealth: MemoryHealthSchema.optional(),
+    capabilities: CapabilitySnapshotSchema.optional(),
     tasks: z.array(TaskSchema)
   })
   .strict();

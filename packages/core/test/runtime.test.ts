@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  type CapabilitySnapshot,
   type Message,
   type EventEnvelope,
   type VoiceEvent,
   type VoiceMode,
   type VoicePermissionState,
   type VoiceSnapshot,
+  type ModelInventoryItem,
+  type ModelManifest,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
+import type {
+  CapabilityProvider,
+  ModelLifecycleManager,
+  ModelRegistry
+} from "@jarvis-k/capabilities";
 import type {
   Conversation,
   ConversationCreateInput,
@@ -379,14 +387,113 @@ class FakeMemoryRepository implements MemoryRepository {
   }
 }
 
-function createRuntime(memoryRepository?: MemoryRepository) {
+class FakeCapabilityProvider implements CapabilityProvider {
+  public async inspect(): Promise<CapabilitySnapshot> {
+    return {
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      runtimeMode: "standard",
+      device: {
+        checkedAt: "2026-07-31T00:00:00.000Z",
+        platform: "win32",
+        arch: "x64",
+        cpuLogicalCores: 16,
+        totalMemoryBytes: 16 * 1024 * 1024 * 1024,
+        availableMemoryBytes: 8 * 1024 * 1024 * 1024,
+        gpus: [],
+        accelerationBackends: ["cpu", "directml"],
+        recommendedMode: "standard",
+        reasons: ["Fake capability provider."]
+      },
+      providerPlan: [
+        {
+          capability: "speech_to_text",
+          provider: "local_whisper",
+          execution: "local",
+          loadPolicy: "on_demand",
+          reason: "Fake provider selection."
+        }
+      ],
+      modelInventory: []
+    };
+  }
+}
+
+class FakeModelRegistry implements ModelRegistry {
+  public readonly manifest: ModelManifest = {
+    id: "vendor/local-stt-small",
+    capability: "speech_to_text",
+    source: "huggingface",
+    revision: "commit-a",
+    license: "MIT",
+    runtime: "ctranslate2",
+    quantization: "int8",
+    sizeBytes: 512,
+    licenseRisk: "green"
+  };
+
+  public async listManifests(): Promise<ModelManifest[]> {
+    return [{ ...this.manifest }];
+  }
+
+  public async getManifest(
+    modelId: string
+  ): Promise<ModelManifest | undefined> {
+    return modelId === this.manifest.id ? { ...this.manifest } : undefined;
+  }
+}
+
+class FakeModelLifecycleManager implements ModelLifecycleManager {
+  public readonly inventory: ModelInventoryItem[] = [
+    {
+      manifest: new FakeModelRegistry().manifest,
+      status: "available",
+      installPath: "E:\\Jarvis-K\\models\\vendor-local-stt-small\\model.bin",
+      lastVerifiedAt: "2026-07-31T00:00:00.000Z"
+    }
+  ];
+
+  public async listInventory(): Promise<ModelInventoryItem[]> {
+    return this.inventory.map((item) => ({
+      ...item,
+      manifest: { ...item.manifest }
+    }));
+  }
+
+  public async ensureAvailable(
+    modelId: string
+  ): Promise<ModelInventoryItem> {
+    const item = this.inventory.find(
+      (entry) => entry.manifest.id === modelId
+    );
+    if (!item) throw new Error("Model unavailable.");
+    return { ...item, manifest: { ...item.manifest } };
+  }
+
+  public async load(modelId: string): Promise<ModelInventoryItem> {
+    return this.ensureAvailable(modelId);
+  }
+
+  public async release(): Promise<void> {
+    return;
+  }
+}
+
+function createRuntime(
+  memoryRepository?: MemoryRepository,
+  capabilityProvider?: CapabilityProvider,
+  modelRegistry?: ModelRegistry,
+  modelLifecycleManager?: ModelLifecycleManager
+) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
   const runtime = new CoreRuntime(
     (event) => events.push(event),
     voiceEngine,
     undefined,
-    memoryRepository
+    memoryRepository,
+    capabilityProvider,
+    modelRegistry,
+    modelLifecycleManager
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -539,6 +646,77 @@ describe("CoreRuntime", () => {
       memoryHealth: {
         status: "ok"
       }
+    });
+  });
+
+  it("hydrates and refreshes provider-neutral device capabilities", async () => {
+    const { events, runtime } = createRuntime(
+      undefined,
+      new FakeCapabilityProvider()
+    );
+
+    await runtime.hydrateCapabilities();
+
+    expect(runtime.getSnapshot().capabilities?.runtimeMode).toBe(
+      "standard"
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getCapabilities",
+        payload: {}
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      capabilities: {
+        runtimeMode: "standard"
+      }
+    });
+    expect(events.at(-1)?.event.type).toBe("state.snapshot");
+  });
+
+  it("lists model manifests and local model inventory through injected ports", async () => {
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      new FakeModelRegistry(),
+      new FakeModelLifecycleManager()
+    );
+
+    const manifests = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listModelManifests",
+        payload: {}
+      })
+    );
+    const inventory = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listModelInventory",
+        payload: {}
+      })
+    );
+
+    expect(manifests.ok).toBe(true);
+    expect(manifests.ok ? manifests.data : undefined).toMatchObject({
+      manifests: [
+        {
+          id: "vendor/local-stt-small",
+          capability: "speech_to_text"
+        }
+      ]
+    });
+    expect(inventory.ok).toBe(true);
+    expect(inventory.ok ? inventory.data : undefined).toMatchObject({
+      inventory: [
+        {
+          status: "available",
+          manifest: {
+            id: "vendor/local-stt-small"
+          }
+        }
+      ]
     });
   });
 

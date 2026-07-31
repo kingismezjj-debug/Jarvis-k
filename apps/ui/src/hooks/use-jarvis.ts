@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
+  ModelInventoryItemSchema,
+  ModelManifestSchema,
   MemorySnapshotSchema,
   type AppCommand,
   type CoreSnapshot,
   type EventEnvelope,
+  type ModelInventoryItem,
+  type ModelManifest,
 } from "@jarvis-k/contracts"
 
 type CoreConnection = "connecting" | "online" | "restarting" | "offline"
@@ -16,6 +20,8 @@ export function useJarvis() {
   const [events, setEvents] = useState<EventEnvelope[]>([])
   const [connection, setConnection] = useState<CoreConnection>("connecting")
   const [error, setError] = useState<string | null>(null)
+  const [modelInventory, setModelInventory] = useState<ModelInventoryItem[]>([])
+  const [modelManifests, setModelManifests] = useState<ModelManifest[]>([])
   const [sending, setSending] = useState(false)
 
   const applyEvent = useCallback((envelope: EventEnvelope) => {
@@ -131,6 +137,64 @@ export function useJarvis() {
     [sendCommand]
   )
 
+  const refreshCapabilities = useCallback(
+    async () =>
+      sendCommand({
+        type: "agent.getCapabilities",
+        payload: {},
+      }),
+    [sendCommand]
+  )
+
+  const refreshModelGovernance = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return false
+    }
+
+    setSending(true)
+    try {
+      const manifestsResult = await window.jarvis.sendCommand({
+        type: "agent.listModelManifests",
+        payload: {},
+      })
+      if (!manifestsResult.ok) {
+        setError(manifestsResult.error.message)
+        return false
+      }
+      const manifests = ModelManifestSchema.array().safeParse(
+        (manifestsResult.data as { manifests?: unknown } | undefined)?.manifests
+      )
+      if (!manifests.success) {
+        setError("Core returned invalid model manifests.")
+        return false
+      }
+
+      const inventoryResult = await window.jarvis.sendCommand({
+        type: "agent.listModelInventory",
+        payload: {},
+      })
+      if (!inventoryResult.ok) {
+        setError(inventoryResult.error.message)
+        return false
+      }
+      const inventory = ModelInventoryItemSchema.array().safeParse(
+        (inventoryResult.data as { inventory?: unknown } | undefined)?.inventory
+      )
+      if (!inventory.success) {
+        setError("Core returned invalid model inventory.")
+        return false
+      }
+
+      setModelManifests(manifests.data)
+      setModelInventory(inventory.data)
+      setError(null)
+      return true
+    } finally {
+      setSending(false)
+    }
+  }, [])
+
   const exportMemorySnapshot = useCallback(async () => {
     if (!window.jarvis) {
       setError("Desktop bridge unavailable.")
@@ -213,9 +277,13 @@ export function useJarvis() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    modelInventory,
+    modelManifests,
     openVoiceSettings,
     probeCore,
+    refreshCapabilities,
     refreshMemoryHealth,
+    refreshModelGovernance,
     refreshSnapshot,
     renameConversation,
     sendCommand,

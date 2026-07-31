@@ -120,9 +120,13 @@ export default function App() {
     events,
     exportMemorySnapshot,
     importMemorySnapshot,
+    modelInventory,
+    modelManifests,
     openVoiceSettings,
     probeCore,
+    refreshCapabilities,
     refreshMemoryHealth,
+    refreshModelGovernance,
     renameConversation,
     sendCommand,
     sendMessage,
@@ -151,6 +155,14 @@ export default function App() {
   const voiceTranscript = snapshot?.voice.transcript?.text ?? ""
   const voiceRms = `${Math.round(ptt.audioDiagnostics.rms * 100)}%`
   const voicePeak = `${Math.round(ptt.audioDiagnostics.peak * 100)}%`
+  const runtimeMode =
+    snapshot?.capabilities?.runtimeMode.replace("_", " ") ?? "unknown"
+  const gpuCount = snapshot?.capabilities?.device.gpus.length ?? 0
+  const accelerationBackends =
+    snapshot?.capabilities?.device.accelerationBackends.join(", ") ?? "cpu"
+  const loadedModelCount = modelInventory.filter(
+    (item) => item.status === "loaded"
+  ).length
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -531,7 +543,9 @@ export default function App() {
                     className="rounded-md"
                     onClick={() => {
                       void probeCore()
+                      void refreshCapabilities()
                       void refreshMemoryHealth()
+                      void refreshModelGovernance()
                     }}
                     size="icon-sm"
                     variant="ghost"
@@ -547,11 +561,14 @@ export default function App() {
 
             <dl className="shrink-0 divide-y divide-border border-y text-[11px]">
               <Metric label="CORE HEALTH" value={snapshot?.health ?? connection} tone="success" />
+              <Metric label="RUNTIME MODE" value={runtimeMode} tone="accent" />
               <Metric
                 label="MEMORY"
                 value={snapshot?.memoryHealth?.status ?? "unknown"}
                 tone={snapshot?.memoryHealth?.status === "degraded" ? "warning" : "success"}
               />
+              <Metric label="GPU COUNT" value={String(gpuCount)} />
+              <Metric label="ACCELERATION" value={accelerationBackends} />
               <Metric label="VOICE ENGINE" value={snapshot?.voice.state ?? "disabled"} tone="warning" />
               <Metric label="MIC PERMISSION" value={snapshot?.voice.permission ?? "unknown"} />
               <Metric label="VOICE FRAMES" value={String(ptt.audioDiagnostics.framesSent)} />
@@ -560,6 +577,34 @@ export default function App() {
               <Metric label="TRANSPORT" value="IPC" tone="accent" />
               <Metric label="SEQUENCE" value={String(snapshot?.sequenceId ?? 0).padStart(4, "0")} />
             </dl>
+
+            <div className="mt-4 shrink-0" data-testid="model-governance">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Model Governance</h3>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      aria-label="Refresh model governance"
+                      className="size-8 rounded-md"
+                      data-testid="refresh-model-governance"
+                      disabled={sending}
+                      onClick={() => void refreshModelGovernance()}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <RefreshCw className={cn("size-3.5", sending && "animate-spin")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refresh model governance</TooltipContent>
+                </Tooltip>
+              </div>
+              <dl className="divide-y divide-border border-y text-[11px]">
+                <Metric label="MANIFESTS" value={String(modelManifests.length)} />
+                <Metric label="LOCAL MODELS" value={String(modelInventory.length)} />
+                <Metric label="LOADED" value={String(loadedModelCount)} tone="accent" />
+              </dl>
+            </div>
 
             <div className="mt-4 shrink-0">
               <div className="mb-2 flex items-center justify-between">
@@ -672,11 +717,11 @@ function Metric({
   value: string
 }) {
   return (
-    <div className="flex h-[42px] items-center justify-between">
-      <dt className="text-muted-foreground">{label}</dt>
+    <div className="flex h-[42px] items-center justify-between gap-3">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          "font-medium uppercase",
+          "min-w-0 truncate text-right font-medium uppercase",
           tone === "success" && "text-success",
           tone === "warning" && "text-warning",
           tone === "accent" && "text-accent"
