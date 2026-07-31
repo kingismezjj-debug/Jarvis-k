@@ -115,6 +115,19 @@ describe("check-boundaries script", () => {
       )
     });
   });
+
+  it("fails when source crosses its workspace with a relative import", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "capabilities"),
+      "import \"../../core/src/runtime\";\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "crosses its workspace boundary via ../../core/src/runtime"
+      )
+    });
+  });
 });
 
 async function createMinimalWorkspace(root: string): Promise<void> {

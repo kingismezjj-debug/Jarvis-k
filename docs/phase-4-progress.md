@@ -700,3 +700,25 @@
 - `npm run check:boundaries`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 35 test files and 189 tests.
+
+### Wave 4.30: Relative Workspace Boundary Regression Coverage
+
+- Status: complete.
+- Extended the boundary script regression test to cover relative imports that
+  escape a package workspace root.
+- Added a synthetic `../../core/src/runtime` import fixture under
+  `packages/capabilities` and asserted that `scripts/check-boundaries.mjs`
+  fails with a workspace-boundary crossing violation.
+- Reinforced that future shared code must move through explicit workspace
+  packages and approved imports rather than reaching across package roots with
+  relative paths.
+- Kept the fixture synthetic and local to a temporary workspace; it does not
+  touch credentials, downloads, provider configuration, model artifacts, or
+  runtime dependencies.
+
+### Current Gate
+
+- Targeted boundary script test: PASS, 1 test file and 7 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 35 test files and 190 tests.
