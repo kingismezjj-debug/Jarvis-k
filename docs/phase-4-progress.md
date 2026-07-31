@@ -398,3 +398,24 @@
 - `npm run verify`: PASS, 28 test files and 157 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+### Wave 4.17: Embedding Inference Port Boundary
+
+- Status: complete.
+- Added provider-neutral embedding request/result/vector DTOs with schema
+  validation for text input size, batch size, finite vector values, and vector
+  dimensionality.
+- Added an `EmbeddingInferenceProvider` port in `@jarvis-k/capabilities` so
+  future local or remote embedding providers can be injected without Core
+  importing runtime implementations.
+- Added an unavailable embedding provider that fails closed until a real
+  embedding provider is deliberately composed.
+- Kept vector storage, retrieval policy, real model execution, model downloads,
+  Python, CUDA, ONNX, and Hugging Face access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/embedding/runtime tests: PASS, 3 test files and 21 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 29 test files and 160 tests.

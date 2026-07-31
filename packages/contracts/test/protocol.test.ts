@@ -5,6 +5,7 @@ import {
   CommandEnvelopeSchema,
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
+  EmbeddingGenerationResultSchema,
   ModelInstallabilityReportSchema,
   ModelRuntimeAdapterDescriptorSchema,
   ModelOperationSnapshotSchema,
@@ -273,6 +274,36 @@ describe("protocol contracts", () => {
       runtime: "onnxruntime",
       capabilities: ["embedding"]
     });
+  });
+
+  it("accepts provider-neutral embedding generation results", () => {
+    expect(
+      EmbeddingGenerationResultSchema.parse({
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        dimensions: 3,
+        vectors: [
+          {
+            inputId: "input-1",
+            values: [0.1, 0.2, 0.3]
+          }
+        ],
+        generatedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      dimensions: 3
+    });
+    expect(() =>
+      EmbeddingGenerationResultSchema.parse({
+        modelId: "jarvis-fixture/local-embedding-smoke",
+        dimensions: 2,
+        vectors: [
+          {
+            values: [0.1, 0.2, 0.3]
+          }
+        ],
+        generatedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toThrow("Embedding vector length");
   });
 
   it("accepts provider-neutral model operation events", () => {

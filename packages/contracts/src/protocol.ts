@@ -598,6 +598,63 @@ export type ModelInventoryItem = z.infer<
   typeof ModelInventoryItemSchema
 >;
 
+export const EmbeddingInputSchema = z
+  .object({
+    id: z.string().min(1).max(128).optional(),
+    text: z.string().trim().min(1).max(20_000)
+  })
+  .strict();
+
+export type EmbeddingInput = z.infer<typeof EmbeddingInputSchema>;
+
+export const EmbeddingVectorSchema = z
+  .object({
+    inputId: z.string().min(1).max(128).optional(),
+    values: z.array(z.number().finite()).min(1).max(8192)
+  })
+  .strict();
+
+export type EmbeddingVector = z.infer<typeof EmbeddingVectorSchema>;
+
+export const EmbeddingGenerationRequestSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    inputs: z.array(EmbeddingInputSchema).min(1).max(128),
+    dimensions: z.number().int().positive().max(8192).optional()
+  })
+  .strict();
+
+export type EmbeddingGenerationRequest = z.infer<
+  typeof EmbeddingGenerationRequestSchema
+>;
+
+export const EmbeddingGenerationResultSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    dimensions: z.number().int().positive().max(8192),
+    vectors: z.array(EmbeddingVectorSchema).min(1).max(128),
+    generatedAt: z.string().datetime()
+  })
+  .strict()
+  .superRefine((result, ctx) => {
+    if (result.vectors.length === 0) {
+      return;
+    }
+    for (const [index, vector] of result.vectors.entries()) {
+      if (vector.values.length !== result.dimensions) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["vectors", index, "values"],
+          message: "Embedding vector length must match dimensions."
+        });
+      }
+    }
+  });
+
+export type EmbeddingGenerationResult = z.infer<
+  typeof EmbeddingGenerationResultSchema
+>;
+
 export const ModelInstallabilityReportSchema = z
   .object({
     modelId: z.string().min(1).max(300),

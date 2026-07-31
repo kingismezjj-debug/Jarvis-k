@@ -1,6 +1,8 @@
 import type {
   CapabilitySnapshot,
   DeviceCapability,
+  EmbeddingGenerationRequest,
+  EmbeddingGenerationResult,
   LocalModelCapability,
   ModelCandidate,
   ModelInstallabilityReport,
@@ -108,6 +110,12 @@ export interface LoadedModelSession {
   runtime: ModelRuntime;
   loadedAt: string;
   release(): Promise<void>;
+}
+
+export interface EmbeddingInferenceProvider {
+  embed(
+    request: EmbeddingGenerationRequest
+  ): Promise<EmbeddingGenerationResult>;
 }
 
 export interface ModelInstallWorkflowOrchestrator {
