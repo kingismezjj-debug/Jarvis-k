@@ -27,7 +27,7 @@
     "build:ui": "npm run build -w @jarvis-k/ui",
     "build:desktop": "npm run build -w @jarvis-k/desktop",
     "build": "npm run build:contracts && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-capture-browser && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && npm run build:ui && npm run build:desktop",
-    "typecheck": "npm run build:contracts && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:core && npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run build:contracts && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "ci": "npm run typecheck && npm test && npm run check:boundaries && npm run build",
     "verify": "npm run typecheck && npm test && npm run check:boundaries && npm run build",
@@ -35,7 +35,7 @@
     "dev": "npm run build && npm run start",
     "smoke:desktop": "npm run build && node tests/desktop-smoke.mjs",
     "acceptance:xunfei": "npm run build && node tests/real-xunfei-acceptance.mjs",
-    "test": "npm run build:contracts && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:core && npm run build:core-host && vitest run"
+    "test": "npm run build:contracts && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && vitest run"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
