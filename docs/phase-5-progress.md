@@ -63,3 +63,33 @@ URLs, or external network access.
 - `npm run smoke:desktop:memory-degraded`: PASS.
 - Fixture-enabled Core Host IPC check: PASS for supervised embedding phases
   `prechecking`, `executing`, and `completed`.
+
+## Wave 5.3: Fixture Inference UI Observation
+
+- Status: complete.
+- Added a compact development observation entry to the existing Model
+  Governance panel for the deterministic fixture embedding provider.
+- The UI enables the fixture embedding action only when the provider registry
+  reports `embedding.fixture` as `available`; default unconfigured states
+  remain visible but non-executable.
+- Added read-only metrics for fixture provider status, vector dimensions,
+  vector count, and final supervised inference operation phase.
+- Updated the UI hook to send `agent.generateEmbeddings` through the desktop
+  bridge and validate `EmbeddingGenerationResult` and `ModelOperationSnapshot`
+  DTOs before updating display state.
+- Updated the UI hook to consume `model.operation.updated` events so
+  supervised execution state appears without a manual refresh.
+- Kept the entry provider-neutral from the UI perspective. The UI does not
+  import the fixture adapter, capabilities policy, model runtimes, credentials,
+  provider URLs, downloads, or native dependencies.
+
+### Current Gate
+
+- Targeted UI inference source tests: PASS, 2 test files and 10 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 38 test files and 203 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+- Fixture-enabled UI smoke: PASS. The Model Governance panel refreshed
+  `embedding.fixture`, ran the fixture embedding action, and displayed
+  `VECTOR DIMS` = 4, `VECTORS` = 1, and `INFERENCE` = `completed`.

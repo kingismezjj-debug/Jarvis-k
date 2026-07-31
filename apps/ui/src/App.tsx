@@ -132,6 +132,7 @@ export default function App() {
     error,
     events,
     exportMemorySnapshot,
+    fixtureEmbeddingProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -147,6 +148,7 @@ export default function App() {
     refreshModelGovernance,
     renameConversation,
     resourceDiagnostics,
+    runFixtureEmbeddingProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -188,6 +190,11 @@ export default function App() {
   const availableInferenceProviderCount = inferenceProviders.filter(
     (item) => item.status === "available"
   ).length
+  const fixtureEmbeddingProvider = inferenceProviders.find(
+    (item) => item.provider === "embedding.fixture"
+  )
+  const fixtureEmbeddingAvailable =
+    fixtureEmbeddingProvider?.status === "available"
   const requiredProviderConfigurationCount = inferenceProviderRequirements
     .flatMap((report) => report.requirements)
     .filter((requirement) => requirement.required && !requirement.configured)
@@ -623,23 +630,42 @@ export default function App() {
             <div className="mt-4 shrink-0" data-testid="model-governance">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Model Governance</h3>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      aria-label="Refresh model governance"
-                      className="size-8 rounded-md"
-                      data-testid="refresh-model-governance"
-                      disabled={sending}
-                      onClick={() => void refreshModelGovernance()}
-                      size="icon-sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <RefreshCw className={cn("size-3.5", sending && "animate-spin")} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Refresh model governance</TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Run fixture embedding"
+                        className="size-8 rounded-md"
+                        data-testid="run-fixture-embedding"
+                        disabled={!fixtureEmbeddingAvailable || sending}
+                        onClick={() => void runFixtureEmbeddingProbe()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Bot className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Run fixture embedding</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        aria-label="Refresh model governance"
+                        className="size-8 rounded-md"
+                        data-testid="refresh-model-governance"
+                        disabled={sending}
+                        onClick={() => void refreshModelGovernance()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <RefreshCw className={cn("size-3.5", sending && "animate-spin")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Refresh model governance</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
               <dl className="divide-y divide-border border-y text-[11px]">
                 <Metric label="CANDIDATES" value={String(modelCandidates.length)} />
@@ -649,6 +675,11 @@ export default function App() {
                   label="AVAILABLE"
                   value={String(availableInferenceProviderCount)}
                   tone="success"
+                />
+                <Metric
+                  label="FIXTURE"
+                  value={fixtureEmbeddingProvider?.status ?? "unconfigured"}
+                  tone={fixtureEmbeddingAvailable ? "success" : "warning"}
                 />
                 <Metric
                   label="REQUIRED"
@@ -668,6 +699,31 @@ export default function App() {
                 <Metric label="LOCAL MODELS" value={String(modelInventory.length)} />
                 <Metric label="DOWNLOADABLE" value={String(downloadableCandidateCount)} />
                 <Metric label="LOADED" value={String(loadedModelCount)} tone="accent" />
+                <Metric
+                  label="VECTOR DIMS"
+                  value={
+                    fixtureEmbeddingProbe
+                      ? String(fixtureEmbeddingProbe.dimensions)
+                      : "idle"
+                  }
+                />
+                <Metric
+                  label="VECTORS"
+                  value={
+                    fixtureEmbeddingProbe
+                      ? String(fixtureEmbeddingProbe.vectorCount)
+                      : "idle"
+                  }
+                />
+                <Metric
+                  label="INFERENCE"
+                  value={fixtureEmbeddingProbe?.operationPhase ?? "idle"}
+                  tone={
+                    fixtureEmbeddingProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined
+                  }
+                />
               </dl>
             </div>
 

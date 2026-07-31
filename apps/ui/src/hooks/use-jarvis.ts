@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   CoreSnapshotSchema,
+  EmbeddingGenerationResultSchema,
   InferenceProviderConfigurationReportSchema,
   InferenceProviderDescriptorSchema,
   ModelInstallabilityReportSchema,
@@ -12,6 +13,7 @@ import {
   ResourceSchedulerDiagnosticsSchema,
   type AppCommand,
   type CoreSnapshot,
+  type EmbeddingGenerationResult,
   type EventEnvelope,
   type InferenceProviderConfigurationReport,
   type InferenceProviderDescriptor,
@@ -26,6 +28,14 @@ import {
 type CoreConnection = "connecting" | "online" | "restarting" | "offline"
 
 const MAX_EVENTS = 40
+const FIXTURE_EMBEDDING_MODEL_ID = "jarvis-fixture/local-embedding-smoke"
+
+export type FixtureEmbeddingProbe = {
+  dimensions: number
+  generatedAt: string
+  operationPhase?: ModelOperationSnapshot["phase"]
+  vectorCount: number
+}
 
 export function useJarvis() {
   const [snapshot, setSnapshot] = useState<CoreSnapshot | null>(null)
@@ -44,6 +54,8 @@ export function useJarvis() {
   >([])
   const [inferenceProviderRequirements, setInferenceProviderRequirements] =
     useState<InferenceProviderConfigurationReport[]>([])
+  const [fixtureEmbeddingProbe, setFixtureEmbeddingProbe] =
+    useState<FixtureEmbeddingProbe | null>(null)
   const [resourceDiagnostics, setResourceDiagnostics] =
     useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
@@ -55,6 +67,19 @@ export function useJarvis() {
       setSnapshot(envelope.event.payload)
       setConnection("online")
       setError(null)
+    }
+
+    if (envelope.event.type === "model.operation.updated") {
+      const operation = envelope.event.payload
+      setModelOperations((current) => {
+        const existingIndex = current.findIndex(
+          (item) => item.operationId === operation.operationId
+        )
+        if (existingIndex < 0) return [operation, ...current]
+        return current.map((item, index) =>
+          index === existingIndex ? operation : item
+        )
+      })
     }
 
     if (envelope.event.type === "system.core.lifecycle") {
@@ -337,6 +362,63 @@ export function useJarvis() {
     }
   }, [])
 
+  const runFixtureEmbeddingProbe = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return false
+    }
+
+    setSending(true)
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.generateEmbeddings",
+        payload: {
+          modelId: FIXTURE_EMBEDDING_MODEL_ID,
+          inputs: [
+            {
+              id: "fixture-ui-probe",
+              text: "Jarvis-K fixture embedding probe",
+            },
+          ],
+          dimensions: 4,
+        },
+      })
+      if (!result.ok) {
+        setError(result.error.message)
+        return false
+      }
+      const embeddingResult = EmbeddingGenerationResultSchema.safeParse(
+        (result.data as { result?: unknown } | undefined)?.result
+      )
+      if (!embeddingResult.success) {
+        setError("Core returned an invalid embedding result.")
+        return false
+      }
+      const operation = ModelOperationSnapshotSchema.safeParse(
+        (result.data as { operation?: unknown } | undefined)?.operation
+      )
+      if (operation.success) {
+        setModelOperations((current) => {
+          const existingIndex = current.findIndex(
+            (item) => item.operationId === operation.data.operationId
+          )
+          if (existingIndex < 0) return [operation.data, ...current]
+          return current.map((item, index) =>
+            index === existingIndex ? operation.data : item
+          )
+        })
+      }
+      setFixtureEmbeddingProbe(toFixtureEmbeddingProbe(
+        embeddingResult.data,
+        operation.success ? operation.data : undefined
+      ))
+      setError(null)
+      return true
+    } finally {
+      setSending(false)
+    }
+  }, [])
+
   const exportMemorySnapshot = useCallback(async () => {
     if (!window.jarvis) {
       setError("Desktop bridge unavailable.")
@@ -418,6 +500,7 @@ export function useJarvis() {
     createConversation,
     events,
     exportMemorySnapshot,
+    fixtureEmbeddingProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -434,10 +517,23 @@ export function useJarvis() {
     refreshSnapshot,
     renameConversation,
     resourceDiagnostics,
+    runFixtureEmbeddingProbe,
     sendCommand,
     sendMessage,
     selectConversation,
     sending,
     snapshot,
+  }
+}
+
+function toFixtureEmbeddingProbe(
+  result: EmbeddingGenerationResult,
+  operation: ModelOperationSnapshot | undefined
+): FixtureEmbeddingProbe {
+  return {
+    dimensions: result.dimensions,
+    generatedAt: result.generatedAt,
+    ...(operation ? { operationPhase: operation.phase } : {}),
+    vectorCount: result.vectors.length,
   }
 }

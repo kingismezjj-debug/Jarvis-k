@@ -51,6 +51,7 @@ describe("voice UI wiring", () => {
   it("renders model governance controls visibly", () => {
     expect(appSource).toContain('data-testid="model-governance"');
     expect(appSource).toContain('data-testid="refresh-model-governance"');
+    expect(appSource).toContain('data-testid="run-fixture-embedding"');
     expect(appSource).toContain("Model Governance");
     expect(appSource).toContain("CANDIDATES");
     expect(appSource).toContain("DOWNLOADABLE");
@@ -63,7 +64,11 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("RESOURCE MEM");
     expect(appSource).toContain("RESOURCE VRAM");
     expect(appSource).toContain("RESOURCE LEASES");
+    expect(appSource).toContain("FIXTURE");
+    expect(appSource).toContain("VECTOR DIMS");
+    expect(appSource).toContain("INFERENCE");
     expect(appSource).toContain("refreshModelGovernance");
+    expect(appSource).toContain("runFixtureEmbeddingProbe");
   });
 
   it("labels model operation events in the activity stream", () => {
