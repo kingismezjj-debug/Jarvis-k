@@ -54,6 +54,9 @@ A real provider or runtime may be introduced only after all gates are met:
    calling the provider.
 8. Tests cover unavailable, degraded, and available-but-blocked states before
    happy-path execution is enabled.
+9. `npm run check:boundaries` is intentionally updated in the same change that
+   introduces any real runtime dependency, with the new allow-list scoped to
+   the dedicated provider package or composition root.
 
 ## Explicit Non-Goals
 
@@ -66,6 +69,8 @@ A real provider or runtime may be introduced only after all gates are met:
   contracts, Core snapshots, events, UI state, or smoke metrics.
 - Do not add user-facing execution buttons until unavailable and preflight
   states are covered end to end.
+- Do not bypass `scripts/check-boundaries.mjs` to add model runtime packages;
+  the guard is part of the Phase 4.5 safety baseline.
 
 ## Recommended First Phase 5 Slice
 

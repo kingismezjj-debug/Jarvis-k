@@ -593,3 +593,27 @@
 - `npm run typecheck`: PASS.
 - `npm run check:boundaries`: PASS.
 - `npm run verify`: PASS, 34 test files and 183 tests.
+
+### Wave 4.25: Phase 4.5 Runtime Dependency Guard
+
+- Status: complete.
+- Extended `scripts/check-boundaries.mjs` to inspect workspace
+  `package.json` dependency fields, not only source imports.
+- Added a Phase 4.5 forbidden model-runtime dependency list covering common
+  Hugging Face, ONNX Runtime, TensorFlow, Paddle, CTranslate2, llama.cpp,
+  Python-shell, and transformers package entry points.
+- Applied the same runtime dependency guard to source import prefixes so
+  protected packages cannot accidentally import real model runtime SDKs before
+  Phase 5 explicitly opens that path.
+- Updated the Phase 4.5 readiness runbook and developer onboarding checklist
+  to make intentional boundary-guard changes part of any future real provider
+  introduction.
+- Kept real downloads, provider credentials, model artifacts, runtime
+  dependencies, provider calls, and user-facing execution controls out of this
+  wave.
+
+### Current Gate
+
+- `npm run check:boundaries`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 34 test files and 183 tests.

@@ -4,30 +4,76 @@ import process from "node:process";
 import ts from "typescript";
 
 const root = process.cwd();
+const dependencyFields = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies"
+];
+const forbiddenModelRuntimeDependencies = [
+  "@huggingface/",
+  "@tensorflow/",
+  "@xenova/",
+  "ctranslate2",
+  "llama-cpp",
+  "node-llama-cpp",
+  "onnxruntime",
+  "onnxruntime-node",
+  "onnxruntime-web",
+  "paddlejs",
+  "python-shell",
+  "transformers"
+];
 const packages = [
   {
     name: "contracts",
     root: path.join(root, "packages", "contracts"),
     allowedWorkspaceImports: new Set(),
-    forbiddenImportPrefixes: ["electron", "node:", "react", "ws"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "voice",
     root: path.join(root, "packages", "voice"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
-    forbiddenImportPrefixes: ["electron", "node:", "react", "ws"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "capabilities",
     root: path.join(root, "packages", "capabilities"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
-    forbiddenImportPrefixes: ["electron", "node:", "react", "ws", "sql.js"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "memory",
     root: path.join(root, "packages", "memory"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
-    forbiddenImportPrefixes: ["electron", "node:", "react", "ws", "sql.js"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "memory-sqlite",
@@ -36,19 +82,33 @@ const packages = [
       "@jarvis-k/contracts",
       "@jarvis-k/memory"
     ]),
-    forbiddenImportPrefixes: ["electron", "react", "ws"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "react",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "voice-capture-browser",
     root: path.join(root, "packages", "voice-capture-browser"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
-    forbiddenImportPrefixes: ["electron", "node:", "ws"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "voice-adapter-xunfei",
     root: path.join(root, "packages", "voice-adapter-xunfei"),
     allowedWorkspaceImports: new Set(["@jarvis-k/voice"]),
-    forbiddenImportPrefixes: ["electron", "react"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "react",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "core",
@@ -59,7 +119,13 @@ const packages = [
       "@jarvis-k/memory",
       "@jarvis-k/voice"
     ]),
-    forbiddenImportPrefixes: ["electron", "react", "ws", "sql.js"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "core-host",
@@ -72,7 +138,11 @@ const packages = [
       "@jarvis-k/voice",
       "@jarvis-k/voice-adapter-xunfei"
     ]),
-    forbiddenImportPrefixes: ["electron", "react"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "react",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "ui",
@@ -81,13 +151,22 @@ const packages = [
       "@jarvis-k/contracts",
       "@jarvis-k/voice-capture-browser"
     ]),
-    forbiddenImportPrefixes: ["electron", "node:", "ws"]
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
   },
   {
     name: "desktop",
     root: path.join(root, "apps", "desktop"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
-    forbiddenImportPrefixes: ["react", "ws"]
+    forbiddenImportPrefixes: [
+      "react",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
   }
 ];
 
@@ -126,9 +205,53 @@ function collectImports(filePath) {
   return imports;
 }
 
+function readPackageManifest(packageRoot) {
+  const manifestPath = path.join(packageRoot, "package.json");
+  if (!fs.existsSync(manifestPath)) {
+    return undefined;
+  }
+  return JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+}
+
+function collectDependencies(manifest) {
+  const dependencies = [];
+  for (const field of dependencyFields) {
+    const values = manifest[field] ?? {};
+    for (const dependencyName of Object.keys(values)) {
+      dependencies.push({ field, dependencyName });
+    }
+  }
+  return dependencies;
+}
+
+function matchesForbiddenPrefix(value, prefix) {
+  if (prefix.endsWith("/")) {
+    return value.startsWith(prefix);
+  }
+  return value === prefix || value.startsWith(`${prefix}/`);
+}
+
+function matchesForbiddenDependency(value, forbidden) {
+  return value === forbidden || value.startsWith(forbidden);
+}
+
 const violations = [];
 
 for (const workspacePackage of packages) {
+  const manifest = readPackageManifest(workspacePackage.root);
+  if (manifest) {
+    for (const { field, dependencyName } of collectDependencies(manifest)) {
+      const forbiddenDependency = forbiddenModelRuntimeDependencies.find(
+        (item) => matchesForbiddenDependency(dependencyName, item)
+      );
+      if (forbiddenDependency) {
+        violations.push(
+          `${path.relative(root, workspacePackage.root)} package.json ${field} includes forbidden Phase 4.5 model runtime dependency ${dependencyName}`
+        );
+      }
+    }
+  }
+
   const sourceRoot = path.join(workspacePackage.root, "src");
   for (const filePath of walk(sourceRoot)) {
     for (const specifier of collectImports(filePath)) {
@@ -143,7 +266,7 @@ for (const workspacePackage of packages) {
 
       if (
         workspacePackage.forbiddenImportPrefixes.some((prefix) =>
-          specifier === prefix || specifier.startsWith(`${prefix}/`)
+          matchesForbiddenPrefix(specifier, prefix)
         )
       ) {
         violations.push(

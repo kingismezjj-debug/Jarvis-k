@@ -63,6 +63,7 @@ It should be run manually, not in default CI.
 - `npm run verify`
 - `npm run smoke:desktop` for desktop-facing changes
 - `npm run check:boundaries`
+- Update `scripts/check-boundaries.mjs` intentionally if a future Phase 5
+  provider introduces a real model runtime dependency.
 - Leak scan when voice-provider code changes
 - No changes to `E:\bailongma` or `C:\Users\Administrator\Jarvis-ui`
-
