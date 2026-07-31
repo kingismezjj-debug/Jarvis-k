@@ -18,7 +18,8 @@ They are not runtime dependencies.
 - Current branch: `main`
 - Phase 3 local memory persistence: complete
 - Phase 4 local capability and model governance foundation: complete through
-  dry-run install preparation
+  inference preflight and provider configuration requirement reporting
+- Phase 4.5 inference readiness gates: documented
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -107,6 +108,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Developer onboarding](docs/developer-onboarding.md)
 - [Security](SECURITY.md)
 - [Phase 4 progress](docs/phase-4-progress.md)
+- [Phase 4.5 inference readiness](docs/phase-4.5-inference-readiness.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

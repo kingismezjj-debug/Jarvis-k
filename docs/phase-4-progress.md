@@ -569,3 +569,27 @@
 - `npm run verify`: PASS, 34 test files and 183 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+### Wave 4.24: Phase 4.5 Inference Readiness Runbook
+
+- Status: complete.
+- Added `docs/phase-4.5-inference-readiness.md` as the handoff runbook from
+  Phase 4 model governance to future Phase 5 real-provider work.
+- Documented the current baseline, package boundary contract, Phase 5 entry
+  gates, explicit non-goals, and a conservative first Phase 5 fixture-provider
+  slice.
+- Updated architecture decisions to capture runtime adapter discovery,
+  capability-specific inference ports, provider availability/configuration
+  reporting, and preflight as required surfaces before execution.
+- Updated README status and documentation links so future contributors see the
+  Phase 4.5 gate before attempting real downloads or runtime dependencies.
+- Kept real downloads, provider credentials, model artifacts, runtime
+  dependencies, provider calls, and user-facing execution controls out of this
+  wave.
+
+### Current Gate
+
+- Documentation-only change; no targeted runtime tests required.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 34 test files and 183 tests.

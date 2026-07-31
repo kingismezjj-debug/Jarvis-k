@@ -78,6 +78,18 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
    static manifest registries, installability planner, operation supervisor,
    and resource scheduler. Core depends only on the corresponding
    `@jarvis-k/capabilities` ports.
+22. Runtime adapter discovery is provider-neutral. The current baseline
+   advertises no real local runtime adapters until a runtime package is
+   deliberately introduced and composed in `apps/core-host`.
+23. Capability-specific inference stays behind separate provider ports for
+   embedding, OCR, intent routing, and reranking. These ports fail closed until
+   a concrete provider is intentionally composed.
+24. Inference provider availability, configuration requirements, and execution
+   preflight are observable through contracts DTOs before execution exists.
+   These surfaces must never expose secrets, provider URLs, signed URLs, token
+   material, or runtime-specific implementation details.
+25. Phase 5 real-provider work must satisfy the Phase 4.5 readiness gates
+   before adding downloads, model loading, or user-facing inference execution.
 
 ## Restart policy
 
