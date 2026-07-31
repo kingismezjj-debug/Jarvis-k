@@ -9,6 +9,7 @@ import type {
   ModelOperationPhase,
   ModelOperationProgress,
   ModelOperationSnapshot,
+  ModelRuntime,
   ResourceSchedulerDiagnostics,
   StructuredError
 } from "@jarvis-k/contracts";
@@ -80,6 +81,39 @@ export interface ModelLifecycleManager {
   ensureAvailable(modelId: string): Promise<ModelInventoryItem>;
   load(modelId: string): Promise<ModelInventoryItem>;
   release(modelId: string): Promise<void>;
+}
+
+export interface ModelRuntimeRegistry {
+  listDescriptors(): Promise<ModelRuntimeAdapterDescriptor[]>;
+  getAdapter(manifest: ModelManifest): Promise<ModelRuntimeAdapter | undefined>;
+}
+
+export interface ModelRuntimeAdapterDescriptor {
+  runtime: ModelRuntime;
+  capabilities: LocalModelCapability[];
+  accelerationBackends: string[];
+  notes?: string[];
+}
+
+export interface ModelRuntimeAdapter {
+  readonly descriptor: ModelRuntimeAdapterDescriptor;
+  canLoad(manifest: ModelManifest): boolean;
+  load(input: ModelRuntimeLoadInput): Promise<LoadedModelSession>;
+}
+
+export interface ModelRuntimeLoadInput {
+  manifest: ModelManifest;
+  inventoryItem: ModelInventoryItem;
+  device: DeviceCapability;
+  resourceLease?: ResourceLease;
+}
+
+export interface LoadedModelSession {
+  modelId: string;
+  capability: LocalModelCapability;
+  runtime: ModelRuntime;
+  loadedAt: string;
+  release(): Promise<void>;
 }
 
 export interface ModelInstallWorkflowOrchestrator {

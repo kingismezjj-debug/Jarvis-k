@@ -353,3 +353,23 @@
 - `npm run verify`: PASS, 27 test files and 153 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+### Wave 4.15: Runtime Adapter Boundary Seed
+
+- Status: complete.
+- Added provider-neutral runtime adapter ports for future local model loading:
+  registry descriptors, adapter lookup, load input, and loaded session release.
+- Added an unavailable runtime registry that advertises no adapters until a real
+  runtime package is deliberately composed.
+- Kept capability-specific inference interfaces out of this wave so STT, OCR,
+  embedding, and routing contracts can stay separate instead of being forced
+  through a generic invoke shape.
+- Kept real model runtime dependencies, downloads, artifact fetch, Python,
+  CUDA, ONNX, and Hugging Face access out of this wave.
+
+### Current Gate
+
+- Targeted runtime boundary tests: PASS, 3 test files and 12 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 28 test files and 155 tests.
