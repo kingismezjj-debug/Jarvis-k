@@ -15,6 +15,8 @@ import {
   OcrRecognitionResultSchema,
   OcrRecognitionRequestSchema,
   PROTOCOL_VERSION,
+  RerankRequestSchema,
+  RerankResultSchema,
   ResourceSchedulerDiagnosticsSchema,
   CoreVoiceAudioMessageSchema,
   MemorySnapshotSchema,
@@ -407,6 +409,54 @@ describe("protocol contracts", () => {
           }
         ],
         routedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toThrow();
+  });
+
+  it("accepts provider-neutral rerank requests and results", () => {
+    expect(
+      RerankRequestSchema.parse({
+        modelId: "jarvis-fixture/local-reranker-smoke",
+        query: "memory governance",
+        documents: [
+          {
+            id: "doc-1",
+            text: "Core uses injected model ports.",
+            metadata: {
+              source: "phase-4"
+            }
+          }
+        ],
+        topK: 1
+      })
+    ).toMatchObject({
+      topK: 1
+    });
+    expect(
+      RerankResultSchema.parse({
+        modelId: "jarvis-fixture/local-reranker-smoke",
+        query: "memory governance",
+        results: [
+          {
+            documentId: "doc-1",
+            score: 4.2,
+            rank: 1
+          }
+        ],
+        rankedAt: "2026-07-31T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      results: [
+        {
+          documentId: "doc-1"
+        }
+      ]
+    });
+    expect(() =>
+      RerankRequestSchema.parse({
+        modelId: "jarvis-fixture/local-reranker-smoke",
+        query: "memory governance",
+        documents: []
       })
     ).toThrow();
   });

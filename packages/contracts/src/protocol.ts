@@ -801,6 +801,48 @@ export type IntentRoutingResult = z.infer<
   typeof IntentRoutingResultSchema
 >;
 
+export const RerankDocumentSchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    text: z.string().trim().min(1).max(20_000),
+    metadata: z.record(z.unknown()).default({})
+  })
+  .strict();
+
+export type RerankDocument = z.infer<typeof RerankDocumentSchema>;
+
+export const RerankRequestSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    query: z.string().trim().min(1).max(20_000),
+    documents: z.array(RerankDocumentSchema).min(1).max(200),
+    topK: z.number().int().positive().max(200).optional()
+  })
+  .strict();
+
+export type RerankRequest = z.infer<typeof RerankRequestSchema>;
+
+export const RerankResultItemSchema = z
+  .object({
+    documentId: z.string().min(1).max(128),
+    score: z.number().finite(),
+    rank: z.number().int().positive()
+  })
+  .strict();
+
+export type RerankResultItem = z.infer<typeof RerankResultItemSchema>;
+
+export const RerankResultSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    query: z.string().trim().min(1).max(20_000),
+    results: z.array(RerankResultItemSchema).max(200),
+    rankedAt: z.string().datetime()
+  })
+  .strict();
+
+export type RerankResult = z.infer<typeof RerankResultSchema>;
+
 export const ModelInstallabilityReportSchema = z
   .object({
     modelId: z.string().min(1).max(300),

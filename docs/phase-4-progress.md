@@ -463,3 +463,25 @@
 - `npm run typecheck`: PASS.
 - `npm run check:boundaries`: PASS.
 - `npm run verify`: PASS, 31 test files and 166 tests.
+
+### Wave 4.20: Reranking Port Boundary
+
+- Status: complete.
+- Added provider-neutral rerank request/result/document DTOs with query limits,
+  candidate document limits, optional metadata, top-K hints, finite scores, and
+  rank values.
+- Added a `RerankingProvider` port in `@jarvis-k/capabilities` so future
+  reranking implementations can be injected independently from memory storage
+  and recall policy.
+- Added an unavailable reranking provider that fails closed until a real
+  provider is deliberately composed.
+- Kept vector storage, memory retrieval policy, command execution, real model
+  execution, Python, CUDA, ONNX, and Hugging Face access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/reranking/intent/embedding tests: PASS, 4 test files and
+  26 tests.
+- `npm run typecheck`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run verify`: PASS, 32 test files and 169 tests.

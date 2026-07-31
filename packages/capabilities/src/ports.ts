@@ -17,6 +17,8 @@ import type {
   ModelRuntimeAdapterDescriptor,
   OcrRecognitionRequest,
   OcrRecognitionResult,
+  RerankRequest,
+  RerankResult,
   ResourceSchedulerDiagnostics,
   StructuredError
 } from "@jarvis-k/contracts";
@@ -130,6 +132,10 @@ export interface OcrRecognitionProvider {
 
 export interface IntentRoutingProvider {
   route(request: IntentRoutingRequest): Promise<IntentRoutingResult>;
+}
+
+export interface RerankingProvider {
+  rerank(request: RerankRequest): Promise<RerankResult>;
 }
 
 export interface ModelInstallWorkflowOrchestrator {
