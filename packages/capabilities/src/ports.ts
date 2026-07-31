@@ -82,6 +82,20 @@ export interface ModelLifecycleManager {
   release(modelId: string): Promise<void>;
 }
 
+export interface ModelInstallWorkflowOrchestrator {
+  prepare(
+    input: ModelInstallWorkflowPrepareInput
+  ): Promise<ModelOperationSnapshot>;
+}
+
+export interface ModelInstallWorkflowPrepareInput {
+  manifest: ModelManifest;
+  device: DeviceCapability;
+  allowYellowRisk?: boolean;
+  allowUnknownRisk?: boolean;
+  exclusiveGpu?: boolean;
+}
+
 export interface ModelOperationSupervisor {
   start(input: ModelOperationStartInput): Promise<ModelOperationSnapshot>;
   update(input: ModelOperationUpdateInput): Promise<ModelOperationSnapshot>;

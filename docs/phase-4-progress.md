@@ -281,3 +281,27 @@
 - `npm run verify`: PASS, 26 test files and 147 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+## 2026-07-31
+
+### Wave 4.12: Model Install Workflow Orchestrator Skeleton
+
+- Status: complete.
+- Added a provider-neutral `ModelInstallWorkflowOrchestrator` port and a
+  policy-backed implementation in `@jarvis-k/capabilities`.
+- The workflow skeleton starts a supervised model operation, runs installability
+  policy, attempts a conservative resource lease, immediately releases that
+  lease, and stops at `queued`, `blocked`, or `failed`.
+- Kept the workflow dry-run only; it does not call `ModelDownloadManager`,
+  fetch artifacts, write files, load models, or expose install commands.
+- Reused existing `ModelInstallationPlanner`, `ModelOperationSupervisor`, and
+  `ResourceScheduler` ports instead of crossing package boundaries.
+- Kept real model downloads, install commands, model execution, runtime
+  loading, Python, CUDA, ONNX, and Hugging Face/CDN access out of this wave.
+
+### Current Gate
+
+- Targeted capabilities workflow/resource/policy tests: PASS, 3 test files and
+  12 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 27 test files and 150 tests.
