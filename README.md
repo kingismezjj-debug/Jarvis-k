@@ -19,7 +19,7 @@ They are not runtime dependencies.
 - Phase 3 local memory persistence: complete
 - Phase 4 local capability and model governance foundation: complete through
   inference preflight and provider configuration requirement reporting
-- Phase 4.5 inference readiness gates: documented
+- Phase 4.5 inference readiness and safety gates: complete
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -63,6 +63,7 @@ comments, screenshots, or chat logs.
 npm run typecheck
 npm test
 npm run check:boundaries
+npm run check:sensitive-artifacts
 npm run build
 npm run verify
 npm run smoke:desktop
@@ -107,6 +108,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Architecture](docs/architecture.md)
 - [Developer onboarding](docs/developer-onboarding.md)
 - [Security](SECURITY.md)
+- [Phase 4 completion](docs/phase-4-completion.md)
 - [Phase 4 progress](docs/phase-4-progress.md)
 - [Phase 4.5 inference readiness](docs/phase-4.5-inference-readiness.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
