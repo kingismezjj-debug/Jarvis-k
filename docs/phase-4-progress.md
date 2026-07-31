@@ -175,3 +175,29 @@
 - `npm run verify`: PASS, 24 test files and 135 tests.
 - `npm run smoke:desktop`: PASS.
 - `npm run smoke:desktop:memory-degraded`: PASS.
+
+## 2026-07-31
+
+### Wave 4.8: Model Operation Supervision Skeleton
+
+- Status: complete.
+- Added provider-neutral model operation phase, progress, and snapshot DTOs so
+  future install/load/remove flows can report supervised state without leaking
+  model runtime details.
+- Added a `model.operation.updated` event contract for future Core-published
+  model operation telemetry.
+- Added a `ModelOperationSupervisor` port and an in-memory implementation in
+  `@jarvis-k/capabilities` for queued, progressing, terminal, cancelled, and
+  failed operation state.
+- Updated the React activity stream labeler to understand model operation
+  events.
+- Kept real model downloads, install commands, Hugging Face/CDN access, Python
+  runtimes, CUDA, ONNX, and model libraries out of this wave.
+
+### Current Gate
+
+- Targeted contracts/capabilities/UI tests: PASS, 3 test files and 25 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 25 test files and 140 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

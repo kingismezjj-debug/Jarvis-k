@@ -6,6 +6,7 @@ import {
   CoreSnapshotSchema,
   CoreInboundMessageSchema,
   ModelInstallabilityReportSchema,
+  ModelOperationSnapshotSchema,
   PROTOCOL_VERSION,
   CoreVoiceAudioMessageSchema,
   MemorySnapshotSchema,
@@ -222,6 +223,34 @@ describe("protocol contracts", () => {
       "agent.previewModelInstallability"
     );
     expect(report.allowed).toBe(false);
+  });
+
+  it("accepts provider-neutral model operation events", () => {
+    const operation = ModelOperationSnapshotSchema.parse({
+      operationId: "model-op-1",
+      modelId: "vendor/local-stt-small",
+      capability: "speech_to_text",
+      phase: "downloading",
+      createdAt: "2026-07-31T00:00:00.000Z",
+      updatedAt: "2026-07-31T00:00:01.000Z",
+      progress: {
+        downloadedBytes: 128,
+        totalBytes: 512
+      }
+    });
+
+    expect(
+      AppEventSchema.parse({
+        type: "model.operation.updated",
+        payload: operation
+      })
+    ).toMatchObject({
+      type: "model.operation.updated",
+      payload: {
+        phase: "downloading",
+        reasons: []
+      }
+    });
   });
 
   it("validates provider-neutral audio frame metadata", () => {

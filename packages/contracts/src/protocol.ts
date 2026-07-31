@@ -569,6 +569,54 @@ export type ModelInstallabilityReport = z.infer<
   typeof ModelInstallabilityReportSchema
 >;
 
+export const ModelOperationPhaseSchema = z.enum([
+  "queued",
+  "prechecking",
+  "blocked",
+  "downloading",
+  "verifying",
+  "available",
+  "loading",
+  "loaded",
+  "releasing",
+  "removing",
+  "cancelled",
+  "failed"
+]);
+
+export type ModelOperationPhase = z.infer<
+  typeof ModelOperationPhaseSchema
+>;
+
+export const ModelOperationProgressSchema = z
+  .object({
+    downloadedBytes: z.number().int().nonnegative(),
+    totalBytes: z.number().int().nonnegative().optional()
+  })
+  .strict();
+
+export type ModelOperationProgress = z.infer<
+  typeof ModelOperationProgressSchema
+>;
+
+export const ModelOperationSnapshotSchema = z
+  .object({
+    operationId: z.string().min(1).max(128),
+    modelId: z.string().min(1).max(300),
+    capability: LocalModelCapabilitySchema,
+    phase: ModelOperationPhaseSchema,
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    progress: ModelOperationProgressSchema.optional(),
+    reasons: z.array(z.string().min(1).max(500)).default([]),
+    error: StructuredErrorSchema.optional()
+  })
+  .strict();
+
+export type ModelOperationSnapshot = z.infer<
+  typeof ModelOperationSnapshotSchema
+>;
+
 export const ProviderSelectionSchema = z
   .object({
     capability: LocalModelCapabilitySchema,
@@ -689,6 +737,10 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("state.snapshot"),
     payload: CoreSnapshotSchema
+  }),
+  z.object({
+    type: z.literal("model.operation.updated"),
+    payload: ModelOperationSnapshotSchema
   }),
   z.object({
     type: z.literal("agent.message.accepted"),

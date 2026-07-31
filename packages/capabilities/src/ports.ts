@@ -5,7 +5,11 @@ import type {
   ModelCandidate,
   ModelInstallabilityReport,
   ModelInventoryItem,
-  ModelManifest
+  ModelManifest,
+  ModelOperationPhase,
+  ModelOperationProgress,
+  ModelOperationSnapshot,
+  StructuredError
 } from "@jarvis-k/contracts";
 
 export interface CapabilityProvider {
@@ -75,6 +79,38 @@ export interface ModelLifecycleManager {
   ensureAvailable(modelId: string): Promise<ModelInventoryItem>;
   load(modelId: string): Promise<ModelInventoryItem>;
   release(modelId: string): Promise<void>;
+}
+
+export interface ModelOperationSupervisor {
+  start(input: ModelOperationStartInput): Promise<ModelOperationSnapshot>;
+  update(input: ModelOperationUpdateInput): Promise<ModelOperationSnapshot>;
+  cancel(
+    operationId: string,
+    reason?: string
+  ): Promise<ModelOperationSnapshot>;
+  get(operationId: string): Promise<ModelOperationSnapshot | undefined>;
+  list(options?: ModelOperationListOptions): Promise<ModelOperationSnapshot[]>;
+}
+
+export interface ModelOperationStartInput {
+  modelId: string;
+  capability: LocalModelCapability;
+  operationId?: string;
+  phase?: ModelOperationPhase;
+}
+
+export interface ModelOperationUpdateInput {
+  operationId: string;
+  phase: ModelOperationPhase;
+  progress?: ModelOperationProgress;
+  reasons?: string[];
+  error?: StructuredError;
+}
+
+export interface ModelOperationListOptions {
+  modelId?: string;
+  activeOnly?: boolean;
+  limit?: number;
 }
 
 export interface ResourceLease {

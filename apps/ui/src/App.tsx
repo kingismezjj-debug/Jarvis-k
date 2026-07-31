@@ -60,6 +60,8 @@ function eventLabel(envelope: EventEnvelope) {
       return `Supervisor ${event.payload.status}`
     case "state.snapshot":
       return `Snapshot synchronized / ${event.payload.sequenceId}`
+    case "model.operation.updated":
+      return `Model ${event.payload.phase} / ${event.payload.modelId}`
     case "agent.message.accepted":
       return `Message accepted / ${event.payload.id.slice(-8)}`
     case "voice.state.changed":

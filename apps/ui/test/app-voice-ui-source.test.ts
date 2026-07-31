@@ -58,4 +58,9 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("BLOCKED");
     expect(appSource).toContain("refreshModelGovernance");
   });
+
+  it("labels model operation events in the activity stream", () => {
+    expect(appSource).toContain('case "model.operation.updated"');
+    expect(appSource).toContain("event.payload.phase");
+  });
 });

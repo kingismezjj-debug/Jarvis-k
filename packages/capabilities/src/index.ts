@@ -1,3 +1,4 @@
+export * from "./in-memory-model-operation-supervisor";
 export * from "./manifest-installation-policy";
 export * from "./policy";
 export * from "./policy-model-installation-planner";
