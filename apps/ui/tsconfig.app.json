@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@jarvis-k/voice-capture-browser": [
+        "../../packages/voice-capture-browser/src/index.ts"
       ]
     }
   },

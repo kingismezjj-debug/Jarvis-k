@@ -12,9 +12,7 @@ const coreEntry = path.resolve(
   testDirectory,
   "..",
   "..",
-  "..",
-  "packages",
-  "core",
+  "core-host",
   "dist",
   "index.js"
 );

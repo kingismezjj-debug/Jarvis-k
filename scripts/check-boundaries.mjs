@@ -8,22 +8,61 @@ const packages = [
   {
     name: "contracts",
     root: path.join(root, "packages", "contracts"),
-    allowedWorkspaceImports: new Set()
+    allowedWorkspaceImports: new Set(),
+    forbiddenImportPrefixes: ["electron", "node:", "react", "ws"]
+  },
+  {
+    name: "voice",
+    root: path.join(root, "packages", "voice"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: ["electron", "node:", "react", "ws"]
+  },
+  {
+    name: "voice-capture-browser",
+    root: path.join(root, "packages", "voice-capture-browser"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: ["electron", "node:", "ws"]
+  },
+  {
+    name: "voice-adapter-xunfei",
+    root: path.join(root, "packages", "voice-adapter-xunfei"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/voice"]),
+    forbiddenImportPrefixes: ["electron", "react"]
   },
   {
     name: "core",
     root: path.join(root, "packages", "core"),
-    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"])
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/contracts",
+      "@jarvis-k/voice"
+    ]),
+    forbiddenImportPrefixes: ["electron", "react", "ws"]
+  },
+  {
+    name: "core-host",
+    root: path.join(root, "apps", "core-host"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/contracts",
+      "@jarvis-k/core",
+      "@jarvis-k/voice",
+      "@jarvis-k/voice-adapter-xunfei"
+    ]),
+    forbiddenImportPrefixes: ["electron", "react"]
   },
   {
     name: "ui",
     root: path.join(root, "apps", "ui"),
-    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"])
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/contracts",
+      "@jarvis-k/voice-capture-browser"
+    ]),
+    forbiddenImportPrefixes: ["electron", "node:", "ws"]
   },
   {
     name: "desktop",
     root: path.join(root, "apps", "desktop"),
-    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"])
+    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: ["react", "ws"]
   }
 ];
 
@@ -74,6 +113,16 @@ for (const workspacePackage of packages) {
       ) {
         violations.push(
           `${path.relative(root, filePath)} imports forbidden workspace package ${specifier}`
+        );
+      }
+
+      if (
+        workspacePackage.forbiddenImportPrefixes.some((prefix) =>
+          specifier === prefix || specifier.startsWith(`${prefix}/`)
+        )
+      ) {
+        violations.push(
+          `${path.relative(root, filePath)} imports forbidden runtime dependency ${specifier}`
         );
       }
 

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  AppEventSchema,
   CommandEnvelopeSchema,
   CoreSnapshotSchema,
+  CoreInboundMessageSchema,
   PROTOCOL_VERSION,
+  CoreVoiceAudioMessageSchema,
+  VoiceAudioFrameSchema,
+  VoiceAudioFrameMetadataSchema,
   createCommandEnvelope
 } from "../src";
 
@@ -59,5 +64,103 @@ describe("protocol contracts", () => {
         ]
       })
     ).toThrow();
+  });
+
+  it("keeps phase one voice commands compatible", () => {
+    const startPtt = createCommandEnvelope({
+      type: "voice.startPtt",
+      payload: {}
+    });
+
+    expect(CommandEnvelopeSchema.parse(startPtt).protocolVersion).toBe(
+      PROTOCOL_VERSION
+    );
+  });
+
+  it("validates provider-neutral audio frame metadata", () => {
+    expect(
+      VoiceAudioFrameMetadataSchema.parse({
+        captureId: "capture-1",
+        sequenceId: 4,
+        capturedAt: new Date().toISOString(),
+        sampleRate: 16_000,
+        channels: 1,
+        encoding: "pcm_s16le",
+        byteLength: 4096
+      }).byteLength
+    ).toBe(4096);
+  });
+
+  it("validates binary PCM frames for the dedicated audio transport", () => {
+    const pcm = new Uint8Array(640);
+    const message = CoreVoiceAudioMessageSchema.parse({
+      kind: "voice-audio",
+      frame: {
+        metadata: {
+          captureId: "capture-1",
+          sequenceId: 0,
+          capturedAt: new Date().toISOString(),
+          sampleRate: 16_000,
+          channels: 1,
+          encoding: "pcm_s16le",
+          byteLength: pcm.byteLength
+        },
+        pcm
+      }
+    });
+
+    expect(message.frame.pcm).toBe(pcm);
+    expect(CoreInboundMessageSchema.parse(message).kind).toBe(
+      "voice-audio"
+    );
+  });
+
+  it("rejects binary audio whose byte length does not match metadata", () => {
+    expect(() =>
+      VoiceAudioFrameSchema.parse({
+        metadata: {
+          captureId: "capture-1",
+          sequenceId: 0,
+          capturedAt: new Date().toISOString(),
+          sampleRate: 16_000,
+          channels: 1,
+          encoding: "pcm_s16le",
+          byteLength: 640
+        },
+        pcm: new Uint8Array(320)
+      })
+    ).toThrow("byte length");
+  });
+
+  it("rejects provider details in diagnostic events", () => {
+    expect(() =>
+      AppEventSchema.parse({
+        type: "voice.diagnostic",
+        payload: {
+          level: "warning",
+          code: "ASR_RECONNECT_WAIT",
+          attempt: 1,
+          url: "provider-url-must-not-cross-the-contract"
+        }
+      })
+    ).toThrow();
+  });
+
+  it("accepts provider-neutral voice barge-in events", () => {
+    expect(
+      AppEventSchema.parse({
+        type: "voice.playback.interrupted",
+        payload: {
+          playbackId: "playback-1",
+          reason: "barge-in"
+        }
+      })
+    ).toEqual({
+      type: "voice.playback.interrupted",
+      payload: {
+        playbackId: "playback-1",
+        reason: "barge-in"
+      }
+    });
   });
 });

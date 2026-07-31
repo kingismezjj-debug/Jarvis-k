@@ -3,6 +3,11 @@ import { z } from "zod";
 export const PROTOCOL_VERSION = 1 as const;
 export const IPC_COMMAND_CHANNEL = "jarvis-k:command";
 export const IPC_EVENT_CHANNEL = "jarvis-k:event";
+export const IPC_VOICE_AUDIO_CHANNEL = "jarvis-k:voice-audio";
+export const IPC_VOICE_SETTINGS_OPEN_CHANNEL =
+  "jarvis-k:voice-settings-open";
+export const IPC_VOICE_SETTINGS_STATUS_CHANNEL =
+  "jarvis-k:voice-settings-status";
 
 export const TaskStateSchema = z.enum([
   "queued",
@@ -32,6 +37,85 @@ export type VoiceState = z.infer<typeof VoiceStateSchema>;
 
 export const VoiceModeSchema = z.enum(["disabled", "ptt", "continuous"]);
 export type VoiceMode = z.infer<typeof VoiceModeSchema>;
+
+export const VoicePermissionStateSchema = z.enum([
+  "unknown",
+  "prompt",
+  "granted",
+  "denied"
+]);
+export type VoicePermissionState = z.infer<
+  typeof VoicePermissionStateSchema
+>;
+
+export const VoiceServiceStatusSchema = z
+  .object({
+    configured: z.boolean(),
+    secureStorageAvailable: z.boolean(),
+    language: z.enum(["zh", "en"]).optional()
+  })
+  .strict();
+export type VoiceServiceStatus = z.infer<
+  typeof VoiceServiceStatusSchema
+>;
+
+export const VoiceAudioFrameMetadataSchema = z
+  .object({
+    captureId: z.string().min(1).max(128),
+    sequenceId: z.number().int().nonnegative(),
+    capturedAt: z.string().datetime(),
+    sampleRate: z.literal(16_000),
+    channels: z.literal(1),
+    encoding: z.literal("pcm_s16le"),
+    byteLength: z.number().int().positive().max(65_536)
+  })
+  .strict();
+export type VoiceAudioFrameMetadata = z.infer<
+  typeof VoiceAudioFrameMetadataSchema
+>;
+
+const Uint8ArraySchema = z.custom<Uint8Array>(
+  (value) =>
+    value instanceof Uint8Array ||
+    (ArrayBuffer.isView(value) &&
+      "BYTES_PER_ELEMENT" in value &&
+      value.BYTES_PER_ELEMENT === 1),
+  "Expected PCM bytes as Uint8Array."
+);
+
+export const VoiceAudioFrameSchema = z
+  .object({
+    metadata: VoiceAudioFrameMetadataSchema,
+    pcm: Uint8ArraySchema
+  })
+  .strict()
+  .superRefine((frame, context) => {
+    if (frame.pcm.byteLength !== frame.metadata.byteLength) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pcm"],
+        message: "PCM byte length does not match audio frame metadata."
+      });
+    }
+    if (frame.pcm.byteLength % 2 !== 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pcm"],
+        message: "PCM16 audio frames must contain complete 16-bit samples."
+      });
+    }
+  });
+export type VoiceAudioFrame = z.infer<typeof VoiceAudioFrameSchema>;
+
+export const CoreVoiceAudioMessageSchema = z
+  .object({
+    kind: z.literal("voice-audio"),
+    frame: VoiceAudioFrameSchema
+  })
+  .strict();
+export type CoreVoiceAudioMessage = z.infer<
+  typeof CoreVoiceAudioMessageSchema
+>;
 
 const EmptyPayloadSchema = z.object({}).strict();
 
@@ -64,11 +148,57 @@ export const VoiceCommandSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("voice.startPtt"),
-    payload: EmptyPayloadSchema
+    payload: z
+      .object({
+        captureId: z.string().min(1).max(128).optional()
+      })
+      .strict()
   }),
   z.object({
     type: z.literal("voice.stopPtt"),
-    payload: EmptyPayloadSchema
+    payload: z
+      .object({
+        captureId: z.string().min(1).max(128).optional()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.cancel"),
+    payload: z
+      .object({
+        reason: z.enum([
+          "user",
+          "window-blur",
+          "capture-error",
+          "shutdown"
+        ])
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.suspendForTts"),
+    payload: z
+      .object({
+        playbackId: z.string().min(1).max(128)
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.resumeAfterTts"),
+    payload: z
+      .object({
+        playbackId: z.string().min(1).max(128),
+        interrupted: z.boolean()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.reportPermission"),
+    payload: z
+      .object({
+        permission: VoicePermissionStateSchema
+      })
+      .strict()
   })
 ]);
 
@@ -152,6 +282,28 @@ export const TaskSchema = z
 
 export type Task = z.infer<typeof TaskSchema>;
 
+export const VoiceTranscriptSchema = z
+  .object({
+    sessionId: z.string().min(1).max(128),
+    text: z.string().max(20_000),
+    isFinal: z.boolean(),
+    segmentId: z.string().min(1).max(128).optional(),
+    updatedAt: z.string().datetime()
+  })
+  .strict();
+export type VoiceTranscript = z.infer<typeof VoiceTranscriptSchema>;
+
+export const VoiceSnapshotSchema = z
+  .object({
+    state: VoiceStateSchema,
+    mode: VoiceModeSchema,
+    permission: VoicePermissionStateSchema.optional(),
+    sessionId: z.string().min(1).max(128).optional(),
+    transcript: VoiceTranscriptSchema.optional()
+  })
+  .strict();
+export type VoiceSnapshot = z.infer<typeof VoiceSnapshotSchema>;
+
 export const CoreSnapshotSchema = z
   .object({
     protocolVersion: z.literal(PROTOCOL_VERSION),
@@ -160,12 +312,7 @@ export const CoreSnapshotSchema = z
     health: z.enum(["starting", "ready", "degraded"]),
     startedAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
-    voice: z
-      .object({
-        state: VoiceStateSchema,
-        mode: VoiceModeSchema
-      })
-      .strict(),
+    voice: VoiceSnapshotSchema,
     messages: z.array(MessageSchema),
     tasks: z.array(TaskSchema)
   })
@@ -227,7 +374,50 @@ export const VoiceEventSchema = z.discriminatedUnion("type", [
     payload: z
       .object({
         state: VoiceStateSchema,
-        mode: VoiceModeSchema
+        mode: VoiceModeSchema,
+        sessionId: z.string().min(1).max(128).optional()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.transcript.updated"),
+    payload: VoiceTranscriptSchema
+  }),
+  z.object({
+    type: z.literal("voice.permission.changed"),
+    payload: z
+      .object({
+        permission: VoicePermissionStateSchema
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.playback.interrupted"),
+    payload: z
+      .object({
+        playbackId: z.string().min(1).max(128),
+        reason: z.literal("barge-in")
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.diagnostic"),
+    payload: z
+      .object({
+        level: z.enum(["info", "warning"]),
+        code: z.string().regex(/^[A-Z0-9_]+$/).max(128),
+        attempt: z.number().int().nonnegative().optional(),
+        bufferedFrames: z.number().int().nonnegative().optional(),
+        connectionCount: z.number().int().nonnegative().optional()
+      })
+      .strict()
+  }),
+  z.object({
+    type: z.literal("voice.error"),
+    payload: z
+      .object({
+        state: VoiceStateSchema,
+        error: StructuredErrorSchema
       })
       .strict()
   })
@@ -256,12 +446,17 @@ export const EventEnvelopeSchema = z
 
 export type EventEnvelope = z.infer<typeof EventEnvelopeSchema>;
 
-export const CoreInboundMessageSchema = z
+export const CoreCommandMessageSchema = z
   .object({
     kind: z.literal("command"),
     envelope: CommandEnvelopeSchema
   })
   .strict();
+
+export const CoreInboundMessageSchema = z.union([
+  CoreCommandMessageSchema,
+  CoreVoiceAudioMessageSchema
+]);
 
 export type CoreInboundMessage = z.infer<typeof CoreInboundMessageSchema>;
 
@@ -306,6 +501,9 @@ export function createCommandEnvelope(
 
 export interface JarvisBridge {
   sendCommand(command: AppCommand): Promise<CommandResult>;
+  sendVoiceAudio(frame: VoiceAudioFrame): void;
   getSnapshot(): Promise<CommandResult>;
+  getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
+  openVoiceSettings(): Promise<VoiceServiceStatus>;
   onEvent(listener: (event: EventEnvelope) => void): () => void;
 }

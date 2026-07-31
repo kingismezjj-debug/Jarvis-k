@@ -104,6 +104,19 @@ export function useJarvis() {
     [sendCommand]
   )
 
+  const openVoiceSettings = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return
+    }
+    try {
+      await window.jarvis.openVoiceSettings()
+      setError(null)
+    } catch {
+      setError("Voice settings could not be opened.")
+    }
+  }, [])
+
   useEffect(() => {
     const unsubscribe = window.jarvis?.onEvent(applyEvent)
     void refreshSnapshot()
@@ -114,8 +127,10 @@ export function useJarvis() {
     connection,
     error,
     events,
+    openVoiceSettings,
     probeCore,
     refreshSnapshot,
+    sendCommand,
     sendMessage,
     sending,
     snapshot,

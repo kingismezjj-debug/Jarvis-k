@@ -8,8 +8,14 @@ import {
   Message,
   PROTOCOL_VERSION,
   StructuredError,
+  VoiceCommand,
+  VoiceEvent,
   createId
 } from "@jarvis-k/contracts";
+import type {
+  VoiceActionResult,
+  VoiceEnginePort
+} from "@jarvis-k/voice";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -18,13 +24,11 @@ export class CoreRuntime {
   private readonly startedAt: string;
   private readonly messages: Message[] = [];
   private sequenceId = 0;
-  private voice: CoreSnapshot["voice"] = {
-    state: "idle",
-    mode: "disabled"
-  };
+  private activeVoiceCorrelationId: string | undefined;
 
   public constructor(
     private readonly eventSink: EventSink,
+    private readonly voiceEngine: VoiceEnginePort,
     private readonly now: () => Date = () => new Date()
   ) {
     this.startedAt = this.now().toISOString();
@@ -52,13 +56,13 @@ export class CoreRuntime {
       health: "ready",
       startedAt: this.startedAt,
       updatedAt: this.now().toISOString(),
-      voice: { ...this.voice },
+      voice: this.voiceEngine.getSnapshot(),
       messages: this.messages.map((message) => ({ ...message })),
       tasks: []
     };
   }
 
-  public handle(rawEnvelope: unknown): CommandResult {
+  public async handle(rawEnvelope: unknown): Promise<CommandResult> {
     const envelope = CommandEnvelopeSchema.parse(rawEnvelope);
 
     switch (envelope.command.type) {
@@ -110,62 +114,19 @@ export class CoreRuntime {
       }
 
       case "voice.setMode":
-        this.voice = {
-          mode: envelope.command.payload.mode,
-          state:
-            envelope.command.payload.mode === "disabled" ? "idle" : "ready"
-        };
-        this.publishVoiceState(envelope.correlationId);
-        this.publishSnapshot(envelope.correlationId);
-        return this.success(envelope, { voice: this.voice });
-
       case "voice.startPtt":
-        if (this.voice.mode !== "ptt") {
-          return this.failure(envelope, {
-            code: "VOICE_MODE_INVALID",
-            message: "PTT requires voice mode to be set to ptt.",
-            retryable: false
-          });
-        }
-        this.voice = {
-          ...this.voice,
-          state: "recording"
-        };
-        this.publishVoiceState(envelope.correlationId);
-        this.publishSnapshot(envelope.correlationId);
-        return this.success(envelope, { voice: this.voice });
-
       case "voice.stopPtt":
-        if (this.voice.state !== "recording") {
-          return this.failure(envelope, {
-            code: "VOICE_STATE_INVALID",
-            message: "PTT can only stop while recording.",
-            retryable: false
-          });
-        }
-        this.voice = {
-          ...this.voice,
-          state: "finalizing"
-        };
-        this.publishVoiceState(envelope.correlationId);
-        this.voice = {
-          ...this.voice,
-          state: "ready"
-        };
-        this.publishVoiceState(envelope.correlationId);
-        this.publishSnapshot(envelope.correlationId);
-        return this.success(envelope, { voice: this.voice });
+      case "voice.cancel":
+      case "voice.suspendForTts":
+      case "voice.resumeAfterTts":
+      case "voice.reportPermission":
+        return this.handleVoiceCommand(envelope, envelope.command);
     }
   }
 
-  private publishVoiceState(correlationId: string): void {
-    this.publish(
-      {
-        type: "voice.state.changed",
-        payload: { ...this.voice }
-      },
-      correlationId
-    );
+  public handleVoiceEvent(event: VoiceEvent): void {
+    this.publish(event, this.activeVoiceCorrelationId);
+    this.publishSnapshot(this.activeVoiceCorrelationId);
   }
 
   private publishSnapshot(correlationId?: string): CoreSnapshot {
@@ -196,6 +157,57 @@ export class CoreRuntime {
       ...(correlationId ? { correlationId } : {})
     };
     this.eventSink(envelope);
+  }
+
+  private async handleVoiceCommand(
+    envelope: CommandEnvelope,
+    command: VoiceCommand
+  ): Promise<CommandResult> {
+    this.activeVoiceCorrelationId = envelope.correlationId;
+    let result: VoiceActionResult;
+    try {
+      switch (command.type) {
+        case "voice.setMode":
+          result = await this.voiceEngine.setMode(command.payload.mode);
+          break;
+        case "voice.startPtt":
+          result = this.voiceEngine.startPtt(command.payload.captureId);
+          break;
+        case "voice.stopPtt":
+          result = await this.voiceEngine.stopPtt();
+          break;
+        case "voice.cancel":
+          result = await this.voiceEngine.cancel();
+          break;
+        case "voice.suspendForTts":
+          result = this.voiceEngine.suspendForTts(
+            command.payload.playbackId
+          );
+          break;
+        case "voice.resumeAfterTts":
+          result = await this.voiceEngine.resumeAfterTts(
+            command.payload.playbackId,
+            command.payload.interrupted
+          );
+          break;
+        case "voice.reportPermission":
+          result = this.voiceEngine.reportPermission(
+            command.payload.permission
+          );
+          break;
+      }
+    } finally {
+      this.activeVoiceCorrelationId = undefined;
+    }
+
+    if (!result.ok) {
+      return this.failure(envelope, result.error);
+    }
+
+    this.publishSnapshot(envelope.correlationId);
+    return this.success(envelope, {
+      voice: result.snapshot
+    });
   }
 
   private success(

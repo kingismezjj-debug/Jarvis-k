@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useJarvis } from "@/hooks/use-jarvis"
+import { usePttCapture } from "@/hooks/use-ptt-capture"
 import { cn } from "@/lib/utils"
 
 type NavItem = {
@@ -56,6 +57,18 @@ function eventLabel(envelope: EventEnvelope) {
       return `Message accepted / ${event.payload.id.slice(-8)}`
     case "voice.state.changed":
       return `Voice ${event.payload.mode} / ${event.payload.state}`
+    case "voice.transcript.updated":
+      return `${event.payload.isFinal ? "Final" : "Partial"} transcript / ${
+        event.payload.text || "empty"
+      }`
+    case "voice.permission.changed":
+      return `Microphone permission ${event.payload.permission}`
+    case "voice.playback.interrupted":
+      return `Playback interrupted / ${event.payload.reason}`
+    case "voice.diagnostic":
+      return `Voice diagnostic / ${event.payload.code}`
+    case "voice.error":
+      return `Voice error / ${event.payload.error.message}`
   }
 }
 
@@ -97,7 +110,9 @@ export default function App() {
     connection,
     error,
     events,
+    openVoiceSettings,
     probeCore,
+    sendCommand,
     sendMessage,
     sending,
     snapshot,
@@ -105,7 +120,11 @@ export default function App() {
   const [draft, setDraft] = useState("")
 
   const coreOnline = connection === "online"
+  const ptt = usePttCapture(sendCommand, coreOnline)
   const recentEvents = useMemo(() => events.slice(0, 12), [events])
+  const voiceTranscript = snapshot?.voice.transcript?.text ?? ""
+  const voiceRms = `${Math.round(ptt.audioDiagnostics.rms * 100)}%`
+  const voicePeak = `${Math.round(ptt.audioDiagnostics.peak * 100)}%`
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -119,6 +138,12 @@ export default function App() {
     <div
       className="flex h-screen min-h-[620px] min-w-[920px] flex-col overflow-hidden bg-background text-foreground"
       data-testid="jarvis-app"
+      data-voice-permission={snapshot?.voice.permission ?? "unknown"}
+      data-voice-state={snapshot?.voice.state ?? "idle"}
+      data-voice-transcript={snapshot?.voice.transcript?.text ?? ""}
+      data-voice-transcript-final={
+        snapshot?.voice.transcript?.isFinal ? "true" : "false"
+      }
     >
       <header className="flex h-[68px] shrink-0 items-center justify-between border-b bg-card px-5">
         <div className="flex items-center gap-3">
@@ -162,6 +187,41 @@ export default function App() {
           <div className="flex flex-col gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
+                <Button
+                  aria-label="Push to talk"
+                  aria-pressed={ptt.active}
+                  className={cn(
+                    "size-10 rounded-md",
+                    ptt.active && "bg-destructive text-destructive-foreground"
+                  )}
+                  data-capture-state={ptt.state}
+                  data-testid="push-to-talk"
+                  disabled={!coreOnline}
+                  onContextMenu={(event) => event.preventDefault()}
+                  onPointerCancel={() => void ptt.stop("user-cancel")}
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId)
+                    void ptt.start()
+                  }}
+                  onPointerUp={(event) => {
+                    if (
+                      event.currentTarget.hasPointerCapture(event.pointerId)
+                    ) {
+                      event.currentTarget.releasePointerCapture(event.pointerId)
+                    }
+                    void ptt.stop("release")
+                  }}
+                  size="icon-lg"
+                  type="button"
+                  variant={ptt.active ? "default" : "outline"}
+                >
+                  <Mic2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Push to talk</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button aria-label="Toggle navigation" size="icon-lg" variant="ghost">
                   <PanelLeft className="size-[18px]" />
                 </Button>
@@ -170,11 +230,16 @@ export default function App() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button aria-label="Settings" size="icon-lg" variant="ghost">
+                <Button
+                  aria-label="Voice service settings"
+                  onClick={() => void openVoiceSettings()}
+                  size="icon-lg"
+                  variant="ghost"
+                >
                   <Settings className="size-[18px]" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Settings</TooltipContent>
+              <TooltipContent side="right">Voice service settings</TooltipContent>
             </Tooltip>
           </div>
         </aside>
@@ -218,6 +283,28 @@ export default function App() {
                 <div className="flex w-fit items-center gap-2 rounded-md border bg-muted px-3 py-2 text-[11px] text-muted-foreground">
                   <span className="size-1.5 rounded-full bg-accent" />
                   agent.message.accepted / correlated command
+                </div>
+              )}
+
+              {(voiceTranscript || snapshot?.voice.state !== "idle") && (
+                <div
+                  className="max-w-[760px] rounded-md border bg-card px-4 py-3"
+                  data-testid="voice-transcript-panel"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      VOICE TRANSCRIPT
+                    </p>
+                    <Badge className="rounded-md text-[10px]" variant="outline">
+                      {snapshot?.voice.transcript?.isFinal ? "FINAL" : snapshot?.voice.state.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <p
+                    className="mt-2 min-h-5 text-sm leading-6"
+                    data-testid="voice-transcript"
+                  >
+                    {voiceTranscript || "Listening..."}
+                  </p>
                 </div>
               )}
 
@@ -290,6 +377,10 @@ export default function App() {
             <dl className="shrink-0 divide-y divide-border border-y text-[11px]">
               <Metric label="CORE HEALTH" value={snapshot?.health ?? connection} tone="success" />
               <Metric label="VOICE ENGINE" value={snapshot?.voice.state ?? "disabled"} tone="warning" />
+              <Metric label="MIC PERMISSION" value={snapshot?.voice.permission ?? "unknown"} />
+              <Metric label="VOICE FRAMES" value={String(ptt.audioDiagnostics.framesSent)} />
+              <Metric label="VOICE RMS" value={voiceRms} />
+              <Metric label="VOICE PEAK" value={voicePeak} />
               <Metric label="TRANSPORT" value="IPC" tone="accent" />
               <Metric label="SEQUENCE" value={String(snapshot?.sequenceId ?? 0).padStart(4, "0")} />
             </dl>

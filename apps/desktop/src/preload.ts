@@ -5,7 +5,13 @@ import {
   EventEnvelopeSchema,
   IPC_COMMAND_CHANNEL,
   IPC_EVENT_CHANNEL,
+  IPC_VOICE_SETTINGS_OPEN_CHANNEL,
+  IPC_VOICE_SETTINGS_STATUS_CHANNEL,
+  IPC_VOICE_AUDIO_CHANNEL,
   JarvisBridge,
+  VoiceServiceStatusSchema,
+  VoiceAudioFrame,
+  VoiceAudioFrameSchema,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 
@@ -17,13 +23,29 @@ async function sendCommand(command: AppCommand) {
   );
 }
 
+function sendVoiceAudio(frame: VoiceAudioFrame): void {
+  ipcRenderer.send(
+    IPC_VOICE_AUDIO_CHANNEL,
+    VoiceAudioFrameSchema.parse(frame)
+  );
+}
+
 const bridge: JarvisBridge = {
   sendCommand,
+  sendVoiceAudio,
   getSnapshot: () =>
     sendCommand({
       type: "agent.getSnapshot",
       payload: {}
     }),
+  getVoiceServiceStatus: async () =>
+    VoiceServiceStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_VOICE_SETTINGS_STATUS_CHANNEL)
+    ),
+  openVoiceSettings: async () =>
+    VoiceServiceStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_VOICE_SETTINGS_OPEN_CHANNEL)
+    ),
   onEvent: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, rawEvent: unknown) => {
       const parsed = EventEnvelopeSchema.safeParse(rawEvent);

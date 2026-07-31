@@ -12,6 +12,11 @@ import {
   createCommandEnvelope,
   createId
 } from "@jarvis-k/contracts";
+import {
+  BoundedVoiceAudioQueue,
+  type VoiceAudioEnqueueResult
+} from "./audio-transport";
+import type { VoiceProviderConfiguration } from "./secure-voice-provider-store";
 
 interface PendingRequest {
   resolve: (result: CommandResult) => void;
@@ -25,6 +30,9 @@ export interface CoreSupervisorOptions {
   healthIntervalMs?: number;
   restartBaseDelayMs?: number;
   maxRestartAttempts?: number;
+  maxAudioQueueFrames?: number;
+  maxAudioQueueBytes?: number;
+  loadVoiceProviderConfiguration?: () => Promise<VoiceProviderConfiguration | null>;
 }
 
 export class CoreSupervisor {
@@ -34,6 +42,7 @@ export class CoreSupervisor {
   private readonly healthIntervalMs: number;
   private readonly restartBaseDelayMs: number;
   private readonly maxRestartAttempts: number;
+  private readonly voiceAudioQueue: BoundedVoiceAudioQueue;
   private child: ChildProcess | null = null;
   private healthTimer: NodeJS.Timeout | null = null;
   private restartTimer: NodeJS.Timeout | null = null;
@@ -48,6 +57,23 @@ export class CoreSupervisor {
     this.healthIntervalMs = options.healthIntervalMs ?? 5_000;
     this.restartBaseDelayMs = options.restartBaseDelayMs ?? 250;
     this.maxRestartAttempts = options.maxRestartAttempts ?? 5;
+    this.voiceAudioQueue = new BoundedVoiceAudioQueue({
+      maxFrames: options.maxAudioQueueFrames ?? 24,
+      maxBytes: options.maxAudioQueueBytes ?? 512 * 1_024,
+      send: (message, onComplete) => {
+        const child = this.child;
+        if (!child?.connected) {
+          onComplete(new Error("Agent Core is not connected."));
+          return;
+        }
+        child.send(message, onComplete);
+      },
+      onSendError: (error) => {
+        process.stderr.write(
+          `[supervisor] Audio IPC send failed: ${error.message}\n`
+        );
+      }
+    });
   }
 
   public start(): void {
@@ -74,6 +100,7 @@ export class CoreSupervisor {
       message: "Agent Core stopped before the request completed.",
       retryable: true
     });
+    this.voiceAudioQueue.reset();
     if (this.child) {
       this.child.kill();
     } else {
@@ -97,6 +124,10 @@ export class CoreSupervisor {
   public onEvent(listener: (event: EventEnvelope) => void): () => void {
     this.emitter.on("event", listener);
     return () => this.emitter.off("event", listener);
+  }
+
+  public enqueueVoiceAudio(rawFrame: unknown): VoiceAudioEnqueueResult {
+    return this.voiceAudioQueue.enqueue(rawFrame);
   }
 
   public request(rawEnvelope: unknown): Promise<CommandResult> {
@@ -164,7 +195,8 @@ export class CoreSupervisor {
 
     this.emitLifecycle("starting", reason);
     const child = fork(this.options.coreEntry, [], {
-      stdio: ["ignore", "pipe", "pipe", "ipc"]
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+      serialization: "advanced"
     });
     this.child = child;
 
@@ -189,6 +221,7 @@ export class CoreSupervisor {
         message: `Agent Core exited with code ${String(code)} and signal ${String(signal)}.`,
         retryable: true
       });
+      this.voiceAudioQueue.reset();
 
       if (this.stopping) {
         this.emitLifecycle("stopped", "supervisor-stop");
@@ -199,6 +232,33 @@ export class CoreSupervisor {
       this.restartReason = "unexpected-exit";
       this.scheduleRestart(reasonForRestart);
     });
+    void this.configureVoiceProvider(child);
+  }
+
+  private async configureVoiceProvider(child: ChildProcess): Promise<void> {
+    const loadConfiguration = this.options.loadVoiceProviderConfiguration;
+    if (!loadConfiguration) {
+      return;
+    }
+
+    const configuration = await loadConfiguration();
+    if (!configuration || !child.connected || this.child !== child) {
+      return;
+    }
+
+    child.send(
+      {
+        kind: "voice-provider.configure",
+        configuration
+      },
+      (error) => {
+        if (error) {
+          process.stderr.write(
+            "[supervisor] Voice provider configuration delivery failed.\n"
+          );
+        }
+      }
+    );
   }
 
   private handleCoreMessage(message: unknown): void {

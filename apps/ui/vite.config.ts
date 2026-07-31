@@ -16,6 +16,10 @@ export default defineConfig({
         currentDirectory,
         "../../packages/contracts/src/index.ts"
       ),
+      "@jarvis-k/voice-capture-browser": path.resolve(
+        currentDirectory,
+        "../../packages/voice-capture-browser/src/index.ts"
+      ),
     },
   },
 })

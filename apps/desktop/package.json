@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/preload.cjs",
+    "build": "tsc -p tsconfig.build.json && esbuild src/preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/preload.cjs && esbuild src/settings-preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/settings-preload.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

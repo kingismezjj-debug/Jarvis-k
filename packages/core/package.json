@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@jarvis-k/contracts": "*"
+    "@jarvis-k/contracts": "*",
+    "@jarvis-k/voice": "*"
   }
 }
