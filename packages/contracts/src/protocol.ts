@@ -165,6 +165,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .strict()
   }),
   z.object({
+    type: z.literal("agent.getResourceDiagnostics"),
+    payload: EmptyPayloadSchema
+  }),
+  z.object({
     type: z.literal("agent.previewModelInstallability"),
     payload: z
       .object({
@@ -627,6 +631,24 @@ export type ModelOperationSnapshot = z.infer<
   typeof ModelOperationSnapshotSchema
 >;
 
+export const ResourceSchedulerDiagnosticsSchema = z
+  .object({
+    checkedAt: z.string().datetime(),
+    totalMemoryBytes: z.number().int().nonnegative(),
+    availableMemoryBytes: z.number().int().nonnegative(),
+    leasedMemoryBytes: z.number().int().nonnegative(),
+    totalVramBytes: z.number().int().nonnegative(),
+    availableVramBytes: z.number().int().nonnegative(),
+    leasedVramBytes: z.number().int().nonnegative(),
+    activeLeaseCount: z.number().int().nonnegative(),
+    exclusiveGpuLeaseActive: z.boolean()
+  })
+  .strict();
+
+export type ResourceSchedulerDiagnostics = z.infer<
+  typeof ResourceSchedulerDiagnosticsSchema
+>;
+
 export const ProviderSelectionSchema = z
   .object({
     capability: LocalModelCapabilitySchema,
@@ -703,6 +725,7 @@ export const CoreSnapshotSchema = z
     memoryHealth: MemoryHealthSchema.optional(),
     capabilities: CapabilitySnapshotSchema.optional(),
     modelOperations: z.array(ModelOperationSnapshotSchema).default([]),
+    resourceDiagnostics: ResourceSchedulerDiagnosticsSchema.optional(),
     tasks: z.array(TaskSchema)
   })
   .strict();

@@ -7,6 +7,7 @@ import {
   ModelManifestSchema,
   ModelOperationSnapshotSchema,
   MemorySnapshotSchema,
+  ResourceSchedulerDiagnosticsSchema,
   type AppCommand,
   type CoreSnapshot,
   type EventEnvelope,
@@ -15,6 +16,7 @@ import {
   type ModelCandidate,
   type ModelManifest,
   type ModelOperationSnapshot,
+  type ResourceSchedulerDiagnostics,
 } from "@jarvis-k/contracts"
 
 type CoreConnection = "connecting" | "online" | "restarting" | "offline"
@@ -33,6 +35,8 @@ export function useJarvis() {
   const [modelOperations, setModelOperations] = useState<ModelOperationSnapshot[]>([])
   const [modelCandidates, setModelCandidates] = useState<ModelCandidate[]>([])
   const [modelManifests, setModelManifests] = useState<ModelManifest[]>([])
+  const [resourceDiagnostics, setResourceDiagnostics] =
+    useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
 
   const applyEvent = useCallback((envelope: EventEnvelope) => {
@@ -243,6 +247,23 @@ export function useJarvis() {
         return false
       }
 
+      const resourceResult = await window.jarvis.sendCommand({
+        type: "agent.getResourceDiagnostics",
+        payload: {},
+      })
+      if (!resourceResult.ok) {
+        setError(resourceResult.error.message)
+        return false
+      }
+      const resourceDiagnostics = ResourceSchedulerDiagnosticsSchema.safeParse(
+        (resourceResult.data as { resourceDiagnostics?: unknown } | undefined)
+          ?.resourceDiagnostics
+      )
+      if (!resourceDiagnostics.success) {
+        setError("Core returned invalid resource diagnostics.")
+        return false
+      }
+
       const candidatesResult = await window.jarvis.sendCommand({
         type: "agent.listModelCandidates",
         payload: {},
@@ -263,6 +284,7 @@ export function useJarvis() {
       setModelInstallabilityReports(installabilityReports.data)
       setModelInventory(inventory.data)
       setModelOperations(operations.data)
+      setResourceDiagnostics(resourceDiagnostics.data)
       setModelCandidates(candidates.data)
       setError(null)
       return true
@@ -365,6 +387,7 @@ export function useJarvis() {
     refreshModelGovernance,
     refreshSnapshot,
     renameConversation,
+    resourceDiagnostics,
     sendCommand,
     sendMessage,
     selectConversation,

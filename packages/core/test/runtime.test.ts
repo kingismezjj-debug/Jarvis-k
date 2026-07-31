@@ -12,6 +12,7 @@ import {
   type ModelCandidate,
   type ModelManifest,
   type ModelOperationSnapshot,
+  type ResourceSchedulerDiagnostics,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 import type {
@@ -22,7 +23,10 @@ import type {
   ModelLifecycleManager,
   ModelOperationListOptions,
   ModelOperationSupervisor,
-  ModelRegistry
+  ModelRegistry,
+  ResourceLease,
+  ResourceRequest,
+  ResourceScheduler
 } from "@jarvis-k/capabilities";
 import type {
   Conversation,
@@ -579,6 +583,31 @@ class FakeModelOperationSupervisor implements ModelOperationSupervisor {
   }
 }
 
+class FakeResourceScheduler implements ResourceScheduler {
+  public async acquire(_input: ResourceRequest): Promise<ResourceLease> {
+    return {
+      leaseId: "lease-test",
+      capability: "embedding",
+      createdAt: "2026-07-31T00:00:00.000Z",
+      release: async () => undefined
+    };
+  }
+
+  public async diagnostics(): Promise<ResourceSchedulerDiagnostics> {
+    return {
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      totalMemoryBytes: 16,
+      availableMemoryBytes: 12,
+      leasedMemoryBytes: 4,
+      totalVramBytes: 8,
+      availableVramBytes: 6,
+      leasedVramBytes: 2,
+      activeLeaseCount: 1,
+      exclusiveGpuLeaseActive: false
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -586,7 +615,8 @@ function createRuntime(
   modelLifecycleManager?: ModelLifecycleManager,
   modelCandidateRegistry?: ModelCandidateRegistry,
   modelInstallationPlanner?: ModelInstallationPlanner,
-  modelOperationSupervisor?: ModelOperationSupervisor
+  modelOperationSupervisor?: ModelOperationSupervisor,
+  resourceScheduler?: ResourceScheduler
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -600,7 +630,8 @@ function createRuntime(
     modelLifecycleManager,
     modelCandidateRegistry,
     modelInstallationPlanner,
-    modelOperationSupervisor
+    modelOperationSupervisor,
+    resourceScheduler
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -914,6 +945,42 @@ describe("CoreRuntime", () => {
       }
     });
     expect(runtime.getSnapshot().modelOperations).toHaveLength(1);
+  });
+
+  it("returns resource diagnostics through the injected scheduler", async () => {
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      new FakeModelRegistry(),
+      new FakeModelLifecycleManager(),
+      new FakeModelCandidateRegistry(),
+      new FakeModelInstallationPlanner(),
+      new FakeModelOperationSupervisor(),
+      new FakeResourceScheduler()
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getResourceDiagnostics",
+        payload: {}
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      resourceDiagnostics: {
+        availableMemoryBytes: 12,
+        activeLeaseCount: 1
+      },
+      snapshot: {
+        resourceDiagnostics: {
+          leasedVramBytes: 2
+        }
+      }
+    });
+    expect(runtime.getSnapshot().resourceDiagnostics).toMatchObject({
+      availableVramBytes: 6
+    });
   });
 
   it("exports and imports memory snapshots through the injected repository", async () => {

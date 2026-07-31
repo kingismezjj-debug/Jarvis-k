@@ -7,7 +7,8 @@ import {
   StaticModelRegistry,
   StaticModelCandidateRegistry,
   PolicyModelInstallationPlanner,
-  InMemoryModelOperationSupervisor
+  InMemoryModelOperationSupervisor,
+  InMemoryResourceScheduler
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
@@ -143,6 +144,9 @@ const modelCandidateRegistry = new StaticModelCandidateRegistry(
 );
 const modelInstallationPlanner = new PolicyModelInstallationPlanner();
 const modelOperationSupervisor = new InMemoryModelOperationSupervisor();
+const resourceScheduler = new InMemoryResourceScheduler({
+  inspectDevice: async () => (await capabilityProvider.inspect()).device
+});
 const modelLifecycleManager = new FileSystemModelLifecycleManager({
   rootDirectory: resolveModelDirectoryPath(),
   fetchArtifact: async () => {
@@ -181,7 +185,8 @@ runtime = new CoreRuntime(
   modelLifecycleManager,
   modelCandidateRegistry,
   modelInstallationPlanner,
-  modelOperationSupervisor
+  modelOperationSupervisor,
+  resourceScheduler
 );
 
 let inboundQueue = Promise.resolve();

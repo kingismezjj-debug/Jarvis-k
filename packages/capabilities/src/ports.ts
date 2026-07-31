@@ -9,6 +9,7 @@ import type {
   ModelOperationPhase,
   ModelOperationProgress,
   ModelOperationSnapshot,
+  ResourceSchedulerDiagnostics,
   StructuredError
 } from "@jarvis-k/contracts";
 
@@ -123,6 +124,7 @@ export interface ResourceLease {
 
 export interface ResourceScheduler {
   acquire(input: ResourceRequest): Promise<ResourceLease>;
+  diagnostics(): Promise<ResourceSchedulerDiagnostics>;
 }
 
 export interface ResourceRequest {

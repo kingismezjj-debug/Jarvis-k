@@ -35,6 +35,33 @@ describe("InMemoryResourceScheduler", () => {
     });
   });
 
+  it("reports resource diagnostics from active leases", async () => {
+    const scheduler = new InMemoryResourceScheduler({
+      device: device({
+        availableMemoryBytes: gib(8),
+        dedicatedMemoryBytes: gib(4)
+      }),
+      now: () => new Date("2026-07-31T00:00:00.000Z")
+    });
+
+    await scheduler.acquire({
+      capability: "speech_to_text",
+      minMemoryBytes: gib(2),
+      minVramBytes: gib(1)
+    });
+
+    expect(await scheduler.diagnostics()).toMatchObject({
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      availableMemoryBytes: gib(6),
+      leasedMemoryBytes: gib(2),
+      totalVramBytes: gib(4),
+      availableVramBytes: gib(3),
+      leasedVramBytes: gib(1),
+      activeLeaseCount: 1,
+      exclusiveGpuLeaseActive: false
+    });
+  });
+
   it("blocks VRAM overcommit and exclusive GPU conflicts", async () => {
     const scheduler = new InMemoryResourceScheduler({
       device: device({

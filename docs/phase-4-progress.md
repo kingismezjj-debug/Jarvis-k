@@ -252,3 +252,32 @@
 - Targeted resource scheduler tests: PASS, 1 test file and 3 tests.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 26 test files and 144 tests.
+
+## 2026-07-31
+
+### Wave 4.11: Resource Diagnostics Query Surface
+
+- Status: complete.
+- Added provider-neutral resource scheduler diagnostics DTOs for available and
+  leased memory, available and leased VRAM, active lease count, and exclusive
+  GPU lock state.
+- Added `agent.getResourceDiagnostics` so Core and the renderer can query
+  resource pressure before any model runtime or install command exists.
+- Extended `ResourceScheduler` with a read-only `diagnostics()` method and
+  implemented diagnostics in the in-memory scheduler.
+- Composed the scheduler in `apps/core-host` using the existing device
+  capability provider as a dynamic device snapshot source.
+- Updated the React HUD model governance panel to show resource memory, VRAM,
+  and lease counts from DTOs only.
+- Extended desktop smoke coverage to query resource diagnostics through the
+  existing renderer bridge.
+- Kept real model downloads, install commands, model execution, runtime
+  loading, Python, CUDA, ONNX, and Hugging Face/CDN access out of this wave.
+
+### Current Gate
+
+- Targeted contracts/capabilities/core/UI tests: PASS, 4 test files and 44 tests.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 26 test files and 147 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.

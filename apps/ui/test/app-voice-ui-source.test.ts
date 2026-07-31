@@ -58,6 +58,9 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("BLOCKED");
     expect(appSource).toContain("OPERATIONS");
     expect(appSource).toContain("ACTIVE OPS");
+    expect(appSource).toContain("RESOURCE MEM");
+    expect(appSource).toContain("RESOURCE VRAM");
+    expect(appSource).toContain("RESOURCE LEASES");
     expect(appSource).toContain("refreshModelGovernance");
   });
 

@@ -19,6 +19,8 @@ import {
   ModelOperationSnapshotSchema,
   MemorySnapshot,
   PROTOCOL_VERSION,
+  ResourceSchedulerDiagnostics,
+  ResourceSchedulerDiagnosticsSchema,
   StructuredError,
   VoiceCommand,
   VoiceEvent,
@@ -30,7 +32,8 @@ import type {
   ModelInstallationPlanner,
   ModelLifecycleManager,
   ModelOperationSupervisor,
-  ModelRegistry
+  ModelRegistry,
+  ResourceScheduler
 } from "@jarvis-k/capabilities";
 import type { MemoryRepository } from "@jarvis-k/memory";
 import type {
@@ -52,6 +55,7 @@ export class CoreRuntime {
   private memoryHealth: MemoryHealth | undefined;
   private capabilities: CapabilitySnapshot | undefined;
   private readonly modelOperations: ModelOperationSnapshot[] = [];
+  private resourceDiagnostics: ResourceSchedulerDiagnostics | undefined;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -63,7 +67,8 @@ export class CoreRuntime {
     private readonly modelLifecycleManager?: ModelLifecycleManager,
     private readonly modelCandidateRegistry?: ModelCandidateRegistry,
     private readonly modelInstallationPlanner?: ModelInstallationPlanner,
-    private readonly modelOperationSupervisor?: ModelOperationSupervisor
+    private readonly modelOperationSupervisor?: ModelOperationSupervisor,
+    private readonly resourceScheduler?: ResourceScheduler
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -142,6 +147,9 @@ export class CoreRuntime {
         reasons: [...operation.reasons],
         ...(operation.error ? { error: { ...operation.error } } : {})
       })),
+      ...(this.resourceDiagnostics
+        ? { resourceDiagnostics: this.resourceDiagnostics }
+        : {}),
       tasks: []
     };
   }
@@ -304,6 +312,28 @@ export class CoreRuntime {
           return this.failure(envelope, {
             code: "MODEL_OPERATIONS_FAILED",
             message: "Unable to list model operations.",
+            retryable: true
+          });
+        }
+      }
+
+      case "agent.getResourceDiagnostics": {
+        if (!this.resourceScheduler) {
+          return this.modelsUnavailable(envelope);
+        }
+        try {
+          this.resourceDiagnostics = ResourceSchedulerDiagnosticsSchema.parse(
+            await this.resourceScheduler.diagnostics()
+          );
+          const snapshot = this.publishSnapshot(envelope.correlationId);
+          return this.success(envelope, {
+            resourceDiagnostics: this.resourceDiagnostics,
+            snapshot
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "RESOURCE_DIAGNOSTICS_FAILED",
+            message: "Unable to inspect model resource diagnostics.",
             retryable: true
           });
         }

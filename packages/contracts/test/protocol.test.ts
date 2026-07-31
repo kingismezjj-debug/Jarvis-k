@@ -8,6 +8,7 @@ import {
   ModelInstallabilityReportSchema,
   ModelOperationSnapshotSchema,
   PROTOCOL_VERSION,
+  ResourceSchedulerDiagnosticsSchema,
   CoreVoiceAudioMessageSchema,
   MemorySnapshotSchema,
   VoiceAudioFrameSchema,
@@ -197,6 +198,10 @@ describe("protocol contracts", () => {
         limit: 25
       }
     });
+    const resources = createCommandEnvelope({
+      type: "agent.getResourceDiagnostics",
+      payload: {}
+    });
     const candidates = createCommandEnvelope({
       type: "agent.listModelCandidates",
       payload: {
@@ -229,6 +234,9 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
     );
+    expect(CommandEnvelopeSchema.parse(resources).command.type).toBe(
+      "agent.getResourceDiagnostics"
+    );
     expect(CommandEnvelopeSchema.parse(preview).command.type).toBe(
       "agent.previewModelInstallability"
     );
@@ -260,6 +268,25 @@ describe("protocol contracts", () => {
         phase: "downloading",
         reasons: []
       }
+    });
+  });
+
+  it("accepts provider-neutral resource diagnostics", () => {
+    expect(
+      ResourceSchedulerDiagnosticsSchema.parse({
+        checkedAt: "2026-07-31T00:00:00.000Z",
+        totalMemoryBytes: 16,
+        availableMemoryBytes: 8,
+        leasedMemoryBytes: 4,
+        totalVramBytes: 12,
+        availableVramBytes: 10,
+        leasedVramBytes: 2,
+        activeLeaseCount: 1,
+        exclusiveGpuLeaseActive: false
+      })
+    ).toMatchObject({
+      availableMemoryBytes: 8,
+      activeLeaseCount: 1
     });
   });
 

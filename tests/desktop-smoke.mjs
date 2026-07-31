@@ -142,6 +142,13 @@ try {
     if (!operationsResult.ok) {
       throw new Error(operationsResult.error.message);
     }
+    const resourceResult = await window.jarvis.sendCommand({
+      type: "agent.getResourceDiagnostics",
+      payload: {}
+    });
+    if (!resourceResult.ok) {
+      throw new Error(resourceResult.error.message);
+    }
     const candidatesResult = await window.jarvis.sendCommand({
       type: "agent.listModelCandidates",
       payload: {}
@@ -152,12 +159,15 @@ try {
     const manifests = manifestsResult.data?.manifests;
     const inventory = inventoryResult.data?.inventory;
     const operations = operationsResult.data?.operations;
+    const resourceDiagnostics = resourceResult.data?.resourceDiagnostics;
     const candidates = candidatesResult.data?.candidates;
     if (
       !Array.isArray(manifests) ||
       !Array.isArray(inventory) ||
       !Array.isArray(operations) ||
-      !Array.isArray(candidates)
+      !Array.isArray(candidates) ||
+      !resourceDiagnostics ||
+      typeof resourceDiagnostics !== "object"
     ) {
       throw new Error("Model governance commands returned invalid data.");
     }
@@ -168,7 +178,8 @@ try {
       ).length,
       manifestCount: manifests.length,
       inventoryCount: inventory.length,
-      operationCount: operations.length
+      operationCount: operations.length,
+      activeResourceLeaseCount: resourceDiagnostics.activeLeaseCount
     };
   });
 

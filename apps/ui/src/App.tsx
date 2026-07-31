@@ -143,6 +143,7 @@ export default function App() {
     refreshMemoryHealth,
     refreshModelGovernance,
     renameConversation,
+    resourceDiagnostics,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -190,6 +191,10 @@ export default function App() {
   const activeModelOperationCount = modelOperations.filter((item) =>
     activeModelOperationPhases.has(item.phase)
   ).length
+  const resourceMemoryGiB = formatGib(
+    resourceDiagnostics?.availableMemoryBytes
+  )
+  const resourceVramGiB = formatGib(resourceDiagnostics?.availableVramBytes)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -633,6 +638,12 @@ export default function App() {
                 <Metric label="BLOCKED" value={String(blockedModelCount)} tone="warning" />
                 <Metric label="OPERATIONS" value={String(modelOperations.length)} />
                 <Metric label="ACTIVE OPS" value={String(activeModelOperationCount)} tone="warning" />
+                <Metric label="RESOURCE MEM" value={resourceMemoryGiB} />
+                <Metric label="RESOURCE VRAM" value={resourceVramGiB} />
+                <Metric
+                  label="RESOURCE LEASES"
+                  value={String(resourceDiagnostics?.activeLeaseCount ?? 0)}
+                />
                 <Metric label="LOCAL MODELS" value={String(modelInventory.length)} />
                 <Metric label="DOWNLOADABLE" value={String(downloadableCandidateCount)} />
                 <Metric label="LOADED" value={String(loadedModelCount)} tone="accent" />
@@ -738,6 +749,11 @@ export default function App() {
       </div>
     </div>
   )
+}
+
+function formatGib(value: number | undefined) {
+  if (value === undefined) return "unknown"
+  return `${(value / 1024 / 1024 / 1024).toFixed(1)} GiB`
 }
 
 function Metric({
