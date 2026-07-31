@@ -25,6 +25,7 @@
     "build": "npm run build:contracts && npm run build:voice && npm run build:voice-capture-browser && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && npm run build:ui && npm run build:desktop",
     "typecheck": "npm run build:contracts && npm run build:voice && npm run build:core && npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "ci": "npm run typecheck && npm test && npm run check:boundaries && npm run build",
     "verify": "npm run typecheck && npm test && npm run check:boundaries && npm run build",
     "start": "electron apps/desktop/dist/main.js",
     "dev": "npm run build && npm run start",

@@ -1,15 +1,25 @@
-# Phase 1 Architecture
+# Phase 2 Architecture
 
 ```text
 React renderer
     |
     | context-isolated preload bridge
     v
-Electron supervisor
+Electron desktop host
     |
-    | validated Node child-process IPC
+    | validated command IPC
+    | bounded binary audio IPC
+    | encrypted settings via safeStorage
     v
-Agent Core
+Core Host child process
+    |
+    | composition root
+    v
+Agent Core + Voice Engine
+    |
+    | injected provider port
+    v
+Xunfei RTASR adapter
 ```
 
 ## Decisions
@@ -18,14 +28,23 @@ Agent Core
    boundary.
 2. Electron owns windows, IPC exposure, child-process supervision, timeouts, and
    restart policy. It does not own agent business behavior.
-3. Core owns the phase 1 in-memory state snapshot and is the only writer to that
-   state.
-4. The renderer owns display-only state and always requests a fresh snapshot
+3. Electron stores voice-provider credentials with `safeStorage` and sends them
+   only through private child-process IPC.
+4. `apps/core-host` is the only concrete composition root. Core never imports a
+   provider adapter.
+5. Voice Engine owns voice state, PTT, continuous listening, transcript
+   finalization, TTS coordination, and recovery policy through injected ports.
+6. Browser capture owns microphone, AudioContext, AudioWorklet, PCM conversion,
+   40 ms frame aggregation, and capture metrics.
+7. Xunfei signing, parsing, connection reuse, retry, and RTASR-specific segment
+   behavior stay inside `packages/voice-adapter-xunfei`.
+8. Core owns the in-memory state snapshot and is the only writer to that state.
+9. The renderer owns display-only state and always requests a fresh snapshot
    after load.
-5. Supervisor event sequence IDs stay monotonic across Core restarts.
-6. Core persistence is intentionally deferred until the SQLite repository is
+10. Supervisor event sequence IDs stay monotonic across Core restarts.
+11. Core persistence is intentionally deferred until the SQLite repository is
    introduced in phase 3.
-7. The desktop app does not open a local HTTP port.
+12. The desktop app does not open a local HTTP port.
 
 ## Restart policy
 
