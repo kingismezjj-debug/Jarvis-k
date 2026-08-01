@@ -17,6 +17,10 @@ import {
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
 import {
+  createLocalEmbeddingProviderConfigurationReport,
+  createLocalEmbeddingProviderDescriptor
+} from "@jarvis-k/inference-adapter-embedding-local";
+import {
   createFixtureEmbeddingProviderConfigurationReport,
   createFixtureEmbeddingProviderDescriptor,
   createFixtureIntentRouterConfigurationReport,
@@ -221,12 +225,18 @@ const fixtureRerankerConfigurationReport =
   createFixtureRerankerConfigurationReport({
     enabled: fixtureInferenceEnabled
   });
+const localEmbeddingProviderDescriptor =
+  createLocalEmbeddingProviderDescriptor();
+const localEmbeddingProviderConfigurationReport =
+  createLocalEmbeddingProviderConfigurationReport();
 const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
+  localEmbeddingProviderDescriptor,
   fixtureEmbeddingProviderDescriptor,
   fixtureOcrDescriptor,
   fixtureIntentRouterDescriptor,
   fixtureRerankerDescriptor
 ], [
+  localEmbeddingProviderConfigurationReport,
   fixtureEmbeddingProviderConfigurationReport,
   fixtureOcrConfigurationReport,
   fixtureIntentRouterConfigurationReport,

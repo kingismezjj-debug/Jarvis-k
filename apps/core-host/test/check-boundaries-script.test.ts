@@ -16,6 +16,7 @@ const workspaceRoots = [
   path.join("packages", "contracts"),
   path.join("packages", "voice"),
   path.join("packages", "capabilities"),
+  path.join("packages", "inference-adapter-embedding-local"),
   path.join("packages", "inference-adapter-fixture"),
   path.join("packages", "memory"),
   path.join("packages", "memory-sqlite"),
@@ -100,6 +101,19 @@ describe("check-boundaries script", () => {
     await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
       stderr: expect.stringContaining(
         "imports forbidden workspace package @jarvis-k/inference-adapter-fixture"
+      )
+    });
+  });
+
+  it("fails when Core imports a planned local inference adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "core"),
+      "import { LOCAL_EMBEDDING_PROVIDER_ID } from \"@jarvis-k/inference-adapter-embedding-local\";\nvoid LOCAL_EMBEDDING_PROVIDER_ID;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/inference-adapter-embedding-local"
       )
     });
   });

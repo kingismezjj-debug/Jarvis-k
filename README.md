@@ -1,13 +1,15 @@
 # Jarvis-K
 
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
-current baseline is **Phase 5 Fixture-Backed Inference Foundation**: the
+current baseline is **Phase 6 Local Provider Readiness**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
 ports, installability policy, resource diagnostics, dry-run model install
 preparation, and deterministic fixture providers for embedding, intent
-routing, OCR, and reranking are in place.
+routing, OCR, and reranking are in place. Phase 6 has started with a
+fail-closed local embedding provider readiness package; real local model
+downloads and runtime execution remain disabled.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -25,6 +27,8 @@ They are not runtime dependencies.
   routing, OCR, and reranking
 - Phase 5 fixture-backed inference foundation: complete and ready for Phase 6
   real-provider planning
+- Phase 6 local embedding provider readiness: started with fail-closed
+  descriptor and configuration gates
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -95,6 +99,8 @@ the local settings window first. It must not be enabled in default CI.
 - `packages/inference-adapter-fixture`: deterministic test-only embedding,
   intent routing, OCR, and reranking providers with no downloads, native
   runtime, or network access.
+- `packages/inference-adapter-embedding-local`: Phase 6 fail-closed local
+  embedding provider readiness descriptor and configuration gate reports.
 - `packages/memory`: provider-neutral memory ports and schemas.
 - `packages/memory-sqlite`: SQLite-backed message, conversation, summary,
   health, export, and import persistence.
@@ -122,6 +128,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 4.5 inference readiness](docs/phase-4.5-inference-readiness.md)
 - [Phase 5 completion](docs/phase-5-completion.md)
 - [Phase 5 progress](docs/phase-5-progress.md)
+- [Phase 6 progress](docs/phase-6-progress.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

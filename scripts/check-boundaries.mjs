@@ -63,6 +63,22 @@ const packages = [
     ]
   },
   {
+    name: "inference-adapter-embedding-local",
+    root: path.join(root, "packages", "inference-adapter-embedding-local"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
     name: "inference-adapter-fixture",
     root: path.join(root, "packages", "inference-adapter-fixture"),
     allowedWorkspaceImports: new Set([
@@ -150,6 +166,7 @@ const packages = [
       "@jarvis-k/capabilities",
       "@jarvis-k/contracts",
       "@jarvis-k/core",
+      "@jarvis-k/inference-adapter-embedding-local",
       "@jarvis-k/inference-adapter-fixture",
       "@jarvis-k/memory-sqlite",
       "@jarvis-k/voice",

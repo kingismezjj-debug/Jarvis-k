@@ -6,6 +6,7 @@
   "workspaces": [
     "packages/contracts",
     "packages/capabilities",
+    "packages/inference-adapter-embedding-local",
     "packages/inference-adapter-fixture",
     "packages/memory",
     "packages/memory-sqlite",
@@ -20,6 +21,7 @@
   "scripts": {
     "build:contracts": "npm run build -w @jarvis-k/contracts",
     "build:capabilities": "npm run build -w @jarvis-k/capabilities",
+    "build:inference-adapter-embedding-local": "npm run build -w @jarvis-k/inference-adapter-embedding-local",
     "build:inference-adapter-fixture": "npm run build -w @jarvis-k/inference-adapter-fixture",
     "build:memory": "npm run build -w @jarvis-k/memory",
     "build:memory-sqlite": "npm run build -w @jarvis-k/memory-sqlite",
@@ -30,8 +32,8 @@
     "build:core-host": "npm run build -w @jarvis-k/core-host",
     "build:ui": "npm run build -w @jarvis-k/ui",
     "build:desktop": "npm run build -w @jarvis-k/desktop",
-    "build": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-capture-browser && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && npm run build:ui && npm run build:desktop",
-    "typecheck": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run typecheck --workspaces --if-present",
+    "build": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-capture-browser && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && npm run build:ui && npm run build:desktop",
+    "typecheck": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:sensitive-artifacts": "node scripts/check-sensitive-artifacts.mjs",
     "ci": "npm run typecheck && npm test && npm run check:boundaries && npm run check:sensitive-artifacts && npm run build",
@@ -42,7 +44,7 @@
     "smoke:desktop:memory-degraded": "npm run build && node tests/desktop-memory-degraded-smoke.mjs",
     "smoke:desktop:fixture-inference": "npm run build && node tests/desktop-fixture-inference-smoke.mjs",
     "acceptance:xunfei": "npm run build && node tests/real-xunfei-acceptance.mjs",
-    "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && vitest run"
+    "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && vitest run"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
