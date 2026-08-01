@@ -465,6 +465,33 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 52 test files and 270 tests.
 
+## Wave 6.20: Runtime Implementation Procedure Guard
+
+- Status: complete.
+- Added a provider-local runtime implementation procedure guard for the
+  planned local embedding provider.
+- Added `docs/phase-6-runtime-implementation-procedure.md` to define the future
+  dedicated runtime package boundary, supervised helper process, Windows
+  packaging, resource scheduler integration, failure degradation, and
+  verification gates.
+- The procedure remains pending by default and blocks runtime dependencies and
+  execution enablement during the approval wave.
+- A future implementation wave can become ready for approval without exposing
+  revisions, artifact digests, artifact filenames, URLs, local private paths,
+  dependency versions, or benchmark metrics.
+- No runtime dependency, runtime package implementation, model artifact,
+  download path, provider registration, composition change, or real embedding
+  execution was added in this wave.
+
+### Current Gate
+
+- Local embedding runtime implementation procedure tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 53 test files and 273 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
