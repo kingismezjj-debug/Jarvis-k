@@ -429,11 +429,44 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 62 test files and 319 tests.
 
+## Wave 7.15: Runtime Package Scaffold with Fake Runtime
+
+- Status: complete.
+- Created the dedicated private runtime workspace
+  `@jarvis-k/inference-runtime-transformers-local` at
+  `packages/inference-runtime-transformers-local`.
+- Added only `@jarvis-k/contracts` as a workspace dependency.
+- Added a fake fail-closed runtime surface with descriptor creation, health
+  report creation, unavailable runtime adapter factory, and sanitized runtime
+  error mapping.
+- The fake runtime reports `unavailable`; `canLoad` always returns `false`;
+  `load` always throws a sanitized unavailable error.
+- Root workspace, build, typecheck, test, and verify paths now include the new
+  runtime package.
+- The dependency boundary checker now includes the new runtime package and
+  permits only `@jarvis-k/contracts` workspace imports from its source.
+- The scaffold keeps real runtime dependencies, Python environments, model
+  artifact access, downloads, cache access, runtime registration, provider
+  composition, and local embedding execution disabled.
+- No Python, Transformers, ONNX, CUDA, Paddle, llama.cpp, native helper,
+  runtime dependency, model download, model file, model cache, signed URL,
+  provider credential, provider registration, composition change, benchmark
+  value, or local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local Transformers runtime scaffold tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-runtime-transformers-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 63 test files and 323 tests.
+
 ## Remaining Phase 7 Work
 
 - Complete tokenizer/config runtime integration review, dedicated runtime
-  package scaffold, artifact cache/download dry-run, and controlled artifact
-  download verification.
+  package registration/composition review, artifact cache/download dry-run, and
+  controlled artifact download verification.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.

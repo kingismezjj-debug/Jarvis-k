@@ -45,17 +45,18 @@ instructions.
 
 ## Current Baseline
 
-- Latest completed wave: Phase 7.14 Runtime Dependency Selection Guard.
+- Latest completed wave: Phase 7.15 Runtime Package Scaffold with Fake Runtime.
 - Latest committed baseline before this automation project:
   `c93272c docs: add phase 7 automation project`.
 - Latest pre-automation CI: success, run `30696188875`.
-- Local verification baseline after Phase 7.14: `npm.cmd run verify` passed
-  with 62 test files and 319 tests.
+- Local verification baseline after Phase 7.15: `npm.cmd run verify` passed
+  with 63 test files and 323 tests.
 - Local embedding provider status: planned only, unregistered, uncomposed, and
   execution disabled.
 - No installer, runtime package, runtime dependency, model download, model
   cache, provider registration, benchmark metric value, or local embedding
-  execution exists yet.
+  execution exists yet. The dedicated runtime package exists only as a fake
+  fail-closed scaffold.
 
 ## Phase 7.13: Dedicated Runtime Package Preflight
 
@@ -110,6 +111,8 @@ Exit criteria:
 - Verification, commit, push, and CI succeed.
 
 ## Phase 7.15: Runtime Package Scaffold with Fake Runtime
+
+Status: complete.
 
 Goal: create the dedicated runtime package without loading or executing a real
 model.
@@ -215,4 +218,5 @@ To resume safely:
 - Automation created.
 - Phase 7.13 is complete.
 - Phase 7.14 is complete.
-- Next action: begin Phase 7.15 runtime package scaffold with fake runtime.
+- Phase 7.15 is complete.
+- Next action: begin Phase 7.16 artifact cache/download manager dry-run.

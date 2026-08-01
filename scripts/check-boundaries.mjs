@@ -79,6 +79,19 @@ const packages = [
     ]
   },
   {
+    name: "inference-runtime-transformers-local",
+    root: path.join(root, "packages", "inference-runtime-transformers-local"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
     name: "inference-adapter-fixture",
     root: path.join(root, "packages", "inference-adapter-fixture"),
     allowedWorkspaceImports: new Set([

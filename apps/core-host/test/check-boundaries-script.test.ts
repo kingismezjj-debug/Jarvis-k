@@ -17,6 +17,7 @@ const workspaceRoots = [
   path.join("packages", "voice"),
   path.join("packages", "capabilities"),
   path.join("packages", "inference-adapter-embedding-local"),
+  path.join("packages", "inference-runtime-transformers-local"),
   path.join("packages", "inference-adapter-fixture"),
   path.join("packages", "memory"),
   path.join("packages", "memory-sqlite"),
@@ -127,6 +128,19 @@ describe("check-boundaries script", () => {
     await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
       stderr: expect.stringContaining(
         "imports forbidden workspace package @jarvis-k/capabilities"
+      )
+    });
+  });
+
+  it("fails when the runtime package imports Core directly", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "inference-runtime-transformers-local"),
+      "import { AgentRuntime } from \"@jarvis-k/core\";\nvoid AgentRuntime;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/core"
       )
     });
   });
