@@ -106,6 +106,27 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 41 test files and 222 tests.
 
+## Wave 6.5: Local Embedding Preflight Guard
+
+- Status: complete.
+- Added provider-specific preflight coverage for `embedding.local.qwen3`.
+- The planned provider can be visible in an inference provider registry while
+  execution preflight still blocks because the provider is `unconfigured` and
+  `disabled`.
+- Configuration requirements remain observable before any execution path is
+  allowed, including manifest approval, runtime adapter, and benchmark gates.
+- No provider registration change, runtime dependency, model manifest,
+  artifact download, model loading, or real embedding execution was added in
+  this wave.
+
+### Current Gate
+
+- Local embedding preflight tests: PASS, 2 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 42 test files and 224 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
