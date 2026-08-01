@@ -7,6 +7,7 @@ import {
   ModelRuntimeAdapterDescriptorSchema,
   type ModelRuntimeAdapterDescriptor
 } from "@jarvis-k/contracts";
+import { createLocalEmbeddingRuntimeStrategy } from "./local-embedding-runtime-strategy";
 
 export const LOCAL_EMBEDDING_PLANNED_RUNTIME = "transformers" as const;
 
@@ -30,12 +31,14 @@ export class UnavailableLocalEmbeddingRuntimeAdapter
 }
 
 export function createLocalEmbeddingRuntimeAdapterDescriptor(): ModelRuntimeAdapterDescriptor {
+  const strategy = createLocalEmbeddingRuntimeStrategy();
   return ModelRuntimeAdapterDescriptorSchema.parse({
     runtime: LOCAL_EMBEDDING_PLANNED_RUNTIME,
     capabilities: ["embedding"],
     accelerationBackends: [],
     notes: [
       "Planning-only descriptor; no Transformers runtime dependency is installed.",
+      `Future runtime dependencies are scoped to ${strategy.dedicatedPackageName}.`,
       "Do not compose until model, packaging, redistribution, and benchmark gates pass."
     ]
   });

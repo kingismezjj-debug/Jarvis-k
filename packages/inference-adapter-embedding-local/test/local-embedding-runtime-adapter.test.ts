@@ -12,10 +12,10 @@ describe("local embedding runtime adapter", () => {
       runtime: LOCAL_EMBEDDING_PLANNED_RUNTIME,
       capabilities: ["embedding"],
       accelerationBackends: [],
-      notes: [
+      notes: expect.arrayContaining([
         "Planning-only descriptor; no Transformers runtime dependency is installed.",
         "Do not compose until model, packaging, redistribution, and benchmark gates pass."
-      ]
+      ])
     });
   });
 

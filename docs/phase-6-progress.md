@@ -82,6 +82,30 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 40 test files and 218 tests.
 
+## Wave 6.4: Runtime Strategy Guard
+
+- Status: complete.
+- Added a local embedding runtime strategy record that keeps the current
+  runtime direction provisional and scoped to a future dedicated package:
+  `@jarvis-k/inference-runtime-transformers-local`.
+- Documented the remaining runtime gates: dependency license review, Windows
+  packaging plan, process isolation plan, tokenizer/config artifact pinning,
+  and benchmark acceptance.
+- Added tests that keep runtime dependencies out of contracts, capabilities,
+  Core, Desktop, and UI.
+- Updated the planning-only runtime descriptor to surface the future dedicated
+  package boundary.
+- No runtime dependency, model artifact, download path, provider registration,
+  or execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding runtime strategy tests: PASS, 4 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 41 test files and 222 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
