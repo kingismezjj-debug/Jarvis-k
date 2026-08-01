@@ -209,3 +209,23 @@ URLs, or external network access.
 
 - `npm run smoke:desktop:fixture-inference`: PASS.
 - `npm run verify`: PASS, 38 test files and 209 tests.
+
+## Wave 5.8: CI And README Fixture Gate Alignment
+
+- Status: complete.
+- Updated GitHub Actions CI to run `npm run check:sensitive-artifacts` as an
+  explicit step instead of relying only on the local `ci`/`verify` scripts.
+- Added `npm run smoke:desktop:fixture-inference` to CI so the remote gate
+  covers the full fixture-backed UI execution path for embedding, intent
+  routing, OCR, and reranking.
+- Updated README status, command list, and workspace description to reflect the
+  completed fixture-backed inference foundation instead of the older embedding
+  slice wording.
+- Kept CI deterministic and offline. The new CI smoke enables only fixture
+  inference and does not require credentials, model downloads, native runtimes,
+  provider URLs, or real provider execution.
+
+### Current Gate
+
+- `npm run verify`: PASS, 38 test files and 209 tests.
+- `npm run smoke:desktop:fixture-inference`: PASS.

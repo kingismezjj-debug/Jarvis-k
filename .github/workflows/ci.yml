@@ -35,6 +35,11 @@ jobs:
       - name: Dependency Boundaries
         run: npm run check:boundaries
 
+      - name: Sensitive Artifact Guard
+        run: npm run check:sensitive-artifacts
+
       - name: Build
         run: npm run build
 
+      - name: Fixture Inference Desktop Smoke
+        run: npm run smoke:desktop:fixture-inference

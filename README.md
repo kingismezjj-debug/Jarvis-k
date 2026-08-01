@@ -1,12 +1,13 @@
 # Jarvis-K
 
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
-current baseline is **Phase 5 Fixture-Backed Inference Slice**: the supervised
-runtime, React HUD, provider-neutral Voice Engine, browser microphone capture,
-Xunfei RTASR adapter, encrypted local voice settings, SQLite memory
-persistence, device capability inspection, model governance ports,
-installability policy, resource diagnostics, dry-run model install
-preparation, and a deterministic fixture embedding provider are in place.
+current baseline is **Phase 5 Fixture-Backed Inference Foundation**: the
+supervised runtime, React HUD, provider-neutral Voice Engine, browser
+microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
+SQLite memory persistence, device capability inspection, model governance
+ports, installability policy, resource diagnostics, dry-run model install
+preparation, and deterministic fixture providers for embedding, intent
+routing, OCR, and reranking are in place.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -20,7 +21,8 @@ They are not runtime dependencies.
 - Phase 4 local capability and model governance foundation: complete through
   inference preflight and provider configuration requirement reporting
 - Phase 4.5 inference readiness and safety gates: complete
-- Phase 5 fixture-backed embedding provider slice: started
+- Phase 5 fixture-backed inference execution: complete for embedding, intent
+  routing, OCR, and reranking
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -68,6 +70,7 @@ npm run check:sensitive-artifacts
 npm run build
 npm run verify
 npm run smoke:desktop
+npm run smoke:desktop:fixture-inference
 ```
 
 Real Xunfei connectivity acceptance is opt-in:
@@ -87,8 +90,9 @@ the local settings window first. It must not be enabled in default CI.
 - `packages/capabilities`: provider-neutral device capability, model
   governance, installability, operation supervision, and resource scheduling
   ports.
-- `packages/inference-adapter-fixture`: deterministic test-only embedding
-  provider with no downloads, native runtime, or network access.
+- `packages/inference-adapter-fixture`: deterministic test-only embedding,
+  intent routing, OCR, and reranking providers with no downloads, native
+  runtime, or network access.
 - `packages/memory`: provider-neutral memory ports and schemas.
 - `packages/memory-sqlite`: SQLite-backed message, conversation, summary,
   health, export, and import persistence.
