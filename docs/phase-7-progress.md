@@ -560,11 +560,38 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 66 test files and 335 tests.
 
+## Wave 7.19: Runtime Helper Protocol Guard
+
+- Status: complete.
+- Added a pure protocol and validation guard to
+  `@jarvis-k/inference-runtime-transformers-local` for the future supervised
+  runtime helper.
+- The protocol defines `health`, `load`, `embed`, and `shutdown` messages with
+  bounded request/correlation IDs and response correlation preservation.
+- `load` and `embed` require a resource lease identifier.
+- Startup, request, and shutdown timeout policy is explicit and bounded.
+- The guard requires private child-process IPC under `apps/core-host`, rejects
+  direct shell execution, rejects unsafe/path-like values and arbitrary error
+  messages, validates embedding results through the provider-neutral contract,
+  and maps raw helper failures to canonical sanitized errors.
+- The protocol currently reports the Transformers runtime as unavailable.
+  Runtime dependencies, downloads, model artifacts, runtime loading,
+  inference execution, provider registration, and concrete composition remain
+  disabled.
+
+### Current Gate
+
+- Runtime helper protocol tests: PASS, 8 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 67 test files and 343 tests.
+
 ## Remaining Phase 7 Work
 
 - Phase 7.13 through Phase 7.17 automation scope is complete.
 - Continue with dedicated runtime package registration/composition review only
-  after the next explicit user-approved stage.
+  after a separately approved implementation stage.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.
