@@ -116,9 +116,31 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 58 test files and 294 tests.
 
+## Wave 7.5: Artifact Digest Approval Record Preparation
+
+- Status: complete.
+- Added provider-local prepared digest approval records for the selected
+  upstream revision and required artifact set.
+- Every required artifact slot is present, tied to the selected immutable
+  revision, marked pending, and prepared for later digest capture.
+- SHA-256 values remain absent and the prepared record cannot satisfy artifact
+  pin approval or readiness by itself.
+- Downloads remain disabled; no application download path, artifact pin
+  approval, runtime dependency, provider registration, composition change, or
+  local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact approval tests: PASS, 6 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 58 test files and 296 tests.
+
 ## Remaining Phase 7 Work
 
-- Pin required artifacts and SHA-256 digests for the selected revision after
+- Pin required artifact SHA-256 digests into the prepared approval slots after
   digest capture procedure approval.
 - Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
   dependency, and tokenizer/config review.

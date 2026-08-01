@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
+  createPreparedLocalEmbeddingArtifactDigestApprovalRecord,
+  isLocalEmbeddingArtifactDigestApprovalRecordPrepared,
   isLocalEmbeddingArtifactPinApprovalRecordApproved,
   LOCAL_EMBEDDING_MODEL_ID,
+  LOCAL_EMBEDDING_SELECTED_REVISION,
   type LocalEmbeddingArtifactPlan
 } from "../src";
 
@@ -31,9 +34,73 @@ describe("local embedding artifact pin approval", () => {
     expect(
       record.artifacts.every(
         (artifact) =>
-          artifact.revision === undefined && artifact.sha256 === undefined
+          artifact.revision === undefined &&
+          artifact.sha256 === undefined &&
+          artifact.digestCapturePrepared === false
       )
     ).toBe(true);
+  });
+
+  it("prepares pending digest slots for the selected revision without digest values", () => {
+    const record = createPreparedLocalEmbeddingArtifactDigestApprovalRecord();
+
+    expect(record).toMatchObject({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      source: "huggingface",
+      status: "pending",
+      downloadEnabled: false
+    });
+    expect(record.artifacts).toHaveLength(
+      createLocalEmbeddingArtifactPlan().artifacts.length
+    );
+    expect(
+      record.artifacts.every(
+        (artifact) =>
+          artifact.status === "pending" &&
+          artifact.revision === LOCAL_EMBEDDING_SELECTED_REVISION &&
+          artifact.sha256 === undefined &&
+          artifact.digestCapturePrepared === true
+      )
+    ).toBe(true);
+    expect(
+      isLocalEmbeddingArtifactDigestApprovalRecordPrepared(record)
+    ).toBe(true);
+    expect(
+      isLocalEmbeddingArtifactPinApprovalRecordApproved(
+        record,
+        pinnedArtifactPlan()
+      )
+    ).toBe(false);
+  });
+
+  it("rejects prepared digest slots with missing revision or digest values", () => {
+    const record = createPreparedLocalEmbeddingArtifactDigestApprovalRecord();
+
+    expect(
+      isLocalEmbeddingArtifactDigestApprovalRecordPrepared({
+        ...record,
+        artifacts: [
+          {
+            ...record.artifacts[0]!,
+            revision: undefined
+          },
+          ...record.artifacts.slice(1)
+        ]
+      })
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingArtifactDigestApprovalRecordPrepared({
+        ...record,
+        artifacts: [
+          {
+            ...record.artifacts[0]!,
+            sha256:
+              "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          },
+          ...record.artifacts.slice(1)
+        ]
+      })
+    ).toBe(false);
   });
 
   it("rejects pending approval even when a plan is structurally pinned", () => {
