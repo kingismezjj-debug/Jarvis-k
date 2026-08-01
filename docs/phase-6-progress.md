@@ -39,6 +39,27 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run smoke:desktop:memory-degraded`: PASS.
 - `npm run smoke:desktop:fixture-inference`: PASS.
 
+## Wave 6.2: Embedding Manifest Readiness Evaluation
+
+- Status: complete.
+- Added a provider-local readiness evaluator for the embedding manifest and
+  the remaining runtime, packaging, redistribution, and benchmark gates.
+- The evaluator rejects missing manifests, floating revisions, missing
+  SHA-256 digests, red-risk licenses, and incomplete runtime review.
+- A complete readiness report still produces an `unconfigured` provider
+  descriptor because execution is not composed until the real runtime adapter
+  is separately approved and implemented.
+- No real model revision, model artifact, runtime dependency, download path, or
+  provider execution was added in this wave.
+
+### Current Gate
+
+- Local embedding readiness tests: PASS, 5 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 39 test files and 215 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
