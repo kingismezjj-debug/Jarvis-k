@@ -21,4 +21,5 @@ export * from "./local-embedding-runtime-dependency-selection";
 export * from "./local-embedding-runtime-implementation-procedure";
 export * from "./local-embedding-runtime-package-preflight";
 export * from "./local-embedding-runtime-strategy";
+export * from "./local-embedding-tokenizer-config-integration-review";
 export * from "./local-embedding-windows-packaging-approval";

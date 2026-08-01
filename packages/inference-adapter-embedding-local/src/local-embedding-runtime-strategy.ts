@@ -1,4 +1,10 @@
 import type { ModelRuntime } from "@jarvis-k/contracts";
+import {
+  createApprovedLocalEmbeddingTokenizerConfigIntegrationReview,
+  createLocalEmbeddingTokenizerConfigIntegrationReview,
+  isLocalEmbeddingTokenizerConfigIntegrationReviewApproved,
+  type LocalEmbeddingTokenizerConfigIntegrationReview
+} from "./local-embedding-tokenizer-config-integration-review";
 
 export const LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME =
   "@jarvis-k/inference-runtime-transformers-local";
@@ -16,6 +22,7 @@ export interface LocalEmbeddingRuntimeStrategy {
   packageBoundary?: LocalEmbeddingRuntimePackageBoundary;
   processIsolation?: LocalEmbeddingRuntimeProcessIsolationPlan;
   windowsPackaging?: LocalEmbeddingWindowsPackagingPlan;
+  tokenizerConfigReview: LocalEmbeddingTokenizerConfigIntegrationReview;
   runtimeDependenciesIntroduced: false;
   executionEnabled: false;
   requiredGates: LocalEmbeddingRuntimeGate[];
@@ -108,6 +115,7 @@ export function createLocalEmbeddingRuntimeStrategy(): LocalEmbeddingRuntimeStra
     status: "provisional",
     dedicatedPackageName: LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME,
     dependencyScope: "dedicated_runtime_package_only",
+    tokenizerConfigReview: createLocalEmbeddingTokenizerConfigIntegrationReview(),
     runtimeDependenciesIntroduced: false,
     executionEnabled: false,
     requiredGates: requiredGates.map((gate) => ({ ...gate })),
@@ -146,6 +154,8 @@ export function createApprovedLocalEmbeddingRuntimeStrategy(
       updateRollbackPlanRequired: true,
       noticeBundleRequired: true
     },
+    tokenizerConfigReview:
+      createApprovedLocalEmbeddingTokenizerConfigIntegrationReview(),
     runtimeDependenciesIntroduced: false,
     executionEnabled: false,
     requiredGates: requiredGates.map((gate) => ({
@@ -168,6 +178,9 @@ export function isLocalEmbeddingRuntimeStrategyApproved(
     strategy.dependencyScope === "dedicated_runtime_package_only" &&
     strategy.runtimeDependenciesIntroduced === false &&
     strategy.executionEnabled === false &&
+    isLocalEmbeddingTokenizerConfigIntegrationReviewApproved(
+      strategy.tokenizerConfigReview
+    ) &&
     strategy.requiredGates.length === requiredGates.length &&
     requiredGateKeys.every((key) =>
       strategy.requiredGates.some(

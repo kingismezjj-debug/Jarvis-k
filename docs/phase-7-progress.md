@@ -532,12 +532,39 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run verify`: PASS, 65 test files and 330 tests.
 - Remote CI: PASS on commit `0a2e0b8`, run `30697925253`.
 
+## Wave 7.18: Tokenizer and Config Integration Review
+
+- Status: complete.
+- Added a provider-local tokenizer/config integration review for the planned
+  Transformers embedding runtime.
+- The review covers model configuration, sentence-transformers configuration
+  and module scope, tokenizer configuration and asset behavior, pooling
+  configuration, text-batch input and embedding-vector output contracts,
+  pooling parity, normalization parity, and dedicated runtime ownership.
+- Connected the review to the runtime strategy `runtime.model_tokenizer_pin`
+  gate. Missing, pending, or regressed tokenizer/config evidence now keeps the
+  runtime strategy unapproved.
+- Review output remains sanitized and does not expose URLs, SHA-256 values,
+  artifact filenames, model files, cache paths, or private local paths.
+- Runtime dependencies, downloads, model access, runtime registration,
+  provider composition, benchmark execution, and local embedding execution
+  remain disabled.
+
+### Current Gate
+
+- Local embedding tokenizer/config review and runtime strategy tests: PASS,
+  8 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 66 test files and 335 tests.
+
 ## Remaining Phase 7 Work
 
 - Phase 7.13 through Phase 7.17 automation scope is complete.
-- Continue tokenizer/config runtime integration review and dedicated runtime
-  package registration/composition review only after user confirmation for the
-  next stage.
+- Continue with dedicated runtime package registration/composition review only
+  after the next explicit user-approved stage.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.

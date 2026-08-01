@@ -3,6 +3,7 @@ import {
   createApprovedLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingRuntimeAdapterDescriptor,
   createLocalEmbeddingRuntimeStrategy,
+  createLocalEmbeddingTokenizerConfigIntegrationReview,
   isLocalEmbeddingRuntimeStrategyApproved,
   LOCAL_EMBEDDING_RUNTIME_COMPOSITION_ROOT,
   LOCAL_EMBEDDING_RUNTIME_PACKAGE_LOCATION,
@@ -80,6 +81,18 @@ describe("local embedding runtime strategy", () => {
           ...approved.windowsPackaging!,
           bundledModelArtifacts: true as false
         }
+      })
+    ).toBe(false);
+  });
+
+  it("requires the tokenizer/config integration review for runtime approval", () => {
+    const approved = createApprovedLocalEmbeddingRuntimeStrategy();
+
+    expect(
+      isLocalEmbeddingRuntimeStrategyApproved({
+        ...approved,
+        tokenizerConfigReview:
+          createLocalEmbeddingTokenizerConfigIntegrationReview()
       })
     ).toBe(false);
   });
