@@ -504,6 +504,33 @@ readiness before model downloads or native runtime execution are enabled.
   contracts and execution logic through the existing unit/integration suite;
   it does not mark a failing GUI smoke as allowed to fail.
 
+## Wave 6.21: License Review Procedure Guard
+
+- Status: complete.
+- Added a provider-local license review procedure guard for the planned local
+  embedding provider.
+- Added `docs/phase-6-license-review-procedure.md` to define the future manual
+  review process for model weights, runtime dependencies, tokenizer/config
+  components, native dependencies, redistribution terms, NOTICE/LICENSE bundle
+  definition, provider-local approval records, and verification gates.
+- The procedure remains pending by default and blocks download and execution
+  enablement during license review approval.
+- A future license review wave can become ready for approval without exposing
+  upstream URLs, revisions, artifact digests, artifact filenames, dependency
+  versions, private paths, or real license decisions.
+- No real license approval decision, runtime dependency, model artifact,
+  download path, provider registration, composition change, or real embedding
+  execution was added in this wave.
+
+### Current Gate
+
+- Local embedding license review procedure tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 54 test files and 276 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
