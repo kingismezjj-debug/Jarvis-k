@@ -772,3 +772,33 @@ packaging, license, benchmark, and composition gate passes.
   and Memory execution stage.
 - Do not add SQLite vector schema/index migration, vector writes, model-backed
   retrieval, Core Host composition, or user-facing retrieval output.
+
+## Phase 9.1: Tool Governance Contract
+
+- Status: complete as a provider-neutral contract and fixture preparation
+  wave.
+- Added tool descriptors, bounded primitive arguments, risk levels,
+  allowlists, blocked IDs, permission scopes, confirmation requirements,
+  sanitized policy decisions, audit records, and a fixture-only executor.
+- Windows execution, shell execution, network access, model-driven tool
+  invocation, raw tool input/output exposure, and real operating-system side
+  effects remain disabled.
+- No IPC command, Core handling, Desktop behavior, UI control, or
+  `apps/core-host` composition change was added in this wave.
+
+### Current Gate
+
+- Tool protocol contract tests: PASS, 4 tests.
+- Tool governance and fixture executor tests: PASS, 5 tests.
+- `npm run build -w @jarvis-k/contracts`: PASS.
+- `npm run build -w @jarvis-k/capabilities`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 76 test files and 383 tests.
+
+### Next Hard Pause
+
+- Do not add real Windows tool execution, permission enforcement against the
+  OS, IPC commands, Core routing, UI confirmation controls, or model-driven
+  invocation without a separate product and security approval.

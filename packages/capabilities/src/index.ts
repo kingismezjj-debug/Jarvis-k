@@ -11,6 +11,7 @@ export * from "./recommended-model-candidates";
 export * from "./static-inference-provider-registry";
 export * from "./static-model-candidate-registry";
 export * from "./static-model-registry";
+export * from "./tool-governance";
 export * from "./unavailable-embedding-provider";
 export * from "./unavailable-intent-routing-provider";
 export * from "./unavailable-model-runtime-registry";

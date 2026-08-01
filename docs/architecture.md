@@ -107,6 +107,11 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
    Desktop, and UI should keep the same DTO, command, operation supervision,
    and observation flow unless a new provider-neutral port is explicitly
    required.
+30. Tool governance starts with provider-neutral descriptors, bounded primitive
+    arguments, allowlists, permission scopes, confirmation decisions, sanitized
+    audit records, and fixture-only execution. Real Windows, shell, network,
+    model-driven, and operating-system side effects remain behind a later
+    approval and execution boundary.
 
 ## Restart policy
 
