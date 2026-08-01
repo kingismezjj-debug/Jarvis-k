@@ -89,9 +89,37 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 57 test files and 290 tests.
 
+## Wave 7.4: Artifact Digest Capture Procedure Guard
+
+- Status: complete.
+- Added a provider-local artifact digest capture procedure guard for the
+  selected upstream revision and confirmed required artifact set.
+- The procedure defines the future SHA-256 capture approval boundary:
+  digest method, isolated temporary workspace, signed URL exclusion,
+  credential exclusion, cache path sanitization, read-only upstream access,
+  double verification, and verification gates.
+- The guard remains pending by default and blocks early digest capture,
+  application downloads, artifact pinning, and local embedding execution.
+- A future digest capture wave can become ready for approval without exposing
+  artifact filenames, SHA-256 values, signed URLs, credentials, tokens, local
+  cache paths, model files, runtime dependencies, or benchmark data.
+- No artifact SHA-256 digest, artifact pin approval, model download, model
+  file, cache, runtime dependency, provider registration, composition change,
+  or real embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact digest capture procedure tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 58 test files and 294 tests.
+
 ## Remaining Phase 7 Work
 
-- Pin required artifacts and SHA-256 digests for the selected revision.
+- Pin required artifacts and SHA-256 digests for the selected revision after
+  digest capture procedure approval.
 - Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
   dependency, and tokenizer/config review.
 - Define and approve benchmark capture inputs, methods, resource isolation,

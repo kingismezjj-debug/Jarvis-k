@@ -1,4 +1,5 @@
 export * from "./local-embedding-artifact-approval";
+export * from "./local-embedding-artifact-digest-capture-procedure";
 export * from "./local-embedding-artifact-inventory";
 export * from "./local-embedding-artifact-pinning-procedure";
 export * from "./local-embedding-artifact-plan";
