@@ -65,14 +65,21 @@ $env:JARVIS_K_ENABLE_FIXTURE_INFERENCE='1'
 npm run start
 ```
 
-This enables only deterministic fixture embedding execution for development
-and tests. It does not download models, load native runtimes, call provider
-URLs, or require credentials.
+This enables deterministic fixture embedding, intent routing, OCR, and
+reranking execution for development and tests. It does not download models,
+load native runtimes, call provider URLs, or require credentials.
+
+To run the fixture-backed UI execution smoke in an isolated desktop session:
+
+```powershell
+npm run smoke:desktop:fixture-inference
+```
 
 ## Commit Checklist
 
 - `npm run verify`
 - `npm run smoke:desktop` for desktop-facing changes
+- `npm run smoke:desktop:fixture-inference` for fixture inference UI changes
 - `npm run check:boundaries`
 - `npm run check:sensitive-artifacts`
 - Update `scripts/check-boundaries.mjs` intentionally if a future Phase 5

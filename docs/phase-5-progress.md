@@ -185,3 +185,27 @@ URLs, or external network access.
   `reranker.fixture` as `available`, ran the reranker fixture action, and
   displayed `TOP DOC` = `doc-model-ports`, `RERANKED` = `1`, and
   `RERANK OPS` = `completed`.
+
+## Wave 5.7: Fixture Inference Desktop Smoke Automation
+
+- Status: complete.
+- Added `tests/desktop-fixture-inference-smoke.mjs` to run all fixture-backed
+  inference UI actions in one isolated Electron session.
+- Added `npm run smoke:desktop:fixture-inference` as the explicit verification
+  command for fixture inference UI changes.
+- The smoke uses temporary user data, temporary SQLite memory, and a temporary
+  model directory, and enables fixtures only through
+  `JARVIS_K_ENABLE_FIXTURE_INFERENCE=1`.
+- The smoke clicks the existing Model Governance buttons for embedding, intent
+  routing, OCR, and reranking, then asserts the read-only UI metrics for
+  provider availability and completed operation phases.
+- Updated developer onboarding so fixture inference no longer describes only
+  embedding.
+- Kept the gate deterministic and offline. No real provider execution, model
+  download, native runtime, credential, provider URL, or external network path
+  was added.
+
+### Current Gate
+
+- `npm run smoke:desktop:fixture-inference`: PASS.
+- `npm run verify`: PASS, 38 test files and 209 tests.
