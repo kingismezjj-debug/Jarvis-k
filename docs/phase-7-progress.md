@@ -300,11 +300,46 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 59 test files and 307 tests.
 
+## Wave 7.11: Runtime Implementation Approval Guard
+
+- Status: complete.
+- Added a provider-local runtime implementation approval record that approves
+  implementation constraints without creating a runtime package or adding
+  runtime dependencies.
+- The approval record covers the future package manifest constraints, cache
+  layout constraints, helper lifecycle constraints, and sanitized failure-mode
+  mapping.
+- Future runtime package constraints require a private package at
+  `packages/inference-runtime-transformers-local`, adapter-only exports, an
+  empty dependency allowlist for this wave, and the runtime dependency denylist.
+- Cache constraints require no committed cache path, no committed model
+  artifacts, no persisted signed URLs, hash verification before use, and cleanup
+  after failed verification.
+- Helper lifecycle constraints require supervised child process execution under
+  `apps/core-host`, startup/shutdown timeouts, resource scheduler lease,
+  sanitized logs, and no direct shell execution.
+- The guard explicitly requires `runtimeDependenciesIntroduced: false`,
+  `downloadEnabled: false`, `executionEnabled: false`, and
+  `implementationValuesExposed: false`.
+- No runtime package, runtime dependency, model download, model file, model
+  cache, signed URL, provider credential, provider registration, composition
+  change, benchmark value, or local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding runtime implementation procedure, runtime strategy, and
+  runtime adapter tests: PASS, 14 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 59 test files and 309 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete runtime adapter implementation procedure, final Windows packaging
-  review, native/runtime dependency review for any dependencies actually added,
-  and tokenizer/config runtime integration review.
+- Complete final Windows packaging review, native/runtime dependency review for
+  any dependencies actually added, and tokenizer/config runtime integration
+  review.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.
