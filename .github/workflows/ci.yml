@@ -42,4 +42,4 @@ jobs:
         run: npm run build
 
       - name: Fixture Inference Desktop Smoke
-        run: npm run smoke:desktop:fixture-inference
+        run: npm run smoke:desktop:fixture-inference:built
