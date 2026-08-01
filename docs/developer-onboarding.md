@@ -75,6 +75,12 @@ To run the fixture-backed UI execution smoke in an isolated desktop session:
 npm run smoke:desktop:fixture-inference
 ```
 
+This is an interactive Windows desktop gate. Run it locally or on a Windows
+runner with an interactive desktop session. GitHub-hosted Windows runners do
+not expose a controllable Electron window reliably, so default CI verifies the
+same fixture contracts and execution logic through unit/integration tests and
+keeps this GUI smoke outside the hosted workflow.
+
 ## Commit Checklist
 
 - `npm run verify`

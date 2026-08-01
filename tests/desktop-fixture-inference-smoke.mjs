@@ -22,8 +22,6 @@ const smokeMemoryDatabasePath = path.join(
 );
 const smokeModelDirectoryPath = path.join(smokeUserDataDirectory, "models");
 let electronApp;
-const metricTimeoutMs = process.env.CI ? 45_000 : 10_000;
-const coreStartupTimeoutMs = process.env.CI ? 45_000 : 15_000;
 
 const expectedMetrics = {
   "FIXTURE": "available",
@@ -72,7 +70,7 @@ async function waitForMetric(window, label, value) {
       return metrics[expectedLabel] === expectedValue;
     },
     [label, value],
-    { timeout: metricTimeoutMs }
+    { timeout: 10_000 }
   );
 }
 
@@ -85,7 +83,7 @@ async function waitForButtonEnabled(window, testId) {
       return button instanceof HTMLButtonElement && !button.disabled;
     },
     testId,
-    { timeout: metricTimeoutMs }
+    { timeout: 10_000 }
   );
 }
 
@@ -110,7 +108,7 @@ try {
   const window = await electronApp.firstWindow();
   await window.getByTestId("jarvis-app").waitFor();
   await window.getByTestId("core-status").getByText("ONLINE").waitFor({
-    timeout: coreStartupTimeoutMs
+    timeout: 15_000
   });
   const startupMs = Math.round(performance.now() - startedAt);
 

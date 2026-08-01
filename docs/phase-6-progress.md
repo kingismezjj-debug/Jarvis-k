@@ -492,6 +492,18 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 53 test files and 273 tests.
 
+### Hosted CI Gate Correction
+
+- Removed the interactive Electron fixture smoke from the GitHub-hosted
+  Windows workflow after repeated runs timed out waiting for the first desktop
+  window while typecheck, 273 tests, dependency boundaries, sensitive-artifact
+  checks, and the complete build all passed.
+- The fixture inference desktop smoke remains a required local or interactive
+  Windows runner gate and continues to pass locally.
+- Default hosted CI remains deterministic and validates fixture inference
+  contracts and execution logic through the existing unit/integration suite;
+  it does not mark a failing GUI smoke as allowed to fail.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
