@@ -238,6 +238,31 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 45 test files and 238 tests.
 
+## Wave 6.11: Immutable Revision Approval Guard
+
+- Status: complete.
+- Added a provider-local revision approval record for the selected embedding
+  model.
+- The default record is `pending`, omits upstream URLs and artifact digests,
+  and keeps `downloadEnabled: false`.
+- Readiness now requires `model.revision` to pass both manifest validation and
+  an approved local revision record matching the manifest revision.
+- Floating revisions such as `main`, `master`, `latest`, and `HEAD` remain
+  blocked even if a caller marks the record approved.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, or execution
+  behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding revision approval and readiness tests: PASS, 2 test files
+  and 12 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 46 test files and 243 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for

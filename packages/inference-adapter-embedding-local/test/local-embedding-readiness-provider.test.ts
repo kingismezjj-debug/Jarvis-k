@@ -5,6 +5,7 @@ import {
   createLocalEmbeddingProviderConfigurationReport,
   createLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingProviderDescriptor,
+  createLocalEmbeddingRevisionApprovalRecord,
   LOCAL_EMBEDDING_MODEL_ID,
   LOCAL_EMBEDDING_PROVIDER_ID,
   UnavailableLocalEmbeddingProvider
@@ -60,6 +61,7 @@ describe("local embedding readiness provider", () => {
       packagingReviewed: true,
       redistributionReviewed: true,
       benchmarkProfileReady: true,
+      revisionApproval: approvedRevisionApproval(),
       artifactPlan: pinnedArtifactPlan(),
       runtimeStrategy: approvedRuntimeStrategy()
     });
@@ -99,6 +101,7 @@ describe("local embedding readiness provider", () => {
           packagingReviewed: true,
           redistributionReviewed: true,
           benchmarkProfileReady: true,
+          revisionApproval: approvedRevisionApproval(),
           artifactPlan: pinnedArtifactPlan(),
           runtimeStrategy: approvedRuntimeStrategy()
         }
@@ -127,6 +130,7 @@ describe("local embedding readiness provider", () => {
       packagingReviewed: true,
       redistributionReviewed: true,
       benchmarkProfileReady: true,
+      revisionApproval: approvedRevisionApproval("main"),
       artifactPlan: pinnedArtifactPlan(),
       runtimeStrategy: approvedRuntimeStrategy()
     });
@@ -140,6 +144,39 @@ describe("local embedding readiness provider", () => {
         }),
         expect.objectContaining({
           key: "model.artifact_sha256",
+          satisfied: false
+        })
+      ])
+    );
+  });
+
+  it("rejects an otherwise complete review when revision approval is pending", () => {
+    const report = assessLocalEmbeddingReadiness({
+      manifest: {
+        id: LOCAL_EMBEDDING_MODEL_ID,
+        capability: "embedding",
+        source: "huggingface",
+        revision: "immutable-embedding-revision",
+        license: "Apache-2.0",
+        runtime: "transformers",
+        sizeBytes: 1024,
+        sha256:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        licenseRisk: "yellow"
+      },
+      runtimeAdapterReady: true,
+      packagingReviewed: true,
+      redistributionReviewed: true,
+      benchmarkProfileReady: true,
+      artifactPlan: pinnedArtifactPlan(),
+      runtimeStrategy: approvedRuntimeStrategy()
+    });
+
+    expect(report.readyForComposition).toBe(false);
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "model.revision",
           satisfied: false
         })
       ])
@@ -237,6 +274,14 @@ function pinnedArtifactPlan() {
     ),
     reasons: []
   };
+}
+
+function approvedRevisionApproval(revision = "immutable-embedding-revision") {
+  return createLocalEmbeddingRevisionApprovalRecord({
+    status: "approved",
+    revision,
+    reasons: []
+  });
 }
 
 function approvedRuntimeStrategy() {

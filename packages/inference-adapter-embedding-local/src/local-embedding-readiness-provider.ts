@@ -23,11 +23,15 @@ import {
   isLocalEmbeddingRuntimeStrategyApproved,
   type LocalEmbeddingRuntimeStrategy
 } from "./local-embedding-runtime-strategy";
+import {
+  createLocalEmbeddingRevisionApprovalRecord,
+  isLocalEmbeddingRevisionApproved,
+  type LocalEmbeddingRevisionApprovalRecord
+} from "./local-embedding-revision-approval";
 import { decideLocalEmbeddingComposition } from "./local-embedding-composition-decision";
 
 const LOCAL_EMBEDDING_EXECUTION_DISABLED_REASON =
   "Local embedding execution remains disabled until a real runtime provider is composed.";
-const FLOATING_REVISIONS = new Set(["HEAD", "latest", "main", "master"]);
 
 type LocalEmbeddingReadinessKey =
   | "model.manifest"
@@ -42,6 +46,7 @@ type LocalEmbeddingReadinessKey =
 
 export interface LocalEmbeddingReadinessInput {
   manifest?: unknown;
+  revisionApproval?: LocalEmbeddingRevisionApprovalRecord;
   artifactPlan?: LocalEmbeddingArtifactPlan;
   runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
   runtimeAdapterReady?: boolean;
@@ -134,9 +139,12 @@ export function assessLocalEmbeddingReadiness(
     checks,
     "model.revision",
     manifest !== undefined &&
-      !FLOATING_REVISIONS.has(manifest.revision) &&
-      manifest.revision.trim().length > 0,
-    "Pin an immutable upstream model revision; floating branches are blocked."
+      isLocalEmbeddingRevisionApproved(
+        input.revisionApproval ??
+          createLocalEmbeddingRevisionApprovalRecord(),
+        manifest.revision
+      ),
+    "Approve an immutable upstream model revision; floating branches and unreviewed revisions are blocked."
   );
   addCheck(
     checks,
@@ -221,7 +229,7 @@ function readinessRequirementDescription(
     case "model.manifest":
       return "Approve an immutable manifest for the selected embedding model.";
     case "model.revision":
-      return "Pin an immutable upstream model revision.";
+      return "Approve an immutable upstream model revision.";
     case "model.artifact_sha256":
       return "Record SHA-256 digests for every artifact.";
     case "artifact.pins":

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPlan,
+  createLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRuntimeStrategy,
   decideLocalEmbeddingComposition,
   LOCAL_EMBEDDING_MODEL_ID
@@ -69,6 +70,11 @@ function completeReadiness() {
       licenseRisk: "yellow" as const
     },
     artifactPlan: pinnedArtifactPlan(),
+    revisionApproval: createLocalEmbeddingRevisionApprovalRecord({
+      status: "approved",
+      revision: "immutable-embedding-revision",
+      reasons: []
+    }),
     runtimeStrategy: approvedRuntimeStrategy(),
     runtimeAdapterReady: true,
     packagingReviewed: true,
