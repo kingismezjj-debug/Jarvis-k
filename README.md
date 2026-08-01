@@ -58,6 +58,8 @@ They are not runtime dependencies.
   complete; installer, update, and rollback decisions remain deferred
 - Phase 12.2 model lifecycle fixture harness: in-memory install, upgrade, and
   rollback planning complete; side effects remain disabled
+- Phase 12.3 developer-alpha hardening: provider-neutral preflight and
+  deterministic fixture guard complete; release side effects remain disabled
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -178,6 +180,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 11.4 visual runtime acceptance preflight](docs/phase-11-4-visual-runtime-acceptance-preflight.md)
 - [Phase 12.1 model lifecycle and Windows packaging preflight](docs/phase-12-1-model-lifecycle-preflight.md)
 - [Phase 12.2 model lifecycle fixture harness](docs/phase-12-2-model-lifecycle-fixture-harness.md)
+- [Phase 12.3 developer-alpha hardening](docs/phase-12-3-developer-alpha-hardening.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

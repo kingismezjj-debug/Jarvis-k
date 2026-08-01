@@ -23,3 +23,5 @@ export * from "./local-visual-runtime-isolation";
 export * from "./local-visual-runtime-acceptance-preflight";
 export * from "./model-lifecycle-preflight";
 export * from "./model-lifecycle-fixture";
+export * from "./developer-alpha-hardening-preflight";
+export * from "./developer-alpha-hardening-fixture";

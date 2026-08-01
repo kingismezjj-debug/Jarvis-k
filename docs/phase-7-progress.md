@@ -1120,3 +1120,42 @@ packaging, license, benchmark, and composition gate passes.
 - Do not add filesystem lifecycle code, model artifact access, installer
   creation, automatic updates, rollback execution, or final release policy
   without explicit product, security, and release approval.
+
+## Phase 12.3: Developer-Alpha Hardening
+
+- Status: complete as a provider-neutral preflight and deterministic,
+  in-memory fixture guard.
+- Added a developer-alpha hardening preflight for the Phase 12.1 lifecycle
+  boundary, fixture harness, sanitized diagnostics, bounded operation state,
+  restart recovery observation, fixture fallback, and clean verification.
+- Added a fixture guard for fail-closed startup defaults, fallback
+  availability, operation recovery, sanitized diagnostics, and release guard
+  consistency.
+- Reports expose only bounded counters, outcomes, reason codes, and safety
+  flags; credentials, private paths, raw diagnostics, model values,
+  filesystem contents, and runtime output remain unpersisted and unexposed.
+- Packaging, automatic updates, rollback execution, filesystem writes,
+  network access, credentials, model loading, provider registration, default
+  opt-in, Core Host composition, Desktop IPC, UI behavior, and provider
+  visibility remain disabled or unchanged.
+- No installer, updater, rollback executor, model cache, artifact access,
+  runtime dependency, provider registration, Core Host change, Desktop change,
+  IPC command, or UI change was added.
+
+### Current Gate
+
+- Developer-alpha hardening preflight normal, blocked, degraded, and
+  sanitized-output tests: PASS.
+- Developer-alpha hardening fixture normal, degraded, empty, unsafe-observation,
+  and sanitized-output tests: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not add filesystem lifecycle code, model artifact access, installer
+  creation, automatic updates, rollback execution, provider registration,
+  execution enablement, or final Windows release policy without explicit
+  product, security, and release approval.
