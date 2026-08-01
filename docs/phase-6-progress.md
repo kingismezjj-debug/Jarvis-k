@@ -60,6 +60,28 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 39 test files and 215 tests.
 
+## Wave 6.3: Local Embedding Runtime Boundary Skeleton
+
+- Status: complete.
+- Added a planning-only descriptor and fail-closed implementation of the
+  existing `ModelRuntimeAdapter` port.
+- The skeleton declares the current candidate runtime direction without
+  installing Transformers, Python, CUDA, ONNX, or any native runtime.
+- `canLoad` remains false and `load` always fails with a sanitized
+  configuration error.
+- The skeleton is intentionally not registered in `apps/core-host`;
+  `UnavailableModelRuntimeRegistry` continues to advertise no real runtime.
+- No model manifest, artifact, download path, runtime package, or execution
+  provider was enabled in this wave.
+
+### Current Gate
+
+- Local embedding runtime boundary tests: PASS, 3 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 40 test files and 218 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
