@@ -802,3 +802,37 @@ packaging, license, benchmark, and composition gate passes.
 - Do not add real Windows tool execution, permission enforcement against the
   OS, IPC commands, Core routing, UI confirmation controls, or model-driven
   invocation without a separate product and security approval.
+
+## Phase 10.1: Local Voice Capability Contract
+
+- Status: complete as a provider-neutral contract, preflight, and fixture
+  preparation wave.
+- Added a local voice capability descriptor and fixture availability report to
+  `packages/voice`.
+- The contract covers the existing provider-neutral ASR and TTS playback
+  coordination ports, future dedicated runtime ownership, supervised private
+  IPC, resource lease requirements, and sanitized failure reporting.
+- Added a fail-closed preflight whose accepted status is only
+  `ready_for_fixture_contract`.
+- Partial fixture availability reports `degraded` without exposing transcript
+  text, audio bytes, credentials, URLs, cache paths, or private paths.
+- Network access, credentials, runtime dependencies, model downloads, model
+  loading, audio execution, provider registration, default opt-in, Core Host
+  composition, Desktop IPC, and UI behavior remain disabled or unchanged.
+
+### Current Gate
+
+- Local voice contract and fixture tests: PASS.
+- Local voice preflight tests: PASS.
+- `npm.cmd run build -w @jarvis-k/voice`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not select or install a real local STT/TTS runtime, add runtime/native
+  dependencies, access speech model artifacts, execute real audio, register a
+  provider, change default opt-in behavior, or add UI/Desktop controls without
+  a separate product and security approval.

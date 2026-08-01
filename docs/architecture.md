@@ -112,6 +112,11 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     audit records, and fixture-only execution. Real Windows, shell, network,
     model-driven, and operating-system side effects remain behind a later
     approval and execution boundary.
+31. Local voice preparation starts with provider-neutral ASR and TTS playback
+    ports, sanitized fixture availability reports, and fail-closed preflight.
+    Real local speech runtimes, model artifacts, audio execution, provider
+    registration, and default opt-in remain behind a later dedicated approval
+    and implementation boundary.
 
 ## Restart policy
 
