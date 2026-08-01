@@ -693,7 +693,7 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run check:boundaries`: PASS.
 - `npm run check:sensitive-artifacts`: PASS.
 - `npm run typecheck`: PASS.
-- `npm run verify`: PASS after the wave-specific verification.
+- `npm run verify`: PASS, 73 test files and 370 tests.
 
 ## Remaining Phase 7 Work
 
@@ -709,3 +709,36 @@ packaging, license, benchmark, and composition gate passes.
   packaging, and benchmark gates are approved.
 - Register runtime and execution providers only in `apps/core-host`, behind
   explicit enablement and preflight checks, after the hard pause is lifted.
+
+## Phase 8.1: Embedding Memory Retrieval Contract
+
+- Status: complete as a provider-neutral contract and fixture preparation
+  wave.
+- Added bounded embedding memory records and queries, deterministic retrieval
+  result schemas, sanitized match DTOs, and an injected retrieval port to
+  `@jarvis-k/memory`.
+- Added a fail-closed preflight whose accepted status is only
+  `ready_for_fixture_contract`.
+- The fixture test executor covers cosine ranking, conversation filtering,
+  bounded results, dimension validation, and degraded no-match behavior.
+- Memory schema/index migration, SQLite changes, vector writes, real
+  embedding provider composition, retrieval execution, Core Host changes, and
+  UI/Desktop/contracts exposure remain disabled.
+
+### Current Gate
+
+- Embedding retrieval contract tests: PASS, 4 tests.
+- Embedding retrieval preflight tests: PASS, 5 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS after the wave-specific verification.
+
+### Next Hard Pause
+
+- Do not migrate the Memory schema or add a vector index without explicit
+  approval.
+- Do not modify `packages/memory-sqlite`, Core, `apps/core-host`, Desktop, UI,
+  or contracts for retrieval until the schema and product behavior are
+  separately decided.
