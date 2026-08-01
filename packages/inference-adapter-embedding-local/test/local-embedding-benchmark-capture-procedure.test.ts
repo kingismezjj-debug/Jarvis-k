@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingBenchmarkCaptureApprovalRecord,
   createLocalEmbeddingBenchmarkCaptureProcedure,
+  isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved,
   LOCAL_EMBEDDING_MODEL_ID,
   LOCAL_EMBEDDING_PROVIDER_ID
 } from "../src";
@@ -120,5 +122,75 @@ describe("local embedding benchmark capture procedure", () => {
     expect(serialized).not.toContain("score");
     expect(serialized).not.toContain("downloadEnabled\":true");
     expect(serialized).not.toContain("executionEnabled\":true");
+  });
+
+  it("approves benchmark capture methods without recording metric values", () => {
+    const record =
+      createApprovedLocalEmbeddingBenchmarkCaptureApprovalRecord();
+    const serialized = JSON.stringify(record);
+
+    expect(record).toMatchObject({
+      provider: LOCAL_EMBEDDING_PROVIDER_ID,
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      runtime: "transformers",
+      status: "approved",
+      inputSets: [
+        "sanitized_bilingual_smoke",
+        "retrieval_regression",
+        "resource_stress"
+      ],
+      latencyMethod: "cold_and_warm_runs",
+      memoryMethod: "peak_process_memory",
+      qualityMethod: "fixed_retrieval_expectations",
+      resourceIsolation: "scheduler_lease_and_repeatable_host_state",
+      failureDegradation: "sanitized_profile_failure",
+      privacySanitized: true,
+      approvalRecordLocal: true,
+      downloadEnabled: false,
+      executionEnabled: false,
+      metricValuesCaptured: false,
+      metricValuesExposed: false
+    });
+    expect(
+      isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved(record)
+    ).toBe(true);
+    expect(serialized).not.toMatch(/https?:\/\//u);
+    expect(serialized).not.toMatch(/\b[a-f0-9]{64}\b/u);
+    expect(serialized).not.toContain("model.safetensors");
+    expect(serialized).not.toContain("latencyMs");
+    expect(serialized).not.toContain("memoryBytes");
+    expect(serialized).not.toContain("score");
+    expect(serialized).not.toContain("downloadEnabled\":true");
+    expect(serialized).not.toContain("executionEnabled\":true");
+  });
+
+  it("rejects capture approval when values, execution, or required inputs are present", () => {
+    const approved =
+      createApprovedLocalEmbeddingBenchmarkCaptureApprovalRecord();
+
+    expect(
+      isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved({
+        ...approved,
+        metricValuesCaptured: true as false
+      })
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved({
+        ...approved,
+        executionEnabled: true as false
+      })
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved({
+        ...approved,
+        inputSets: approved.inputSets.slice(1)
+      })
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved(
+        approved,
+        createLocalEmbeddingBenchmarkCaptureProcedure()
+      )
+    ).toBe(false);
   });
 });

@@ -61,6 +61,37 @@ export interface LocalEmbeddingBenchmarkCaptureProcedure {
   reasons: string[];
 }
 
+export type LocalEmbeddingBenchmarkCaptureApprovalStatus =
+  | "pending"
+  | "approved"
+  | "rejected";
+
+export type LocalEmbeddingBenchmarkInputSetKey =
+  | "sanitized_bilingual_smoke"
+  | "retrieval_regression"
+  | "resource_stress";
+
+export interface LocalEmbeddingBenchmarkCaptureApprovalRecord {
+  provider: string;
+  modelId: string;
+  runtime: "transformers";
+  status: LocalEmbeddingBenchmarkCaptureApprovalStatus;
+  inputSets: LocalEmbeddingBenchmarkInputSetKey[];
+  latencyMethod: "cold_and_warm_runs";
+  memoryMethod: "peak_process_memory";
+  qualityMethod: "fixed_retrieval_expectations";
+  resourceIsolation: "scheduler_lease_and_repeatable_host_state";
+  failureDegradation: "sanitized_profile_failure";
+  privacySanitized: true;
+  approvalRecordLocal: true;
+  downloadEnabled: false;
+  executionEnabled: false;
+  metricValuesCaptured: false;
+  metricValuesExposed: false;
+  profiles: LocalEmbeddingBenchmarkCaptureProfile[];
+  reasons: string[];
+}
+
 const profileKeys: LocalEmbeddingBenchmarkProfileKey[] = [
   "lite",
   "standard",
@@ -161,6 +192,96 @@ export function createLocalEmbeddingBenchmarkCaptureProcedure(
   };
 }
 
+export function createApprovedLocalEmbeddingBenchmarkCaptureApprovalRecord(
+  overrides: Partial<LocalEmbeddingBenchmarkCaptureApprovalRecord> = {}
+): LocalEmbeddingBenchmarkCaptureApprovalRecord {
+  return {
+    provider: LOCAL_EMBEDDING_PROVIDER_ID,
+    modelId: LOCAL_EMBEDDING_MODEL_ID,
+    runtime: "transformers",
+    status: "approved",
+    inputSets: [
+      "sanitized_bilingual_smoke",
+      "retrieval_regression",
+      "resource_stress"
+    ],
+    latencyMethod: "cold_and_warm_runs",
+    memoryMethod: "peak_process_memory",
+    qualityMethod: "fixed_retrieval_expectations",
+    resourceIsolation: "scheduler_lease_and_repeatable_host_state",
+    failureDegradation: "sanitized_profile_failure",
+    privacySanitized: true,
+    approvalRecordLocal: true,
+    downloadEnabled: false,
+    executionEnabled: false,
+    metricValuesCaptured: false,
+    metricValuesExposed: false,
+    profiles: profileKeys.map((key) => ({
+      key,
+      latencyProfileRequired: true,
+      memoryProfileRequired: true,
+      qualityProfileRequired: true
+    })),
+    reasons: [
+      "Benchmark capture method is approved without recording metric values.",
+      "Downloads and execution remain disabled until a later benchmark result capture wave."
+    ],
+    ...overrides
+  };
+}
+
+export function isLocalEmbeddingBenchmarkCaptureApprovalRecordApproved(
+  record: LocalEmbeddingBenchmarkCaptureApprovalRecord,
+  procedure: LocalEmbeddingBenchmarkCaptureProcedure =
+    createLocalEmbeddingBenchmarkCaptureProcedure({
+      profilesConfirmed: true,
+      datasetDefined: true,
+      latencyMethodDefined: true,
+      memoryMethodDefined: true,
+      qualityMethodDefined: true,
+      resourceIsolationDefined: true,
+      failureDegradationDefined: true,
+      privacySanitized: true,
+      metricValuesCaptured: false,
+      approvalRecordLocal: true,
+      downloadEnabled: false,
+      executionEnabled: false,
+      verificationClean: true
+    })
+): boolean {
+  return (
+    procedure.status === "ready_for_approval" &&
+    procedure.downloadEnabled === false &&
+    procedure.executionEnabled === false &&
+    procedure.metricValuesExposed === false &&
+    record.provider === LOCAL_EMBEDDING_PROVIDER_ID &&
+    record.modelId === LOCAL_EMBEDDING_MODEL_ID &&
+    record.runtime === "transformers" &&
+    record.status === "approved" &&
+    record.latencyMethod === "cold_and_warm_runs" &&
+    record.memoryMethod === "peak_process_memory" &&
+    record.qualityMethod === "fixed_retrieval_expectations" &&
+    record.resourceIsolation === "scheduler_lease_and_repeatable_host_state" &&
+    record.failureDegradation === "sanitized_profile_failure" &&
+    record.privacySanitized === true &&
+    record.approvalRecordLocal === true &&
+    record.downloadEnabled === false &&
+    record.executionEnabled === false &&
+    record.metricValuesCaptured === false &&
+    record.metricValuesExposed === false &&
+    requiredInputSets.every((key) => record.inputSets.includes(key)) &&
+    profileKeys.every((key) =>
+      record.profiles.some(
+        (profile) =>
+          profile.key === key &&
+          profile.latencyProfileRequired &&
+          profile.memoryProfileRequired &&
+          profile.qualityProfileRequired
+      )
+    )
+  );
+}
+
 function step(
   key: LocalEmbeddingBenchmarkCaptureStepKey,
   satisfied: boolean,
@@ -168,3 +289,9 @@ function step(
 ): LocalEmbeddingBenchmarkCaptureStep {
   return { key, satisfied, reason: satisfied ? "" : reason };
 }
+
+const requiredInputSets: LocalEmbeddingBenchmarkInputSetKey[] = [
+  "sanitized_bilingual_smoke",
+  "retrieval_regression",
+  "resource_stress"
+];

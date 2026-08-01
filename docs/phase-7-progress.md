@@ -270,13 +270,44 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 59 test files and 305 tests.
 
+## Wave 7.10: Benchmark Capture Approval Guard
+
+- Status: complete.
+- Added a provider-local benchmark capture approval record that approves the
+  benchmark input-set and method boundary without recording real metric values.
+- Approved capture inputs are sanitized bilingual smoke, retrieval regression,
+  and resource stress sets.
+- Approved methods cover cold/warm latency runs, peak process memory, fixed
+  retrieval expectations, scheduler-lease resource isolation, sanitized
+  failure degradation, and privacy-sanitized inputs/outputs/logs.
+- Capture approval explicitly requires `metricValuesCaptured: false`,
+  `metricValuesExposed: false`, `downloadEnabled: false`, and
+  `executionEnabled: false`.
+- The benchmark result approval gate remains separate; real latency, memory,
+  quality, and resource profiles still need a later runtime-backed capture
+  wave before readiness can pass.
+- No model execution, model download, runtime dependency, model file, model
+  cache, signed URL, provider credential, provider registration, composition
+  change, or benchmark metric value was added in this wave.
+
+### Current Gate
+
+- Local embedding benchmark capture procedure, benchmark approval, readiness
+  provider, and readiness checklist tests: PASS, 26 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 59 test files and 307 tests.
+
 ## Remaining Phase 7 Work
 
 - Complete runtime adapter implementation procedure, final Windows packaging
   review, native/runtime dependency review for any dependencies actually added,
   and tokenizer/config runtime integration review.
-- Define and approve benchmark capture inputs, methods, resource isolation,
-  and failure reporting before recording real metric values.
+- Capture and approve real benchmark latency, memory, quality, and resource
+  profiles only after runtime dependencies and execution are separately
+  approved.
 - Implement the dedicated runtime package only after artifact, license,
   packaging, and benchmark gates are approved.
 - Register runtime and execution providers only in `apps/core-host`, behind
