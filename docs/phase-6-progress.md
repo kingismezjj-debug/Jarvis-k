@@ -148,6 +148,25 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 43 test files and 228 tests.
 
+## Wave 6.7: Artifact Pins As Readiness Gate
+
+- Status: complete.
+- Connected the artifact pin plan to the local embedding readiness evaluator.
+- Added `artifact.pins` as a formal provider configuration requirement.
+- An otherwise complete manifest/runtime review remains blocked until every
+  required artifact has an immutable revision and valid SHA-256 digest.
+- Preflight requirement visibility now includes the artifact pin gate.
+- No real artifact revision, SHA-256, upstream URL, download path, model file,
+  runtime dependency, or execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding readiness and preflight tests: PASS, 8 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 43 test files and 229 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for

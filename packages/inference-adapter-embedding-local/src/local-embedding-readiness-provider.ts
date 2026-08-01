@@ -9,6 +9,11 @@ import {
   type InferenceProviderConfigurationReport,
   type InferenceProviderDescriptor
 } from "@jarvis-k/contracts";
+import {
+  createLocalEmbeddingArtifactPlan,
+  isLocalEmbeddingArtifactPlanPinned,
+  type LocalEmbeddingArtifactPlan
+} from "./local-embedding-artifact-plan";
 
 export const LOCAL_EMBEDDING_PROVIDER_ID = "embedding.local.qwen3";
 export const LOCAL_EMBEDDING_MODEL_ID = "Qwen/Qwen3-Embedding-0.6B";
@@ -21,6 +26,7 @@ type LocalEmbeddingReadinessKey =
   | "model.manifest"
   | "model.revision"
   | "model.artifact_sha256"
+  | "artifact.pins"
   | "runtime.adapter"
   | "runtime.packaging"
   | "license.redistribution_review"
@@ -28,6 +34,7 @@ type LocalEmbeddingReadinessKey =
 
 export interface LocalEmbeddingReadinessInput {
   manifest?: unknown;
+  artifactPlan?: LocalEmbeddingArtifactPlan;
   runtimeAdapterReady?: boolean;
   packagingReviewed?: boolean;
   redistributionReviewed?: boolean;
@@ -128,6 +135,14 @@ export function assessLocalEmbeddingReadiness(
     manifest?.sha256 !== undefined,
     "Record SHA-256 digests for every model artifact before download."
   );
+  const artifactPlan =
+    input.artifactPlan ?? createLocalEmbeddingArtifactPlan();
+  addCheck(
+    checks,
+    "artifact.pins",
+    isLocalEmbeddingArtifactPlanPinned(artifactPlan),
+    "Pin every required embedding artifact with an immutable revision and SHA-256 digest."
+  );
   addCheck(
     checks,
     "runtime.adapter",
@@ -192,6 +207,8 @@ function readinessRequirementDescription(
       return "Pin an immutable upstream model revision.";
     case "model.artifact_sha256":
       return "Record SHA-256 digests for every artifact.";
+    case "artifact.pins":
+      return "Pin every required artifact with revision and SHA-256 metadata.";
     case "runtime.adapter":
       return "Select a dedicated local embedding runtime adapter.";
     case "runtime.packaging":

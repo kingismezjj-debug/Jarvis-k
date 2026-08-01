@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessLocalEmbeddingReadiness,
+  createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingProviderConfigurationReport,
   createLocalEmbeddingProviderDescriptor,
   LOCAL_EMBEDDING_MODEL_ID,
@@ -30,6 +31,7 @@ describe("local embedding readiness provider", () => {
         { key: "model.manifest", configured: false },
         { key: "model.revision", configured: false },
         { key: "model.artifact_sha256", configured: false },
+        { key: "artifact.pins", configured: false },
         { key: "runtime.adapter", configured: false },
         { key: "runtime.packaging", configured: false },
         { key: "license.redistribution_review", configured: false },
@@ -55,7 +57,8 @@ describe("local embedding readiness provider", () => {
       runtimeAdapterReady: true,
       packagingReviewed: true,
       redistributionReviewed: true,
-      benchmarkProfileReady: true
+      benchmarkProfileReady: true,
+      artifactPlan: pinnedArtifactPlan()
     });
 
     expect(report).toEqual({
@@ -92,7 +95,8 @@ describe("local embedding readiness provider", () => {
           runtimeAdapterReady: true,
           packagingReviewed: true,
           redistributionReviewed: true,
-          benchmarkProfileReady: true
+          benchmarkProfileReady: true,
+          artifactPlan: pinnedArtifactPlan()
         }
       })
     ).toMatchObject({
@@ -118,7 +122,8 @@ describe("local embedding readiness provider", () => {
       runtimeAdapterReady: true,
       packagingReviewed: true,
       redistributionReviewed: true,
-      benchmarkProfileReady: true
+      benchmarkProfileReady: true,
+      artifactPlan: pinnedArtifactPlan()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -136,6 +141,37 @@ describe("local embedding readiness provider", () => {
     );
   });
 
+  it("rejects an otherwise complete review when artifact pins are missing", () => {
+    const report = assessLocalEmbeddingReadiness({
+      manifest: {
+        id: LOCAL_EMBEDDING_MODEL_ID,
+        capability: "embedding",
+        source: "huggingface",
+        revision: "immutable-embedding-revision",
+        license: "Apache-2.0",
+        runtime: "transformers",
+        sizeBytes: 1024,
+        sha256:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        licenseRisk: "yellow"
+      },
+      runtimeAdapterReady: true,
+      packagingReviewed: true,
+      redistributionReviewed: true,
+      benchmarkProfileReady: true
+    });
+
+    expect(report.readyForComposition).toBe(false);
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "artifact.pins",
+          satisfied: false
+        })
+      ])
+    );
+  });
+
   it("fails closed instead of executing a local model", async () => {
     const provider = new UnavailableLocalEmbeddingProvider();
 
@@ -147,3 +183,21 @@ describe("local embedding readiness provider", () => {
     ).rejects.toThrow("Local embedding provider is not configured.");
   });
 });
+
+function pinnedArtifactPlan() {
+  return {
+    ...createLocalEmbeddingArtifactPlan(),
+    status: "pinned" as const,
+    artifacts: createLocalEmbeddingArtifactPlan().artifacts.map(
+      (artifact) => ({
+        ...artifact,
+        pinned: true,
+        revision: "immutable-artifact-revision",
+        sha256:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        reasons: []
+      })
+    ),
+    reasons: []
+  };
+}

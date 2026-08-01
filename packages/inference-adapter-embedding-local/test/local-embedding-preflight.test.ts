@@ -56,6 +56,7 @@ describe("local embedding preflight", () => {
         status: "unconfigured",
         requirements: expect.arrayContaining([
           expect.objectContaining({ key: "model.manifest" }),
+          expect.objectContaining({ key: "artifact.pins" }),
           expect.objectContaining({ key: "runtime.adapter" }),
           expect.objectContaining({
             key: "benchmarks.local_resource_profile"
