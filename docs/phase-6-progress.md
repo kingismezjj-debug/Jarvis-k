@@ -341,6 +341,33 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 49 test files and 259 tests.
 
+## Wave 6.15: Readiness Checklist Summary Guard
+
+- Status: complete.
+- Added a provider-local readiness checklist that summarizes the approval
+  state for revision, artifact pins, runtime strategy, license redistribution,
+  and benchmark profiles.
+- The default checklist is blocked, keeps `downloadEnabled: false` and
+  `executionEnabled: false`, and exposes only gate status plus sanitized
+  reasons.
+- Approved records can satisfy the checklist without exposing revision values,
+  SHA-256 digests, artifact filenames, URLs, model files, or benchmark metric
+  values in the summary output.
+- The checklist is not registered as an execution provider and does not change
+  `apps/core-host` composition.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, benchmark
+  execution, or provider execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding readiness checklist tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 50 test files and 263 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
