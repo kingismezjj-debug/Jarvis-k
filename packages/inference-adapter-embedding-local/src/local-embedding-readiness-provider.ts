@@ -15,6 +15,11 @@ import {
   type LocalEmbeddingArtifactPlan
 } from "./local-embedding-artifact-plan";
 import {
+  createLocalEmbeddingBenchmarkApprovalRecord,
+  isLocalEmbeddingBenchmarkApprovalRecordApproved,
+  type LocalEmbeddingBenchmarkApprovalRecord
+} from "./local-embedding-benchmark-approval";
+import {
   createLocalEmbeddingArtifactPinApprovalRecord,
   isLocalEmbeddingArtifactPinApprovalRecordApproved,
   type LocalEmbeddingArtifactPinApprovalRecord
@@ -60,6 +65,7 @@ export interface LocalEmbeddingReadinessInput {
   artifactPlan?: LocalEmbeddingArtifactPlan;
   artifactPinApproval?: LocalEmbeddingArtifactPinApprovalRecord;
   licenseApproval?: LocalEmbeddingLicenseApprovalRecord;
+  benchmarkApproval?: LocalEmbeddingBenchmarkApprovalRecord;
   runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
   runtimeAdapterReady?: boolean;
   packagingReviewed?: boolean;
@@ -212,8 +218,12 @@ export function assessLocalEmbeddingReadiness(
   addCheck(
     checks,
     "benchmarks.local_resource_profile",
-    input.benchmarkProfileReady === true,
-    "Capture local quality, latency, memory, and resource benchmarks."
+    input.benchmarkProfileReady === true &&
+      isLocalEmbeddingBenchmarkApprovalRecordApproved(
+        input.benchmarkApproval ??
+          createLocalEmbeddingBenchmarkApprovalRecord()
+      ),
+    "Approve local quality, latency, memory, and resource benchmark profiles."
   );
 
   const reasons = checks.flatMap((check) => check.reasons);
@@ -264,6 +274,6 @@ function readinessRequirementDescription(
     case "license.redistribution_review":
       return "Approve license and redistribution review.";
     case "benchmarks.local_resource_profile":
-      return "Capture Lite, Standard, and Local Enhanced benchmarks.";
+      return "Approve Lite, Standard, and Local Enhanced benchmark profiles.";
   }
 }

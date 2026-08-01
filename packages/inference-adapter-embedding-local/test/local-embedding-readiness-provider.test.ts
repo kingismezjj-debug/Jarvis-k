@@ -3,6 +3,7 @@ import {
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
+  createLocalEmbeddingBenchmarkApprovalRecord,
   createLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingProviderConfigurationReport,
   createLocalEmbeddingRuntimeStrategy,
@@ -66,6 +67,7 @@ describe("local embedding readiness provider", () => {
       revisionApproval: approvedRevisionApproval(),
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
+      benchmarkApproval: approvedBenchmarkApproval(),
       licenseApproval: approvedLicenseApproval(),
       runtimeStrategy: approvedRuntimeStrategy()
     });
@@ -110,6 +112,7 @@ describe("local embedding readiness provider", () => {
           artifactPinApproval: approvedArtifactPinApproval(
             pinnedArtifactPlan()
           ),
+          benchmarkApproval: approvedBenchmarkApproval(),
           licenseApproval: approvedLicenseApproval(),
           runtimeStrategy: approvedRuntimeStrategy()
         }
@@ -332,6 +335,42 @@ describe("local embedding readiness provider", () => {
     );
   });
 
+  it("rejects an otherwise complete review when benchmark approval is pending", () => {
+    const report = assessLocalEmbeddingReadiness({
+      manifest: {
+        id: LOCAL_EMBEDDING_MODEL_ID,
+        capability: "embedding",
+        source: "huggingface",
+        revision: "immutable-embedding-revision",
+        license: "Apache-2.0",
+        runtime: "transformers",
+        sizeBytes: 1024,
+        sha256:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        licenseRisk: "yellow"
+      },
+      runtimeAdapterReady: true,
+      packagingReviewed: true,
+      redistributionReviewed: true,
+      benchmarkProfileReady: true,
+      revisionApproval: approvedRevisionApproval(),
+      artifactPlan: pinnedArtifactPlan(),
+      artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
+      licenseApproval: approvedLicenseApproval(),
+      runtimeStrategy: approvedRuntimeStrategy()
+    });
+
+    expect(report.readyForComposition).toBe(false);
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "benchmarks.local_resource_profile",
+          satisfied: false
+        })
+      ])
+    );
+  });
+
   it("rejects an otherwise complete review when runtime strategy is provisional", () => {
     const report = assessLocalEmbeddingReadiness({
       manifest: {
@@ -424,6 +463,23 @@ function approvedLicenseApproval() {
   return createLocalEmbeddingLicenseApprovalRecord({
     status: "approved",
     redistributionReviewed: true,
+    reasons: []
+  });
+}
+
+function approvedBenchmarkApproval() {
+  return createLocalEmbeddingBenchmarkApprovalRecord({
+    status: "approved",
+    profiles: createLocalEmbeddingBenchmarkApprovalRecord().profiles.map(
+      (profile) => ({
+        ...profile,
+        status: "approved" as const,
+        latencyProfileCaptured: true,
+        memoryProfileCaptured: true,
+        qualityProfileCaptured: true,
+        reasons: []
+      })
+    ),
     reasons: []
   });
 }

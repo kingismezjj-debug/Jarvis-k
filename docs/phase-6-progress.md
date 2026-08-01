@@ -315,6 +315,32 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 48 test files and 254 tests.
 
+## Wave 6.14: Benchmark Resource Profile Approval Guard
+
+- Status: complete.
+- Added a provider-local benchmark approval record for the selected embedding
+  model.
+- The default record is `pending`, keeps `downloadEnabled: false` and
+  `executionEnabled: false`, and omits model files, URLs, artifact digests,
+  and real metric values.
+- Readiness now requires `benchmarks.local_resource_profile` to pass both the
+  existing manual benchmark flag and an approved local benchmark record.
+- Lite, Standard, and Local Enhanced profiles must each have latency, memory,
+  and quality profile capture marked before the benchmark gate can pass.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, benchmark
+  execution, or provider execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding benchmark approval, readiness, and composition tests: PASS,
+  3 test files and 19 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 49 test files and 259 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for

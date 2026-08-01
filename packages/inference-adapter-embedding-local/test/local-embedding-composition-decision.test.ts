@@ -3,6 +3,7 @@ import {
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
+  createLocalEmbeddingBenchmarkApprovalRecord,
   createLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRuntimeStrategy,
@@ -73,6 +74,20 @@ function completeReadiness() {
     },
     artifactPlan: pinnedArtifactPlan(),
     artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
+    benchmarkApproval: createLocalEmbeddingBenchmarkApprovalRecord({
+      status: "approved",
+      profiles: createLocalEmbeddingBenchmarkApprovalRecord().profiles.map(
+        (profile) => ({
+          ...profile,
+          status: "approved",
+          latencyProfileCaptured: true,
+          memoryProfileCaptured: true,
+          qualityProfileCaptured: true,
+          reasons: []
+        })
+      ),
+      reasons: []
+    }),
     licenseApproval: createLocalEmbeddingLicenseApprovalRecord({
       status: "approved",
       redistributionReviewed: true,
