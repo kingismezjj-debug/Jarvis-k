@@ -45,12 +45,13 @@ instructions.
 
 ## Current Baseline
 
-- Latest completed wave: Phase 7.15 Runtime Package Scaffold with Fake Runtime.
+- Latest completed wave: Phase 7.16 Artifact Cache and Download Manager
+  Dry-Run.
 - Latest committed baseline before this automation project:
   `c93272c docs: add phase 7 automation project`.
 - Latest pre-automation CI: success, run `30696188875`.
-- Local verification baseline after Phase 7.15: `npm.cmd run verify` passed
-  with 63 test files and 323 tests.
+- Local verification baseline after Phase 7.16: `npm.cmd run verify` passed
+  with 64 test files and 326 tests.
 - Local embedding provider status: planned only, unregistered, uncomposed, and
   execution disabled.
 - No installer, runtime package, runtime dependency, model download, model
@@ -134,6 +135,8 @@ Exit criteria:
 - Verification, commit, push, and CI succeed.
 
 ## Phase 7.16: Artifact Cache and Download Manager Dry-Run
+
+Status: complete.
 
 Goal: define artifact cache/download lifecycle without performing default real
 downloads.
@@ -219,4 +222,6 @@ To resume safely:
 - Phase 7.13 is complete.
 - Phase 7.14 is complete.
 - Phase 7.15 is complete.
-- Next action: begin Phase 7.16 artifact cache/download manager dry-run.
+- Phase 7.16 is complete.
+- Next action: begin Phase 7.17 controlled artifact download and SHA-256
+  verification guard.

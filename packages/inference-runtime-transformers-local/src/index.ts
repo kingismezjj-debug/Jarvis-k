@@ -4,15 +4,16 @@ import {
   type ModelRuntimeAdapterDescriptor
 } from "@jarvis-k/contracts";
 
-export const TRANSFORMERS_LOCAL_RUNTIME_PACKAGE_NAME =
-  "@jarvis-k/inference-runtime-transformers-local";
-export const TRANSFORMERS_LOCAL_RUNTIME_PACKAGE_LOCATION =
-  "packages/inference-runtime-transformers-local";
-export const TRANSFORMERS_LOCAL_RUNTIME_COMPOSITION_ROOT = "apps/core-host";
-export const TRANSFORMERS_LOCAL_RUNTIME = "transformers" as const;
-export const TRANSFORMERS_LOCAL_RUNTIME_STATUS = "unavailable" as const;
-export const TRANSFORMERS_LOCAL_RUNTIME_UNAVAILABLE_REASON =
-  "Transformers local runtime scaffold is not configured.";
+export * from "./artifact-cache-dry-run";
+export * from "./runtime-constants";
+import {
+  TRANSFORMERS_LOCAL_RUNTIME,
+  TRANSFORMERS_LOCAL_RUNTIME_COMPOSITION_ROOT,
+  TRANSFORMERS_LOCAL_RUNTIME_PACKAGE_LOCATION,
+  TRANSFORMERS_LOCAL_RUNTIME_PACKAGE_NAME,
+  TRANSFORMERS_LOCAL_RUNTIME_STATUS,
+  TRANSFORMERS_LOCAL_RUNTIME_UNAVAILABLE_REASON
+} from "./runtime-constants";
 
 export interface TransformersLocalRuntimeHealth {
   packageName: string;

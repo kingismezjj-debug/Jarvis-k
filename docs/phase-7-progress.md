@@ -462,11 +462,44 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 63 test files and 323 tests.
 
+## Wave 7.16: Artifact Cache and Download Manager Dry-Run
+
+- Status: complete.
+- Added a dry-run artifact cache and download manager state machine to
+  `@jarvis-k/inference-runtime-transformers-local`.
+- The state machine defines `pending`, `downloading`, `verifying`, `ready`,
+  `corrupted`, `cleanup_required`, and `rollback_ready` states.
+- Valid dry-run transitions cover future download start, download completion,
+  digest verification pass/fail, cleanup request/completion, and rollback
+  request/completion.
+- Invalid transitions fail closed and keep the current state.
+- The dry-run plan records user-cache provider namespace policy, SHA-256
+  verification-before-ready policy, partial download cleanup, rollback
+  requirement, signed URL exclusion, credential material exclusion, and
+  uninstall retention behavior.
+- The dry-run manager keeps network access, filesystem writes, real downloads,
+  cache mutation, concrete cache paths, model artifact access, digest value
+  exposure, runtime execution, and provider composition disabled.
+- No real download, filesystem write, cache directory, signed URL, credential,
+  digest value, model artifact, runtime dependency, provider registration,
+  composition change, benchmark value, or local embedding execution was added
+  in this wave.
+
+### Current Gate
+
+- Local Transformers runtime scaffold and artifact cache dry-run tests: PASS,
+  6 tests.
+- `npm run build -w @jarvis-k/inference-runtime-transformers-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 64 test files and 326 tests.
+
 ## Remaining Phase 7 Work
 
 - Complete tokenizer/config runtime integration review, dedicated runtime
-  package registration/composition review, artifact cache/download dry-run, and
-  controlled artifact download verification.
+  package registration/composition review, and controlled artifact download
+  verification.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.
