@@ -2,6 +2,7 @@ export * from "./local-embedding-artifact-approval";
 export * from "./local-embedding-artifact-pinning-procedure";
 export * from "./local-embedding-artifact-plan";
 export * from "./local-embedding-benchmark-approval";
+export * from "./local-embedding-benchmark-capture-procedure";
 export * from "./local-embedding-composition-decision";
 export * from "./local-embedding-constants";
 export * from "./local-embedding-license-approval";

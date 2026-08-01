@@ -531,6 +531,33 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 54 test files and 276 tests.
 
+## Wave 6.22: Benchmark Capture Procedure Guard
+
+- Status: complete.
+- Added a provider-local benchmark capture procedure guard for the planned
+  local embedding provider.
+- Added `docs/phase-6-benchmark-capture-procedure.md` to define the future
+  manual capture process for Lite, Standard, and Local Enhanced latency,
+  memory, and quality profiles.
+- The procedure remains pending by default and blocks real metric capture,
+  download enablement, and execution enablement during procedure approval.
+- A future benchmark capture wave can become ready for approval without
+  exposing upstream URLs, revisions, artifact digests, artifact filenames,
+  dependency versions, private paths, real benchmark metric values, or
+  benchmark input/output payloads.
+- No real benchmark execution, benchmark metric, runtime dependency, model
+  artifact, download path, provider registration, composition change, or real
+  embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding benchmark capture procedure tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 55 test files and 279 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
