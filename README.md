@@ -23,6 +23,8 @@ They are not runtime dependencies.
 - Phase 4.5 inference readiness and safety gates: complete
 - Phase 5 fixture-backed inference execution: complete for embedding, intent
   routing, OCR, and reranking
+- Phase 5 fixture-backed inference foundation: complete and ready for Phase 6
+  real-provider planning
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -118,6 +120,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 4 completion](docs/phase-4-completion.md)
 - [Phase 4 progress](docs/phase-4-progress.md)
 - [Phase 4.5 inference readiness](docs/phase-4.5-inference-readiness.md)
+- [Phase 5 completion](docs/phase-5-completion.md)
 - [Phase 5 progress](docs/phase-5-progress.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)

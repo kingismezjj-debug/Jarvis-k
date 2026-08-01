@@ -229,3 +229,24 @@ URLs, or external network access.
 
 - `npm run verify`: PASS, 38 test files and 209 tests.
 - `npm run smoke:desktop:fixture-inference`: PASS.
+
+## Wave 5.9: Phase 5 Completion Handoff
+
+- Status: complete.
+- Added `docs/phase-5-completion.md` as the formal Phase 5 closeout and Phase 6
+  handoff document.
+- Updated architecture decisions to record the completed fixture-backed
+  inference foundation and the intended replacement boundary for future real
+  providers.
+- Updated README status and documentation links to point at the Phase 5
+  completion baseline.
+- Kept the closeout documentation-only. No provider code, runtime dependency,
+  model artifact, credential path, provider URL, or real execution path was
+  added.
+
+### Current Gate
+
+- `npm run verify`: PASS, 38 test files and 209 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+- `npm run smoke:desktop:fixture-inference`: PASS.

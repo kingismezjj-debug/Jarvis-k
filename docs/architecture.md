@@ -97,6 +97,16 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
    `ModelOperationSupervisor` port when it is injected. Provider failures are
    mapped to sanitized structured errors before they enter contracts, events,
    snapshots, or UI state.
+28. Phase 5 completes the fixture-backed inference foundation for embedding,
+   intent routing, OCR, and reranking. These fixture providers are regression
+   and development adapters only; they prove the end-to-end execution contract
+   while real model downloads, native runtimes, provider credentials, and real
+   provider execution remain disabled.
+29. Future real-provider work must replace a fixture provider only at the
+   provider package and `apps/core-host` composition boundary. Contracts, Core,
+   Desktop, and UI should keep the same DTO, command, operation supervision,
+   and observation flow unless a new provider-neutral port is explicitly
+   required.
 
 ## Restart policy
 
