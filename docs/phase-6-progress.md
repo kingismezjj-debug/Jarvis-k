@@ -289,6 +289,32 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 47 test files and 248 tests.
 
+## Wave 6.13: License Redistribution Approval Guard
+
+- Status: complete.
+- Added a provider-local license approval record for the selected embedding
+  model.
+- The default record is `pending`, keeps `downloadEnabled: false`, and omits
+  upstream URLs, artifact digests, and artifact references.
+- Readiness now requires `license.redistribution_review` to pass both the
+  existing manual redistribution flag and an approved local license record
+  matching the selected model, source, and Apache-2.0 manifest license.
+- Red-risk manifests remain blocked even if a caller marks the license record
+  approved.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, or execution
+  behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding license approval, readiness, and composition tests: PASS,
+  3 test files and 18 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 48 test files and 254 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for

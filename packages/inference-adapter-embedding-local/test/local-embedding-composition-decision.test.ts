@@ -3,6 +3,7 @@ import {
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
+  createLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRuntimeStrategy,
   decideLocalEmbeddingComposition,
@@ -72,6 +73,11 @@ function completeReadiness() {
     },
     artifactPlan: pinnedArtifactPlan(),
     artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
+    licenseApproval: createLocalEmbeddingLicenseApprovalRecord({
+      status: "approved",
+      redistributionReviewed: true,
+      reasons: []
+    }),
     revisionApproval: createLocalEmbeddingRevisionApprovalRecord({
       status: "approved",
       revision: "immutable-embedding-revision",

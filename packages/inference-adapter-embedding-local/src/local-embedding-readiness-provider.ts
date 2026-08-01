@@ -24,6 +24,11 @@ import {
   LOCAL_EMBEDDING_PROVIDER_ID
 } from "./local-embedding-constants";
 import {
+  createLocalEmbeddingLicenseApprovalRecord,
+  isLocalEmbeddingLicenseApprovalRecordApproved,
+  type LocalEmbeddingLicenseApprovalRecord
+} from "./local-embedding-license-approval";
+import {
   createLocalEmbeddingRuntimeStrategy,
   isLocalEmbeddingRuntimeStrategyApproved,
   type LocalEmbeddingRuntimeStrategy
@@ -54,6 +59,7 @@ export interface LocalEmbeddingReadinessInput {
   revisionApproval?: LocalEmbeddingRevisionApprovalRecord;
   artifactPlan?: LocalEmbeddingArtifactPlan;
   artifactPinApproval?: LocalEmbeddingArtifactPinApprovalRecord;
+  licenseApproval?: LocalEmbeddingLicenseApprovalRecord;
   runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
   runtimeAdapterReady?: boolean;
   packagingReviewed?: boolean;
@@ -195,9 +201,13 @@ export function assessLocalEmbeddingReadiness(
     checks,
     "license.redistribution_review",
     manifest !== undefined &&
-      manifest.licenseRisk !== "red" &&
-      input.redistributionReviewed === true,
-    "Complete license and redistribution review before bundling artifacts."
+      input.redistributionReviewed === true &&
+      isLocalEmbeddingLicenseApprovalRecordApproved(
+        input.licenseApproval ??
+          createLocalEmbeddingLicenseApprovalRecord(),
+        manifest
+      ),
+    "Approve license and redistribution review before bundling artifacts."
   );
   addCheck(
     checks,
@@ -252,7 +262,7 @@ function readinessRequirementDescription(
     case "runtime.packaging":
       return "Document Windows packaging and resource requirements.";
     case "license.redistribution_review":
-      return "Complete license and redistribution review.";
+      return "Approve license and redistribution review.";
     case "benchmarks.local_resource_profile":
       return "Capture Lite, Standard, and Local Enhanced benchmarks.";
   }
