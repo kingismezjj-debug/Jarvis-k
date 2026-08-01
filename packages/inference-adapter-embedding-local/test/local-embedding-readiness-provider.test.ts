@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessLocalEmbeddingReadiness,
+  createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingProviderConfigurationReport,
   createLocalEmbeddingRuntimeStrategy,
@@ -63,6 +64,7 @@ describe("local embedding readiness provider", () => {
       benchmarkProfileReady: true,
       revisionApproval: approvedRevisionApproval(),
       artifactPlan: pinnedArtifactPlan(),
+      artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       runtimeStrategy: approvedRuntimeStrategy()
     });
 
@@ -103,6 +105,9 @@ describe("local embedding readiness provider", () => {
           benchmarkProfileReady: true,
           revisionApproval: approvedRevisionApproval(),
           artifactPlan: pinnedArtifactPlan(),
+          artifactPinApproval: approvedArtifactPinApproval(
+            pinnedArtifactPlan()
+          ),
           runtimeStrategy: approvedRuntimeStrategy()
         }
       })
@@ -132,6 +137,7 @@ describe("local embedding readiness provider", () => {
       benchmarkProfileReady: true,
       revisionApproval: approvedRevisionApproval("main"),
       artifactPlan: pinnedArtifactPlan(),
+      artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       runtimeStrategy: approvedRuntimeStrategy()
     });
 
@@ -169,6 +175,7 @@ describe("local embedding readiness provider", () => {
       redistributionReviewed: true,
       benchmarkProfileReady: true,
       artifactPlan: pinnedArtifactPlan(),
+      artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       runtimeStrategy: approvedRuntimeStrategy()
     });
 
@@ -214,6 +221,40 @@ describe("local embedding readiness provider", () => {
     );
   });
 
+  it("rejects an otherwise complete review when artifact pin approval is pending", () => {
+    const report = assessLocalEmbeddingReadiness({
+      manifest: {
+        id: LOCAL_EMBEDDING_MODEL_ID,
+        capability: "embedding",
+        source: "huggingface",
+        revision: "immutable-embedding-revision",
+        license: "Apache-2.0",
+        runtime: "transformers",
+        sizeBytes: 1024,
+        sha256:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        licenseRisk: "yellow"
+      },
+      runtimeAdapterReady: true,
+      packagingReviewed: true,
+      redistributionReviewed: true,
+      benchmarkProfileReady: true,
+      revisionApproval: approvedRevisionApproval(),
+      artifactPlan: pinnedArtifactPlan(),
+      runtimeStrategy: approvedRuntimeStrategy()
+    });
+
+    expect(report.readyForComposition).toBe(false);
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "artifact.pins",
+          satisfied: false
+        })
+      ])
+    );
+  });
+
   it("rejects an otherwise complete review when runtime strategy is provisional", () => {
     const report = assessLocalEmbeddingReadiness({
       manifest: {
@@ -232,7 +273,9 @@ describe("local embedding readiness provider", () => {
       packagingReviewed: true,
       redistributionReviewed: true,
       benchmarkProfileReady: true,
-      artifactPlan: pinnedArtifactPlan()
+      revisionApproval: approvedRevisionApproval(),
+      artifactPlan: pinnedArtifactPlan(),
+      artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan())
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -280,6 +323,21 @@ function approvedRevisionApproval(revision = "immutable-embedding-revision") {
   return createLocalEmbeddingRevisionApprovalRecord({
     status: "approved",
     revision,
+    reasons: []
+  });
+}
+
+function approvedArtifactPinApproval(plan: ReturnType<typeof pinnedArtifactPlan>) {
+  return createLocalEmbeddingArtifactPinApprovalRecord({
+    status: "approved",
+    artifacts: plan.artifacts.map((artifact) => ({
+      key: artifact.key,
+      role: artifact.role,
+      status: "approved" as const,
+      revision: artifact.revision,
+      sha256: artifact.sha256,
+      reasons: []
+    })),
     reasons: []
   });
 }

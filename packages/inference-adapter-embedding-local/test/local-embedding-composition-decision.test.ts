@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessLocalEmbeddingReadiness,
+  createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRuntimeStrategy,
@@ -70,6 +71,7 @@ function completeReadiness() {
       licenseRisk: "yellow" as const
     },
     artifactPlan: pinnedArtifactPlan(),
+    artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
     revisionApproval: createLocalEmbeddingRevisionApprovalRecord({
       status: "approved",
       revision: "immutable-embedding-revision",
@@ -99,6 +101,21 @@ function pinnedArtifactPlan() {
     ),
     reasons: []
   };
+}
+
+function approvedArtifactPinApproval(plan: ReturnType<typeof pinnedArtifactPlan>) {
+  return createLocalEmbeddingArtifactPinApprovalRecord({
+    status: "approved",
+    artifacts: plan.artifacts.map((artifact) => ({
+      key: artifact.key,
+      role: artifact.role,
+      status: "approved" as const,
+      revision: artifact.revision,
+      sha256: artifact.sha256,
+      reasons: []
+    })),
+    reasons: []
+  });
 }
 
 function approvedRuntimeStrategy() {

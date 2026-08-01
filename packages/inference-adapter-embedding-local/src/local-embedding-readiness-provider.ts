@@ -15,6 +15,11 @@ import {
   type LocalEmbeddingArtifactPlan
 } from "./local-embedding-artifact-plan";
 import {
+  createLocalEmbeddingArtifactPinApprovalRecord,
+  isLocalEmbeddingArtifactPinApprovalRecordApproved,
+  type LocalEmbeddingArtifactPinApprovalRecord
+} from "./local-embedding-artifact-approval";
+import {
   LOCAL_EMBEDDING_MODEL_ID,
   LOCAL_EMBEDDING_PROVIDER_ID
 } from "./local-embedding-constants";
@@ -48,6 +53,7 @@ export interface LocalEmbeddingReadinessInput {
   manifest?: unknown;
   revisionApproval?: LocalEmbeddingRevisionApprovalRecord;
   artifactPlan?: LocalEmbeddingArtifactPlan;
+  artifactPinApproval?: LocalEmbeddingArtifactPinApprovalRecord;
   runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
   runtimeAdapterReady?: boolean;
   packagingReviewed?: boolean;
@@ -157,8 +163,13 @@ export function assessLocalEmbeddingReadiness(
   addCheck(
     checks,
     "artifact.pins",
-    isLocalEmbeddingArtifactPlanPinned(artifactPlan),
-    "Pin every required embedding artifact with an immutable revision and SHA-256 digest."
+    isLocalEmbeddingArtifactPlanPinned(artifactPlan) &&
+      isLocalEmbeddingArtifactPinApprovalRecordApproved(
+        input.artifactPinApproval ??
+          createLocalEmbeddingArtifactPinApprovalRecord(),
+        artifactPlan
+      ),
+    "Approve every required embedding artifact pin with an immutable revision and SHA-256 digest."
   );
   const runtimeStrategy =
     input.runtimeStrategy ?? createLocalEmbeddingRuntimeStrategy();
@@ -233,7 +244,7 @@ function readinessRequirementDescription(
     case "model.artifact_sha256":
       return "Record SHA-256 digests for every artifact.";
     case "artifact.pins":
-      return "Pin every required artifact with revision and SHA-256 metadata.";
+      return "Approve every required artifact pin with revision and SHA-256 metadata.";
     case "runtime.strategy":
       return "Approve runtime dependency scope, packaging, isolation, tokenizer, and benchmark gates.";
     case "runtime.adapter":

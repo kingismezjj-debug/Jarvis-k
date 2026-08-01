@@ -1,3 +1,4 @@
+export * from "./local-embedding-artifact-approval";
 export * from "./local-embedding-artifact-plan";
 export * from "./local-embedding-composition-decision";
 export * from "./local-embedding-constants";

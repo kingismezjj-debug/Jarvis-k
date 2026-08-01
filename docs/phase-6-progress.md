@@ -263,6 +263,32 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 46 test files and 243 tests.
 
+## Wave 6.12: Artifact Pin Approval Guard
+
+- Status: complete.
+- Added a provider-local artifact pin approval record for the selected
+  embedding model.
+- The default record is `pending`, keeps `downloadEnabled: false`, and omits
+  upstream URLs, artifact revisions, and SHA-256 digests.
+- Readiness now requires `artifact.pins` to pass both structural pin
+  validation and an approved local artifact pin approval record matching every
+  required artifact key, role, revision, and digest.
+- Floating artifact revisions such as `main`, `master`, `latest`, and `HEAD`
+  remain blocked even if a caller marks the record approved.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, or execution
+  behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact approval, readiness, and composition tests: PASS,
+  3 test files and 16 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 47 test files and 248 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
