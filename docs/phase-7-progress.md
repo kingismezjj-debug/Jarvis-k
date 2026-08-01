@@ -733,7 +733,7 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run check:boundaries`: PASS.
 - `npm run check:sensitive-artifacts`: PASS.
 - `npm run typecheck`: PASS.
-- `npm run verify`: PASS after the wave-specific verification.
+- `npm run verify`: PASS, 74 test files and 374 tests.
 
 ### Next Hard Pause
 
@@ -742,3 +742,33 @@ packaging, license, benchmark, and composition gate passes.
 - Do not modify `packages/memory-sqlite`, Core, `apps/core-host`, Desktop, UI,
   or contracts for retrieval until the schema and product behavior are
   separately decided.
+
+## Phase 8.2: Retrieval Benchmark Harness
+
+- Status: complete as a fixture-only benchmark preparation wave.
+- Added a provider-neutral benchmark plan and evaluator for bounded retrieval
+  cases.
+- The harness measures only deterministic fixture results for recall-at-k,
+  mean reciprocal rank, and degraded-case count.
+- Every plan and report is marked `fixture_only`; execution is deferred,
+  metric values are not persisted, and raw memory text and vector values are
+  excluded.
+- No model-backed retrieval, real benchmark capture, Memory schema/index
+  migration, vector write, Core Host change, provider composition, or UI
+  exposure was added in this wave.
+
+### Current Gate
+
+- Retrieval benchmark harness tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS after the wave-specific verification.
+
+### Next Hard Pause
+
+- Real benchmark values remain deferred until a separately approved runtime
+  and Memory execution stage.
+- Do not add SQLite vector schema/index migration, vector writes, model-backed
+  retrieval, Core Host composition, or user-facing retrieval output.

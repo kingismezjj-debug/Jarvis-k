@@ -33,6 +33,8 @@ They are not runtime dependencies.
   preflight; runtime execution remains disabled
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
+- Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
+  real-provider metrics remain deferred
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -141,6 +143,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
 - [Phase 7.23 composition preflight](docs/phase-7-23-composition-preflight.md)
 - [Phase 8.1 embedding retrieval contract](docs/phase-8-1-embedding-retrieval-contract.md)
+- [Phase 8.2 retrieval benchmark harness](docs/phase-8-2-retrieval-benchmark-harness.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)
