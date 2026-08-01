@@ -930,3 +930,38 @@ packaging, license, benchmark, and composition gate passes.
   speech artifacts, real audio or benchmark capture, provider registration,
   execution enablement, installation policy, or UI/Desktop controls without a
   separate approval and implementation stage.
+
+## Phase 11.1: OCR, Screen, and Vision Contract Guards
+
+- Status: complete as a provider-neutral, fixture-only preparation wave.
+- Added bounded screen-capture request and result schemas, provider-neutral
+  vision analysis schemas, and injected screen-capture and vision provider
+  ports.
+- Added a fail-closed local visual preflight whose accepted status is only
+  `ready_for_fixture_contract`.
+- Added deterministic fixture screen-capture and vision providers while
+  retaining the existing fixture OCR provider as the regression path.
+- The preflight blocks real screen capture, permission handling, raw pixel
+  persistence or exposure, model loading, network access, runtime
+  dependencies, provider registration, operating-system command conversion,
+  Core Host composition, Desktop IPC, and UI behavior.
+- No real OCR or vision runtime, model artifact, cache, screen capture,
+  provider registration, IPC command, Core Host change, Desktop change, or UI
+  change was added.
+
+### Current Gate
+
+- Local visual contract, fixture provider, preflight, normal, blocked,
+  degraded, and sanitized-output tests: PASS.
+- `npm.cmd run build -w @jarvis-k/contracts`: PASS.
+- `npm.cmd run build -w @jarvis-k/capabilities`: PASS.
+- `npm.cmd run build -w @jarvis-k/inference-adapter-fixture`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not add real screen capture, permission prompts, OCR or vision runtime
+  dependencies, visual model artifacts, model loading, network access,
+  provider registration, Core Host routing, Desktop IPC, or UI controls
+  without a separate product, privacy, and security approval.

@@ -17,6 +17,11 @@ import {
   OcrBoundingBoxSchema,
   OcrRecognitionResultSchema,
   OcrRecognitionRequestSchema,
+  ScreenCaptureRegionSchema,
+  ScreenCaptureRequestSchema,
+  ScreenCaptureResultSchema,
+  VisionAnalysisRequestSchema,
+  VisionAnalysisResultSchema,
   PROTOCOL_VERSION,
   RerankRequestSchema,
   RerankResultSchema,
@@ -517,6 +522,73 @@ describe("protocol contracts", () => {
         height: 0.1
       })
     ).toThrow("normalized image width");
+  });
+
+  it("accepts provider-neutral screen capture and vision contracts", () => {
+    const captureRequest = ScreenCaptureRequestSchema.parse({
+      captureId: "capture-1",
+      displayId: "display-1",
+      region: {
+        x: 10,
+        y: 20,
+        width: 640,
+        height: 480
+      }
+    });
+    const captureResult = ScreenCaptureResultSchema.parse({
+      captureId: captureRequest.captureId,
+      image: {
+        id: "screen-image-1",
+        mimeType: "image/png",
+        bytes: new Uint8Array([137, 80, 78, 71]),
+        width: 640,
+        height: 480
+      },
+      capturedAt: "2026-08-01T00:00:00.000Z",
+      source: "fixture"
+    });
+    const visionRequest = VisionAnalysisRequestSchema.parse({
+      modelId: "jarvis-fixture/local-vision-smoke",
+      image: captureResult.image,
+      tasks: ["describe", "detect_objects"],
+      prompt: "Describe the visible fixture."
+    });
+    const visionResult = VisionAnalysisResultSchema.parse({
+      modelId: visionRequest.modelId,
+      imageId: "screen-image-1",
+      summary: "fixture vision result",
+      labels: [
+        {
+          label: "fixture-object",
+          confidence: 0.99,
+          boundingBox: {
+            x: 0.1,
+            y: 0.1,
+            width: 0.8,
+            height: 0.8
+          }
+        }
+      ],
+      analyzedAt: "2026-08-01T00:00:00.000Z"
+    });
+
+    expect(captureResult.source).toBe("fixture");
+    expect(visionResult.labels).toHaveLength(1);
+    expect(() =>
+      ScreenCaptureRegionSchema.parse({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 100
+      })
+    ).toThrow();
+    expect(() =>
+      VisionAnalysisRequestSchema.parse({
+        modelId: "jarvis-fixture/local-vision-smoke",
+        image: captureResult.image,
+        tasks: []
+      })
+    ).toThrow();
   });
 
   it("accepts provider-neutral intent routing requests and results", () => {

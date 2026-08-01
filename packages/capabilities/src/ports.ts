@@ -23,7 +23,11 @@ import type {
   RerankRequest,
   RerankResult,
   ResourceSchedulerDiagnostics,
-  StructuredError
+  ScreenCaptureRequest,
+  ScreenCaptureResult,
+  StructuredError,
+  VisionAnalysisRequest,
+  VisionAnalysisResult
 } from "@jarvis-k/contracts";
 
 export interface CapabilityProvider {
@@ -156,6 +160,18 @@ export interface OcrRecognitionProvider {
   recognize(
     request: OcrRecognitionRequest
   ): Promise<OcrRecognitionResult>;
+}
+
+export interface ScreenCaptureProvider {
+  capture(
+    request: ScreenCaptureRequest
+  ): Promise<ScreenCaptureResult>;
+}
+
+export interface VisionAnalysisProvider {
+  analyze(
+    request: VisionAnalysisRequest
+  ): Promise<VisionAnalysisResult>;
 }
 
 export interface IntentRoutingProvider {

@@ -117,6 +117,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     Real local speech runtimes, model artifacts, audio execution, provider
     registration, and default opt-in remain behind a later dedicated approval
     and implementation boundary.
+32. Visual preparation starts with provider-neutral OCR, screen-capture, and
+    vision ports, bounded binary DTOs, deterministic fixture providers, and a
+    fail-closed preflight. Real screen capture, permission handling, visual
+    runtimes, model artifacts, raw pixel persistence, provider registration,
+    Core Host routing, Desktop IPC, and UI controls remain behind a later
+    privacy and security approval boundary.
 
 ## Restart policy
 

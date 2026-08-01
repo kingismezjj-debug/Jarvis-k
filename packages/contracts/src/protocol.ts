@@ -876,6 +876,91 @@ export type OcrRecognitionResult = z.infer<
   typeof OcrRecognitionResultSchema
 >;
 
+export const ScreenCaptureRegionSchema = z
+  .object({
+    x: z.number().int().nonnegative().max(100_000),
+    y: z.number().int().nonnegative().max(100_000),
+    width: z.number().int().positive().max(100_000),
+    height: z.number().int().positive().max(100_000)
+  })
+  .strict();
+
+export type ScreenCaptureRegion = z.infer<
+  typeof ScreenCaptureRegionSchema
+>;
+
+export const ScreenCaptureRequestSchema = z
+  .object({
+    captureId: z.string().min(1).max(128).optional(),
+    displayId: z.string().min(1).max(128).optional(),
+    region: ScreenCaptureRegionSchema.optional()
+  })
+  .strict();
+
+export type ScreenCaptureRequest = z.infer<
+  typeof ScreenCaptureRequestSchema
+>;
+
+export const ScreenCaptureResultSchema = z
+  .object({
+    captureId: z.string().min(1).max(128),
+    image: OcrImageInputSchema,
+    capturedAt: z.string().datetime(),
+    source: z.enum(["fixture", "screen"])
+  })
+  .strict();
+
+export type ScreenCaptureResult = z.infer<
+  typeof ScreenCaptureResultSchema
+>;
+
+export const VisionAnalysisTaskSchema = z.enum([
+  "describe",
+  "classify",
+  "detect_objects"
+]);
+
+export type VisionAnalysisTask = z.infer<
+  typeof VisionAnalysisTaskSchema
+>;
+
+export const VisionAnalysisRequestSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    image: OcrImageInputSchema,
+    tasks: z.array(VisionAnalysisTaskSchema).min(1).max(3),
+    prompt: z.string().trim().min(1).max(2_000).optional()
+  })
+  .strict();
+
+export type VisionAnalysisRequest = z.infer<
+  typeof VisionAnalysisRequestSchema
+>;
+
+export const VisionLabelSchema = z
+  .object({
+    label: z.string().trim().min(1).max(256),
+    confidence: z.number().min(0).max(1).optional(),
+    boundingBox: OcrBoundingBoxSchema.optional()
+  })
+  .strict();
+
+export type VisionLabel = z.infer<typeof VisionLabelSchema>;
+
+export const VisionAnalysisResultSchema = z
+  .object({
+    modelId: z.string().min(1).max(300),
+    imageId: z.string().min(1).max(128).optional(),
+    summary: z.string().max(20_000),
+    labels: z.array(VisionLabelSchema).max(200).default([]),
+    analyzedAt: z.string().datetime()
+  })
+  .strict();
+
+export type VisionAnalysisResult = z.infer<
+  typeof VisionAnalysisResultSchema
+>;
+
 export const IntentRoutingContextSchema = z
   .object({
     locale: z.enum(["zh", "en"]).optional(),
