@@ -45,12 +45,12 @@ instructions.
 
 ## Current Baseline
 
-- Latest completed wave: Phase 7.13 Dedicated Runtime Package Preflight Guard.
+- Latest completed wave: Phase 7.14 Runtime Dependency Selection Guard.
 - Latest committed baseline before this automation project:
   `c93272c docs: add phase 7 automation project`.
 - Latest pre-automation CI: success, run `30696188875`.
-- Local verification baseline after Phase 7.13: `npm.cmd run verify` passed
-  with 61 test files and 316 tests.
+- Local verification baseline after Phase 7.14: `npm.cmd run verify` passed
+  with 62 test files and 319 tests.
 - Local embedding provider status: planned only, unregistered, uncomposed, and
   execution disabled.
 - No installer, runtime package, runtime dependency, model download, model
@@ -85,6 +85,8 @@ Exit criteria:
 - Commit, push, and CI succeed.
 
 ## Phase 7.14: Runtime Dependency Approval and Selection Guard
+
+Status: complete.
 
 Goal: choose and approve the runtime dependency strategy before adding any
 dependency.
@@ -212,5 +214,5 @@ To resume safely:
 
 - Automation created.
 - Phase 7.13 is complete.
-- Next action: begin Phase 7.14 runtime dependency approval and selection
-  guard.
+- Phase 7.14 is complete.
+- Next action: begin Phase 7.15 runtime package scaffold with fake runtime.

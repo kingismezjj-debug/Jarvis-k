@@ -395,11 +395,45 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 61 test files and 316 tests.
 
+## Wave 7.14: Runtime Dependency Selection Guard
+
+- Status: complete.
+- Added a provider-local runtime dependency selection approval record for the
+  planned Transformers local embedding runtime.
+- Selected `python_transformers_child_process` as the preferred future fidelity
+  path while keeping dependency addition explicitly unapproved.
+- Deferred `transformers_js_child_process` until tokenizer, pooling, and model
+  compatibility are proven.
+- Deferred `onnx_runtime_child_process` until an approved conversion and
+  tokenizer/pooling parity plan exists.
+- The approved record requires runtime dependencies to stay scoped to the
+  future dedicated runtime package only, with concrete composition in
+  `apps/core-host`, supervised child-process isolation, resource scheduler
+  leases, future license/NOTICE review, future native redistribution review,
+  future benchmark approval, and fallback behavior.
+- The approved selection keeps dependency addition, concrete package version
+  selection, runtime dependency allowlists, runtime dependencies, downloads,
+  execution, and exposed dependency values disabled.
+- No `package.json` dependency change, runtime package, workspace
+  registration, Python environment, runtime dependency, model download, model
+  file, model cache, signed URL, provider credential, provider registration,
+  composition change, benchmark value, or local embedding execution was added
+  in this wave.
+
+### Current Gate
+
+- Local embedding runtime dependency selection tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 62 test files and 319 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete native/runtime dependency review and selection, tokenizer/config
-  runtime integration review, dedicated runtime package scaffold, artifact
-  cache/download dry-run, and controlled artifact download verification.
+- Complete tokenizer/config runtime integration review, dedicated runtime
+  package scaffold, artifact cache/download dry-run, and controlled artifact
+  download verification.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.
