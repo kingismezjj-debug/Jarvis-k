@@ -33,6 +33,7 @@ import {
   isLocalEmbeddingLicenseApprovalRecordApproved,
   type LocalEmbeddingLicenseApprovalRecord
 } from "./local-embedding-license-approval";
+import { createLocalEmbeddingReadinessChecklist } from "./local-embedding-readiness-checklist";
 import {
   createLocalEmbeddingRuntimeStrategy,
   isLocalEmbeddingRuntimeStrategyApproved,
@@ -119,6 +120,9 @@ export function createLocalEmbeddingProviderConfigurationReport(
   options: LocalEmbeddingProviderReportOptions = {}
 ): InferenceProviderConfigurationReport {
   const readiness = assessLocalEmbeddingReadiness(options.readiness);
+  const checklistReasons = createConfigurationChecklistReasons(
+    options.readiness
+  );
   return InferenceProviderConfigurationReportSchema.parse({
     capability: "embedding",
     provider: LOCAL_EMBEDDING_PROVIDER_ID,
@@ -133,6 +137,7 @@ export function createLocalEmbeddingProviderConfigurationReport(
     })),
     reasons: [
       ...readiness.reasons,
+      ...checklistReasons,
       LOCAL_EMBEDDING_EXECUTION_DISABLED_REASON
     ]
   });
@@ -276,4 +281,42 @@ function readinessRequirementDescription(
     case "benchmarks.local_resource_profile":
       return "Approve Lite, Standard, and Local Enhanced benchmark profiles.";
   }
+}
+
+function createConfigurationChecklistReasons(
+  input: LocalEmbeddingReadinessInput = {}
+): string[] {
+  const parsedManifest = ModelManifestSchema.safeParse(input.manifest);
+  const manifest = parsedManifest.success ? parsedManifest.data : undefined;
+  const checklistInput: Parameters<
+    typeof createLocalEmbeddingReadinessChecklist
+  >[0] = {};
+  if (manifest !== undefined) {
+    checklistInput.manifest = manifest;
+  }
+  if (input.artifactPlan !== undefined) {
+    checklistInput.artifactPlan = input.artifactPlan;
+  }
+  if (input.revisionApproval !== undefined) {
+    checklistInput.revisionApproval = input.revisionApproval;
+  }
+  if (input.artifactPinApproval !== undefined) {
+    checklistInput.artifactPinApproval = input.artifactPinApproval;
+  }
+  if (input.runtimeStrategy !== undefined) {
+    checklistInput.runtimeStrategy = input.runtimeStrategy;
+  }
+  if (input.licenseApproval !== undefined) {
+    checklistInput.licenseApproval = input.licenseApproval;
+  }
+  if (input.benchmarkApproval !== undefined) {
+    checklistInput.benchmarkApproval = input.benchmarkApproval;
+  }
+  const checklist = createLocalEmbeddingReadinessChecklist(checklistInput);
+
+  return checklist.items.flatMap((item) =>
+    item.satisfied
+      ? []
+      : [`Local embedding readiness checklist blocked: ${item.key}.`]
+  );
 }

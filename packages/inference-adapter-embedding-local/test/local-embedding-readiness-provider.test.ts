@@ -46,6 +46,29 @@ describe("local embedding readiness provider", () => {
     });
   });
 
+  it("surfaces sanitized checklist blockers in configuration report reasons", () => {
+    const report = createLocalEmbeddingProviderConfigurationReport();
+    const serialized = JSON.stringify(report);
+
+    expect(report.reasons).toEqual(
+      expect.arrayContaining([
+        "Local embedding readiness checklist blocked: model.revision.",
+        "Local embedding readiness checklist blocked: artifact.pins.",
+        "Local embedding readiness checklist blocked: runtime.strategy.",
+        "Local embedding readiness checklist blocked: license.redistribution_review.",
+        "Local embedding readiness checklist blocked: benchmarks.local_resource_profile."
+      ])
+    );
+    expect(serialized).not.toMatch(/https?:\/\//u);
+    expect(serialized).not.toMatch(/\b[a-f0-9]{64}\b/u);
+    expect(serialized).not.toContain("immutable-embedding-revision");
+    expect(serialized).not.toContain("immutable-artifact-revision");
+    expect(serialized).not.toContain("model.safetensors");
+    expect(serialized).not.toContain("latencyMs");
+    expect(serialized).not.toContain("downloadEnabled\":true");
+    expect(serialized).not.toContain("executionEnabled\":true");
+  });
+
   it("recognizes a complete manifest review without enabling execution", () => {
     const report = assessLocalEmbeddingReadiness({
       manifest: {

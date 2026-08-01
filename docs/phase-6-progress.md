@@ -368,6 +368,33 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 50 test files and 263 tests.
 
+## Wave 6.16: Configuration Checklist Visibility Guard
+
+- Status: complete.
+- Connected the provider-local readiness checklist to the local embedding
+  provider configuration report.
+- Configuration report reasons now include sanitized checklist blockers for
+  revision, artifact pins, runtime strategy, license redistribution, and
+  benchmark profile gates.
+- The report does not expose revision values, SHA-256 digests, artifact
+  filenames, URLs, model files, benchmark metric values, download enablement,
+  or execution enablement.
+- Fully approved readiness input still reports only that local embedding
+  execution is disabled until a real runtime provider is composed.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, benchmark
+  execution, or provider execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding readiness provider and checklist tests: PASS, 2 test files
+  and 17 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 50 test files and 264 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
