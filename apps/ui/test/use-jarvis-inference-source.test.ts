@@ -16,9 +16,13 @@ describe("useJarvis inference wiring", () => {
     expect(hookSource).toContain("runFixtureOcrProbe");
     expect(hookSource).toContain('type: "agent.recognizeOcr"');
     expect(hookSource).toContain("useState<FixtureOcrProbe | null>");
+    expect(hookSource).toContain("runFixtureRerankProbe");
+    expect(hookSource).toContain('type: "agent.rerank"');
+    expect(hookSource).toContain("useState<FixtureRerankProbe | null>");
     expect(hookSource).toContain("EmbeddingGenerationResultSchema.safeParse");
     expect(hookSource).toContain("IntentRoutingResultSchema.safeParse");
     expect(hookSource).toContain("OcrRecognitionResultSchema.safeParse");
+    expect(hookSource).toContain("RerankResultSchema.safeParse");
     expect(hookSource).toContain("new Uint8Array");
     expect(hookSource).toContain("ModelOperationSnapshotSchema.safeParse");
     expect(hookSource).not.toContain("@jarvis-k/inference-adapter-fixture");

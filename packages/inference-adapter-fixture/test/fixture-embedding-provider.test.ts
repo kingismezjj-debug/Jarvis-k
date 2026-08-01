@@ -20,6 +20,13 @@ import {
   FIXTURE_OCR_PROVIDER_ID,
   FixtureOcrProvider
 } from "../src";
+import {
+  createFixtureRerankerConfigurationReport,
+  createFixtureRerankerDescriptor,
+  FIXTURE_RERANKER_MODEL_ID,
+  FIXTURE_RERANKER_PROVIDER_ID,
+  FixtureRerankingProvider
+} from "../src";
 
 describe("FixtureEmbeddingProvider", () => {
   it("reports unavailable until the explicit fixture flag is enabled", () => {
@@ -207,6 +214,58 @@ describe("FixtureEmbeddingProvider", () => {
         }
       ],
       recognizedAt: "2026-07-31T00:00:00.000Z"
+    });
+  });
+
+  it("reranks deterministic fixture documents with explicit availability reports", async () => {
+    expect(createFixtureRerankerDescriptor({ enabled: true })).toMatchObject({
+      capability: "reranker",
+      provider: FIXTURE_RERANKER_PROVIDER_ID,
+      status: "available",
+      modelIds: [FIXTURE_RERANKER_MODEL_ID]
+    });
+    expect(
+      createFixtureRerankerConfigurationReport({ enabled: false })
+    ).toMatchObject({
+      capability: "reranker",
+      status: "unconfigured",
+      requirements: [
+        {
+          key: "JARVIS_K_ENABLE_FIXTURE_INFERENCE",
+          configured: false
+        }
+      ]
+    });
+
+    const provider = new FixtureRerankingProvider({
+      now: () => new Date("2026-07-31T00:00:00.000Z")
+    });
+    await expect(
+      provider.rerank({
+        modelId: FIXTURE_RERANKER_MODEL_ID,
+        query: "model ports",
+        documents: [
+          {
+            id: "doc-model-ports",
+            text: "Core uses injected model ports for inference."
+          },
+          {
+            id: "doc-voice-settings",
+            text: "Desktop owns safeStorage voice settings."
+          }
+        ],
+        topK: 1
+      })
+    ).resolves.toMatchObject({
+      modelId: FIXTURE_RERANKER_MODEL_ID,
+      query: "model ports",
+      results: [
+        {
+          documentId: "doc-model-ports",
+          rank: 1
+        }
+      ],
+      rankedAt: "2026-07-31T00:00:00.000Z"
     });
   });
 });

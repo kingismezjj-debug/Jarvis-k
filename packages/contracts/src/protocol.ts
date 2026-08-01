@@ -197,6 +197,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: z.lazy(() => OcrRecognitionRequestSchema)
   }),
   z.object({
+    type: z.literal("agent.rerank"),
+    payload: z.lazy(() => RerankRequestSchema)
+  }),
+  z.object({
     type: z.literal("agent.listModelOperations"),
     payload: z
       .object({

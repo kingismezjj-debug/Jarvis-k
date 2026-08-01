@@ -154,3 +154,34 @@ URLs, or external network access.
   `ocr.fixture` as `available`, ran the OCR fixture action, and displayed
   `OCR TEXT` = `fixture ocr text`, `OCR BLOCKS` = `1`, and `OCR OPS` =
   `completed`.
+
+## Wave 5.6: Reranker Fixture Execution
+
+- Status: complete.
+- Added a deterministic reranker fixture provider to
+  `@jarvis-k/inference-adapter-fixture` with descriptor and configuration
+  reports.
+- Added the pinned fixture manifest `jarvis-fixture/local-reranker-smoke`.
+- Added `agent.rerank` to contracts and Core.
+- Reused the generic supervised inference execution helper for reranking,
+  including preflight, operation updates, blocked states, completed states, and
+  sanitized failures.
+- Validated rerank query/document/topK inputs and ranked results through the
+  provider-neutral `RerankRequest` and `RerankResult` schemas.
+- Added a development reranker observation button and read-only metrics to the
+  UI. The action remains disabled unless `reranker.fixture` reports
+  `available`.
+- Kept reranking deterministic and offline. No real reranker model, native
+  runtime, download path, credential, provider URL, or external execution was
+  added.
+
+### Current Gate
+
+- Targeted reranker/contracts/Core/UI tests: PASS, 5 test files and 67 tests.
+- `npm run verify`: PASS, 38 test files and 209 tests.
+- `npm run smoke:desktop`: PASS.
+- `npm run smoke:desktop:memory-degraded`: PASS.
+- Fixture-enabled UI smoke: PASS. The Model Governance panel reported
+  `reranker.fixture` as `available`, ran the reranker fixture action, and
+  displayed `TOP DOC` = `doc-model-ports`, `RERANKED` = `1`, and
+  `RERANK OPS` = `completed`.

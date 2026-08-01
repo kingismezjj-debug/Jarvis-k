@@ -6,6 +6,7 @@ import {
   InferenceProviderDescriptorSchema,
   IntentRoutingResultSchema,
   OcrRecognitionResultSchema,
+  RerankResultSchema,
   ModelInstallabilityReportSchema,
   ModelInventoryItemSchema,
   ModelCandidateSchema,
@@ -21,6 +22,7 @@ import {
   type InferenceProviderDescriptor,
   type IntentRoutingResult,
   type OcrRecognitionResult,
+  type RerankResult,
   type ModelInventoryItem,
   type ModelInstallabilityReport,
   type ModelCandidate,
@@ -36,6 +38,7 @@ const FIXTURE_EMBEDDING_MODEL_ID = "jarvis-fixture/local-embedding-smoke"
 const FIXTURE_INTENT_ROUTER_MODEL_ID =
   "jarvis-fixture/local-intent-router-smoke"
 const FIXTURE_OCR_MODEL_ID = "jarvis-fixture/local-ocr-smoke"
+const FIXTURE_RERANKER_MODEL_ID = "jarvis-fixture/local-reranker-smoke"
 
 export type FixtureEmbeddingProbe = {
   dimensions: number
@@ -54,6 +57,12 @@ export type FixtureOcrProbe = {
   blockCount: number
   operationPhase?: ModelOperationSnapshot["phase"]
   text: string
+}
+
+export type FixtureRerankProbe = {
+  operationPhase?: ModelOperationSnapshot["phase"]
+  resultCount: number
+  topDocumentId?: string
 }
 
 export function useJarvis() {
@@ -79,6 +88,8 @@ export function useJarvis() {
     useState<FixtureIntentProbe | null>(null)
   const [fixtureOcrProbe, setFixtureOcrProbe] =
     useState<FixtureOcrProbe | null>(null)
+  const [fixtureRerankProbe, setFixtureRerankProbe] =
+    useState<FixtureRerankProbe | null>(null)
   const [resourceDiagnostics, setResourceDiagnostics] =
     useState<ResourceSchedulerDiagnostics | null>(null)
   const [sending, setSending] = useState(false)
@@ -532,6 +543,64 @@ export function useJarvis() {
     }
   }, [])
 
+  const runFixtureRerankProbe = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.")
+      return false
+    }
+
+    setSending(true)
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.rerank",
+        payload: {
+          modelId: FIXTURE_RERANKER_MODEL_ID,
+          query: "model ports",
+          documents: [
+            {
+              id: "doc-model-ports",
+              text: "Core uses injected model ports for inference.",
+            },
+            {
+              id: "doc-voice-settings",
+              text: "Desktop owns safeStorage voice settings.",
+            },
+          ],
+          topK: 1,
+        },
+      })
+      if (!result.ok) {
+        setError(result.error.message)
+        return false
+      }
+      const rerankResult = RerankResultSchema.safeParse(
+        (result.data as { result?: unknown } | undefined)?.result
+      )
+      if (!rerankResult.success) {
+        setError("Core returned an invalid rerank result.")
+        return false
+      }
+      const operation = ModelOperationSnapshotSchema.safeParse(
+        (result.data as { operation?: unknown } | undefined)?.operation
+      )
+      if (operation.success) {
+        setModelOperations((current) =>
+          upsertModelOperation(current, operation.data)
+        )
+      }
+      setFixtureRerankProbe(
+        toFixtureRerankProbe(
+          rerankResult.data,
+          operation.success ? operation.data : undefined
+        )
+      )
+      setError(null)
+      return true
+    } finally {
+      setSending(false)
+    }
+  }, [])
+
   const exportMemorySnapshot = useCallback(async () => {
     if (!window.jarvis) {
       setError("Desktop bridge unavailable.")
@@ -616,6 +685,7 @@ export function useJarvis() {
     fixtureEmbeddingProbe,
     fixtureIntentProbe,
     fixtureOcrProbe,
+    fixtureRerankProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -635,6 +705,7 @@ export function useJarvis() {
     runFixtureEmbeddingProbe,
     runFixtureIntentProbe,
     runFixtureOcrProbe,
+    runFixtureRerankProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -675,6 +746,18 @@ function toFixtureOcrProbe(
     blockCount: result.blocks.length,
     ...(operation ? { operationPhase: operation.phase } : {}),
     text: result.text,
+  }
+}
+
+function toFixtureRerankProbe(
+  result: RerankResult,
+  operation: ModelOperationSnapshot | undefined
+): FixtureRerankProbe {
+  const top = result.results[0]
+  return {
+    ...(operation ? { operationPhase: operation.phase } : {}),
+    resultCount: result.results.length,
+    ...(top ? { topDocumentId: top.documentId } : {}),
   }
 }
 

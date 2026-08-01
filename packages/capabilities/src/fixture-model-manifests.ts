@@ -56,5 +56,19 @@ export const fixtureModelManifests: ModelManifest[] = [
       "4444444444444444444444444444444444444444444444444444444444444444",
     minMemoryBytes: 256 * 1024 * 1024,
     licenseRisk: "green"
+  },
+  {
+    id: "jarvis-fixture/local-reranker-smoke",
+    capability: "reranker",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-reranker",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 3072,
+    sha256:
+      "5555555555555555555555555555555555555555555555555555555555555555",
+    minMemoryBytes: 256 * 1024 * 1024,
+    licenseRisk: "green"
   }
 ];

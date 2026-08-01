@@ -37,6 +37,7 @@ import type {
   ModelRegistry,
   ModelRuntimeRegistry,
   OcrRecognitionProvider,
+  RerankingProvider,
   ResourceLease,
   ResourceRequest,
   ResourceScheduler
@@ -834,6 +835,26 @@ class FakeOcrRecognitionProvider implements OcrRecognitionProvider {
   }
 }
 
+class FakeRerankingProvider implements RerankingProvider {
+  public calls = 0;
+
+  public async rerank() {
+    this.calls += 1;
+    return {
+      modelId: "jarvis-fixture/local-reranker-smoke",
+      query: "model ports",
+      results: [
+        {
+          documentId: "doc-model-ports",
+          score: 1.1,
+          rank: 1
+        }
+      ],
+      rankedAt: "2026-07-31T00:00:00.000Z"
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -849,7 +870,8 @@ function createRuntime(
   inferenceExecutionPlanner?: InferenceExecutionPlanner,
   embeddingInferenceProvider?: EmbeddingInferenceProvider,
   intentRoutingProvider?: IntentRoutingProvider,
-  ocrRecognitionProvider?: OcrRecognitionProvider
+  ocrRecognitionProvider?: OcrRecognitionProvider,
+  rerankingProvider?: RerankingProvider
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -871,7 +893,8 @@ function createRuntime(
     inferenceExecutionPlanner,
     embeddingInferenceProvider,
     intentRoutingProvider,
-    ocrRecognitionProvider
+    ocrRecognitionProvider,
+    rerankingProvider
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -933,6 +956,28 @@ function ocrModelRegistry(): ModelRegistry {
     sizeBytes: 4096,
     sha256:
       "4444444444444444444444444444444444444444444444444444444444444444",
+    minMemoryBytes: 256 * 1024 * 1024,
+    licenseRisk: "green"
+  };
+  return {
+    listManifests: async () => [{ ...manifest }],
+    getManifest: async (modelId) =>
+      modelId === manifest.id ? { ...manifest } : undefined
+  };
+}
+
+function rerankerModelRegistry(): ModelRegistry {
+  const manifest: ModelManifest = {
+    id: "jarvis-fixture/local-reranker-smoke",
+    capability: "reranker",
+    source: "jarvis",
+    revision: "fixture-2026-07-31-reranker",
+    license: "Jarvis-K Fixture",
+    runtime: "system",
+    quantization: "fixture",
+    sizeBytes: 3072,
+    sha256:
+      "5555555555555555555555555555555555555555555555555555555555555555",
     minMemoryBytes: 256 * 1024 * 1024,
     licenseRisk: "green"
   };
@@ -1674,6 +1719,76 @@ describe("CoreRuntime", () => {
     ]);
     expect(planner.previewed?.capability).toBe("ocr");
     expect(ocrProvider.calls).toBe(1);
+  });
+
+  it("reranks documents through the same supervised path", async () => {
+    const planner = new AllowingInferenceExecutionPlanner(true);
+    const rerankingProvider = new FakeRerankingProvider();
+    const supervisor = new InMemoryModelOperationSupervisor(
+      () => new Date("2026-07-31T00:00:00.000Z")
+    );
+    const { events, runtime } = createRuntime(
+      undefined,
+      undefined,
+      rerankerModelRegistry(),
+      undefined,
+      undefined,
+      undefined,
+      supervisor,
+      undefined,
+      undefined,
+      undefined,
+      new FakeInferenceProviderRegistry(),
+      planner,
+      undefined,
+      undefined,
+      undefined,
+      rerankingProvider
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.rerank",
+        payload: {
+          modelId: "jarvis-fixture/local-reranker-smoke",
+          query: "model ports",
+          documents: [
+            {
+              id: "doc-model-ports",
+              text: "Core uses injected model ports for inference."
+            },
+            {
+              id: "doc-voice-settings",
+              text: "Desktop owns safeStorage voice settings."
+            }
+          ],
+          topK: 1
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      result: {
+        modelId: "jarvis-fixture/local-reranker-smoke",
+        results: [
+          {
+            documentId: "doc-model-ports",
+            rank: 1
+          }
+        ]
+      },
+      operation: {
+        phase: "completed"
+      }
+    });
+    expect(modelOperationPhases(events)).toEqual([
+      "prechecking",
+      "executing",
+      "completed"
+    ]);
+    expect(planner.previewed?.capability).toBe("reranker");
+    expect(rerankingProvider.calls).toBe(1);
   });
 
   it("lists model operations through the injected supervisor", async () => {

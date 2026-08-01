@@ -135,6 +135,7 @@ export default function App() {
     fixtureEmbeddingProbe,
     fixtureIntentProbe,
     fixtureOcrProbe,
+    fixtureRerankProbe,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -153,6 +154,7 @@ export default function App() {
     runFixtureEmbeddingProbe,
     runFixtureIntentProbe,
     runFixtureOcrProbe,
+    runFixtureRerankProbe,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -207,6 +209,11 @@ export default function App() {
     (item) => item.provider === "ocr.fixture"
   )
   const ocrProviderAvailable = ocrProvider?.status === "available"
+  const rerankerProvider = inferenceProviders.find(
+    (item) => item.provider === "reranker.fixture"
+  )
+  const rerankerProviderAvailable =
+    rerankerProvider?.status === "available"
   const requiredProviderConfigurationCount = inferenceProviderRequirements
     .flatMap((report) => report.requirements)
     .filter((requirement) => requirement.required && !requirement.configured)
@@ -646,6 +653,23 @@ export default function App() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
+                        aria-label="Run fixture reranker"
+                        className="size-8 rounded-md"
+                        data-testid="run-fixture-reranker"
+                        disabled={!rerankerProviderAvailable || sending}
+                        onClick={() => void runFixtureRerankProbe()}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <ListTodo className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Run fixture reranker</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                         aria-label="Run fixture OCR"
                         className="size-8 rounded-md"
                         data-testid="run-fixture-ocr"
@@ -738,6 +762,11 @@ export default function App() {
                   tone={ocrProviderAvailable ? "success" : "warning"}
                 />
                 <Metric
+                  label="RERANKER"
+                  value={rerankerProvider?.status ?? "unconfigured"}
+                  tone={rerankerProviderAvailable ? "success" : "warning"}
+                />
+                <Metric
                   label="REQUIRED"
                   value={String(requiredProviderConfigurationCount)}
                   tone="warning"
@@ -810,6 +839,27 @@ export default function App() {
                   value={fixtureOcrProbe?.operationPhase ?? "idle"}
                   tone={
                     fixtureOcrProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined
+                  }
+                />
+                <Metric
+                  label="TOP DOC"
+                  value={fixtureRerankProbe?.topDocumentId ?? "idle"}
+                />
+                <Metric
+                  label="RERANKED"
+                  value={
+                    fixtureRerankProbe
+                      ? String(fixtureRerankProbe.resultCount)
+                      : "idle"
+                  }
+                />
+                <Metric
+                  label="RERANK OPS"
+                  value={fixtureRerankProbe?.operationPhase ?? "idle"}
+                  tone={
+                    fixtureRerankProbe?.operationPhase === "completed"
                       ? "success"
                       : undefined
                   }

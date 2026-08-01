@@ -29,6 +29,8 @@ import {
   OcrRecognitionRequestSchema,
   OcrRecognitionResultSchema,
   PROTOCOL_VERSION,
+  RerankRequestSchema,
+  RerankResultSchema,
   ResourceSchedulerDiagnostics,
   ResourceSchedulerDiagnosticsSchema,
   StructuredError,
@@ -43,6 +45,7 @@ import type {
   InferenceProviderRegistry,
   IntentRoutingProvider,
   OcrRecognitionProvider,
+  RerankingProvider,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
   ModelInstallationPlanner,
@@ -92,7 +95,8 @@ export class CoreRuntime {
     private readonly inferenceExecutionPlanner?: InferenceExecutionPlanner,
     private readonly embeddingInferenceProvider?: EmbeddingInferenceProvider,
     private readonly intentRoutingProvider?: IntentRoutingProvider,
-    private readonly ocrRecognitionProvider?: OcrRecognitionProvider
+    private readonly ocrRecognitionProvider?: OcrRecognitionProvider,
+    private readonly rerankingProvider?: RerankingProvider
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -467,6 +471,22 @@ export class CoreRuntime {
           completedReason: "OCR inference completed.",
           failureCode: "OCR_RECOGNITION_FAILED",
           failureMessage: "Unable to recognize OCR input."
+        });
+      }
+
+      case "agent.rerank": {
+        if (!this.rerankingProvider) {
+          return this.modelsUnavailable(envelope);
+        }
+        const request = RerankRequestSchema.parse(envelope.command.payload);
+        return this.executeInferenceOperation(envelope, {
+          capability: "reranker",
+          modelId: request.modelId,
+          execute: () => this.rerankingProvider!.rerank(request),
+          parseResult: (result) => RerankResultSchema.parse(result),
+          completedReason: "Reranking inference completed.",
+          failureCode: "RERANKING_FAILED",
+          failureMessage: "Unable to rerank documents."
         });
       }
 

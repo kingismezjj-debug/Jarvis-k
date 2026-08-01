@@ -54,6 +54,7 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('data-testid="run-fixture-embedding"');
     expect(appSource).toContain('data-testid="run-fixture-intent"');
     expect(appSource).toContain('data-testid="run-fixture-ocr"');
+    expect(appSource).toContain('data-testid="run-fixture-reranker"');
     expect(appSource).toContain("Model Governance");
     expect(appSource).toContain("CANDIDATES");
     expect(appSource).toContain("DOWNLOADABLE");
@@ -74,10 +75,15 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("OCR TEXT");
     expect(appSource).toContain("OCR BLOCKS");
     expect(appSource).toContain("OCR OPS");
+    expect(appSource).toContain("RERANKER");
+    expect(appSource).toContain("TOP DOC");
+    expect(appSource).toContain("RERANKED");
+    expect(appSource).toContain("RERANK OPS");
     expect(appSource).toContain("refreshModelGovernance");
     expect(appSource).toContain("runFixtureEmbeddingProbe");
     expect(appSource).toContain("runFixtureIntentProbe");
     expect(appSource).toContain("runFixtureOcrProbe");
+    expect(appSource).toContain("runFixtureRerankProbe");
   });
 
   it("labels model operation events in the activity stream", () => {

@@ -23,9 +23,12 @@ import {
   createFixtureIntentRouterDescriptor,
   createFixtureOcrConfigurationReport,
   createFixtureOcrDescriptor,
+  createFixtureRerankerConfigurationReport,
+  createFixtureRerankerDescriptor,
   FixtureEmbeddingProvider,
   FixtureIntentRoutingProvider,
-  FixtureOcrProvider
+  FixtureOcrProvider,
+  FixtureRerankingProvider
 } from "@jarvis-k/inference-adapter-fixture";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import path from "node:path";
@@ -195,6 +198,9 @@ const intentRoutingProvider = fixtureInferenceEnabled
 const ocrRecognitionProvider = fixtureInferenceEnabled
   ? new FixtureOcrProvider()
   : undefined;
+const rerankingProvider = fixtureInferenceEnabled
+  ? new FixtureRerankingProvider()
+  : undefined;
 const fixtureIntentRouterDescriptor = createFixtureIntentRouterDescriptor({
   enabled: fixtureInferenceEnabled
 });
@@ -208,48 +214,23 @@ const fixtureOcrDescriptor = createFixtureOcrDescriptor({
 const fixtureOcrConfigurationReport = createFixtureOcrConfigurationReport({
   enabled: fixtureInferenceEnabled
 });
+const fixtureRerankerDescriptor = createFixtureRerankerDescriptor({
+  enabled: fixtureInferenceEnabled
+});
+const fixtureRerankerConfigurationReport =
+  createFixtureRerankerConfigurationReport({
+    enabled: fixtureInferenceEnabled
+  });
 const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
   fixtureEmbeddingProviderDescriptor,
   fixtureOcrDescriptor,
   fixtureIntentRouterDescriptor,
-  {
-    capability: "reranker",
-    provider: "reranker.unconfigured",
-    status: "unconfigured",
-    execution: "disabled",
-    modelIds: [],
-    reasons: ["No reranking provider has been composed."]
-  }
+  fixtureRerankerDescriptor
 ], [
   fixtureEmbeddingProviderConfigurationReport,
   fixtureOcrConfigurationReport,
   fixtureIntentRouterConfigurationReport,
-  {
-    capability: "reranker",
-    provider: "reranker.unconfigured",
-    status: "unconfigured",
-    requirements: [
-      {
-        key: "runtime_adapter",
-        source: "runtime",
-        required: true,
-        configured: false,
-        description: "Reranking provider adapter must be composed.",
-        reasons: ["No reranking provider has been composed."]
-      },
-      {
-        key: "model_binding",
-        source: "manual",
-        required: true,
-        configured: false,
-        description: "Reranking provider must be bound to approved manifests.",
-        reasons: ["No reranking model binding has been configured."]
-      }
-    ],
-    reasons: [
-      "Reranking inference remains disabled until a provider is composed."
-    ]
-  }
+  fixtureRerankerConfigurationReport
 ]);
 const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
   inferenceProviderRegistry,
@@ -295,7 +276,8 @@ runtime = new CoreRuntime(
   inferenceExecutionPlanner,
   embeddingInferenceProvider,
   intentRoutingProvider,
-  ocrRecognitionProvider
+  ocrRecognitionProvider,
+  rerankingProvider
 );
 
 let inboundQueue = Promise.resolve();

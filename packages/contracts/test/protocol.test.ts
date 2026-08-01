@@ -258,6 +258,20 @@ describe("protocol contracts", () => {
         }
       }
     });
+    const rerank = createCommandEnvelope({
+      type: "agent.rerank",
+      payload: {
+        modelId: "jarvis-fixture/local-reranker-smoke",
+        query: "model ports",
+        documents: [
+          {
+            id: "doc-1",
+            text: "Core uses injected model ports."
+          }
+        ],
+        topK: 1
+      }
+    });
     const operations = createCommandEnvelope({
       type: "agent.listModelOperations",
       payload: {
@@ -325,6 +339,9 @@ describe("protocol contracts", () => {
     );
     expect(CommandEnvelopeSchema.parse(ocrRecognition).command.type).toBe(
       "agent.recognizeOcr"
+    );
+    expect(CommandEnvelopeSchema.parse(rerank).command.type).toBe(
+      "agent.rerank"
     );
     expect(CommandEnvelopeSchema.parse(operations).command.type).toBe(
       "agent.listModelOperations"
