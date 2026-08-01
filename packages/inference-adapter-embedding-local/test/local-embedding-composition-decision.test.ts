@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   assessLocalEmbeddingReadiness,
   createApprovedLocalEmbeddingLicenseApprovalRecord,
+  createApprovedLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
   createLocalEmbeddingRevisionApprovalRecord,
-  createLocalEmbeddingRuntimeStrategy,
   decideLocalEmbeddingComposition,
   LOCAL_EMBEDDING_MODEL_ID
 } from "../src";
@@ -139,15 +139,5 @@ function approvedArtifactPinApproval(plan: ReturnType<typeof pinnedArtifactPlan>
 }
 
 function approvedRuntimeStrategy() {
-  return {
-    ...createLocalEmbeddingRuntimeStrategy(),
-    status: "approved" as const,
-    requiredGates: createLocalEmbeddingRuntimeStrategy().requiredGates.map(
-      (gate) => ({
-        ...gate,
-        satisfied: true
-      })
-    ),
-    reasons: []
-  };
+  return createApprovedLocalEmbeddingRuntimeStrategy();
 }

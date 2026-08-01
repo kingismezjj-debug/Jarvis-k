@@ -231,9 +231,49 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 59 test files and 304 tests.
 
+## Wave 7.9: Runtime Packaging and Process Isolation Guard
+
+- Status: complete.
+- Strengthened the provider-local runtime strategy with explicit package
+  boundary, Windows packaging plan, and supervised child-process isolation
+  evidence.
+- Added an explicit approved runtime strategy factory for the planned
+  Transformers runtime package boundary.
+- Runtime strategy approval now requires:
+  - dependencies scoped to the future dedicated runtime package only;
+  - protected packages and apps kept out of runtime dependency scope;
+  - composition rooted in `apps/core-host`;
+  - supervised child-process IPC;
+  - resource scheduler lease before model load;
+  - sanitized failure reporting;
+  - direct shell execution from model output blocked;
+  - Windows packaging plan present;
+  - model artifacts and cache paths not bundled or committed;
+  - `runtimeDependenciesIntroduced: false`;
+  - `executionEnabled: false`.
+- The `runtime.strategy` readiness gate can now be satisfied explicitly, while
+  `runtime.adapter`, `runtime.packaging`, benchmark, provider registration, and
+  execution enablement remain separate later gates.
+- No Python, CUDA, ONNX, Paddle, Transformers, llama.cpp, native helper,
+  runtime dependency, model file, model cache, signed URL, provider credential,
+  provider registration, composition change, benchmark value, or local
+  embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding runtime strategy, runtime implementation procedure, runtime
+  adapter, readiness provider, readiness checklist, and composition decision
+  tests: PASS, 32 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 59 test files and 305 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete runtime dependency, native dependency, packaging, process isolation,
+- Complete runtime adapter implementation procedure, final Windows packaging
+  review, native/runtime dependency review for any dependencies actually added,
   and tokenizer/config runtime integration review.
 - Define and approve benchmark capture inputs, methods, resource isolation,
   and failure reporting before recording real metric values.

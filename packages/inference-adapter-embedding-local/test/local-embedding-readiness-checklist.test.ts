@@ -2,12 +2,12 @@ import type { ModelManifest } from "@jarvis-k/contracts";
 import { describe, expect, it } from "vitest";
 import {
   createApprovedLocalEmbeddingLicenseApprovalRecord,
+  createApprovedLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
   createLocalEmbeddingReadinessChecklist,
   createLocalEmbeddingRevisionApprovalRecord,
-  createLocalEmbeddingRuntimeStrategy,
   LOCAL_EMBEDDING_MODEL_ID,
   LOCAL_EMBEDDING_PROVIDER_ID,
   type LocalEmbeddingArtifactPlan
@@ -104,17 +104,7 @@ function approvedChecklistInput() {
       })),
       reasons: []
     }),
-    runtimeStrategy: {
-      ...createLocalEmbeddingRuntimeStrategy(),
-      status: "approved" as const,
-      requiredGates: createLocalEmbeddingRuntimeStrategy().requiredGates.map(
-        (gate) => ({
-          ...gate,
-          satisfied: true
-        })
-      ),
-      reasons: []
-    },
+    runtimeStrategy: createApprovedLocalEmbeddingRuntimeStrategy(),
     licenseApproval: createApprovedLocalEmbeddingLicenseApprovalRecord({
       metadataRevision: "immutable-embedding-revision"
     }),

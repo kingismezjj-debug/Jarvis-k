@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   createApprovedLocalEmbeddingLicenseApprovalRecord,
+  createApprovedLocalEmbeddingRuntimeStrategy,
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
   createLocalEmbeddingProviderConfigurationReport,
-  createLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingProviderDescriptor,
   createLocalEmbeddingRevisionApprovalRecord,
   LOCAL_EMBEDDING_MODEL_ID,
@@ -507,15 +507,5 @@ function approvedBenchmarkApproval() {
 }
 
 function approvedRuntimeStrategy() {
-  return {
-    ...createLocalEmbeddingRuntimeStrategy(),
-    status: "approved" as const,
-    requiredGates: createLocalEmbeddingRuntimeStrategy().requiredGates.map(
-      (gate) => ({
-        ...gate,
-        satisfied: true
-      })
-    ),
-    reasons: []
-  };
+  return createApprovedLocalEmbeddingRuntimeStrategy();
 }

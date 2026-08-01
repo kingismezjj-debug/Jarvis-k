@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingRuntimeAdapterDescriptor,
   createLocalEmbeddingRuntimeStrategy,
   isLocalEmbeddingRuntimeStrategyApproved,
+  LOCAL_EMBEDDING_RUNTIME_COMPOSITION_ROOT,
+  LOCAL_EMBEDDING_RUNTIME_PACKAGE_LOCATION,
   LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME
 } from "../src";
 
@@ -12,7 +15,9 @@ describe("local embedding runtime strategy", () => {
       runtime: "transformers",
       status: "provisional",
       dedicatedPackageName: LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME,
-      dependencyScope: "dedicated_runtime_package_only"
+      dependencyScope: "dedicated_runtime_package_only",
+      runtimeDependenciesIntroduced: false,
+      executionEnabled: false
     });
   });
 
@@ -45,17 +50,7 @@ describe("local embedding runtime strategy", () => {
   });
 
   it("approves only fully reviewed runtime strategies", () => {
-    const approved = {
-      ...createLocalEmbeddingRuntimeStrategy(),
-      status: "approved" as const,
-      requiredGates: createLocalEmbeddingRuntimeStrategy().requiredGates.map(
-        (gate) => ({
-          ...gate,
-          satisfied: true
-        })
-      ),
-      reasons: []
-    };
+    const approved = createApprovedLocalEmbeddingRuntimeStrategy();
 
     expect(isLocalEmbeddingRuntimeStrategyApproved(approved)).toBe(true);
     expect(
@@ -64,5 +59,66 @@ describe("local embedding runtime strategy", () => {
         status: "provisional"
       })
     ).toBe(false);
+    const { packageBoundary: _packageBoundary, ...withoutPackageBoundary } =
+      approved;
+    expect(
+      isLocalEmbeddingRuntimeStrategyApproved(withoutPackageBoundary)
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingRuntimeStrategyApproved({
+        ...approved,
+        processIsolation: {
+          ...approved.processIsolation!,
+          directShellExecutionAllowed: true as false
+        }
+      })
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingRuntimeStrategyApproved({
+        ...approved,
+        windowsPackaging: {
+          ...approved.windowsPackaging!,
+          bundledModelArtifacts: true as false
+        }
+      })
+    ).toBe(false);
+  });
+
+  it("records approved packaging and process isolation without runtime dependencies", () => {
+    const strategy = createApprovedLocalEmbeddingRuntimeStrategy();
+    const serialized = JSON.stringify(strategy);
+
+    expect(strategy).toMatchObject({
+      status: "approved",
+      runtimeDependenciesIntroduced: false,
+      executionEnabled: false,
+      packageBoundary: {
+        dedicatedPackageName: LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME,
+        packageLocation: LOCAL_EMBEDDING_RUNTIME_PACKAGE_LOCATION,
+        compositionRoot: LOCAL_EMBEDDING_RUNTIME_COMPOSITION_ROOT,
+        runtimeDependenciesIntroduced: false
+      },
+      processIsolation: {
+        mode: "supervised_child_process",
+        supervisor: LOCAL_EMBEDDING_RUNTIME_COMPOSITION_ROOT,
+        ipc: "private_child_process_ipc",
+        resourceLeaseRequired: true,
+        sanitizedFailureReporting: true,
+        directShellExecutionAllowed: false,
+        modelOutputActionPolicy: "validated_intent_only"
+      },
+      windowsPackaging: {
+        status: "planned",
+        bundledModelArtifacts: false,
+        cachePathCommitted: false,
+        installerBundling: "deferred",
+        updateRollbackPlanRequired: true,
+        noticeBundleRequired: true
+      }
+    });
+    expect(serialized).not.toMatch(/https?:\/\//u);
+    expect(serialized).not.toMatch(/\b[a-f0-9]{64}\b/u);
+    expect(serialized).not.toContain("model.safetensors");
+    expect(serialized).not.toContain("executionEnabled\":true");
   });
 });
