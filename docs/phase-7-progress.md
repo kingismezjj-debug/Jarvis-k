@@ -1062,3 +1062,33 @@ packaging, license, benchmark, and composition gate passes.
   execution, provider registration, default opt-in, Core Host routing,
   Desktop IPC, or user-facing controls without separate product, privacy,
   and security approval.
+
+## Phase 12.1: Model Lifecycle and Windows Packaging Preflight
+
+- Status: complete as a provider-neutral, dry-run guard preparation wave.
+- Added a fail-closed preflight for model manifest pinning, artifact digest
+  verification, license review, sanitized operation state, and a deterministic
+  fixture executor.
+- Windows packaging policy, automatic update policy, and upgrade/rollback
+  policy remain explicitly deferred.
+- The guard keeps committed model artifacts, signed URL persistence, installer
+  bundling, automatic updates, rollback execution, filesystem writes, network
+  access, credentials, model loading, provider registration, default opt-in,
+  and private path exposure disabled.
+- No installer, runtime/model bundle, cache write, artifact download,
+  filesystem lifecycle code, update/rollback execution, Core Host change,
+  Desktop change, IPC command, or UI change was added.
+
+### Current Gate
+
+- Model lifecycle preflight normal, blocked, degraded, and sanitized-output
+  tests: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not create an installer, add automatic update or rollback execution,
+  write a model cache, access model artifacts, add filesystem/network
+  lifecycle code, or make the final Windows packaging policy decision without
+  explicit product, security, and release approval.
