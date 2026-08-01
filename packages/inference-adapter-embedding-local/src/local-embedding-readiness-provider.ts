@@ -14,6 +14,11 @@ import {
   isLocalEmbeddingArtifactPlanPinned,
   type LocalEmbeddingArtifactPlan
 } from "./local-embedding-artifact-plan";
+import {
+  createLocalEmbeddingRuntimeStrategy,
+  isLocalEmbeddingRuntimeStrategyApproved,
+  type LocalEmbeddingRuntimeStrategy
+} from "./local-embedding-runtime-strategy";
 
 export const LOCAL_EMBEDDING_PROVIDER_ID = "embedding.local.qwen3";
 export const LOCAL_EMBEDDING_MODEL_ID = "Qwen/Qwen3-Embedding-0.6B";
@@ -27,6 +32,7 @@ type LocalEmbeddingReadinessKey =
   | "model.revision"
   | "model.artifact_sha256"
   | "artifact.pins"
+  | "runtime.strategy"
   | "runtime.adapter"
   | "runtime.packaging"
   | "license.redistribution_review"
@@ -35,6 +41,7 @@ type LocalEmbeddingReadinessKey =
 export interface LocalEmbeddingReadinessInput {
   manifest?: unknown;
   artifactPlan?: LocalEmbeddingArtifactPlan;
+  runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
   runtimeAdapterReady?: boolean;
   packagingReviewed?: boolean;
   redistributionReviewed?: boolean;
@@ -143,6 +150,14 @@ export function assessLocalEmbeddingReadiness(
     isLocalEmbeddingArtifactPlanPinned(artifactPlan),
     "Pin every required embedding artifact with an immutable revision and SHA-256 digest."
   );
+  const runtimeStrategy =
+    input.runtimeStrategy ?? createLocalEmbeddingRuntimeStrategy();
+  addCheck(
+    checks,
+    "runtime.strategy",
+    isLocalEmbeddingRuntimeStrategyApproved(runtimeStrategy),
+    "Approve the runtime dependency, packaging, process isolation, tokenizer pin, and benchmark strategy."
+  );
   addCheck(
     checks,
     "runtime.adapter",
@@ -209,6 +224,8 @@ function readinessRequirementDescription(
       return "Record SHA-256 digests for every artifact.";
     case "artifact.pins":
       return "Pin every required artifact with revision and SHA-256 metadata.";
+    case "runtime.strategy":
+      return "Approve runtime dependency scope, packaging, isolation, tokenizer, and benchmark gates.";
     case "runtime.adapter":
       return "Select a dedicated local embedding runtime adapter.";
     case "runtime.packaging":

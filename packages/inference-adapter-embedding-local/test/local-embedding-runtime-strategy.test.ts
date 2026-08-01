@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createLocalEmbeddingRuntimeAdapterDescriptor,
   createLocalEmbeddingRuntimeStrategy,
+  isLocalEmbeddingRuntimeStrategyApproved,
   LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME
 } from "../src";
 
@@ -41,5 +42,27 @@ describe("local embedding runtime strategy", () => {
     expect(createLocalEmbeddingRuntimeAdapterDescriptor().notes).toContain(
       `Future runtime dependencies are scoped to ${LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME}.`
     );
+  });
+
+  it("approves only fully reviewed runtime strategies", () => {
+    const approved = {
+      ...createLocalEmbeddingRuntimeStrategy(),
+      status: "approved" as const,
+      requiredGates: createLocalEmbeddingRuntimeStrategy().requiredGates.map(
+        (gate) => ({
+          ...gate,
+          satisfied: true
+        })
+      ),
+      reasons: []
+    };
+
+    expect(isLocalEmbeddingRuntimeStrategyApproved(approved)).toBe(true);
+    expect(
+      isLocalEmbeddingRuntimeStrategyApproved({
+        ...approved,
+        status: "provisional"
+      })
+    ).toBe(false);
   });
 });

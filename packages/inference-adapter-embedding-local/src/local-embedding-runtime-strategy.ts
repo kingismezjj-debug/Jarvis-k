@@ -5,7 +5,7 @@ export const LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME =
 
 export interface LocalEmbeddingRuntimeStrategy {
   runtime: ModelRuntime;
-  status: "provisional";
+  status: "provisional" | "approved";
   dedicatedPackageName: string;
   dependencyScope:
     | "dedicated_runtime_package_only"
@@ -75,4 +75,19 @@ export function createLocalEmbeddingRuntimeStrategy(): LocalEmbeddingRuntimeStra
     ],
     reasons: requiredGates.map((gate) => gate.reason)
   };
+}
+
+export function isLocalEmbeddingRuntimeStrategyApproved(
+  strategy: LocalEmbeddingRuntimeStrategy
+): boolean {
+  return (
+    strategy.runtime === "transformers" &&
+    strategy.status === "approved" &&
+    strategy.dedicatedPackageName === LOCAL_EMBEDDING_RUNTIME_PACKAGE_NAME &&
+    strategy.dependencyScope === "dedicated_runtime_package_only" &&
+    strategy.requiredGates.length > 0 &&
+    strategy.requiredGates.every((gate) => gate.satisfied) &&
+    strategy.forbiddenDependencyLocations.includes("packages/core") &&
+    strategy.forbiddenDependencyLocations.includes("apps/ui")
+  );
 }

@@ -167,6 +167,28 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 43 test files and 229 tests.
 
+## Wave 6.8: Runtime Strategy As Readiness Gate
+
+- Status: complete.
+- Connected the runtime strategy record to the local embedding readiness
+  evaluator.
+- Added `runtime.strategy` as a formal provider configuration requirement.
+- The strategy must be explicitly approved and all runtime gates must be
+  satisfied before readiness can pass: dependency license review, Windows
+  packaging plan, process isolation plan, tokenizer/config pinning, and
+  benchmark acceptance.
+- Preflight requirement visibility now includes the runtime strategy gate.
+- No runtime dependency, runtime package, provider registration, model
+  artifact, download path, or real execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding runtime strategy and readiness tests: PASS, 14 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 43 test files and 231 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
