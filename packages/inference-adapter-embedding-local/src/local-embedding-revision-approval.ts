@@ -1,5 +1,8 @@
 import { LOCAL_EMBEDDING_MODEL_ID } from "./local-embedding-constants";
 
+export const LOCAL_EMBEDDING_SELECTED_REVISION =
+  "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3";
+
 export type LocalEmbeddingRevisionApprovalStatus =
   | "pending"
   | "approved"
@@ -30,6 +33,15 @@ export function createLocalEmbeddingRevisionApprovalRecord(
     ],
     ...overrides
   };
+}
+
+export function createApprovedLocalEmbeddingRevisionApprovalRecord(): LocalEmbeddingRevisionApprovalRecord {
+  return createLocalEmbeddingRevisionApprovalRecord({
+    status: "approved",
+    revision: LOCAL_EMBEDDING_SELECTED_REVISION,
+    downloadEnabled: false,
+    reasons: []
+  });
 }
 
 export function isLocalEmbeddingRevisionApproved(

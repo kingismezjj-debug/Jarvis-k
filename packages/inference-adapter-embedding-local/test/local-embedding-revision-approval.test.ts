@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRevisionApprovalRecord,
   isLocalEmbeddingRevisionApproved,
-  LOCAL_EMBEDDING_MODEL_ID
+  LOCAL_EMBEDDING_MODEL_ID,
+  LOCAL_EMBEDDING_SELECTED_REVISION
 } from "../src";
 
 describe("local embedding revision approval", () => {
@@ -70,6 +72,27 @@ describe("local embedding revision approval", () => {
         modelId: "another/model"
       })
     ).toBe(false);
+  });
+
+  it("records the selected immutable upstream revision without enabling downloads", () => {
+    const record = createApprovedLocalEmbeddingRevisionApprovalRecord();
+
+    expect(record).toEqual({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      source: "huggingface",
+      status: "approved",
+      revision: LOCAL_EMBEDDING_SELECTED_REVISION,
+      downloadEnabled: false,
+      reasons: []
+    });
+    expect(LOCAL_EMBEDDING_SELECTED_REVISION).toMatch(/^[a-f0-9]{40}$/u);
+    expect(
+      isLocalEmbeddingRevisionApproved(
+        record,
+        LOCAL_EMBEDDING_SELECTED_REVISION
+      )
+    ).toBe(true);
+    expect(isLocalEmbeddingRevisionApproved(record, "main")).toBe(false);
   });
 
   it("does not expose URLs, digests, or download enablement", () => {
