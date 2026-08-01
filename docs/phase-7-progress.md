@@ -667,15 +667,45 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 70 test files and 356 tests.
 
+## Wave 7.23: Composition Preflight
+
+- Status: complete as a review-only preparation wave.
+- Added a provider-local composition and enablement preflight for the planned
+  Transformers embedding runtime.
+- The preflight requires accepted runtime acceptance and adapter isolation
+  evidence, the fixed `apps/core-host` composition root, unchanged Core Host
+  composition and provider visibility, a fixture fallback, and clean
+  verification.
+- An accepted result means only
+  `ready_for_explicit_composition_review`; `compositionAllowed` remains
+  `false`.
+- Provider registration, execution, default opt-in, runtime dependencies,
+  downloads, model artifact access, cache writes, installer creation, model
+  bundling, runtime loading, and inference execution remain disabled.
+- No Core Host, Desktop, IPC, UI, contracts, capabilities, runtime dependency,
+  model artifact, cache, installer, provider registration, or execution change
+  was added in this wave.
+
+### Current Gate
+
+- Local embedding composition preflight tests: PASS, 5 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS after the wave-specific verification.
+
 ## Remaining Phase 7 Work
 
-- Phase 7.13 through Phase 7.17 automation scope is complete.
-- Continue with dedicated runtime package registration/composition review only
-  after a separately approved implementation stage.
+- Phase 7.13 through Phase 7.23 automation scope is complete.
+- Phase 7 is now at the explicit composition approval boundary. Do not
+  register the real provider, enable execution, change default opt-in behavior,
+  add runtime dependencies, access model artifacts, or modify `apps/core-host`
+  without a separate approval and implementation stage.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.
 - Implement the dedicated runtime package only after artifact, license,
   packaging, and benchmark gates are approved.
 - Register runtime and execution providers only in `apps/core-host`, behind
-  explicit enablement and preflight checks.
+  explicit enablement and preflight checks, after the hard pause is lifted.
