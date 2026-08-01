@@ -29,8 +29,8 @@ They are not runtime dependencies.
   real-provider planning
 - Phase 6 local embedding provider readiness: started with fail-closed
   descriptor and configuration gates
-- Phase 7 local embedding readiness guards: complete through the controlled
-  artifact cache executor guard; runtime execution remains disabled
+- Phase 7 local embedding readiness guards: complete through the runtime
+  adapter isolation guard; runtime execution remains disabled
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -135,6 +135,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.18 tokenizer/config integration review](docs/phase-7-18-tokenizer-config-integration-review.md)
 - [Phase 7.19 runtime helper protocol](docs/phase-7-19-runtime-helper-protocol.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
+- [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

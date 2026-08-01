@@ -613,6 +613,33 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 68 test files and 348 tests.
 
+## Wave 7.21: Runtime Adapter Isolation Guard
+
+- Status: complete as a readiness guard only.
+- Added a provider-local isolation guard for the planned Transformers
+  embedding runtime adapter.
+- The guard validates the provider-neutral runtime descriptor, dedicated
+  package boundary, supervised private child-process protocol, resource lease
+  requirement, sanitized errors, and fallback-provider availability.
+- An accepted result means only `ready_for_dependency_approval`; composition,
+  provider registration, default opt-in, model loading, and execution remain
+  blocked.
+- Regressions in runtime dependencies, downloads, execution, registration,
+  default opt-in, helper isolation, fallback availability, unsafe descriptor
+  notes, or descriptor capability are rejected.
+- No real runtime adapter, runtime dependency, Python environment, model
+  loader, artifact access, provider registration, composition change,
+  benchmark value, or local embedding execution was added in this wave.
+
+### Current Gate
+
+- Runtime adapter isolation guard tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 69 test files and 352 tests.
+
 ## Remaining Phase 7 Work
 
 - Phase 7.13 through Phase 7.17 automation scope is complete.
