@@ -395,6 +395,26 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 50 test files and 264 tests.
 
+## Wave 6.17: Phase 6 Go/No-Go Checklist
+
+- Status: complete.
+- Added `docs/phase-6-go-no-go.md` as the Phase 6 readiness handoff checklist.
+- Documented the current safe state, guard inventory, no-go rules, and go
+  criteria for revision selection, artifact pinning, runtime work, and
+  execution enablement.
+- Reaffirmed that real downloads, model artifacts, signed URLs, credentials,
+  real runtime dependencies, runtime registration, and provider execution
+  remain blocked until separately approved and verified.
+- No code path, provider composition, runtime dependency, download path,
+  artifact pin, or execution behavior was added in this wave.
+
+### Current Gate
+
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 50 test files and 264 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
