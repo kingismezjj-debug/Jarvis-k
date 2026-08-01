@@ -640,6 +640,33 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 69 test files and 352 tests.
 
+## Wave 7.22: Runtime Acceptance Preflight
+
+- Status: complete as a review-only preparation wave.
+- Added a provider-local aggregate preflight for benchmark capture procedure,
+  deferred benchmark values, license/native review, Windows packaging policy,
+  runtime dependency selection, and runtime adapter isolation.
+- An accepted result means only `ready_for_runtime_backed_capture`.
+- The preflight requires benchmark result values to remain pending and
+  uncaptured, and keeps runtime dependencies, downloads, cache writes,
+  installer creation, provider registration, default opt-in, and execution
+  disabled.
+- Missing or regressed review evidence, captured metrics, dependency changes,
+  packaging actions, provider registration, dirty verification, or unsafe
+  state fail closed.
+- No benchmark metric value, runtime dependency, native artifact, model file,
+  cache, installer, provider registration, composition change, or local
+  embedding execution was added in this wave.
+
+### Current Gate
+
+- Runtime acceptance preflight tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 70 test files and 356 tests.
+
 ## Remaining Phase 7 Work
 
 - Phase 7.13 through Phase 7.17 automation scope is complete.

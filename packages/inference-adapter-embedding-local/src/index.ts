@@ -18,6 +18,7 @@ export * from "./local-embedding-revision-approval";
 export * from "./local-embedding-revision-selection-procedure";
 export * from "./local-embedding-runtime-adapter";
 export * from "./local-embedding-runtime-adapter-isolation";
+export * from "./local-embedding-runtime-acceptance-preflight";
 export * from "./local-embedding-runtime-dependency-selection";
 export * from "./local-embedding-runtime-implementation-procedure";
 export * from "./local-embedding-runtime-package-preflight";
