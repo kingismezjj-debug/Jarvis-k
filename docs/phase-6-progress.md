@@ -415,6 +415,30 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 50 test files and 264 tests.
 
+## Wave 6.18: Revision Selection Procedure Guard
+
+- Status: complete.
+- Added a provider-local revision selection procedure guard for the planned
+  local embedding provider.
+- Added `docs/phase-6-revision-selection-procedure.md` to define the later
+  manual process for selecting an immutable upstream revision.
+- The procedure blocks floating revisions, enabled downloads, artifact pinning
+  during revision selection, non-local approval records, and unverified work.
+- A candidate can become ready for approval without exposing the candidate
+  revision in the procedure summary output.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, benchmark
+  execution, or provider execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding revision selection procedure tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 51 test files and 267 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
