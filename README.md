@@ -48,6 +48,8 @@ They are not runtime dependencies.
 - Phase 11.1 OCR, screen, and vision contract guards: provider-neutral
   fixture preparation complete; real visual capture and model execution remain
   disabled
+- Phase 11.2 visual fixture benchmark harness: deterministic fixture
+  measurement complete; real visual metrics and execution remain deferred
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -163,6 +165,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 10.3 local voice runtime isolation](docs/phase-10-3-local-voice-runtime-isolation.md)
 - [Phase 10.4 local voice runtime acceptance preflight](docs/phase-10-4-local-voice-runtime-acceptance-preflight.md)
 - [Phase 11.1 OCR, screen, and vision contract guards](docs/phase-11-1-visual-contract-guards.md)
+- [Phase 11.2 visual fixture benchmark harness](docs/phase-11-2-visual-fixture-benchmark-harness.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

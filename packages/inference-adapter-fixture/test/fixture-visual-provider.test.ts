@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { evaluateLocalVisualFixtureBenchmark } from "@jarvis-k/capabilities";
 import {
   createFixtureScreenCaptureAvailabilityReport,
   FixtureScreenCaptureProvider,
+  createFixtureOcrConfigurationReport,
+  FixtureOcrProvider,
   createFixtureVisionConfigurationReport,
   createFixtureVisionDescriptor,
   FIXTURE_VISION_MODEL_ID,
@@ -103,6 +106,80 @@ describe("fixture visual providers", () => {
         }
       ],
       analyzedAt: "2026-08-01T00:00:00.000Z"
+    });
+  });
+
+  it("runs the visual fixture providers through the benchmark contract", async () => {
+    expect(
+      createFixtureOcrConfigurationReport({ enabled: true })
+    ).toMatchObject({
+      capability: "ocr",
+      status: "available"
+    });
+
+    const now = () => new Date("2026-08-01T00:00:00.000Z");
+    const screenCaptureProvider = new FixtureScreenCaptureProvider({ now });
+    const screenCapture = await screenCaptureProvider.capture({
+      captureId: "benchmark-capture"
+    });
+    const image = {
+      ...screenCapture.image,
+      id: "benchmark-image"
+    };
+    const ocrResult = await new FixtureOcrProvider({ now }).recognize({
+      modelId: "jarvis-fixture/local-ocr-smoke",
+      image
+    });
+    const visionResult = await new FixtureVisionProvider({ now }).analyze({
+      modelId: FIXTURE_VISION_MODEL_ID,
+      image,
+      tasks: ["describe"]
+    });
+    const report = evaluateLocalVisualFixtureBenchmark([
+      {
+        caseId: "screen_capture",
+        outcome: "pass",
+        ocrCompleted: false,
+        screenCaptureCompleted: screenCapture.source === "fixture",
+        visionCompleted: false,
+        rawPixelsPersisted: false,
+        rawPixelsExposed: false,
+        rawTextPersisted: false,
+        modelOutputCommandsEnabled: false
+      },
+      {
+        caseId: "ocr_recognition",
+        outcome: "pass",
+        ocrCompleted: ocrResult.text.length > 0,
+        screenCaptureCompleted: false,
+        visionCompleted: false,
+        rawPixelsPersisted: false,
+        rawPixelsExposed: false,
+        rawTextPersisted: false,
+        modelOutputCommandsEnabled: false
+      },
+      {
+        caseId: "vision_analysis",
+        outcome: "pass",
+        ocrCompleted: false,
+        screenCaptureCompleted: false,
+        visionCompleted: visionResult.labels.length > 0,
+        rawPixelsPersisted: false,
+        rawPixelsExposed: false,
+        rawTextPersisted: false,
+        modelOutputCommandsEnabled: false
+      }
+    ]);
+
+    expect(report).toMatchObject({
+      outcome: "pass",
+      reasonCode: "VISUAL_BENCHMARK_COMPLETE",
+      caseCount: 3,
+      passedCaseCount: 3,
+      ocrSuccessCount: 1,
+      screenCaptureSuccessCount: 1,
+      visionSuccessCount: 1,
+      safetyViolationDetected: false
     });
   });
 

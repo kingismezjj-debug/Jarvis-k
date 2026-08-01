@@ -965,3 +965,37 @@ packaging, license, benchmark, and composition gate passes.
   dependencies, visual model artifacts, model loading, network access,
   provider registration, Core Host routing, Desktop IPC, or UI controls
   without a separate product, privacy, and security approval.
+
+## Phase 11.2: Visual Fixture Benchmark Harness
+
+- Status: complete as a deterministic, provider-neutral, fixture-only
+  benchmark preparation wave.
+- Added a bounded benchmark plan and evaluator for OCR result completion,
+  screen-capture metadata completion, vision analysis completion, degraded
+  fixture coverage, and sanitized-output safety checks.
+- Reports expose only bounded counts, outcomes, reason codes, and a
+  safety-violation flag; raw pixels, OCR text, arbitrary vision output,
+  credentials, URLs, private paths, and model metrics remain unpersisted and
+  unexposed.
+- Empty observations, failed cases, and unsafe observation flags fail closed.
+  Degraded fixture coverage reports `degraded` without enabling real
+  execution.
+- Added a fixture smoke that composes the deterministic screen, OCR, and
+  vision providers through the benchmark evaluator in memory.
+- No real visual benchmark capture, screen access, model runtime, model
+  artifact, cache, provider registration, Core Host change, Desktop change,
+  IPC command, or UI change was added.
+
+### Current Gate
+
+- Local visual benchmark and fixture composition tests: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not capture real visual latency, quality, memory, or resource metrics.
+  Do not add real screen capture, permission prompts, OCR or vision runtime
+  dependencies, visual model artifacts, model loading, provider
+  registration, Core Host routing, Desktop IPC, or UI controls without
+  separate product, privacy, and security approval.

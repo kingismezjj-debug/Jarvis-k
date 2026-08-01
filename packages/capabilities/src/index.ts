@@ -18,3 +18,4 @@ export * from "./unavailable-model-runtime-registry";
 export * from "./unavailable-ocr-provider";
 export * from "./unavailable-reranking-provider";
 export * from "./local-visual-preflight";
+export * from "./local-visual-benchmark";
