@@ -52,6 +52,8 @@ They are not runtime dependencies.
   measurement complete; real visual metrics and execution remain deferred
 - Phase 11.3 visual runtime isolation: pending adapter boundary complete;
   runtime dependencies, screen capture, and model execution remain deferred
+- Phase 11.4 visual runtime acceptance preflight: deferred review aggregate
+  complete; runtime-backed capture remains blocked
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -169,6 +171,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 11.1 OCR, screen, and vision contract guards](docs/phase-11-1-visual-contract-guards.md)
 - [Phase 11.2 visual fixture benchmark harness](docs/phase-11-2-visual-fixture-benchmark-harness.md)
 - [Phase 11.3 visual runtime isolation](docs/phase-11-3-visual-runtime-isolation.md)
+- [Phase 11.4 visual runtime acceptance preflight](docs/phase-11-4-visual-runtime-acceptance-preflight.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

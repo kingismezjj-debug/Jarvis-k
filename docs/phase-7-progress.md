@@ -1029,3 +1029,36 @@ packaging, license, benchmark, and composition gate passes.
   permissions, model artifacts, model loading, OCR/vision execution, provider
   registration, default opt-in, Core Host routing, Desktop IPC, or UI controls
   without a separate product, privacy, and security approval.
+
+## Phase 11.4: Visual Runtime Acceptance Preflight
+
+- Status: complete as a provider-neutral aggregate preflight preparation wave.
+- Added an aggregate guard for the visual fixture benchmark boundary, runtime
+  isolation boundary, and deferred license, Windows packaging, native
+  dependency, and screen-capture privacy/permission reviews.
+- An accepted result means only
+  `ready_for_runtime_backed_capture`.
+- Real visual benchmark values remain pending and unexposed; network access,
+  credentials, runtime dependencies, model downloads, model loading, screen
+  capture, OCR execution, vision execution, provider registration, default
+  opt-in, raw pixel persistence or exposure, and model-output command
+  conversion remain disabled.
+- Missing review evidence, captured metrics, privacy regressions, dependency
+  changes, provider registration, execution enablement, or dirty verification
+  fail closed.
+- No runtime package, artifact, cache, screen permission, Core Host, Desktop,
+  IPC, UI, or provider composition change was added.
+
+### Current Gate
+
+- Local visual runtime acceptance preflight tests: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not add real visual runtime dependencies, model artifacts, network
+  downloads, screen-capture APIs or permissions, model loading, OCR/vision
+  execution, provider registration, default opt-in, Core Host routing,
+  Desktop IPC, or user-facing controls without separate product, privacy,
+  and security approval.

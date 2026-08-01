@@ -20,3 +20,4 @@ export * from "./unavailable-reranking-provider";
 export * from "./local-visual-preflight";
 export * from "./local-visual-benchmark";
 export * from "./local-visual-runtime-isolation";
+export * from "./local-visual-runtime-acceptance-preflight";
