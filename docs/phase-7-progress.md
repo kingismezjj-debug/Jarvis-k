@@ -138,10 +138,41 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 58 test files and 296 tests.
 
+## Wave 7.6: Artifact SHA-256 Digest Pinning
+
+- Status: complete.
+- Captured and approved SHA-256 digests for every required
+  `Qwen/Qwen3-Embedding-0.6B` artifact at the selected immutable revision
+  `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`.
+- Used Hugging Face LFS `X-Linked-ETag` for `model.safetensors` to avoid
+  storing or downloading the 1.19 GB weight file.
+- Downloaded only public tokenizer/config text artifacts into a temporary
+  directory outside the repository and verified their SHA-256 values with two
+  local hashing implementations.
+- Added explicit provider-local factories for the approved pinned artifact plan
+  and approved artifact pin approval record.
+- Strengthened approved artifact pin validation so approved records must carry
+  the digest-capture preparation marker.
+- Default artifact plan and prepared digest approval record remain
+  pending/unpinned; downloads and execution remain disabled.
+- No model file, model cache, signed URL, provider credential, runtime
+  dependency, provider registration, composition change, benchmark value, or
+  local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact plan, artifact approval, readiness checklist,
+  readiness provider, and composition decision tests: PASS, 32 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 58 test files and 298 tests.
+
 ## Remaining Phase 7 Work
 
-- Pin required artifact SHA-256 digests into the prepared approval slots after
-  digest capture procedure approval.
+- Feed the approved artifact pins into the later manifest approval wave without
+  enabling runtime downloads.
 - Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
   dependency, and tokenizer/config review.
 - Define and approve benchmark capture inputs, methods, resource isolation,

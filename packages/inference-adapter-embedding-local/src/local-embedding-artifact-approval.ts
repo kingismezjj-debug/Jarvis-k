@@ -1,5 +1,6 @@
 import {
   createLocalEmbeddingArtifactPlan,
+  createPinnedLocalEmbeddingArtifactPlan,
   type LocalEmbeddingArtifactPlan,
   type LocalEmbeddingArtifactRole
 } from "./local-embedding-artifact-plan";
@@ -87,6 +88,39 @@ export function createPreparedLocalEmbeddingArtifactDigestApprovalRecord(): Loca
   });
 }
 
+export function createApprovedLocalEmbeddingArtifactPinApprovalRecord(): LocalEmbeddingArtifactPinApprovalRecord {
+  const pinnedPlan = createPinnedLocalEmbeddingArtifactPlan();
+  return createLocalEmbeddingArtifactPinApprovalRecord({
+    status: "approved",
+    downloadEnabled: false,
+    artifacts: pinnedPlan.artifacts.map((artifact) => {
+      const revision = requiredPinValue(
+        artifact.revision,
+        `Missing approved artifact revision for ${artifact.key}.`
+      );
+      const sha256 = requiredPinValue(
+        artifact.sha256,
+        `Missing approved artifact digest for ${artifact.key}.`
+      );
+
+      return {
+        key: artifact.key,
+        role: artifact.role,
+        status: "approved",
+        revision,
+        sha256,
+        digestCapturePrepared: true,
+        reasons: []
+      };
+    }),
+    reasons: [
+      "Every required artifact pin is approved for the selected immutable revision.",
+      "Every required artifact SHA-256 digest is approved.",
+      "Downloads remain disabled until later runtime and packaging gates are approved."
+    ]
+  });
+}
+
 export function isLocalEmbeddingArtifactDigestApprovalRecordPrepared(
   record: LocalEmbeddingArtifactPinApprovalRecord,
   plan: LocalEmbeddingArtifactPlan = createLocalEmbeddingArtifactPlan()
@@ -115,6 +149,14 @@ export function isLocalEmbeddingArtifactDigestApprovalRecordPrepared(
   );
 }
 
+function requiredPinValue(value: string | undefined, message: string): string {
+  if (value === undefined) {
+    throw new Error(message);
+  }
+
+  return value;
+}
+
 export function isLocalEmbeddingArtifactPinApprovalRecordApproved(
   record: LocalEmbeddingArtifactPinApprovalRecord,
   plan: LocalEmbeddingArtifactPlan
@@ -140,6 +182,7 @@ export function isLocalEmbeddingArtifactPinApprovalRecordApproved(
       return (
         artifact.pinned &&
         approval?.status === "approved" &&
+        approval.digestCapturePrepared === true &&
         revision !== undefined &&
         revision.length > 0 &&
         !FLOATING_REVISIONS.has(revision) &&

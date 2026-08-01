@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  createPinnedLocalEmbeddingArtifactPlan,
   createLocalEmbeddingArtifactPlan,
   isLocalEmbeddingArtifactPlanPinned,
+  LOCAL_EMBEDDING_APPROVED_ARTIFACT_DIGESTS,
   LOCAL_EMBEDDING_MODEL_ID,
+  LOCAL_EMBEDDING_SELECTED_REVISION,
   type LocalEmbeddingArtifactPlan
 } from "../src";
 
@@ -60,6 +63,37 @@ describe("local embedding artifact plan", () => {
     expect(
       isLocalEmbeddingArtifactPlanPinned(createLocalEmbeddingArtifactPlan())
     ).toBe(false);
+  });
+
+  it("records approved SHA-256 digests for every required artifact", () => {
+    const plan = createPinnedLocalEmbeddingArtifactPlan();
+    const serialized = JSON.stringify(plan);
+
+    expect(plan).toMatchObject({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      status: "pinned",
+      downloadEnabled: false
+    });
+    expect(plan.artifacts.map((artifact) => artifact.key)).toEqual(
+      createLocalEmbeddingArtifactPlan().artifacts.map(
+        (artifact) => artifact.key
+      )
+    );
+    expect(LOCAL_EMBEDDING_APPROVED_ARTIFACT_DIGESTS).toHaveLength(
+      createLocalEmbeddingArtifactPlan().artifacts.length
+    );
+    expect(
+      plan.artifacts.every(
+        (artifact) =>
+          artifact.pinned &&
+          artifact.revision === LOCAL_EMBEDDING_SELECTED_REVISION &&
+          artifact.sha256 !== undefined &&
+          /^[a-f0-9]{64}$/.test(artifact.sha256)
+      )
+    ).toBe(true);
+    expect(isLocalEmbeddingArtifactPlanPinned(plan)).toBe(true);
+    expect(serialized).not.toMatch(/https?:\/\//u);
+    expect(serialized).not.toContain("downloadEnabled\":true");
   });
 
   it("accepts only required artifacts with revisions and valid SHA-256 digests", () => {

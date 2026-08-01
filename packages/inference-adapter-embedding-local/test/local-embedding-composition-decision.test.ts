@@ -133,6 +133,7 @@ function approvedArtifactPinApproval(plan: ReturnType<typeof pinnedArtifactPlan>
       status: "approved" as const,
       revision: artifact.revision,
       sha256: artifact.sha256,
+      digestCapturePrepared: true,
       reasons: []
     })),
     reasons: []

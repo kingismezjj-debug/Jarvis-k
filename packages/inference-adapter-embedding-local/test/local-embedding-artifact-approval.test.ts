@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
+  createPinnedLocalEmbeddingArtifactPlan,
   createPreparedLocalEmbeddingArtifactDigestApprovalRecord,
   isLocalEmbeddingArtifactDigestApprovalRecordPrepared,
   isLocalEmbeddingArtifactPinApprovalRecordApproved,
@@ -112,6 +114,32 @@ describe("local embedding artifact pin approval", () => {
     ).toBe(false);
   });
 
+  it("approves the captured digest pins without enabling downloads", () => {
+    const plan = createPinnedLocalEmbeddingArtifactPlan();
+    const approval = createApprovedLocalEmbeddingArtifactPinApprovalRecord();
+
+    expect(approval).toMatchObject({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      source: "huggingface",
+      status: "approved",
+      downloadEnabled: false
+    });
+    expect(approval.artifacts).toHaveLength(plan.artifacts.length);
+    expect(
+      approval.artifacts.every(
+        (artifact) =>
+          artifact.status === "approved" &&
+          artifact.revision === LOCAL_EMBEDDING_SELECTED_REVISION &&
+          artifact.sha256 !== undefined &&
+          /^[a-f0-9]{64}$/.test(artifact.sha256) &&
+          artifact.digestCapturePrepared === true
+      )
+    ).toBe(true);
+    expect(
+      isLocalEmbeddingArtifactPinApprovalRecordApproved(approval, plan)
+    ).toBe(true);
+  });
+
   it("accepts only approved artifact pins that match the plan", () => {
     const plan = pinnedArtifactPlan();
     const approval = approvedArtifactPinApproval(plan);
@@ -189,6 +217,7 @@ function approvedArtifactPinApproval(plan: LocalEmbeddingArtifactPlan) {
       status: "approved",
       revision: artifact.revision,
       sha256: artifact.sha256,
+      digestCapturePrepared: true,
       reasons: []
     })),
     reasons: []
