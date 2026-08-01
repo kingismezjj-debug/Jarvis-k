@@ -1092,3 +1092,31 @@ packaging, license, benchmark, and composition gate passes.
   write a model cache, access model artifacts, add filesystem/network
   lifecycle code, or make the final Windows packaging policy decision without
   explicit product, security, and release approval.
+
+## Phase 12.2: Model Lifecycle Fixture Harness
+
+- Status: complete as a deterministic, in-memory, fixture-only model
+  management preparation wave.
+- Added bounded fixture cases for install preflight, artifact verification,
+  upgrade planning, and rollback planning.
+- Reports expose only bounded counts, outcomes, reason codes, and a
+  safety-violation flag; model IDs, revisions, digests, private paths, signed
+  URLs, model values, and filesystem contents remain unpersisted and
+  unexposed.
+- Empty observations, failed cases, and attempted filesystem, network,
+  model-loading, installer, update, or rollback side effects fail closed.
+- No cache write, artifact access, installer, update, rollback execution,
+  Core Host change, Desktop change, IPC command, or UI change was added.
+
+### Current Gate
+
+- Model lifecycle fixture normal, degraded, empty, unsafe-observation, and
+  sanitized-output tests: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not add filesystem lifecycle code, model artifact access, installer
+  creation, automatic updates, rollback execution, or final release policy
+  without explicit product, security, and release approval.
