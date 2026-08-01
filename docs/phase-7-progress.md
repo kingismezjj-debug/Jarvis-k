@@ -61,10 +61,36 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 56 test files and 284 tests.
 
+## Wave 7.3: Artifact Required Set Decision
+
+- Status: complete.
+- Added a provider-local artifact required-set decision guard for the selected
+  upstream revision.
+- Expanded the artifact plan from the Phase 7.2 minimum set to the full
+  required pin set for model weights, model config, sentence-transformers
+  config, generation config, sentence-transformers modules, tokenizer config,
+  tokenizer graph, tokenizer merges, tokenizer vocabulary fallback, and pooling
+  config.
+- Marked `.gitattributes` and `README.md` as excluded from runtime artifact
+  pinning.
+- The required-set guard keeps downloads disabled, pinning disabled, and digest
+  values absent while confirming that every artifact plan path is covered.
+- No artifact SHA-256 digest, artifact pin approval, model download, model
+  file, cache, runtime dependency, provider registration, composition change,
+  or real embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact required-set decision tests: PASS, 6 tests.
+- Local embedding artifact plan and approval tests: PASS, 8 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 57 test files and 290 tests.
+
 ## Remaining Phase 7 Work
 
-- Decide whether deferred observed paths must be required, optional, or
-  documentation-only for the selected runtime strategy.
 - Pin required artifacts and SHA-256 digests for the selected revision.
 - Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
   dependency, and tokenizer/config review.

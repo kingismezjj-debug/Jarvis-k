@@ -18,15 +18,25 @@ describe("local embedding artifact plan", () => {
     expect(plan.artifacts.map((artifact) => artifact.role)).toEqual([
       "model_weights",
       "model_config",
+      "sentence_transformers_config",
+      "generation_config",
+      "sentence_transformers_modules",
       "tokenizer_config",
+      "tokenizer_vocabulary",
+      "tokenizer_merges",
       "tokenizer_vocabulary",
       "pooling_config"
     ]);
     expect(plan.artifacts.map((artifact) => artifact.key)).toEqual([
       "model.safetensors",
       "config.json",
+      "config_sentence_transformers.json",
+      "generation_config.json",
+      "modules.json",
       "tokenizer_config.json",
       "tokenizer.json",
+      "merges.txt",
+      "vocab.json",
       "1_Pooling/config.json"
     ]);
     expect(plan.artifacts.every((artifact) => artifact.required)).toBe(true);

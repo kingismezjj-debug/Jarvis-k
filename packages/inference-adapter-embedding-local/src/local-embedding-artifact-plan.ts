@@ -3,7 +3,11 @@ import { LOCAL_EMBEDDING_MODEL_ID } from "./local-embedding-constants";
 export type LocalEmbeddingArtifactRole =
   | "model_weights"
   | "model_config"
+  | "generation_config"
+  | "sentence_transformers_config"
+  | "sentence_transformers_modules"
   | "tokenizer_config"
+  | "tokenizer_merges"
   | "tokenizer_vocabulary"
   | "pooling_config";
 
@@ -29,8 +33,13 @@ export interface LocalEmbeddingArtifactPlan {
 const artifactPins: LocalEmbeddingArtifactPin[] = [
   artifact("model.safetensors", "model_weights"),
   artifact("config.json", "model_config"),
+  artifact("config_sentence_transformers.json", "sentence_transformers_config"),
+  artifact("generation_config.json", "generation_config"),
+  artifact("modules.json", "sentence_transformers_modules"),
   artifact("tokenizer_config.json", "tokenizer_config"),
   artifact("tokenizer.json", "tokenizer_vocabulary"),
+  artifact("merges.txt", "tokenizer_merges"),
+  artifact("vocab.json", "tokenizer_vocabulary"),
   artifact("1_Pooling/config.json", "pooling_config")
 ];
 

@@ -17,13 +17,9 @@ describe("local embedding artifact pin approval", () => {
       status: "pending",
       downloadEnabled: false
     });
-    expect(record.artifacts.map((artifact) => artifact.status)).toEqual([
-      "pending",
-      "pending",
-      "pending",
-      "pending",
-      "pending"
-    ]);
+    expect(record.artifacts.map((artifact) => artifact.status)).toEqual(
+      createLocalEmbeddingArtifactPlan().artifacts.map(() => "pending")
+    );
   });
 
   it("does not expose upstream URLs or placeholder digests by default", () => {
