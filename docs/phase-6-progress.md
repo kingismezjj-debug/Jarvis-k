@@ -127,6 +127,27 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 42 test files and 224 tests.
 
+## Wave 6.6: Local Embedding Artifact Pin Plan
+
+- Status: complete.
+- Added a local embedding artifact pin plan for the future model weights,
+  model config, tokenizer config, tokenizer vocabulary, and pooling config.
+- The plan is intentionally `unpinned` and `downloadEnabled: false`.
+- No upstream URLs, placeholder digests, signed URLs, model files, or real
+  download paths are exposed.
+- Added a pin-completeness helper that accepts only required artifacts with an
+  immutable revision and valid SHA-256 digest.
+- No model manifest, runtime dependency, artifact download, model loading, or
+  real embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact plan tests: PASS, 4 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 43 test files and 228 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
