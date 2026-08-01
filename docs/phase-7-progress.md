@@ -587,6 +587,32 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 67 test files and 343 tests.
 
+## Wave 7.20: Controlled Artifact Cache Executor Guard
+
+- Status: complete as a plan-only preparation wave.
+- Added a provider-local controlled artifact cache executor boundary to
+  `@jarvis-k/inference-runtime-transformers-local`.
+- The executor can plan download preparation, verified readiness, cleanup
+  request staging, and rollback request staging without performing any action.
+- Download and verification plans require matching accepted results from the
+  existing artifact and SHA-256 guards.
+- Cleanup and rollback request staging requires explicit approval flags.
+- Every result reports `planOnly: true`, `executionDeferred: true`, and
+  `stateMutationApplied: false`.
+- Completion of cleanup or rollback is intentionally not exposed because it
+  would require a separately approved filesystem/cache implementation.
+- Network access, filesystem writes, downloads, model artifact reads, cache
+  mutation, runtime dependencies, provider registration, composition changes,
+  and inference execution remain disabled.
+
+### Current Gate
+
+- Controlled artifact cache executor tests: PASS, 5 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 68 test files and 348 tests.
+
 ## Remaining Phase 7 Work
 
 - Phase 7.13 through Phase 7.17 automation scope is complete.
