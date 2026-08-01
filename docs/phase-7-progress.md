@@ -897,3 +897,36 @@ packaging, license, benchmark, and composition gate passes.
 - Do not approve or add real STT/TTS runtime dependencies, Python/native
   environments, speech artifacts, audio execution, provider registration,
   default opt-in, or UI/Desktop controls without a separate approval.
+
+## Phase 10.4: Local Voice Runtime Acceptance Preflight
+
+- Status: complete as a provider-neutral aggregate preflight preparation wave.
+- Added an aggregate guard for the fixture benchmark plan, runtime isolation
+  boundary, and deferred license, Windows packaging, and native dependency
+  reviews.
+- An accepted result means only
+  `ready_for_runtime_backed_capture`.
+- Real speech benchmark values remain pending and unexposed; network access,
+  credentials, runtime dependencies, model downloads, model loading, audio
+  execution, provider registration, default opt-in, and execution enablement
+  remain disabled.
+- Missing review evidence, captured metrics, dependency changes, packaging or
+  native review completion, or dirty verification fail closed.
+- No runtime package, artifact, cache, Core Host, Desktop, IPC, UI, or provider
+  composition change was added.
+
+### Current Gate
+
+- Local voice runtime acceptance preflight tests: PASS.
+- `npm.cmd run build -w @jarvis-k/voice`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not add real STT/TTS runtime dependencies, Python/native environments,
+  speech artifacts, real audio or benchmark capture, provider registration,
+  execution enablement, installation policy, or UI/Desktop controls without a
+  separate approval and implementation stage.
