@@ -3,6 +3,7 @@ import {
   assessLocalEmbeddingReadiness,
   createApprovedLocalEmbeddingLicenseApprovalRecord,
   createApprovedLocalEmbeddingRuntimeStrategy,
+  createApprovedLocalEmbeddingWindowsPackagingApprovalRecord,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
@@ -99,6 +100,7 @@ function completeReadiness() {
     runtimeStrategy: approvedRuntimeStrategy(),
     runtimeAdapterReady: true,
     packagingReviewed: true,
+    packagingApproval: createApprovedLocalEmbeddingWindowsPackagingApprovalRecord(),
     redistributionReviewed: true,
     benchmarkProfileReady: true
   };

@@ -19,3 +19,4 @@ export * from "./local-embedding-revision-selection-procedure";
 export * from "./local-embedding-runtime-adapter";
 export * from "./local-embedding-runtime-implementation-procedure";
 export * from "./local-embedding-runtime-strategy";
+export * from "./local-embedding-windows-packaging-approval";

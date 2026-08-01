@@ -335,11 +335,41 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 59 test files and 309 tests.
 
+## Wave 7.12: Windows Packaging Approval Guard
+
+- Status: complete.
+- Added a provider-local Windows packaging approval record for the planned
+  Transformers local embedding runtime.
+- The approval record covers installer policy, user-cache model storage,
+  update/rollback behavior, NOTICE/license bundle requirements, size-budget
+  review, and sanitized packaging output boundaries.
+- The `runtime.packaging` readiness gate now requires both
+  `packagingReviewed: true` and an approved packaging record matching the
+  provider, model, runtime package name, package location, and composition root.
+- Pending or mismatched packaging approval records fail closed.
+- The approved packaging policy keeps installer creation, model/runtime
+  bundling, runtime dependencies, downloads, execution, committed cache paths,
+  persisted signed URLs, and exposed packaging values disabled.
+- No installer, runtime package, runtime dependency, model download, model
+  file, model cache, signed URL, provider credential, provider registration,
+  composition change, benchmark value, or local embedding execution was added
+  in this wave.
+
+### Current Gate
+
+- Local embedding Windows packaging approval, readiness provider, and
+  composition decision tests: PASS, 20 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 60 test files and 313 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete final Windows packaging review, native/runtime dependency review for
-  any dependencies actually added, and tokenizer/config runtime integration
-  review.
+- Complete native/runtime dependency review for any dependencies actually
+  added, tokenizer/config runtime integration review, and dedicated runtime
+  package preflight.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.

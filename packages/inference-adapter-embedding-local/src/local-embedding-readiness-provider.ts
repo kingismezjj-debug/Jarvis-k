@@ -40,6 +40,11 @@ import {
   type LocalEmbeddingRuntimeStrategy
 } from "./local-embedding-runtime-strategy";
 import {
+  createLocalEmbeddingWindowsPackagingApprovalRecord,
+  isLocalEmbeddingWindowsPackagingApprovalRecordApproved,
+  type LocalEmbeddingWindowsPackagingApprovalRecord
+} from "./local-embedding-windows-packaging-approval";
+import {
   createLocalEmbeddingRevisionApprovalRecord,
   isLocalEmbeddingRevisionApproved,
   type LocalEmbeddingRevisionApprovalRecord
@@ -68,6 +73,7 @@ export interface LocalEmbeddingReadinessInput {
   licenseApproval?: LocalEmbeddingLicenseApprovalRecord;
   benchmarkApproval?: LocalEmbeddingBenchmarkApprovalRecord;
   runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
+  packagingApproval?: LocalEmbeddingWindowsPackagingApprovalRecord;
   runtimeAdapterReady?: boolean;
   packagingReviewed?: boolean;
   redistributionReviewed?: boolean;
@@ -205,7 +211,11 @@ export function assessLocalEmbeddingReadiness(
   addCheck(
     checks,
     "runtime.packaging",
-    input.packagingReviewed === true,
+    input.packagingReviewed === true &&
+      isLocalEmbeddingWindowsPackagingApprovalRecordApproved(
+        input.packagingApproval ??
+          createLocalEmbeddingWindowsPackagingApprovalRecord()
+      ),
     "Complete Windows packaging and native/helper runtime review."
   );
   addCheck(

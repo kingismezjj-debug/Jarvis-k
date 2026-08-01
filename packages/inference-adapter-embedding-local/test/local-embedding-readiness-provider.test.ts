@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createApprovedLocalEmbeddingLicenseApprovalRecord,
   createApprovedLocalEmbeddingRuntimeStrategy,
+  createApprovedLocalEmbeddingWindowsPackagingApprovalRecord,
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
@@ -69,6 +70,28 @@ describe("local embedding readiness provider", () => {
     expect(serialized).not.toContain("executionEnabled\":true");
   });
 
+  it("requires an approved Windows packaging record for the packaging gate", () => {
+    const pendingReport = assessLocalEmbeddingReadiness({
+      packagingReviewed: true
+    });
+    const approvedReport = assessLocalEmbeddingReadiness({
+      packagingReviewed: true,
+      packagingApproval: approvedPackagingApproval()
+    });
+
+    expect(
+      pendingReport.checks.find((check) => check.key === "runtime.packaging")
+    ).toMatchObject({
+      satisfied: false
+    });
+    expect(
+      approvedReport.checks.find((check) => check.key === "runtime.packaging")
+    ).toMatchObject({
+      satisfied: true,
+      reasons: []
+    });
+  });
+
   it("recognizes a complete manifest review without enabling execution", () => {
     const report = assessLocalEmbeddingReadiness({
       manifest: {
@@ -92,7 +115,8 @@ describe("local embedding readiness provider", () => {
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       benchmarkApproval: approvedBenchmarkApproval(),
       licenseApproval: approvedLicenseApproval(),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report).toEqual({
@@ -137,7 +161,8 @@ describe("local embedding readiness provider", () => {
           ),
           benchmarkApproval: approvedBenchmarkApproval(),
           licenseApproval: approvedLicenseApproval(),
-          runtimeStrategy: approvedRuntimeStrategy()
+          runtimeStrategy: approvedRuntimeStrategy(),
+          packagingApproval: approvedPackagingApproval()
         }
       })
     ).toMatchObject({
@@ -168,7 +193,8 @@ describe("local embedding readiness provider", () => {
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       licenseApproval: approvedLicenseApproval(),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -207,7 +233,8 @@ describe("local embedding readiness provider", () => {
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       licenseApproval: approvedLicenseApproval(),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -273,7 +300,8 @@ describe("local embedding readiness provider", () => {
       revisionApproval: approvedRevisionApproval(),
       artifactPlan: pinnedArtifactPlan(),
       licenseApproval: approvedLicenseApproval(),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -308,7 +336,8 @@ describe("local embedding readiness provider", () => {
       revisionApproval: approvedRevisionApproval(),
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -344,7 +373,8 @@ describe("local embedding readiness provider", () => {
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       licenseApproval: approvedLicenseApproval(),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -380,7 +410,8 @@ describe("local embedding readiness provider", () => {
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
       licenseApproval: approvedLicenseApproval(),
-      runtimeStrategy: approvedRuntimeStrategy()
+      runtimeStrategy: approvedRuntimeStrategy(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -415,7 +446,8 @@ describe("local embedding readiness provider", () => {
       revisionApproval: approvedRevisionApproval(),
       artifactPlan: pinnedArtifactPlan(),
       artifactPinApproval: approvedArtifactPinApproval(pinnedArtifactPlan()),
-      licenseApproval: approvedLicenseApproval()
+      licenseApproval: approvedLicenseApproval(),
+      packagingApproval: approvedPackagingApproval()
     });
 
     expect(report.readyForComposition).toBe(false);
@@ -508,4 +540,8 @@ function approvedBenchmarkApproval() {
 
 function approvedRuntimeStrategy() {
   return createApprovedLocalEmbeddingRuntimeStrategy();
+}
+
+function approvedPackagingApproval() {
+  return createApprovedLocalEmbeddingWindowsPackagingApprovalRecord();
 }
