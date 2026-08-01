@@ -25,6 +25,8 @@ packaging, benchmark execution, and eventually provider execution.
   `downloadEnabled: false`.
 - Benchmark approval records are default `pending`, `downloadEnabled: false`,
   and `executionEnabled: false`.
+- Runtime implementation, license review, and benchmark capture procedure
+  guards are default `pending` and expose sanitized reasons only.
 - Configuration report output exposes sanitized blockers only.
 - The readiness checklist exposes gate status without revision values,
   SHA-256 digests, URLs, artifact filenames, model files, or metric values.
@@ -49,6 +51,10 @@ packaging, benchmark execution, and eventually provider execution.
   review records are approved.
 - `benchmarks.local_resource_profile`: blocked until Lite, Standard, and
   Local Enhanced benchmark profiles are approved.
+- Procedure approval: revision selection, artifact pinning, runtime
+  implementation, license review, and benchmark capture each have
+  provider-local procedure guards that must pass before real values or runtime
+  behavior are introduced.
 - Composition: blocked until readiness passes, runtime is registered,
   execution provider is composed, and explicit enablement is approved.
 

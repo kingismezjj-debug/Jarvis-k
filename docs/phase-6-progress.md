@@ -558,7 +558,29 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 55 test files and 279 tests.
 
-## Remaining Phase 6 Work
+## Phase 6 Closeout Baseline
+
+- Status: complete.
+- Added `docs/phase-6-completion.md` as the Phase 6 readiness baseline and
+  Phase 7 entry handoff.
+- Phase 6 now has provider-local guard coverage for revision selection,
+  artifact pinning, runtime implementation, license review, benchmark capture,
+  readiness reporting, and composition decisions.
+- The local embedding provider remains `unconfigured` and `disabled`;
+  readiness does not register a runtime, compose an execution provider, or
+  enable downloads.
+- No git tag was created in this closeout because the repository does not yet
+  have an established tag naming convention.
+
+### Current Gate
+
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 55 test files and 279 tests.
+
+## Phase 7 Entry Work
 
 - Choose and document the exact immutable model revision for
   `Qwen/Qwen3-Embedding-0.6B`.
