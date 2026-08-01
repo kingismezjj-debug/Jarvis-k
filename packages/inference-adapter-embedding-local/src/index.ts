@@ -10,6 +10,7 @@ export * from "./local-embedding-composition-decision";
 export * from "./local-embedding-constants";
 export * from "./local-embedding-license-approval";
 export * from "./local-embedding-license-review-procedure";
+export * from "./local-embedding-manifest-approval";
 export * from "./local-embedding-manifest-draft";
 export * from "./local-embedding-readiness-checklist";
 export * from "./local-embedding-readiness-provider";

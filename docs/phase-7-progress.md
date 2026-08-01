@@ -169,10 +169,37 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 58 test files and 298 tests.
 
+## Wave 7.7: Manifest Approval
+
+- Status: complete.
+- Added an explicit provider-local approved `ModelManifest` for
+  `Qwen/Qwen3-Embedding-0.6B`.
+- The approved manifest uses the selected immutable revision, the Phase 7.6
+  artifact digest set, a manifest-level artifact-set SHA-256 digest, and the
+  total required artifact size.
+- Added a manifest approval record and approval predicate that require matching
+  revision evidence, approved artifact pins, matching artifact-set digest, and
+  `downloadEnabled: false`.
+- The default manifest draft remains audit-only and still cannot parse as a
+  contracts `ModelManifest`.
+- Provider configuration reports remain sanitized even when approved manifest
+  and artifact pins are supplied.
+- No model file, model cache, signed URL, provider credential, runtime
+  dependency, provider registration, composition change, benchmark value, or
+  local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding manifest approval, manifest draft, readiness provider, and
+  readiness checklist tests: PASS, 26 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 59 test files and 303 tests.
+
 ## Remaining Phase 7 Work
 
-- Feed the approved artifact pins into the later manifest approval wave without
-  enabling runtime downloads.
 - Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
   dependency, and tokenizer/config review.
 - Define and approve benchmark capture inputs, methods, resource isolation,
