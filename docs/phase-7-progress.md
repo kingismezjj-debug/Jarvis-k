@@ -836,3 +836,33 @@ packaging, license, benchmark, and composition gate passes.
   dependencies, access speech model artifacts, execute real audio, register a
   provider, change default opt-in behavior, or add UI/Desktop controls without
   a separate product and security approval.
+
+## Phase 10.2: Local Voice Fixture Benchmark Harness
+
+- Status: complete as a deterministic fixture-only benchmark preparation wave.
+- Added a provider-neutral benchmark plan and evaluator in `packages/voice`.
+- The harness covers PTT finalization, continuous-listening recovery, TTS
+  interruption handling, degraded provider behavior, and resource overlap.
+- Reports contain only bounded counts, sanitized outcomes, and safety flags;
+  raw audio, transcript text, arbitrary observation fields, credentials, URLs,
+  private paths, and model/runtime metrics are not persisted or echoed.
+- Empty observations and resource overlap fail closed; partial fixture
+  availability reports `degraded` without enabling production behavior.
+- Real STT/TTS runtimes, artifacts, audio execution, provider registration,
+  Core Host composition, Desktop IPC, and UI behavior remain unchanged.
+
+### Current Gate
+
+- Local voice fixture benchmark tests: PASS.
+- `npm.cmd run build -w @jarvis-k/voice`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not capture real speech latency, memory, quality, resource, or audio
+  metrics; select/install a real STT/TTS runtime; access voice artifacts;
+  execute real audio; register a provider; change default opt-in behavior; or
+  add UI/Desktop benchmark controls without a separate approval.

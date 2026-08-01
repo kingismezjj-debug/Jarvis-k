@@ -39,6 +39,8 @@ They are not runtime dependencies.
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
   fixture preparation complete; real local STT/TTS execution remains disabled
+- Phase 10.2 local voice fixture benchmark harness: deterministic fixture
+  measurements complete; real speech metrics and execution remain deferred
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -150,6 +152,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.2 retrieval benchmark harness](docs/phase-8-2-retrieval-benchmark-harness.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
+- [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)
