@@ -495,11 +495,48 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 64 test files and 326 tests.
 
+## Wave 7.17: Controlled Artifact Download and SHA-256 Verification Guard
+
+- Status: complete.
+- Added a fail-closed controlled artifact download and SHA-256 verification
+  guard to `@jarvis-k/inference-runtime-transformers-local`.
+- The guard supports two future operations: `prepare_download` from the
+  `pending` cache state and `verify_download` from the `verifying` cache state.
+- The guard requires safe relative artifact keys, HTTPS source URLs, unsigned
+  and query-free source URLs, lowercase SHA-256 expected digests, matching
+  observed SHA-256 digests before ready state, cache-state alignment, and all
+  artifact/revision/license/download/cache/verification/cleanup/rollback
+  approvals.
+- The guard rejects unsafe artifact keys, signed/query/token URLs, digest
+  mismatch, missing approvals, wrong cache states, observed digests during
+  download preparation, missing observed digests during verification, and any
+  requested side effect.
+- Guard results do not echo source URLs or digest values.
+- The guard keeps network access, filesystem writes, real downloads, cache
+  mutation, signed URL persistence, credential persistence, source URL
+  exposure, digest value exposure, model artifact access, runtime execution,
+  and provider composition disabled.
+- No real downloader, filesystem cache implementation, SHA-256 hashing
+  implementation, cache path, model artifact, signed URL, credential, runtime
+  dependency, provider registration, composition change, benchmark value, or
+  local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local Transformers runtime scaffold, artifact cache dry-run, and controlled
+  artifact download guard tests: PASS, 10 tests.
+- `npm run build -w @jarvis-k/inference-runtime-transformers-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 65 test files and 330 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete tokenizer/config runtime integration review, dedicated runtime
-  package registration/composition review, and controlled artifact download
-  verification.
+- Phase 7.13 through Phase 7.17 automation scope is complete.
+- Continue tokenizer/config runtime integration review and dedicated runtime
+  package registration/composition review only after user confirmation for the
+  next stage.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.

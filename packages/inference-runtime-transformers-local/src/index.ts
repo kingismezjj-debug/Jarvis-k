@@ -5,6 +5,7 @@ import {
 } from "@jarvis-k/contracts";
 
 export * from "./artifact-cache-dry-run";
+export * from "./controlled-artifact-download-guard";
 export * from "./runtime-constants";
 import {
   TRANSFORMERS_LOCAL_RUNTIME,

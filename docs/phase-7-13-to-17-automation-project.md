@@ -45,19 +45,20 @@ instructions.
 
 ## Current Baseline
 
-- Latest completed wave: Phase 7.16 Artifact Cache and Download Manager
-  Dry-Run.
+- Latest completed wave: Phase 7.17 Controlled Artifact Download and SHA-256
+  Verification Guard.
 - Latest committed baseline before this automation project:
   `c93272c docs: add phase 7 automation project`.
 - Latest pre-automation CI: success, run `30696188875`.
-- Local verification baseline after Phase 7.16: `npm.cmd run verify` passed
-  with 64 test files and 326 tests.
+- Local verification baseline after Phase 7.17: `npm.cmd run verify` passed
+  with 65 test files and 330 tests.
 - Local embedding provider status: planned only, unregistered, uncomposed, and
   execution disabled.
 - No installer, runtime package, runtime dependency, model download, model
   cache, provider registration, benchmark metric value, or local embedding
   execution exists yet. The dedicated runtime package exists only as a fake
-  fail-closed scaffold.
+  fail-closed scaffold with dry-run cache/download planning and controlled
+  download verification guards.
 
 ## Phase 7.13: Dedicated Runtime Package Preflight
 
@@ -161,6 +162,8 @@ Exit criteria:
 
 ## Phase 7.17: Controlled Artifact Download and SHA-256 Verification Guard
 
+Status: complete.
+
 Goal: perform only an explicitly controlled artifact download/verification
 path after all prior gates pass.
 
@@ -175,11 +178,26 @@ Planned work:
 
 Exit criteria:
 
-- Controlled download/verify path passes.
+- Controlled download/verify guard path passes.
 - Repository remains free of model files and cache.
 - Sensitive artifact guard passes.
 - Runtime execution still requires a later explicit enablement wave.
 - Verification, commit, push, and CI succeed.
+
+Completed result:
+
+- Added a guard policy and evaluator to
+  `@jarvis-k/inference-runtime-transformers-local`.
+- `prepare_download` is accepted only from `pending` with safe artifact key,
+  HTTPS unsigned source URL, lowercase SHA-256 expected digest, all required
+  approvals, and no requested side effects.
+- `verify_download` is accepted only from `verifying` with matching observed
+  lowercase SHA-256 digest and the same approval/no-side-effect requirements.
+- The result never exposes source URLs or digest values.
+- Real network access, filesystem writes, download execution, cache mutation,
+  model artifact reads, signed URL persistence, credential persistence, source
+  URL exposure, digest value exposure, runtime execution, and provider
+  composition remain disabled.
 
 ## Verification Commands
 
@@ -223,5 +241,7 @@ To resume safely:
 - Phase 7.14 is complete.
 - Phase 7.15 is complete.
 - Phase 7.16 is complete.
-- Next action: begin Phase 7.17 controlled artifact download and SHA-256
-  verification guard.
+- Phase 7.17 is complete.
+- Phase 7.13 through Phase 7.17 automation scope is complete.
+- Next action: pause this automation and wait for user confirmation before
+  starting the next Phase 7 stage.
