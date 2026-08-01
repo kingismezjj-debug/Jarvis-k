@@ -439,6 +439,32 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 51 test files and 267 tests.
 
+## Wave 6.19: Artifact Pinning Procedure Guard
+
+- Status: complete.
+- Added a provider-local artifact pinning procedure guard for the planned
+  local embedding provider.
+- Added `docs/phase-6-artifact-pinning-procedure.md` to define the later
+  manual process for moving from approved revision to approved artifact pins.
+- The procedure blocks artifact pinning until revision approval, required
+  artifact confirmation, digest verification, signed URL exclusion, disabled
+  downloads, provider-local approval records, and verification gates pass.
+- A candidate artifact-pinning wave can become ready for approval without
+  exposing revision values, SHA-256 digests, artifact filenames, or URLs in the
+  procedure summary output.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, benchmark
+  execution, or provider execution behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact pinning procedure tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 52 test files and 270 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
