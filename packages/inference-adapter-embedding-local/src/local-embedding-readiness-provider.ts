@@ -19,6 +19,7 @@ import {
   isLocalEmbeddingRuntimeStrategyApproved,
   type LocalEmbeddingRuntimeStrategy
 } from "./local-embedding-runtime-strategy";
+import { decideLocalEmbeddingComposition } from "./local-embedding-composition-decision";
 
 export const LOCAL_EMBEDDING_PROVIDER_ID = "embedding.local.qwen3";
 export const LOCAL_EMBEDDING_MODEL_ID = "Qwen/Qwen3-Embedding-0.6B";
@@ -76,7 +77,7 @@ export class UnavailableLocalEmbeddingProvider
 }
 
 export function createLocalEmbeddingProviderDescriptor(): InferenceProviderDescriptor {
-  const readiness = assessLocalEmbeddingReadiness();
+  const composition = decideLocalEmbeddingComposition();
   return InferenceProviderDescriptorSchema.parse({
     capability: "embedding",
     provider: LOCAL_EMBEDDING_PROVIDER_ID,
@@ -84,7 +85,7 @@ export function createLocalEmbeddingProviderDescriptor(): InferenceProviderDescr
     execution: "disabled",
     modelIds: [LOCAL_EMBEDDING_MODEL_ID],
     reasons: [
-      ...readiness.reasons,
+      ...composition.reasons,
       LOCAL_EMBEDDING_EXECUTION_DISABLED_REASON
     ]
   });

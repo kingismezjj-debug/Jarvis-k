@@ -189,6 +189,27 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 43 test files and 231 tests.
 
+## Wave 6.9: Composition Decision Guard
+
+- Status: complete.
+- Added a local embedding composition decision that separates readiness from
+  execution enablement.
+- Readiness alone is not enough: runtime registration, execution provider
+  composition, and explicit execution enablement must also pass.
+- The planned provider descriptor now reports composition blockers by default,
+  while remaining `unconfigured` and `disabled`.
+- No runtime registration, execution provider, explicit enablement flag, model
+  artifact, download path, runtime dependency, or real execution behavior was
+  added in this wave.
+
+### Current Gate
+
+- Local embedding composition decision tests: PASS, 3 tests.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 44 test files and 234 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
