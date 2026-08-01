@@ -45,11 +45,12 @@ instructions.
 
 ## Current Baseline
 
-- Latest completed wave: Phase 7.12 Windows Packaging Approval Guard.
-- Latest commit: `5721787 feat: approve windows packaging guard`.
-- Latest CI: success, run `30695818623`.
-- Local verification baseline: `npm.cmd run verify` passed with 60 test files
-  and 313 tests.
+- Latest completed wave: Phase 7.13 Dedicated Runtime Package Preflight Guard.
+- Latest committed baseline before this automation project:
+  `c93272c docs: add phase 7 automation project`.
+- Latest pre-automation CI: success, run `30696188875`.
+- Local verification baseline after Phase 7.13: `npm.cmd run verify` passed
+  with 61 test files and 316 tests.
 - Local embedding provider status: planned only, unregistered, uncomposed, and
   execution disabled.
 - No installer, runtime package, runtime dependency, model download, model
@@ -57,6 +58,8 @@ instructions.
   execution exists yet.
 
 ## Phase 7.13: Dedicated Runtime Package Preflight
+
+Status: complete.
 
 Goal: approve the dedicated runtime package boundary before creating real
 runtime behavior.
@@ -208,5 +211,6 @@ To resume safely:
 ## Current Status
 
 - Automation created.
-- Phase 7.13 has not started yet.
-- Next action: begin Phase 7.13 dedicated runtime package preflight.
+- Phase 7.13 is complete.
+- Next action: begin Phase 7.14 runtime dependency approval and selection
+  guard.

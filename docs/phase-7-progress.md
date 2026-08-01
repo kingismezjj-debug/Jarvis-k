@@ -365,11 +365,41 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 60 test files and 313 tests.
 
+## Wave 7.13: Dedicated Runtime Package Preflight Guard
+
+- Status: complete.
+- Added a provider-local runtime package preflight approval record for the
+  planned Transformers local embedding runtime package.
+- The approval record fixes the future package name, package location,
+  composition root, private-package requirement, adapter-only public surface,
+  import policy, and execution safety constraints.
+- The approved preflight keeps package scaffolding, workspace registration,
+  runtime behavior implementation, runtime dependencies, downloads, execution,
+  process-launcher exports, downloader exports, model artifact path exports,
+  provider-policy exports, and exposed preflight values disabled.
+- The future package may expose only runtime adapter descriptor, runtime adapter
+  factory, runtime health probe, and sanitized error mapping surfaces.
+- Runtime dependency imports remain blocked until a separate dependency
+  approval wave.
+- No runtime package, workspace registration, runtime dependency, model
+  download, model file, model cache, signed URL, provider credential, provider
+  registration, composition change, benchmark value, or local embedding
+  execution was added in this wave.
+
+### Current Gate
+
+- Local embedding runtime package preflight tests: PASS, 3 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 61 test files and 316 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete native/runtime dependency review for any dependencies actually
-  added, tokenizer/config runtime integration review, and dedicated runtime
-  package preflight.
+- Complete native/runtime dependency review and selection, tokenizer/config
+  runtime integration review, dedicated runtime package scaffold, artifact
+  cache/download dry-run, and controlled artifact download verification.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after runtime dependencies and execution are separately
   approved.
