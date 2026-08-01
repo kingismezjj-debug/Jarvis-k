@@ -198,10 +198,43 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 59 test files and 303 tests.
 
+## Wave 7.8: License and Redistribution Review Guard
+
+- Status: complete.
+- Verified public Hugging Face metadata for the selected immutable revision:
+  `license:apache-2.0`.
+- Strengthened the provider-local license approval record with explicit
+  evidence for metadata license, manifest revision, model-weight review,
+  tokenizer/config review, redistribution terms, NOTICE bundle definition,
+  runtime dependency scope, and native dependency scope.
+- Added an explicit approved license approval factory for the current pinned
+  artifact set.
+- License approval now rejects records with missing evidence, mismatched
+  manifest revision, pending runtime/native dependency review, or red/unknown
+  manifest license risk.
+- Runtime and native dependency scopes are recorded as `none_added`; later waves
+  that add runtime/native dependencies must open a separate review.
+- Downloads, runtime registration, provider composition, and local embedding
+  execution remain disabled.
+- No model file, model cache, signed URL, provider credential, runtime
+  dependency, provider registration, composition change, benchmark value, or
+  local embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding license approval, license review procedure, readiness
+  provider, readiness checklist, and composition decision tests: PASS, 28
+  tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 59 test files and 304 tests.
+
 ## Remaining Phase 7 Work
 
-- Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
-  dependency, and tokenizer/config review.
+- Complete runtime dependency, native dependency, packaging, process isolation,
+  and tokenizer/config runtime integration review.
 - Define and approve benchmark capture inputs, methods, resource isolation,
   and failure reporting before recording real metric values.
 - Implement the dedicated runtime package only after artifact, license,

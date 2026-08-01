@@ -1,10 +1,10 @@
 import type { ModelManifest } from "@jarvis-k/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
-  createLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingReadinessChecklist,
   createLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRuntimeStrategy,
@@ -115,10 +115,8 @@ function approvedChecklistInput() {
       ),
       reasons: []
     },
-    licenseApproval: createLocalEmbeddingLicenseApprovalRecord({
-      status: "approved",
-      redistributionReviewed: true,
-      reasons: []
+    licenseApproval: createApprovedLocalEmbeddingLicenseApprovalRecord({
+      metadataRevision: "immutable-embedding-revision"
     }),
     benchmarkApproval: createLocalEmbeddingBenchmarkApprovalRecord({
       status: "approved",

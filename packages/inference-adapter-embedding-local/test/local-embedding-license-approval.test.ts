@@ -1,9 +1,11 @@
 import type { ModelManifest } from "@jarvis-k/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingLicenseApprovalRecord,
   isLocalEmbeddingLicenseApprovalRecordApproved,
-  LOCAL_EMBEDDING_MODEL_ID
+  LOCAL_EMBEDDING_MODEL_ID,
+  LOCAL_EMBEDDING_SELECTED_REVISION
 } from "../src";
 
 describe("local embedding license approval", () => {
@@ -33,7 +35,7 @@ describe("local embedding license approval", () => {
     expect(serialized).not.toContain("downloadEnabled\":true");
   });
 
-  it("rejects pending or redistribution-unreviewed approvals", () => {
+  it("rejects pending, redistribution-unreviewed, or incomplete evidence approvals", () => {
     expect(
       isLocalEmbeddingLicenseApprovalRecordApproved(
         createLocalEmbeddingLicenseApprovalRecord(),
@@ -42,22 +44,28 @@ describe("local embedding license approval", () => {
     ).toBe(false);
     expect(
       isLocalEmbeddingLicenseApprovalRecordApproved(
-        createLocalEmbeddingLicenseApprovalRecord({
-          status: "approved",
+        {
+          ...createApprovedLocalEmbeddingLicenseApprovalRecord(),
           redistributionReviewed: false,
           reasons: []
-        }),
+        },
+        localEmbeddingManifest()
+      )
+    ).toBe(false);
+    expect(
+      isLocalEmbeddingLicenseApprovalRecordApproved(
+        {
+          ...createApprovedLocalEmbeddingLicenseApprovalRecord(),
+          runtimeDependencyScope: "pending_review",
+          reasons: []
+        },
         localEmbeddingManifest()
       )
     ).toBe(false);
   });
 
   it("accepts only an approved Apache redistribution review for the selected model", () => {
-    const record = createLocalEmbeddingLicenseApprovalRecord({
-      status: "approved",
-      redistributionReviewed: true,
-      reasons: []
-    });
+    const record = createApprovedLocalEmbeddingLicenseApprovalRecord();
 
     expect(
       isLocalEmbeddingLicenseApprovalRecordApproved(
@@ -80,6 +88,31 @@ describe("local embedding license approval", () => {
         licenseRisk: "red"
       })
     ).toBe(false);
+    expect(
+      isLocalEmbeddingLicenseApprovalRecordApproved(record, {
+        ...localEmbeddingManifest(),
+        licenseRisk: "unknown"
+      })
+    ).toBe(false);
+  });
+
+  it("records explicit metadata and NOTICE evidence while staying download-disabled", () => {
+    expect(createApprovedLocalEmbeddingLicenseApprovalRecord()).toMatchObject({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      source: "huggingface",
+      license: "Apache-2.0",
+      status: "approved",
+      metadataLicense: "apache-2.0",
+      metadataRevision: LOCAL_EMBEDDING_SELECTED_REVISION,
+      modelWeightsReviewed: true,
+      tokenizerComponentsReviewed: true,
+      runtimeDependencyScope: "none_added",
+      nativeDependencyScope: "none_added",
+      redistributionTermsReviewed: true,
+      noticeBundleDefined: true,
+      redistributionReviewed: true,
+      downloadEnabled: false
+    });
   });
 });
 
@@ -88,7 +121,7 @@ function localEmbeddingManifest(): ModelManifest {
     id: LOCAL_EMBEDDING_MODEL_ID,
     capability: "embedding",
     source: "huggingface",
-    revision: "immutable-embedding-revision",
+    revision: LOCAL_EMBEDDING_SELECTED_REVISION,
     license: "Apache-2.0",
     runtime: "transformers",
     sizeBytes: 1024,

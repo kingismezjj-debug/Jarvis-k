@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  createApprovedLocalEmbeddingLicenseApprovalRecord,
   assessLocalEmbeddingReadiness,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
-  createLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingProviderConfigurationReport,
   createLocalEmbeddingRuntimeStrategy,
   createLocalEmbeddingProviderDescriptor,
@@ -484,10 +484,8 @@ function approvedArtifactPinApproval(plan: ReturnType<typeof pinnedArtifactPlan>
 }
 
 function approvedLicenseApproval() {
-  return createLocalEmbeddingLicenseApprovalRecord({
-    status: "approved",
-    redistributionReviewed: true,
-    reasons: []
+  return createApprovedLocalEmbeddingLicenseApprovalRecord({
+    metadataRevision: "immutable-embedding-revision"
   });
 }
 

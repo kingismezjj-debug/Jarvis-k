@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   assessLocalEmbeddingReadiness,
+  createApprovedLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingArtifactPinApprovalRecord,
   createLocalEmbeddingArtifactPlan,
   createLocalEmbeddingBenchmarkApprovalRecord,
-  createLocalEmbeddingLicenseApprovalRecord,
   createLocalEmbeddingRevisionApprovalRecord,
   createLocalEmbeddingRuntimeStrategy,
   decideLocalEmbeddingComposition,
@@ -88,10 +88,8 @@ function completeReadiness() {
       ),
       reasons: []
     }),
-    licenseApproval: createLocalEmbeddingLicenseApprovalRecord({
-      status: "approved",
-      redistributionReviewed: true,
-      reasons: []
+    licenseApproval: createApprovedLocalEmbeddingLicenseApprovalRecord({
+      metadataRevision: "immutable-embedding-revision"
     }),
     revisionApproval: createLocalEmbeddingRevisionApprovalRecord({
       status: "approved",
