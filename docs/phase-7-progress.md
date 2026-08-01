@@ -999,3 +999,33 @@ packaging, license, benchmark, and composition gate passes.
   dependencies, visual model artifacts, model loading, provider
   registration, Core Host routing, Desktop IPC, or UI controls without
   separate product, privacy, and security approval.
+
+## Phase 11.3: Visual Runtime Isolation Guard
+
+- Status: complete as a provider-neutral isolation guard preparation wave.
+- Added a pending dedicated runtime adapter boundary for local OCR and vision.
+- The guard requires adapter-only exports, supervised private child-process IPC,
+  resource leases, sanitized errors, a screen-capture permission boundary, a
+  fixture fallback, and composition rooted in `apps/core-host`.
+- An accepted result means only
+  `ready_for_runtime_dependency_approval`.
+- Runtime dependencies, model downloads, model loading, screen capture,
+  OCR execution, vision execution, provider registration, default opt-in,
+  raw pixel persistence or exposure, network access, credentials, and
+  model-output command conversion remain blocked.
+- No runtime package, dependency, screen permission, model artifact, cache,
+  provider registration, Core Host change, Desktop change, IPC command, or UI
+  change was added.
+
+### Current Gate
+
+- Local visual runtime isolation guard tests: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not approve or add visual runtime dependencies, screen-capture APIs or
+  permissions, model artifacts, model loading, OCR/vision execution, provider
+  registration, default opt-in, Core Host routing, Desktop IPC, or UI controls
+  without a separate product, privacy, and security approval.
