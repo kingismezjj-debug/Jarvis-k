@@ -866,3 +866,34 @@ packaging, license, benchmark, and composition gate passes.
   metrics; select/install a real STT/TTS runtime; access voice artifacts;
   execute real audio; register a provider; change default opt-in behavior; or
   add UI/Desktop benchmark controls without a separate approval.
+
+## Phase 10.3: Local Voice Runtime Isolation Guard
+
+- Status: complete as a provider-local isolation guard preparation wave.
+- Added a pending dedicated runtime adapter boundary for local voice.
+- The guard requires future adapter-only exports, supervised child-process
+  ownership, private IPC, resource leases, sanitized failures, and a fixture
+  fallback.
+- An accepted result means only
+  `ready_for_runtime_dependency_approval`.
+- Runtime dependencies, Python/native environments, network access,
+  credentials, model downloads, model loading, audio execution, provider
+  registration, default opt-in, and arbitrary descriptor values remain
+  blocked or hidden.
+- No runtime package was created and no Core Host, Desktop, IPC, UI, or
+  provider composition change was made.
+
+### Current Gate
+
+- Local voice runtime isolation tests: PASS.
+- `npm.cmd run build -w @jarvis-k/voice`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not approve or add real STT/TTS runtime dependencies, Python/native
+  environments, speech artifacts, audio execution, provider registration,
+  default opt-in, or UI/Desktop controls without a separate approval.
