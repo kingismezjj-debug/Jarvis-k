@@ -31,7 +31,7 @@ const artifactPins: LocalEmbeddingArtifactPin[] = [
   artifact("config.json", "model_config"),
   artifact("tokenizer_config.json", "tokenizer_config"),
   artifact("tokenizer.json", "tokenizer_vocabulary"),
-  artifact("pooling.json", "pooling_config")
+  artifact("1_Pooling/config.json", "pooling_config")
 ];
 
 export function createLocalEmbeddingArtifactPlan(): LocalEmbeddingArtifactPlan {

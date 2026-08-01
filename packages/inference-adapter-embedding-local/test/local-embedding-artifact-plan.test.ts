@@ -22,6 +22,13 @@ describe("local embedding artifact plan", () => {
       "tokenizer_vocabulary",
       "pooling_config"
     ]);
+    expect(plan.artifacts.map((artifact) => artifact.key)).toEqual([
+      "model.safetensors",
+      "config.json",
+      "tokenizer_config.json",
+      "tokenizer.json",
+      "1_Pooling/config.json"
+    ]);
     expect(plan.artifacts.every((artifact) => artifact.required)).toBe(true);
     expect(plan.artifacts.every((artifact) => !artifact.pinned)).toBe(true);
   });

@@ -32,8 +32,39 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 55 test files and 280 tests.
 
+## Wave 7.2: Artifact Role Inventory
+
+- Status: complete.
+- Added a provider-local artifact role inventory for the selected upstream
+  revision.
+- Recorded only upstream repository filenames and role decisions; no file
+  content, LFS metadata, SHA-256 digest, cache, signed URL, or download path
+  was recorded.
+- Corrected the pooling config path in the artifact plan from the Phase 6
+  placeholder `pooling.json` to the observed upstream path
+  `1_Pooling/config.json`.
+- Marked the current minimum required pin set as model weights, model config,
+  tokenizer config, tokenizer vocabulary, and pooling config.
+- Kept additional observed repository paths under deferred review for the later
+  artifact pinning wave.
+- No artifact SHA-256 digest, artifact pin approval, model download, model
+  file, cache, runtime dependency, provider registration, composition change,
+  or real embedding execution was added in this wave.
+
+### Current Gate
+
+- Local embedding artifact inventory tests: PASS, 4 tests.
+- Local embedding artifact plan tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 56 test files and 284 tests.
+
 ## Remaining Phase 7 Work
 
+- Decide whether deferred observed paths must be required, optional, or
+  documentation-only for the selected runtime strategy.
 - Pin required artifacts and SHA-256 digests for the selected revision.
 - Complete license, redistribution, NOTICE/LICENSE, runtime dependency, native
   dependency, and tokenizer/config review.
