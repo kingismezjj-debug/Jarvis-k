@@ -1,4 +1,4 @@
-import { LOCAL_EMBEDDING_MODEL_ID } from "./local-embedding-readiness-provider";
+import { LOCAL_EMBEDDING_MODEL_ID } from "./local-embedding-constants";
 
 export type LocalEmbeddingArtifactRole =
   | "model_weights"

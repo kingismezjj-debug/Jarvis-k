@@ -15,14 +15,15 @@ import {
   type LocalEmbeddingArtifactPlan
 } from "./local-embedding-artifact-plan";
 import {
+  LOCAL_EMBEDDING_MODEL_ID,
+  LOCAL_EMBEDDING_PROVIDER_ID
+} from "./local-embedding-constants";
+import {
   createLocalEmbeddingRuntimeStrategy,
   isLocalEmbeddingRuntimeStrategyApproved,
   type LocalEmbeddingRuntimeStrategy
 } from "./local-embedding-runtime-strategy";
 import { decideLocalEmbeddingComposition } from "./local-embedding-composition-decision";
-
-export const LOCAL_EMBEDDING_PROVIDER_ID = "embedding.local.qwen3";
-export const LOCAL_EMBEDDING_MODEL_ID = "Qwen/Qwen3-Embedding-0.6B";
 
 const LOCAL_EMBEDDING_EXECUTION_DISABLED_REASON =
   "Local embedding execution remains disabled until a real runtime provider is composed.";

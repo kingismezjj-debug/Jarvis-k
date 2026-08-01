@@ -210,6 +210,34 @@ readiness before model downloads or native runtime execution are enabled.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 44 test files and 234 tests.
 
+## Wave 6.10: Local Embedding Manifest Draft Guard
+
+- Status: complete.
+- Added a provider-local manifest draft for `Qwen/Qwen3-Embedding-0.6B` as an
+  audit artifact only.
+- The draft records capability, source, runtime direction, and license while
+  remaining `status: draft`, `installable: false`, and
+  `downloadEnabled: false`.
+- The draft intentionally omits formal manifest fields such as immutable
+  revision, artifact digest, and size so it cannot be accepted as a
+  `ModelManifest` or registered in the static model registry.
+- Added tests that block artifact URLs, revision fields, SHA-256 digests, and
+  installable/downloadable state from appearing in the draft.
+- Extracted local embedding provider/model constants to avoid extending the
+  readiness/artifact-plan import cycle.
+- No real model revision, artifact digest, upstream URL, model manifest,
+  runtime dependency, download path, provider registration, or execution
+  behavior was added in this wave.
+
+### Current Gate
+
+- Local embedding manifest draft tests: PASS, 4 tests.
+- `npm run build -w @jarvis-k/inference-adapter-embedding-local`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 45 test files and 238 tests.
+
 ## Remaining Phase 6 Work
 
 - Choose and document the exact immutable model revision for
