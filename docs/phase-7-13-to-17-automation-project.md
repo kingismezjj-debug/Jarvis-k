@@ -245,3 +245,24 @@ To resume safely:
 - Phase 7.13 through Phase 7.17 automation scope is complete.
 - Next action: pause this automation and wait for user confirmation before
   starting the next Phase 7 stage.
+
+## Final Handoff Snapshot
+
+Saved after Phase 7.17 implementation verification on 2026-08-01.
+
+- Phase 7.13 commit: `5bb6a86`, CI success run `30696508562`.
+- Phase 7.14 commit: `270d550`, CI success run `30696775543`.
+- Phase 7.15 commit: `1f0dccd`, CI success run `30697133199`.
+- Phase 7.16 commit: `6ec7819`, CI success run `30697515393`.
+- Phase 7.17 implementation commit: `0a2e0b8`, CI success run
+  `30697925253`.
+- Latest local verification before this final handoff save:
+  `npm.cmd run verify` passed with 65 test files and 330 tests.
+- Current automation-scope remaining work: none.
+- Next broader Phase 7 work, only after user confirmation: tokenizer/config
+  runtime integration review, dedicated runtime package registration and
+  composition review, runtime dependency implementation planning, benchmark
+  capture approval, and later explicit runtime enablement.
+- Resume safely from `main`, read this file and `docs/phase-7-progress.md`,
+  confirm `git status --short --branch` is clean, and do not start real
+  download/runtime execution without a new explicit user-approved phase.
