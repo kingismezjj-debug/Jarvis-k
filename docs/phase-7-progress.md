@@ -1121,6 +1121,54 @@ packaging, license, benchmark, and composition gate passes.
   enable real local embedding inference without a separate product and
   security approval.
 
+## Phase 7.34: Runtime Session Factory Preflight
+
+- Status: complete as a Core Host review-only preflight wave.
+- Added a fail-closed `apps/core-host` preflight for the next possible real
+  runtime session factory implementation wave.
+- The preflight reviews explicit opt-in composition, approved manifest and
+  runtime descriptor opt-in behavior, fixture fallback preservation, resource
+  lease enforcement, sanitized error mapping, startup/restart/rollback review,
+  future Python environment handling, and separate product/security approval
+  requirements.
+- Accepted preflight status is only
+  `ready_for_runtime_session_factory_approval`.
+- Degraded results cover incomplete review evidence while every side effect
+  remains blocked.
+- Blocked results cover attempted approval, registration/default opt-in
+  mutation, runtime dependency change, Python environment read, helper launch,
+  artifact/cache/model access, real inference, private path exposure, raw
+  diagnostics exposure, or model-output shell execution.
+- No runtime session factory implementation, Python helper launch, runtime
+  Python environment read, model artifact path read, artifact access,
+  persistent cache write, model load, real local embedding inference, provider
+  registration behavior change, UI change, default opt-in change, or
+  Windows/PowerShell operation execution was added.
+
+### Current Gate
+
+- Core Host runtime session factory preflight normal, degraded, blocked, and
+  sanitized-output tests: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 100 test files and 497 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Real runtime session factory: NOT IMPLEMENTED.
+- Real Python helper launch from Core Host: BLOCKED.
+- Real model artifact access and model load: BLOCKED.
+
+### Next Hard Pause
+
+- Do not implement a real runtime session factory, read
+  `JARVIS_K_RUNTIME_PYTHON`, read model artifact paths, launch the Python
+  helper, access model artifacts, write caches, load the real model, expose
+  raw runtime diagnostics, change provider registration behavior, change
+  default opt-in behavior, or enable real local embedding inference without
+  separate product and security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

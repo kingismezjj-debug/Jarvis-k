@@ -195,6 +195,13 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     embedding generation. Fixture embedding remains the explicit regression
     fallback and keeps the embedding execution port when fixture inference is
     enabled.
+45. The local embedding runtime session factory has a separate Core Host
+    preflight before implementation. That preflight can reach only
+    `ready_for_runtime_session_factory_approval`; it does not read
+    `JARVIS_K_RUNTIME_PYTHON`, read model artifact paths, launch the helper,
+    access artifacts, write caches, load models, expose raw diagnostics,
+    change provider registration/default opt-in behavior, or enable real local
+    embedding inference.
 
 ## Restart policy
 
