@@ -12,6 +12,7 @@ import {
   IntentRoutingRequestSchema,
   IntentRoutingResultSchema,
   ModelInstallabilityReportSchema,
+  ModelInventoryItemSchema,
   ModelRuntimeAdapterDescriptorSchema,
   ModelOperationSnapshotSchema,
   OcrBoundingBoxSchema,
@@ -34,6 +35,28 @@ import {
 } from "../src";
 
 describe("protocol contracts", () => {
+  it("rejects private model installation paths from inventory DTOs", () => {
+    const result = ModelInventoryItemSchema.safeParse({
+      manifest: {
+        id: "jarvis-fixture/local-embedding-smoke",
+        capability: "embedding",
+        source: "jarvis",
+        revision: "fixture-revision",
+        license: "Jarvis-K Fixture",
+        runtime: "system",
+        quantization: "fixture",
+        sizeBytes: 1,
+        sha256:
+          "2222222222222222222222222222222222222222222222222222222222222222",
+        licenseRisk: "green"
+      },
+      status: "available",
+      installPath: "C:\\Users\\Administrator\\private-model.bin"
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("creates a valid command envelope", () => {
     const envelope = createCommandEnvelope({
       type: "agent.sendMessage",

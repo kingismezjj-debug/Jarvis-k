@@ -38,6 +38,46 @@ function waitForEvent(
 }
 
 describe("CoreSupervisor", () => {
+  it("sanitizes child-process send errors", async () => {
+    const supervisor = new CoreSupervisor({
+      coreEntry,
+      requestTimeoutMs: 2_000,
+      healthIntervalMs: 0
+    });
+    const fakeChild = {
+      connected: true,
+      send: (
+        _message: unknown,
+        callback: (error?: Error | null) => void
+      ) => {
+        callback(
+          new Error(
+            "EPIPE: C:\\Users\\Administrator\\private-token-cache\\request"
+          )
+        );
+      }
+    };
+    (supervisor as unknown as { child: typeof fakeChild }).child = fakeChild;
+
+    const result = await supervisor.request(
+      createCommandEnvelope({
+        type: "agent.ping",
+        payload: {
+          sentAt: "2026-08-02T00:00:00.000Z"
+        }
+      })
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "CORE_SEND_FAILED",
+        message: "Core could not accept the request."
+      }
+    });
+    expect(JSON.stringify(result)).not.toContain("private-token-cache");
+  });
+
   it("routes commands and restores service after a controlled restart", async () => {
     const supervisor = new CoreSupervisor({
       coreEntry,

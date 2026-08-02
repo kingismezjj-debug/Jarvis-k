@@ -9,6 +9,7 @@ import type {
   ModelOperationSupervisor,
   ResourceScheduler
 } from "./ports";
+import { sanitizeResourceSchedulerError } from "./sanitized-resource-error";
 
 export interface PolicyModelInstallWorkflowOrchestratorOptions {
   installationPlanner: ModelInstallationPlanner;
@@ -72,30 +73,27 @@ export class PolicyModelInstallWorkflowOrchestrator
         reasons: ["Install workflow prepared; artifact fetch is not enabled."]
       });
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Model install preparation failed.";
-      if (message.startsWith("RESOURCE_")) {
+      const resourceCode = sanitizeResourceSchedulerError(error);
+      if (resourceCode !== "RESOURCE_PRECHECK_FAILED") {
         return this.options.operationSupervisor.update({
           operationId: operation.operationId,
           phase: "blocked",
-          reasons: [message]
+          reasons: [resourceCode]
         });
       }
       return this.options.operationSupervisor.update({
         operationId: operation.operationId,
         phase: "failed",
-        error: structuredError(message)
+        error: structuredError()
       });
     }
   }
 }
 
-function structuredError(message: string): StructuredError {
+function structuredError(): StructuredError {
   return {
     code: "MODEL_INSTALL_WORKFLOW_FAILED",
-    message,
+    message: "Model install workflow failed.",
     retryable: true
   };
 }

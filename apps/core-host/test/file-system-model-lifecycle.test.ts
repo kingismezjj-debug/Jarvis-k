@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { appendFile, mkdtemp, rm } from "node:fs/promises";
+import {
+  appendFile,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -58,8 +65,29 @@ describe("FileSystemModelLifecycleManager", () => {
       "complete"
     ]);
     expect(inventory.status).toBe("available");
-    expect(inventory.installPath).toContain("model.bin");
+    expect(inventory).not.toHaveProperty("installPath");
+    const [modelDirectory] = await readdir(directory);
+    const storedInventory = JSON.parse(
+      await readFile(
+        path.join(directory, modelDirectory, "inventory.json"),
+        "utf8"
+      )
+    ) as Record<string, unknown>;
+    expect(storedInventory).not.toHaveProperty("installPath");
     expect(await manager.verify(manifest.id)).toBe(true);
+  });
+
+  it("lists a missing inventory root without creating it", async () => {
+    const missingRoot = path.join(directory, "not-created");
+    const manager = new FileSystemModelLifecycleManager({
+      rootDirectory: missingRoot,
+      fetchArtifact: async () => undefined
+    });
+
+    await expect(manager.listInventory()).resolves.toEqual([]);
+    await expect(stat(missingRoot)).rejects.toMatchObject({
+      code: "ENOENT"
+    });
   });
 
   it("moves models through available and loaded lifecycle states", async () => {

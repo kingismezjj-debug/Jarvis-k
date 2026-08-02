@@ -179,7 +179,7 @@ export class CoreSupervisor {
           pendingRequest.resolve(
             this.failure(envelope, {
               code: "CORE_SEND_FAILED",
-              message: error.message,
+              message: "Core could not accept the request.",
               retryable: true
             })
           );

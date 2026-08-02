@@ -6,7 +6,7 @@ Status: COMPLETE
 
 Automation: PAUSED
 
-Rollback marker: `phase-1-baseline`
+Rollback reference: commit `1f3376a` (no Git tag is present in this checkout)
 
 Current gate: phase 2 exit conditions are complete. Offline deterministic
 acceptance, real Xunfei connectivity acceptance, encrypted local credential

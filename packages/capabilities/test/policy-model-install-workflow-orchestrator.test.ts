@@ -90,6 +90,42 @@ describe("PolicyModelInstallWorkflowOrchestrator", () => {
       reasons: ["RESOURCE_MEMORY_UNAVAILABLE"]
     });
   });
+
+  it("sanitizes unexpected preparation errors", async () => {
+    const orchestrator = new PolicyModelInstallWorkflowOrchestrator({
+      installationPlanner: {
+        preview: async () => ({
+          modelId: manifest().id,
+          allowed: true,
+          reasons: [],
+          runtimeMode: "standard"
+        })
+      },
+      operationSupervisor: new InMemoryModelOperationSupervisor(),
+      resourceScheduler: {
+        acquire: async () => {
+          throw new Error("ENOENT: C:\\Users\\secret\\model-cache");
+        },
+        diagnostics: async () => {
+          throw new Error("not used");
+        }
+      }
+    });
+
+    const operation = await orchestrator.prepare({
+      manifest: manifest(),
+      device: device()
+    });
+
+    expect(operation).toMatchObject({
+      phase: "failed",
+      error: {
+        code: "MODEL_INSTALL_WORKFLOW_FAILED",
+        message: "Model install workflow failed."
+      }
+    });
+    expect(JSON.stringify(operation)).not.toContain("C:\\Users\\secret");
+  });
 });
 
 function manifest(overrides: Partial<ModelManifest> = {}): ModelManifest {

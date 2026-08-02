@@ -29,11 +29,57 @@ describe("check-sensitive-artifacts script", () => {
 
   it("passes tracked source files and the public env example", async () => {
     await writeTrackedFile("src/index.ts", "export const ok = true;\n");
-    await writeTrackedFile(".env.example", "PLACEHOLDER=value\n");
+    await writeTrackedFile(
+      ".env.example",
+      "API_KEY=placeholder\n"
+    );
 
     await expect(runArtifactCheck(directory)).resolves.toContain(
       "PASS sensitive artifact guard"
     );
+  });
+
+  it("fails on credential-like content without echoing the value", async () => {
+    const secretValue = ["live", "secret", "value"].join("-");
+    const source = [
+      "export const ",
+      "apiKey",
+      ' = "',
+      secretValue,
+      '";\n'
+    ].join("");
+    await writeTrackedFile(
+      "src/index.ts",
+      source
+    );
+
+    const result = runArtifactCheck(directory);
+    await expect(result).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "src/index.ts contains a credential-like assignment"
+      )
+    });
+    await expect(result).rejects.not.toMatchObject({
+      stderr: expect.stringContaining("live-secret-value")
+    });
+  });
+
+  it("fails on signed URL content without echoing the value", async () => {
+    const signedUrl = [
+      "https://example.invalid/model?",
+      "token=",
+      ["secret", "token", "value"].join("-")
+    ].join("");
+    await writeTrackedFile(
+      "docs/model.md",
+      `${signedUrl}\n`
+    );
+
+    await expect(runArtifactCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "docs/model.md contains a credential-bearing URL"
+      )
+    });
   });
 
   it("fails when a local env file is tracked", async () => {

@@ -135,7 +135,7 @@ faults; it never connects to a real provider.
   `artifacts/jarvis-k-phase-2-real-xunfei.png`
 - upgrade plan: `docs/phase-2-upgrade-plan.md`
 - execution log: `docs/phase-2-progress.md`
-- rollback marker: Git tag `phase-1-baseline`
+- rollback reference: commit `1f3376a` (no Git tag is present in this checkout)
 
 ## Security And Source Safety
 

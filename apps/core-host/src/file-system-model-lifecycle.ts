@@ -11,6 +11,7 @@ import {
   type ModelManifest
 } from "@jarvis-k/contracts";
 import { createHash } from "node:crypto";
+import type { Dirent } from "node:fs";
 import {
   mkdir,
   open,
@@ -56,10 +57,17 @@ export class FileSystemModelLifecycleManager
   }
 
   public async listInventory(): Promise<ModelInventoryItem[]> {
-    await mkdir(this.options.rootDirectory, { recursive: true });
-    const entries = await readdir(this.options.rootDirectory, {
-      withFileTypes: true
-    });
+    let entries: Dirent[];
+    try {
+      entries = await readdir(this.options.rootDirectory, {
+        withFileTypes: true
+      });
+    } catch (error) {
+      if (isFileNotFoundError(error)) {
+        return [];
+      }
+      throw error;
+    }
     const items: ModelInventoryItem[] = [];
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
@@ -177,13 +185,17 @@ export class FileSystemModelLifecycleManager
 
   public async verify(modelId: string): Promise<boolean> {
     const inventory = await this.findInventory(modelId);
-    if (!inventory?.manifest.sha256 || !inventory.installPath) {
+    if (!inventory?.manifest.sha256) {
       return false;
     }
-    if (!(await fileExists(inventory.installPath))) {
+    const artifactPath = path.join(
+      this.modelDirectory(inventory.manifest),
+      ARTIFACT_FILE_NAME
+    );
+    if (!(await fileExists(artifactPath))) {
       return false;
     }
-    return (await sha256File(inventory.installPath)) === inventory.manifest.sha256;
+    return (await sha256File(artifactPath)) === inventory.manifest.sha256;
   }
 
   public async load(modelId: string): Promise<ModelInventoryItem> {
@@ -225,7 +237,6 @@ export class FileSystemModelLifecycleManager
     const inventory = ModelInventoryItemSchema.parse({
       manifest,
       status,
-      installPath: path.join(directory, ARTIFACT_FILE_NAME),
       lastVerifiedAt: this.now().toISOString()
     });
     await writeJson(path.join(directory, INVENTORY_FILE_NAME), inventory);
@@ -236,11 +247,11 @@ export class FileSystemModelLifecycleManager
     directory: string
   ): Promise<ModelInventoryItem | undefined> {
     try {
-      return ModelInventoryItemSchema.parse(
-        JSON.parse(
-          await readFile(path.join(directory, INVENTORY_FILE_NAME), "utf8")
-        )
-      );
+      const value = JSON.parse(
+        await readFile(path.join(directory, INVENTORY_FILE_NAME), "utf8")
+      ) as Record<string, unknown>;
+      const { installPath: _legacyInstallPath, ...publicInventory } = value;
+      return ModelInventoryItemSchema.parse(publicInventory);
     } catch {
       return undefined;
     }
@@ -286,6 +297,16 @@ async function sizeIfExists(filePath: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+function isFileNotFoundError(
+  error: unknown
+): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }
 
 function safePathSegment(value: string): string {

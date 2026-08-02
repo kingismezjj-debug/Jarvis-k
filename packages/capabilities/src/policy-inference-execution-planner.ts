@@ -9,6 +9,7 @@ import type {
   InferenceProviderRegistry,
   ResourceScheduler
 } from "./ports";
+import { sanitizeResourceSchedulerError } from "./sanitized-resource-error";
 
 export interface PolicyInferenceExecutionPlannerOptions {
   inferenceProviderRegistry: InferenceProviderRegistry;
@@ -64,11 +65,7 @@ export class PolicyInferenceExecutionPlanner
         });
         await lease.release();
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Inference resource preflight failed.";
-        reasons.push(message);
+        reasons.push(sanitizeResourceSchedulerError(error));
       }
     }
 

@@ -509,7 +509,6 @@ class FakeModelLifecycleManager implements ModelLifecycleManager {
     {
       manifest: new FakeModelRegistry().manifest,
       status: "available",
-      installPath: "E:\\Jarvis-K\\models\\vendor-local-stt-small\\model.bin",
       lastVerifiedAt: "2026-07-31T00:00:00.000Z"
     }
   ];
@@ -1224,6 +1223,9 @@ describe("CoreRuntime", () => {
         }
       ]
     });
+    expect(
+      inventory.ok ? inventory.data?.inventory?.[0] : undefined
+    ).not.toHaveProperty("installPath");
     expect(candidates.ok).toBe(true);
     expect(candidates.ok ? candidates.data : undefined).toMatchObject({
       candidates: [

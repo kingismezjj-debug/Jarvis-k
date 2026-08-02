@@ -7,7 +7,8 @@ import {
 import type {
   DeviceCapability,
   InferenceProviderDescriptor,
-  ModelManifest
+  ModelManifest,
+  ResourceScheduler
 } from "@jarvis-k/contracts";
 
 describe("PolicyInferenceExecutionPlanner", () => {
@@ -100,6 +101,31 @@ describe("PolicyInferenceExecutionPlanner", () => {
 
     expect(report.allowed).toBe(false);
     expect(report.reasons).toEqual(["RESOURCE_MEMORY_UNAVAILABLE"]);
+  });
+
+  it("sanitizes unknown resource scheduler errors", async () => {
+    const resourceScheduler: ResourceScheduler = {
+      acquire: async () => {
+        throw new Error("ENOENT: C:\\Users\\secret\\token-cache");
+      },
+      diagnostics: async () => {
+        throw new Error("not used");
+      }
+    };
+    const planner = new PolicyInferenceExecutionPlanner({
+      inferenceProviderRegistry: new StaticInferenceProviderRegistry([
+        availableProvider()
+      ]),
+      resourceScheduler
+    });
+
+    const report = await planner.preview({
+      capability: "embedding",
+      manifest: manifest({ minMemoryBytes: gib(1) })
+    });
+
+    expect(report.reasons).toEqual(["RESOURCE_PRECHECK_FAILED"]);
+    expect(JSON.stringify(report)).not.toContain("C:\\Users\\secret");
   });
 });
 

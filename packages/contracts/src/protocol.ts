@@ -712,7 +712,6 @@ export const ModelInventoryItemSchema = z
   .object({
     manifest: ModelManifestSchema,
     status: ModelDistributionStatusSchema,
-    installPath: z.string().min(1).max(500).optional(),
     lastVerifiedAt: z.string().datetime().optional()
   })
   .strict();

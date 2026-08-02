@@ -1,23 +1,24 @@
 # Jarvis-K
 
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
-current baseline is **Phase 6 Local Provider Readiness**: the
+current baseline is **Phase 12.3 Developer-Alpha Hardening**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
 ports, installability policy, resource diagnostics, dry-run model install
-preparation, and deterministic fixture providers for embedding, intent
-routing, OCR, and reranking are in place. Phase 6 has started with a
-fail-closed local embedding provider readiness package; real local model
-downloads and runtime execution remain disabled.
+preparation, deterministic fixture providers, and provider-neutral
+developer-alpha guards are in place. Phase 7 through Phase 12 remain
+fail-closed preparation and fixture work; real local model downloads, model
+runtime execution, installers, updates, and rollback side effects remain
+disabled.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
 
 ## Status
 
-- Phase 0/1 rollback tag: `phase-1-baseline`
-- Phase 2 voice baseline tag: `phase-2-voice-baseline`
+- Phase 0/1 rollback reference: commit `1f3376a`
+- Phase 2 voice baseline reference: commit `5d195ee`
 - Current branch: `main`
 - Phase 3 local memory persistence: complete
 - Phase 4 local capability and model governance foundation: complete through

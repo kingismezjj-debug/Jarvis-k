@@ -31,7 +31,6 @@ describe("local embedding runtime adapter", () => {
     await expect(adapter.load({ manifest: manifest(), inventoryItem: {
       manifest: manifest(),
       status: "available",
-      installPath: "C:\\models\\fixture.bin",
       lastVerifiedAt: "2026-08-01T00:00:00.000Z"
     }, device: device() })).rejects.toThrow(
       "Local embedding runtime adapter is not configured."

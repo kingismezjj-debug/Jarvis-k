@@ -84,7 +84,7 @@ Phase 1 意义：
 - Core 可以崩溃并被 Desktop 监督重启，主窗口不跟着退出。
 - 所有跨进程通信都有 typed contract 和校验。
 
-完成状态：已完成，标签为 `phase-1-baseline`。
+完成状态：已完成，回滚引用为 commit `1f3376a`（当前 checkout 未发现对应 Git tag）。
 
 ## 4. Phase 2：Voice Engine 和讯飞 RTASR
 
@@ -117,7 +117,7 @@ Phase 2 意义：
 - 本地 TTS。
 - 语音模型下载和本地模型 runtime。
 
-完成状态：已完成，标签为 `phase-2-voice-baseline`。
+完成状态：已完成，回滚引用为 commit `5d195ee`（当前 checkout 未发现对应 Git tag）。
 
 ## 5. Phase 2.6：工程硬化和 Onboarding
 
@@ -131,7 +131,7 @@ Phase 2.6 是进入 Memory 和模型治理前的工程硬化阶段。
 - 边界和构建流程修正。
 - 曾经 GitHub Actions 因干净 CI 没有先构建 `voice-adapter-xunfei` 失败，已在后续提交中修复。
 
-完成状态：已完成，标签为 `phase-2.6-hardening`。
+完成状态：已完成，回滚引用为 commit `9e8c3b6`（当前 checkout 未发现对应 Git tag）。
 
 ## 6. Phase 3：本地 Memory 和 SQLite 持久化
 
@@ -277,7 +277,7 @@ Phase 5 意义：
 - 真实本地 runtime。
 - provider credentials 或外部网络访问。
 
-完成状态：已完成，标签为 `phase-5-fixture-baseline`。
+完成状态：已完成，回滚引用为 commit `ed3ae29`（当前 checkout 未发现对应 Git tag）。
 
 ## 9. Phase 6.1 到 Phase 6.19：本地 Embedding Provider Readiness
 
