@@ -56,6 +56,13 @@ try {
         ]
       }
     });
+    const firstVector = embedded.vectors[0]?.values ?? [];
+    const norm = Math.sqrt(
+      firstVector.reduce((sum, value) => sum + value * value, 0)
+    );
+    if (Math.abs(norm - 1) >= 0.001) {
+      throw new Error("Fixture embedding normalization check failed.");
+    }
     console.log(
       JSON.stringify({
         status: "embedded",

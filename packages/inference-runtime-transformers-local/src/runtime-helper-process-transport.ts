@@ -75,6 +75,10 @@ export class RuntimeHelperProcessTransport
     return this.connectedState;
   }
 
+  public get pid(): number | undefined {
+    return this.child.pid;
+  }
+
   public send(
     request: RuntimeHelperRequest,
     callback: (error: Error | null) => void

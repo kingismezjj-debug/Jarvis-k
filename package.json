@@ -47,6 +47,7 @@
     "smoke:desktop:fixture-inference": "npm run build && node tests/desktop-fixture-inference-smoke.mjs",
     "smoke:runtime-transformers": "npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-smoke.mjs",
     "smoke:runtime-transformers:fixture": "npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-fixture-smoke.mjs",
+    "acceptance:runtime-transformers:approved-artifact": "npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-real-artifact-benchmark.mjs",
     "acceptance:xunfei": "npm run build && node tests/real-xunfei-acceptance.mjs",
     "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:core && npm run build:core-host && vitest run"
   },

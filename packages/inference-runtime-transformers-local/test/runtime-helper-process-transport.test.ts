@@ -63,6 +63,7 @@ describe("runtime helper process transport", () => {
       command: process.execPath,
       args: ["-e", createFixtureScript()]
     });
+    expect(transport.pid).toBeGreaterThan(0);
     const client = new RuntimeHelperClient({ transport });
 
     await expect(client.health()).resolves.toMatchObject({

@@ -6,12 +6,12 @@ supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
 ports, installability policy, resource diagnostics, dry-run model install
-preparation, deterministic fixture providers, provider-neutral
-developer-alpha guards, and the isolated Python Transformers helper are in
-place. Phase 7 through Phase 12 remain fail-closed preparation and fixture
-work at the product-composition boundary; real Qwen model downloads, provider
-registration, default opt-in, installers, updates, and rollback side effects
-remain disabled.
+  preparation, deterministic fixture providers, provider-neutral
+  developer-alpha guards, and the isolated Python Transformers helper are in
+  place. The approved Phase 7.26 acceptance runner has verified a temporary
+  real artifact load and benchmark; product downloads, provider registration,
+  default opt-in, installers, updates, and rollback side effects remain
+  disabled.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -38,6 +38,9 @@ They are not runtime dependencies.
   and child-process JSONL transport; provider composition remains disabled
 - Phase 7.25 real artifact access approval: review-only handoff guard complete;
   real artifact access and runtime-backed benchmark capture remain blocked
+- Phase 7.26 approved artifact benchmark: temporary artifact verification,
+  real model load/embed, latency, quality, and cleanup passed; peak memory
+  capture remains deferred
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -117,6 +120,7 @@ npm run smoke:desktop
 npm run smoke:desktop:fixture-inference
 npm run smoke:runtime-transformers
 npm run smoke:runtime-transformers:fixture
+npm run acceptance:runtime-transformers:approved-artifact
 ```
 
 The Transformers runtime smoke requires an approved Python environment path:
@@ -186,6 +190,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.19 runtime helper protocol](docs/phase-7-19-runtime-helper-protocol.md)
 - [Real Python Transformers runtime](docs/phase-7-24-real-python-transformers-runtime.md)
 - [Phase 7.25 real artifact access approval](docs/phase-7-25-real-artifact-access-approval.md)
+- [Phase 7.26 real artifact benchmark](docs/phase-7-26-real-artifact-benchmark.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)

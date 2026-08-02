@@ -146,6 +146,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     cache writes, model loading, provider registration, execution enablement,
     or default opt-in changes. The fixture provider remains the fallback until
     the separate approval and composition stages are completed.
+37. The approved Phase 7.26 acceptance runner may transiently fetch the pinned
+    public artifact set into a temporary directory, verify it twice, run the
+    isolated helper benchmark, and remove the directory on exit. This runner
+    remains outside product composition; it never registers the provider,
+    changes default opt-in, persists signed URLs or credentials, or retains
+    model files.
 
 ## Restart policy
 

@@ -373,9 +373,10 @@ def handle_embed(request: dict[str, Any]) -> dict[str, Any]:
             attention_mask = encoded.get("attention_mask")
             if last_hidden_state is None or attention_mask is None:
                 raise ValueError("model output is missing hidden state")
-            mask = attention_mask.unsqueeze(-1).expand(last_hidden_state.size())
-            mask = mask.to(last_hidden_state.dtype)
-            pooled = (last_hidden_state * mask).sum(dim=1)
+            hidden_state = last_hidden_state.to(dtype=torch.float32)
+            mask = attention_mask.unsqueeze(-1).expand(hidden_state.size())
+            mask = mask.to(dtype=torch.float32)
+            pooled = (hidden_state * mask).sum(dim=1)
             pooled = pooled / mask.sum(dim=1).clamp(min=1e-9)
             pooled = torch.nn.functional.normalize(pooled, p=2, dim=1)
             values = pooled.detach().to("cpu").tolist()

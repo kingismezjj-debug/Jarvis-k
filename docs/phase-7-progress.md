@@ -706,11 +706,15 @@ packaging, license, benchmark, and composition gate passes.
   child-process transport inside the dedicated runtime package.
 - Phase 7.25 now prepares the explicit real-artifact access and runtime-backed
   benchmark approval handoff without granting any side effect.
+- Phase 7.26 now runs the approved artifact verification and runtime-backed
+  embedding benchmark in a temporary directory; peak helper memory remains
+  deferred.
 - The runtime helper is not registered, provider execution is not enabled,
-  default opt-in is unchanged, and no real Qwen artifact is accessed.
+  default opt-in is unchanged, and no real Qwen artifact is retained.
 - Do not register the real provider, change default opt-in behavior, access
-  real model artifacts, or modify `apps/core-host` without the separate
-  composition and artifact approval stages.
+  real model artifacts outside the approved acceptance runner, or modify
+  `apps/core-host` without the separate composition and artifact approval
+  stages.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after a real approved model artifact is available.
 - Register runtime and execution providers only in `apps/core-host`, behind
@@ -783,6 +787,43 @@ packaging, license, benchmark, and composition gate passes.
   provider registration, execution enablement, or default opt-in change.
 - Require explicit user approval for the artifact-access scope and retain the
   workspace in a clean, locally verifiable state.
+
+## Phase 7.26: Real Artifact and Runtime Benchmark
+
+- Status: complete for approved artifact verification and runtime-backed
+  latency/quality capture; peak helper memory remains deferred.
+- Added an explicit acceptance-only runner that downloads the approved
+  artifact set to a temporary directory, verifies each artifact twice,
+  matches the approved aggregate size, starts the Python Transformers helper,
+  captures cold/warm latency, checks dimensions and normalized output, and
+  removes the temporary directory on every exit path.
+- Latest run passed artifact verification for 10 artifacts and matched the
+  approved aggregate size of `1,207,470,234` bytes.
+- Latest runtime-backed result: 1024 dimensions, 5 vectors, model load
+  `583.29 ms`, first embedding `485.22 ms`, warm p50 `459.15 ms`, warm p95
+  `466.43 ms`, finite values and normalization passed, stable cosine `1`.
+- Peak helper working-set capture is deferred because the optional sanitized
+  resource probe could not obtain a sample; no memory value is claimed.
+- No model file or cache remains after the run. Provider registration,
+  execution enablement, Core Host composition, Desktop IPC, UI behavior, and
+  default opt-in remain unchanged.
+
+### Current Gate
+
+- Approved artifact download and double SHA-256 verification: PASS.
+- Temporary model load and embedding execution: PASS.
+- Runtime latency and quality benchmark: PASS.
+- Temporary directory cleanup: PASS.
+- Peak helper memory benchmark: DEFERRED.
+- Full repository verification after this wave: pending.
+
+### Next Hard Pause
+
+- Do not register the real provider, change default opt-in, modify
+  `apps/core-host`, expose provider visibility, or add model lifecycle/cache
+  behavior without a separate composition and product approval.
+- Treat peak memory capture as an open acceptance item until a safe,
+  sanitized sampling path is approved and verified.
 
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
