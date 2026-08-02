@@ -709,9 +709,13 @@ packaging, license, benchmark, and composition gate passes.
 - Phase 7.26 now runs the approved artifact verification and runtime-backed
   embedding benchmark in a temporary directory; peak helper memory remains
   deferred.
-- Phase 7.27 now hardens the provider-local peak working-set probe; real
-  artifact-backed memory capture remains deferred until the approved
-  Transformers environment is configured for a rerun.
+- Phase 7.27 now hardens the provider-local peak working-set probe; the
+  approved Transformers environment rerun completed, but real artifact-backed
+  memory capture remains deferred because no valid lifecycle sample was
+  obtained.
+- Phase 7.28 now enters a separate provider composition approval gate. The
+  review boundary is accepted only as a handoff; readiness is still deferred
+  on the local resource profile and composition remains disabled.
 - The runtime helper is not registered, provider execution is not enabled,
   default opt-in is unchanged, and no real Qwen artifact is retained.
 - Do not register the real provider, change default opt-in behavior, access
@@ -857,12 +861,45 @@ packaging, license, benchmark, and composition gate passes.
 
 ### Next Hard Pause
 
-- Rerun the already approved temporary artifact benchmark only after the
-  approved Transformers environment is configured.
-- If the sanitized probe still cannot capture a sample, keep the resource
-  gate deferred and write a handoff before any composition review.
+- Keep the local resource profile gate deferred because the configured
+  environment rerun did not produce a valid real-model lifecycle sample.
+- Carry the result into the separate provider composition approval gate as a
+  review-only handoff.
 - Do not register the real provider, change default opt-in, modify
   `apps/core-host`, or expose provider visibility in this wave.
+
+## Phase 7.28: Provider Composition Approval Gate
+
+- Status: in progress as a provider-local, review-only approval handoff.
+- Added a separate composition approval gate that consumes the existing
+  composition preflight and readiness report without changing composition.
+- The gate distinguishes three states: blocked review boundary,
+  deferred readiness, and ready for manual composition approval.
+- Current handoff state is `deferred_pending_readiness` because
+  `benchmarks.local_resource_profile` remains unsatisfied.
+- `compositionApprovalGranted`, `compositionAllowed`,
+  `providerRegistrationEnabled`, `executionEnabled`, and
+  `defaultOptInEnabled` remain `false`.
+- Runtime registration, execution-provider composition, Core Host changes,
+  provider visibility, Desktop IPC, UI behavior, artifact access, cache writes,
+  model loading, and installer behavior remain unchanged.
+- The fixture provider remains available as the regression fallback.
+
+### Current Gate
+
+- Composition approval gate normal, deferred, blocked, and sanitized-output
+  tests: PASS, 4 tests.
+- Composition preflight remains review-only and fail-closed.
+- Local resource benchmark readiness: DEFERRED.
+- Provider registration and execution enablement: unchanged and disabled.
+
+### Next Hard Pause
+
+- Do not register the real provider, compose the execution provider, change
+  default opt-in, expose provider visibility, or modify `apps/core-host`.
+- Do not treat the handoff as product, security, or release approval.
+- Resolve the deferred local resource profile and obtain a separate explicit
+  approval before any composition implementation wave.
 
 ## Phase 8.1: Embedding Memory Retrieval Contract
 

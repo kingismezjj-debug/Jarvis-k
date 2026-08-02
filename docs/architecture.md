@@ -156,6 +156,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     Windows probe reports only a sanitized `PeakWorkingSetSize` sample from
     the supervised helper process; it must not enter contracts, Core,
     Desktop, UI, provider visibility, or default opt-in behavior.
+39. Provider composition has a separate provider-local review-only gate. The
+    gate consumes runtime acceptance, adapter isolation, composition preflight,
+    and readiness evidence, but never grants composition approval itself. A
+    pending local resource profile keeps the handoff deferred; only a later
+    explicit product and security approval may change `apps/core-host`,
+    register the provider, or enable execution.
 
 ## Restart policy
 

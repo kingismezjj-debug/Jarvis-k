@@ -6,6 +6,7 @@ export * from "./local-embedding-artifact-plan";
 export * from "./local-embedding-artifact-required-set-decision";
 export * from "./local-embedding-benchmark-approval";
 export * from "./local-embedding-benchmark-capture-procedure";
+export * from "./local-embedding-composition-approval-gate";
 export * from "./local-embedding-composition-decision";
 export * from "./local-embedding-composition-preflight";
 export * from "./local-embedding-constants";

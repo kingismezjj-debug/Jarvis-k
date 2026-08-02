@@ -36,9 +36,9 @@ The probe now:
 
 ## Acceptance State
 
-Peak helper memory remains `deferred` until the approved artifact benchmark is
-rerun with the configured Transformers environment and the sanitized probe
-returns at least one valid sample during the real helper lifecycle.
+Peak helper memory remains `deferred` because the approved artifact benchmark
+was rerun with the configured Transformers environment, but the sanitized
+probe did not return a valid sample during the real helper lifecycle.
 
 This wave does not register a provider, change execution or default opt-in,
 modify `apps/core-host`, expose provider visibility, or add model lifecycle
