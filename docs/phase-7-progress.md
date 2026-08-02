@@ -949,6 +949,45 @@ packaging, license, benchmark, and composition gate passes.
 - Do not register the real provider, change default opt-in, compose execution,
   or modify `apps/core-host`.
 
+## Phase 7.30: Memory Sampling Gap Disposition
+
+- Status: complete as a provider-local deferred-disposition wave.
+- Added a formal disposition guard for the real helper lifecycle memory
+  sampling gap observed during the approved Phase 7.29 temporary benchmark
+  rerun.
+- The accepted disposition records only that artifact verification, runtime
+  benchmark, cleanup, product approval, security approval, hidden metrics, and
+  fixed sanitized reason-code requirements were met.
+- The gap is dispositioned as a known local diagnostic limitation, not as a
+  completed resource profile.
+- The guard explicitly returns `resourceProfileComplete: false`,
+  `readinessSatisfied: false`, `compositionAllowed: false`,
+  `providerRegistrationEnabled: false`, `executionEnabled: false`, and
+  `defaultOptInEnabled: false`.
+- The `benchmarks.local_resource_profile` readiness gate remains unsatisfied.
+- No model artifact access, cache write, model load, provider registration,
+  execution enablement, default opt-in change, Core Host composition, Desktop
+  IPC, UI visibility, or installer behavior was added.
+
+### Current Gate
+
+- Resource profile disposition normal, blocked, metric-value, approval,
+  cleanup, provider-registration, execution, default opt-in, and sanitized
+  output tests: PASS.
+- Formal disposition: `recorded_deferred_diagnostic_gap`.
+- Resource profile: INCOMPLETE.
+- Local resource readiness: UNSATISFIED.
+- Provider composition: BLOCKED.
+
+### Next Hard Pause
+
+- Do not enter provider composition from this disposition alone.
+- A future wave must either capture valid resource evidence with a separately
+  approved method or make a separate product, security, and release decision to
+  replace the resource-profile requirement.
+- Do not register the real provider, change default opt-in, compose execution,
+  or modify `apps/core-host`.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

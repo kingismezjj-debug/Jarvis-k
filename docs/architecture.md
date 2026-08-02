@@ -167,6 +167,10 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     fixed failure reason codes. A completed resource profile and both approvals
     still produce only a handoff for composition review; they do not register
     the provider, enable execution, expose metrics, or change default opt-in.
+41. The real helper lifecycle memory sampling gap is formally dispositioned as
+    a deferred local diagnostic limitation. This disposition does not complete
+    the resource profile, satisfy readiness, grant composition, expose resource
+    values, register the provider, enable execution, or change default opt-in.
 
 ## Restart policy
 

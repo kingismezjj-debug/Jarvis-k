@@ -50,6 +50,9 @@ They are not runtime dependencies.
 - Phase 7.29 resource profile approval: product and security approvals granted
   for one acceptance diagnostic only; artifact/runtime rerun passed, but the
   valid real-model memory sample remains deferred
+- Phase 7.30 memory sampling gap disposition: known diagnostic gap formally
+  recorded; resource profile remains incomplete and provider composition
+  remains blocked
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -203,6 +206,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.27 peak memory sampling diagnostic](docs/phase-7-27-memory-sampling-diagnostic.md)
 - [Phase 7.28 provider composition approval gate](docs/phase-7-28-provider-composition-approval-gate.md)
 - [Phase 7.29 resource profile product and security approval](docs/phase-7-29-resource-profile-product-security-approval.md)
+- [Phase 7.30 memory sampling gap disposition](docs/phase-7-30-memory-sampling-gap-disposition.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
