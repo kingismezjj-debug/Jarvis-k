@@ -1376,6 +1376,58 @@ packaging, license, benchmark, and composition gate passes.
   add downloads, write persistent model caches, or run a Memory schema/index
   migration without separate product and security approval.
 
+## Phase 7.39: Helper Embed Diagnostic Harness Preflight
+
+- Status: complete as a Core Host review-only preflight wave.
+- Added a fail-closed `apps/core-host` preflight and sanitized report shape for
+  a future helper `embed` diagnostic harness.
+- The preparation wave is fixture-transport-only and does not call helper
+  `embed`.
+- The preflight reviews diagnostic harness scope, sanitized report schema,
+  bounded diagnostic case plan, raw input text redaction, vector value
+  redaction, fixed failure reason codes, cleanup and release behavior, and
+  separate product/security approval requirements.
+- The diagnostic report shape may expose only bounded counts, fixed reason
+  codes, and cleanup status.
+- Accepted preflight status is only
+  `ready_for_diagnostic_harness_approval`.
+- Blocked results cover attempted helper `embed`, real vector return, raw
+  input persistence, vector persistence/logging, artifact access, product
+  inference, Memory routing, Memory migration, provider/default opt-in/UI
+  changes, raw diagnostic or private path exposure, signed URL or credential
+  persistence, downloads, persistent cache writes, or model-output shell
+  execution.
+- No helper `embed`, model artifact access, real vector return, raw input
+  persistence, vector persistence/logging, Memory routing, Memory migration,
+  product inference, provider registration/default opt-in/UI change, download,
+  persistent cache write, raw diagnostics exposure, private path exposure, or
+  Windows/PowerShell behavior change was added.
+
+### Current Gate
+
+- Core Host helper embed diagnostic preflight normal, degraded, blocked,
+  approval, visibility, diagnostics, credential, download/cache, Memory,
+  shell, and sanitized-output tests: PASS, 4 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 104 test files and 517 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Helper `embed`: BLOCKED.
+- Real local embedding vectors in diagnostic or product flow: BLOCKED.
+- Memory schema/index migration: BLOCKED.
+
+### Next Hard Pause
+
+- Do not call helper `embed`, access real model artifacts for a diagnostic run,
+  expose real embedding vectors, route vectors to Memory or product inference
+  flows, persist vectors, change provider registration behavior, change
+  default opt-in behavior, change UI visibility, add downloads, write
+  persistent model caches, or run a Memory schema/index migration without
+  separate product and security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

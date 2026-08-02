@@ -234,6 +234,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     vector persistence, product inference, provider registration/default
     opt-in/UI changes, downloads, persistent cache writes, raw diagnostics,
     private path exposure, and Memory schema migrations.
+50. Helper `embed` diagnostic harness preparation is a separate preflight and
+    remains fixture-transport-only. Its sanitized report shape may expose only
+    bounded counts, fixed reason codes, and cleanup status. It still blocks
+    helper `embed`, real vectors, raw input persistence, vector
+    persistence/logging, model artifact access, product inference, Memory
+    routing, Memory schema migrations, provider registration/default opt-in/UI
+    changes, downloads, persistent cache writes, private paths, signed URLs,
+    credentials, raw diagnostics, and model-output shell execution.
 
 ## Restart policy
 
