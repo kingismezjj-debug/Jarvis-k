@@ -12,8 +12,8 @@ provider, enable execution, change default opt-in behavior, or modify
 
 The provider-local resource gate requires a sanitized positive memory sample
 from the real helper lifecycle before the resource profile can be considered
-complete. The latest approved rerun did not produce one, so the current state
-remains `deferred_pending_sample`.
+complete. The approved 2026-08-02 temporary benchmark rerun did not produce
+one, so the current state remains `deferred_pending_sample`.
 
 ## Sampling Diagnostic
 
@@ -37,8 +37,8 @@ to cleanup in the existing `finally` path.
 ## Current State
 
 - Resource profile: `deferred_pending_sample`.
-- Product approval: `pending`.
-- Security approval: `pending`.
+- Product approval: `approved`.
+- Security approval: `approved`.
 - Provider registration: disabled.
 - Execution enablement: disabled.
 - Default opt-in: disabled.
@@ -79,14 +79,49 @@ Approve only the following narrow security boundary:
 - no provider registration, execution enablement, UI/Desktop exposure, or
   `apps/core-host` change.
 
-Security approval does not authorize real product composition or any user-facing
-model execution.
+Security approval does not authorize real product composition or any
+user-facing model execution.
 
 ## Approval Record
 
-No product or security approval is recorded in this repository yet. The
-approval fields remain pending until the two decisions are explicitly provided
-outside the code change and attached to a later review handoff.
+Product approval was explicitly granted by the project owner on 2026-08-02:
+
+- the resource profile is accepted only as a local acceptance diagnostic;
+- it is not a product SLO; and
+- it must not enter UI, Core, provider visibility, or default behavior.
+
+Security approval was explicitly granted by the project owner on 2026-08-02
+for exactly one temporary artifact benchmark resource-sampling run:
+
+- public pinned artifacts only;
+- SHA-256 verification required;
+- temporary directory, environment, and cache only;
+- failure cleanup required; and
+- no provider registration, execution enablement, or default opt-in change.
+
+The approved rerun completed the artifact and runtime benchmark successfully:
+
+- artifact verification: passed;
+- artifact count: 10;
+- total verified bytes: 1,207,470,234;
+- aggregate manifest size: matched;
+- helper health: ready;
+- model load: 479.24 ms;
+- first embedding batch: 480.72 ms;
+- warm embedding latency: p50 439.44 ms, p95 440.79 ms, 5 samples;
+- embedding dimensions: 1024;
+- vector count: 5;
+- finite-value, L2 normalization, and repeated-output stability checks:
+  passed;
+- resource sampling attempts: 8;
+- valid memory samples: 0;
+- sanitized resource reason code: `memory_probe_failed`;
+- artifact cleanup: passed; and
+- temporary Python environment and cache cleanup: passed.
+
+Because no valid real-model memory sample was captured, the resource profile
+does not reach `approved_for_composition_review`. The approvals are recorded
+as product and security decisions only; they do not grant composition.
 
 ## Verification
 

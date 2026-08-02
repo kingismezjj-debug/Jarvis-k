@@ -47,8 +47,9 @@ They are not runtime dependencies.
 - Phase 7.28 provider composition approval gate: review-only handoff entered;
   local resource readiness remains deferred and provider composition remains
   disabled
-- Phase 7.29 resource profile approval: product and security handoff prepared;
-  real-model memory sample and both approvals remain pending
+- Phase 7.29 resource profile approval: product and security approvals granted
+  for one acceptance diagnostic only; artifact/runtime rerun passed, but the
+  valid real-model memory sample remains deferred
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;

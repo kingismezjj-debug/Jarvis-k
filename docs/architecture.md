@@ -160,8 +160,8 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     gate consumes runtime acceptance, adapter isolation, composition preflight,
     and readiness evidence, but never grants composition approval itself. A
     pending local resource profile keeps the handoff deferred; only a later
-    explicit product and security approval may change `apps/core-host`,
-    register the provider, or enable execution.
+    completed resource profile plus separate composition approval may change
+    `apps/core-host`, register the provider, or enable execution.
 40. The local embedding resource profile has its own product and security
     approval gate. It may record only bounded sanitized sampling state and
     fixed failure reason codes. A completed resource profile and both approvals

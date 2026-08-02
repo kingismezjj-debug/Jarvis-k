@@ -906,17 +906,22 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 7.29: Resource Profile Product and Security Approval
 
-- Status: in progress as a provider-local approval preparation wave.
+- Status: in progress as an approved provider-local diagnostic wave; resource
+  profile completion remains deferred.
 - Added a separate resource profile gate with explicit product and security
   decisions.
 - The gate distinguishes missing sample, ready for review, approved for
   composition review, and blocked safety states.
-- The current state is `deferred_pending_sample` because the latest real-model
-  lifecycle did not produce a valid memory sample.
+- The current state remains `deferred_pending_sample` because the approved
+  2026-08-02 real-model lifecycle rerun did not produce a valid memory sample.
 - The acceptance runner now records only bounded sample counts and fixed
   sanitized failure reason codes.
-- Product approval and security approval remain `pending`; no approval is
-  self-recorded by this wave.
+- Product approval and security approval were explicitly granted for one local
+  acceptance diagnostic only; they do not grant provider composition.
+- The approved temporary rerun passed artifact verification, manifest size
+  matching, helper health, model load, embedding quality, latency capture, and
+  cleanup, but resource sampling produced 0 valid samples with sanitized reason
+  code `memory_probe_failed`.
 - Provider registration, execution enablement, default opt-in, Core Host
   composition, Desktop IPC, UI visibility, artifact access, cache writes,
   model loading, and installer behavior remain unchanged.
@@ -926,17 +931,21 @@ packaging, license, benchmark, and composition gate passes.
 - Resource profile policy and normal, deferred, ready, approved, blocked, and
   sanitized-output tests: PASS, 5 tests.
 - Acceptance runner syntax check: PASS.
+- Temporary artifact/runtime benchmark: PASS.
+- Artifact cleanup and temporary environment cleanup: PASS.
 - Real-model memory profile: DEFERRED.
-- Product approval: PENDING.
-- Security approval: PENDING.
+- Resource sampling attempts: 8.
+- Valid memory samples: 0.
+- Sanitized resource reason code: `memory_probe_failed`.
+- Product approval: APPROVED for acceptance diagnostic only.
+- Security approval: APPROVED for one temporary benchmark rerun only.
 
 ### Next Hard Pause
 
-- Obtain an explicit product decision on the resource profile semantics.
-- Obtain an explicit security decision on the narrowly scoped temporary
-  benchmark rerun and cleanup boundary.
-- Only after both decisions and a valid real-model sample exist may the
-  resource gate report `approved_for_composition_review`.
+- Resolve or disposition the missing valid real-model memory sample before
+  claiming the resource profile is complete.
+- Only after a valid real-model sample exists may the resource gate report
+  `approved_for_composition_review`.
 - Do not register the real provider, change default opt-in, compose execution,
   or modify `apps/core-host`.
 
