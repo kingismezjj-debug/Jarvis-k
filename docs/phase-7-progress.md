@@ -1428,6 +1428,63 @@ packaging, license, benchmark, and composition gate passes.
   persistent model caches, or run a Memory schema/index migration without
   separate product and security approval.
 
+## Phase 7.40: Helper Embed Diagnostic Execution
+
+- Status: implemented as an isolated Core Host diagnostic runner; real local
+  helper embed execution is available only when the dedicated diagnostic opt-in
+  and approved runtime/model environment are configured.
+- Added `runCoreHostLocalEmbeddingHelperEmbedDiagnostic`, which requires
+  product/security approval flags, Phase 7.38 and 7.39 preflight evidence, and
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_EMBED_DIAGNOSTIC=1`.
+- The runner reads `JARVIS_K_RUNTIME_PYTHON` and
+  `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR` only inside `apps/core-host`, verifies
+  the approved SHA-256 artifact pin set before helper launch, acquires a
+  resource lease, and calls helper `health`, `load`, `embed`, and `shutdown`.
+- The report exposes only bounded counts, step status, fixed reason codes, and
+  cleanup status; it does not expose raw input text, vector values, private
+  paths, artifact paths, SHA-256 values, signed URLs, credentials, or raw
+  helper diagnostics.
+- Added `npm.cmd run diagnostic:local-embedding:helper-embed` as an explicit
+  opt-in local diagnostic command.
+- The current local environment lacks the diagnostic opt-in and approved
+  runtime/model env values, so no real helper launch, artifact access, load,
+  or embed occurred during local verification.
+- No helper `embed` product path, Memory routing, vector persistence,
+  provider/default opt-in/UI change, download, persistent cache write, raw
+  diagnostic exposure, private path exposure, or Windows/PowerShell behavior
+  change was added.
+
+### Current Gate
+
+- Core Host helper embed diagnostic runner normal, approval-missing,
+  opt-in-missing, env-missing, artifact-failure, embed-failure,
+  unsafe-side-effect, cleanup, and sanitized-output tests: PASS, 4 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `node tests/local-embedding-helper-embed-diagnostic.mjs`: PASS as sanitized
+  degraded report with `diagnostic_opt_in_missing`; no helper launch, artifact
+  access, load, or embed occurred.
+- `npm.cmd run diagnostic:local-embedding:helper-embed`: PASS as sanitized
+  degraded report with `diagnostic_opt_in_missing`; no helper launch, artifact
+  access, load, or embed occurred.
+- `npm.cmd run verify`: PASS, 105 test files and 521 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Product inference helper `embed` path: BLOCKED.
+- Real local embedding vectors in product flow: BLOCKED.
+- Memory vector routing and schema/index migration: BLOCKED.
+
+### Next Hard Pause
+
+- Do not wire helper `embed` into the provider execution path, return real
+  embedding vectors to product flows, route vectors to Memory, persist vectors,
+  run a Memory schema/index migration, change provider registration behavior,
+  change default opt-in behavior, change UI visibility, add downloads, write
+  persistent model caches, or create installer/update behavior without
+  separate product and security approval for that exact implementation wave.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

@@ -242,6 +242,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     routing, Memory schema migrations, provider registration/default opt-in/UI
     changes, downloads, persistent cache writes, private paths, signed URLs,
     credentials, raw diagnostics, and model-output shell execution.
+51. Helper `embed` diagnostic execution is isolated to a Core Host diagnostic
+    runner with a dedicated explicit opt-in. It may verify approved local
+    artifacts, acquire a resource lease, call helper `health`, `load`,
+    `embed`, and `shutdown`, and return only sanitized counts, step status,
+    fixed reason codes, and cleanup status. It does not wire helper `embed`
+    into product inference, return vectors to Core/UI/Memory, persist raw
+    inputs or vectors, change provider registration/default opt-in/UI
+    visibility, download artifacts, write persistent caches, expose private
+    paths or raw diagnostics, or convert model output into shell execution.
 
 ## Restart policy
 

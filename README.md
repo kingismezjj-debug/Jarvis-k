@@ -3,7 +3,8 @@
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
 current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.37
 Model Artifact Path Handoff and Helper Load plus Phase 7.38 Helper Embed
-Preflight plus Phase 7.39 Diagnostic Harness Preflight**: the
+Preflight plus Phase 7.39 Diagnostic Harness Preflight plus Phase 7.40
+Diagnostic Execution Runner**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -20,7 +21,11 @@ ports, installability policy, resource diagnostics, dry-run model install
   execution, default opt-in, installers, updates, and rollback side effects
   remain disabled. Phase 7.38 adds only a preflight for a future helper
   `embed` implementation. Phase 7.39 adds only a fixture-transport diagnostic
-  harness preflight and sanitized report shape.
+  harness preflight and sanitized report shape. Phase 7.40 adds an isolated
+  opt-in Core Host diagnostic runner that may call helper `embed` only for a
+  sanitized local diagnostic report; product inference, Memory routing,
+  vector persistence, UI visibility changes, downloads, and persistent cache
+  writes remain disabled.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -102,6 +107,14 @@ They are not runtime dependencies.
   inference, default opt-in changes, UI visibility changes, downloads, and
   persistent cache writes remain blocked pending separate product and security
   approval
+- Phase 7.40 helper embed diagnostic execution: isolated Core Host diagnostic
+  runner added behind `JARVIS_K_ENABLE_LOCAL_EMBEDDING_EMBED_DIAGNOSTIC=1`;
+  it can verify approved local artifacts and call helper `embed` only for a
+  sanitized diagnostic report. The current local environment was not opted in,
+  so local script verification degraded without helper launch or artifact
+  access. Product execution, Memory routing, vector persistence, provider
+  default opt-in changes, UI visibility changes, downloads, and persistent
+  cache writes remain blocked.
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -182,6 +195,7 @@ npm run smoke:desktop:fixture-inference
 npm run smoke:desktop:local-embedding-composition
 npm run smoke:runtime-transformers
 npm run smoke:runtime-transformers:fixture
+npm run diagnostic:local-embedding:helper-embed
 npm run acceptance:runtime-transformers:approved-artifact
 ```
 
@@ -201,6 +215,19 @@ $env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
 $env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
 $env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
 ```
+
+The Phase 7.40 helper embed diagnostic runner is separate from provider
+execution and requires its own explicit opt-in:
+
+```powershell
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_EMBED_DIAGNOSTIC='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+npm run diagnostic:local-embedding:helper-embed
+```
+
+The diagnostic report is sanitized and must not expose raw inputs, vectors,
+artifact paths, private paths, signed URLs, credentials, or raw helper output.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
@@ -276,6 +303,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.37 model artifact path handoff and helper load](docs/phase-7-37-model-artifact-load.md)
 - [Phase 7.38 helper embed implementation preflight](docs/phase-7-38-helper-embed-preflight.md)
 - [Phase 7.39 helper embed diagnostic harness preflight](docs/phase-7-39-helper-embed-diagnostic-harness-preflight.md)
+- [Phase 7.40 helper embed diagnostic execution](docs/phase-7-40-helper-embed-diagnostic-execution.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
