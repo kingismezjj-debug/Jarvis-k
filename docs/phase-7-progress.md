@@ -1324,6 +1324,58 @@ packaging, license, benchmark, and composition gate passes.
   add persistent model cache writes, download artifacts, or change Windows
   execution behavior without separate product and security approval.
 
+## Phase 7.38: Helper Embed Implementation Preflight
+
+- Status: complete as a Core Host review-only preflight wave.
+- Added a fail-closed `apps/core-host` preflight for the next possible helper
+  `embed` implementation stage.
+- The preflight reviews Core Host composition root ownership, explicit opt-in
+  provider behavior, Phase 7.35 helper lifecycle wiring, Phase 7.37 artifact
+  digest verification and helper `load`, runtime Python and model directory
+  env approvals, approved manifest availability, helper `embed` contract,
+  loaded session identifier handoff, resource lease before embed, input batch
+  and text bounds, dimension validation, vector sanitization, timeout and
+  cancellation, sanitized error mapping, operation supervisor boundary, fixture
+  fallback, and separate product/security approval requirements.
+- Accepted preflight status is only `ready_for_helper_embed_approval`.
+- Degraded results cover incomplete review evidence while every side effect
+  remains blocked.
+- Blocked results cover attempted helper `embed`, vector return, Memory
+  routing, vector persistence, vector log exposure, product inference,
+  provider registration change, default opt-in change, UI visibility change,
+  raw diagnostics exposure, private path exposure, credential or signed URL
+  persistence, model-output shell execution, download/cache mutation, or Memory
+  schema migration.
+- No helper `embed`, real vector return, Memory routing, vector persistence,
+  product inference, provider registration/default opt-in/UI change, download,
+  persistent cache write, raw diagnostics exposure, private path exposure, or
+  Memory migration was added.
+
+### Current Gate
+
+- Core Host helper embed preflight normal, degraded, blocked, approval,
+  visibility, diagnostics, credential, download/cache, Memory migration,
+  shell, and sanitized-output tests: PASS, 4 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd test -- apps/core-host/test/local-embedding-helper-embed-preflight.test.ts`: PASS.
+- `npm.cmd run verify`: PASS, 103 test files and 513 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Helper `embed`: BLOCKED.
+- Real local embedding vectors in product flow: BLOCKED.
+- Memory schema/index migration: BLOCKED.
+
+### Next Hard Pause
+
+- Do not call helper `embed`, expose real embedding vectors, route vectors to
+  Memory or product inference flows, persist vectors, change provider
+  registration behavior, change default opt-in behavior, change UI visibility,
+  add downloads, write persistent model caches, or run a Memory schema/index
+  migration without separate product and security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

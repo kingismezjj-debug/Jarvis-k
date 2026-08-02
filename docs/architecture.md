@@ -226,6 +226,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     keeps helper `embed`, real vectors, provider registration/default opt-in
     changes, UI visibility changes, downloads, persistent cache writes, raw
     diagnostics, and Windows/PowerShell operations blocked.
+49. Helper `embed` implementation has a separate Core Host preflight before
+    any execution change. The preflight reviews session handoff, resource
+    lease use, input bounds, dimension checks, vector sanitization, timeouts,
+    cancellation, sanitized errors, operation supervision, and fixture
+    fallback, but still blocks helper `embed`, vector return, Memory routing,
+    vector persistence, product inference, provider registration/default
+    opt-in/UI changes, downloads, persistent cache writes, raw diagnostics,
+    private path exposure, and Memory schema migrations.
 
 ## Restart policy
 

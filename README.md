@@ -2,7 +2,8 @@
 
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
 current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.37
-Model Artifact Path Handoff and Helper Load**: the
+Model Artifact Path Handoff and Helper Load plus Phase 7.38 Helper Embed
+Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -17,7 +18,8 @@ ports, installability policy, resource diagnostics, dry-run model install
   artifact path handoff, SHA-256 verification, and helper `load` only. Product
   downloads, persistent model cache writes, helper `embed`, real provider
   execution, default opt-in, installers, updates, and rollback side effects
-  remain disabled.
+  remain disabled. Phase 7.38 adds only a preflight for a future helper
+  `embed` implementation.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -88,6 +90,11 @@ They are not runtime dependencies.
   pinned artifact digests, and calls helper `load`; helper `embed`, real
   vectors, default opt-in changes, UI visibility changes, downloads, and
   persistent cache writes remain blocked
+- Phase 7.38 helper embed implementation preflight: Core Host review-only
+  guard complete; helper `embed`, real vectors, Memory routing, vector
+  persistence, product inference, default opt-in changes, UI visibility
+  changes, downloads, and persistent cache writes remain blocked pending
+  separate product and security approval
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -260,6 +267,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.35 runtime session factory lifecycle](docs/phase-7-35-runtime-session-factory-lifecycle.md)
 - [Phase 7.36 model load and inference preflight](docs/phase-7-36-model-load-inference-preflight.md)
 - [Phase 7.37 model artifact path handoff and helper load](docs/phase-7-37-model-artifact-load.md)
+- [Phase 7.38 helper embed implementation preflight](docs/phase-7-38-helper-embed-preflight.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
