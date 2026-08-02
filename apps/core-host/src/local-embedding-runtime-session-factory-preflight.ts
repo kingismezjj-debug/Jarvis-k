@@ -8,9 +8,9 @@ import {
   TRANSFORMERS_LOCAL_RUNTIME_PACKAGE_NAME
 } from "@jarvis-k/inference-runtime-transformers-local";
 import { LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV } from "./local-embedding-composition";
+import { LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV } from "./local-embedding-runtime-session-factory";
 
-export const LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV =
-  "JARVIS_K_RUNTIME_PYTHON";
+export { LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV };
 
 export type CoreHostLocalEmbeddingRuntimeSessionFactoryPreflightStatus =
   | "blocked"

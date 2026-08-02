@@ -1169,6 +1169,60 @@ packaging, license, benchmark, and composition gate passes.
   default opt-in behavior, or enable real local embedding inference without
   separate product and security approval.
 
+## Phase 7.35: Runtime Session Factory Lifecycle
+
+- Status: complete as an approved Core Host helper lifecycle wiring wave.
+- Product approval allowed only explicit opt-in Core Host runtime session
+  factory wiring. Default behavior remains disabled, UI/default visibility is
+  unchanged, fixture fallback remains preserved, and real model artifact path
+  reads, model loading, and real inference stay blocked.
+- Security approval allowed only reading `JARVIS_K_RUNTIME_PYTHON` and
+  starting the supervised Python Transformers child-process helper for
+  lifecycle health.
+- Core Host now creates the default local embedding runtime session factory
+  when `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1` composes the provider and
+  no test session factory is injected.
+- The factory reads only `JARVIS_K_RUNTIME_PYTHON`, launches the dedicated
+  runtime helper script through the supervised JSONL transport, performs a
+  helper `health` handshake, rejects degraded or unsafe helper health with
+  sanitized errors, and sends helper `shutdown` during session release.
+- The factory does not pass a model directory to the helper, call helper
+  `load`, call helper `embed`, read model artifact paths, access artifacts,
+  write caches, load a model, or execute real local embedding inference.
+- The returned session remains blocked at `embed` by the runtime execution
+  gate, and the existing provider finally path still releases the resource
+  lease.
+- Fixture embedding fallback is preserved. If
+  `JARVIS_K_ENABLE_FIXTURE_INFERENCE=1` is set, the fixture embedding provider
+  continues to own the embedding execution port.
+
+### Current Gate
+
+- Core Host runtime session factory normal, missing-Python, unsafe-health,
+  composition-wiring, lifecycle shutdown, blocked-execution, and
+  sanitized-output tests: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd test -- apps/core-host/test/local-embedding-runtime-session-factory.test.ts apps/core-host/test/local-embedding-runtime-session-factory-preflight.test.ts apps/core-host/test/local-embedding-composition.test.ts`: PASS.
+- `npm.cmd run verify`: PASS, 101 test files and 502 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Real Python helper health smoke was not run because
+  `JARVIS_K_RUNTIME_PYTHON` is not configured in the local environment.
+- Real model artifact path reads: BLOCKED.
+- Real model load: BLOCKED.
+- Real local embedding inference: BLOCKED.
+
+### Next Hard Pause
+
+- Do not read model artifact paths, pass a model directory to the helper, call
+  helper `load`, call helper `embed`, access model artifacts, write model
+  caches, load the real model, expose raw runtime diagnostics, change provider
+  registration behavior, change default opt-in behavior, or enable real local
+  embedding inference without separate product and security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

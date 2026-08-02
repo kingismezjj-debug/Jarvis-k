@@ -202,6 +202,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     access artifacts, write caches, load models, expose raw diagnostics,
     change provider registration/default opt-in behavior, or enable real local
     embedding inference.
+46. The approved local embedding runtime session factory lifecycle is wired
+    only inside `apps/core-host` and only behind
+    `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`. It may read
+    `JARVIS_K_RUNTIME_PYTHON`, launch the dedicated helper for a sanitized
+    health handshake, and shut it down on release. It must not pass model
+    artifact paths, call helper `load` or `embed`, access artifacts, write
+    caches, load models, expose raw diagnostics, change default opt-in
+    behavior, or enable real local embedding inference without a later
+    approval.
 
 ## Restart policy
 

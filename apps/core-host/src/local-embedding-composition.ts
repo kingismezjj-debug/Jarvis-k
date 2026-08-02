@@ -31,6 +31,10 @@ import {
   createTransformersLocalRuntimeDescriptor,
   mapTransformersLocalRuntimeError
 } from "@jarvis-k/inference-runtime-transformers-local";
+import {
+  createCoreHostLocalEmbeddingRuntimeSessionFactory,
+  type CoreHostLocalEmbeddingRuntimeSessionFactoryOptions
+} from "./local-embedding-runtime-session-factory";
 
 export const LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV =
   "JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER";
@@ -44,6 +48,10 @@ export interface CoreHostLocalEmbeddingCompositionOptions {
   env?: Readonly<Record<string, string | undefined>>;
   resourceScheduler: ResourceScheduler;
   sessionFactory?: LocalEmbeddingRuntimeSessionFactory;
+  runtimeSessionFactoryOptions?: Omit<
+    CoreHostLocalEmbeddingRuntimeSessionFactoryOptions,
+    "env"
+  >;
 }
 
 export interface CoreHostLocalEmbeddingComposition {
@@ -135,7 +143,10 @@ export function createCoreHostLocalEmbeddingComposition(
   }
 
   const sessionFactory =
-    options.sessionFactory ?? createDisabledLocalEmbeddingRuntimeSession;
+    options.sessionFactory ??
+    createCoreHostLocalEmbeddingRuntimeSessionFactory(
+      createRuntimeSessionFactoryOptions(options)
+    );
 
   return {
     enabled: true,
@@ -263,4 +274,16 @@ class DisabledTransformersLocalEmbeddingRuntimeAdapter
 
 async function createDisabledLocalEmbeddingRuntimeSession(): Promise<LocalEmbeddingRuntimeSession> {
   throw new Error(LOCAL_EMBEDDING_RUNTIME_DISABLED_REASON);
+}
+
+function createRuntimeSessionFactoryOptions(
+  options: CoreHostLocalEmbeddingCompositionOptions
+): CoreHostLocalEmbeddingRuntimeSessionFactoryOptions {
+  const runtimeOptions: CoreHostLocalEmbeddingRuntimeSessionFactoryOptions = {
+    ...(options.runtimeSessionFactoryOptions ?? {})
+  };
+  if (options.env !== undefined) {
+    runtimeOptions.env = options.env;
+  }
+  return runtimeOptions;
 }
