@@ -263,6 +263,16 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     artifacts, download artifacts, write persistent caches, expose raw
     diagnostics or private paths, or convert model output into shell
     execution.
+53. Runtime-backed local embedding provider execution is implemented only in
+    `apps/core-host` behind the additional explicit opt-in
+    `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1`. The session
+    factory verifies approved artifacts, loads the helper, validates requests,
+    calls helper `embed`, validates model ID, vector count, dimensions, input
+    IDs, vector shape, and finite values, maps failures to sanitized errors,
+    and releases helper sessions and resource leases. Default behavior, fixture
+    fallback, UI visibility, Memory vector routing, vector persistence,
+    downloads, persistent caches, installer/update behavior, and
+    Windows/PowerShell actions remain unchanged.
 
 ## Restart policy
 

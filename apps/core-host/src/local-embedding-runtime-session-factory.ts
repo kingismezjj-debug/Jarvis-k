@@ -3,6 +3,12 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import {
+  EmbeddingGenerationRequestSchema,
+  EmbeddingGenerationResultSchema,
+  type EmbeddingGenerationRequest,
+  type EmbeddingGenerationResult
+} from "@jarvis-k/contracts";
+import {
   LOCAL_EMBEDDING_MODEL_ID,
   createPinnedLocalEmbeddingArtifactPlan,
   type LocalEmbeddingArtifactPlan
@@ -26,8 +32,10 @@ export const LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV =
   "JARVIS_K_RUNTIME_PYTHON";
 export const LOCAL_EMBEDDING_MODEL_DIR_ENV =
   "JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR";
+export const LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV =
+  "JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION";
 
-const LOCAL_EMBEDDING_RUNTIME_EXECUTION_DISABLED_REASON =
+export const LOCAL_EMBEDDING_RUNTIME_EXECUTION_DISABLED_REASON =
   "Embedding execution remains disabled by the runtime gate.";
 
 export interface CoreHostLocalEmbeddingRuntimeSessionFactoryOptions {
@@ -82,7 +90,10 @@ export function createCoreHostLocalEmbeddingRuntimeSessionFactory(
       return new CoreHostLocalEmbeddingRuntimeSession({
         client,
         sessionId: loaded.sessionId,
-        resourceLeaseId: resourceLease.leaseId
+        resourceLeaseId: resourceLease.leaseId,
+        executionEnabled: isLocalEmbeddingProviderExecutionOptInEnabled(
+          options.env
+        )
       });
     } catch (error) {
       client?.dispose();
@@ -103,6 +114,14 @@ export function readLocalEmbeddingModelDirectory(
 ): string | undefined {
   const value = env[LOCAL_EMBEDDING_MODEL_DIR_ENV]?.trim();
   return value && value.length > 0 ? value : undefined;
+}
+
+export function isLocalEmbeddingProviderExecutionOptInEnabled(
+  env: Readonly<Record<string, string | undefined>> = process.env
+): boolean {
+  return (
+    env[LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]?.trim() === "1"
+  );
 }
 
 export async function verifyLocalEmbeddingModelArtifacts(
@@ -177,12 +196,36 @@ class CoreHostLocalEmbeddingRuntimeSession
       client: RuntimeHelperClient;
       sessionId: string;
       resourceLeaseId: string;
+      executionEnabled: boolean;
     }
   ) {}
 
-  public async embed(): Promise<never> {
-    void this.options.sessionId;
-    throw new Error(LOCAL_EMBEDDING_RUNTIME_EXECUTION_DISABLED_REASON);
+  public async embed(
+    request: EmbeddingGenerationRequest
+  ): Promise<EmbeddingGenerationResult> {
+    if (!this.options.executionEnabled) {
+      throw new Error(LOCAL_EMBEDDING_RUNTIME_EXECUTION_DISABLED_REASON);
+    }
+
+    let parsed: EmbeddingGenerationRequest;
+    try {
+      parsed = EmbeddingGenerationRequestSchema.parse(request);
+    } catch {
+      throw new Error("HELPER_PROTOCOL_INVALID");
+    }
+
+    const helperResult = await this.options.client.embed({
+      sessionId: this.options.sessionId,
+      resourceLeaseId: this.options.resourceLeaseId,
+      request: parsed
+    });
+    try {
+      const result = EmbeddingGenerationResultSchema.parse(helperResult);
+      assertEmbeddingResultMatchesRequest(result, parsed);
+      return result;
+    } catch {
+      throw new Error("HELPER_PROTOCOL_INVALID");
+    }
   }
 
   public async release(): Promise<void> {
@@ -190,6 +233,36 @@ class CoreHostLocalEmbeddingRuntimeSession
     await this.options.client
       .shutdown({ reason: "request_cancelled" })
       .catch(() => undefined);
+  }
+}
+
+function assertEmbeddingResultMatchesRequest(
+  result: EmbeddingGenerationResult,
+  request: EmbeddingGenerationRequest
+): void {
+  if (
+    result.modelId !== request.modelId ||
+    result.vectors.length !== request.inputs.length ||
+    (request.dimensions !== undefined &&
+      result.dimensions !== request.dimensions)
+  ) {
+    throw new Error("HELPER_PROTOCOL_INVALID");
+  }
+
+  for (const [index, input] of request.inputs.entries()) {
+    const vector = result.vectors[index];
+    if (vector === undefined) {
+      throw new Error("HELPER_PROTOCOL_INVALID");
+    }
+    if (input.id !== undefined && vector.inputId !== input.id) {
+      throw new Error("HELPER_PROTOCOL_INVALID");
+    }
+    if (
+      vector.values.length !== result.dimensions ||
+      !vector.values.every((value) => Number.isFinite(value))
+    ) {
+      throw new Error("HELPER_PROTOCOL_INVALID");
+    }
   }
 }
 

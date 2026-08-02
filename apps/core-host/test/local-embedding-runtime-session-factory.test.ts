@@ -18,8 +18,10 @@ import {
 } from "../src/local-embedding-composition";
 import {
   LOCAL_EMBEDDING_MODEL_DIR_ENV,
+  LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV,
   LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV,
   createCoreHostLocalEmbeddingRuntimeSessionFactory,
+  isLocalEmbeddingProviderExecutionOptInEnabled,
   readLocalEmbeddingModelDirectory,
   readRuntimePythonExecutable,
   verifyLocalEmbeddingModelArtifacts
@@ -142,6 +144,82 @@ describe("Core Host local embedding runtime session factory", () => {
     );
   });
 
+  it("calls helper embed only after the separate provider execution opt-in", async () => {
+    const transport = new LifecycleOnlyRuntimeTransport();
+    const factory = createCoreHostLocalEmbeddingRuntimeSessionFactory({
+      env: {
+        [LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV]: "fixture-python",
+        [LOCAL_EMBEDDING_MODEL_DIR_ENV]: "approved-model-dir",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      verifyModelArtifacts: async () => undefined,
+      createTransport: () => transport
+    });
+
+    const session = await factory({
+      request: validRequest(),
+      resourceLease: createLease()
+    });
+    const result = await session.embed(validRequest());
+    await session.release();
+
+    expect(result).toMatchObject({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      dimensions: 2,
+      vectors: [
+        {
+          inputId: "input-1",
+          values: [0.5, -0.5]
+        }
+      ]
+    });
+    expect(transport.operations).toEqual([
+      "health",
+      "load",
+      "embed",
+      "shutdown"
+    ]);
+    expect(JSON.stringify(transport.responses)).not.toMatch(/[A-Za-z]:\\/u);
+    expect(JSON.stringify(transport.responses)).not.toMatch(/https?:\/\//u);
+    expect(JSON.stringify(transport.responses)).not.toMatch(
+      /\b(api[_-]?key|signed[_-]?url|access[_-]?token|secret)\b/iu
+    );
+  });
+
+  it("sanitizes invalid helper embedding shapes and releases the resource lease", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new LifecycleOnlyRuntimeTransport({
+      invalidEmbeddingShape: true
+    });
+    const composition = createCoreHostLocalEmbeddingComposition({
+      env: {
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV]: "fixture-python",
+        [LOCAL_EMBEDDING_MODEL_DIR_ENV]: "approved-model-dir",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      resourceScheduler: scheduler,
+      runtimeSessionFactoryOptions: {
+        verifyModelArtifacts: async () => undefined,
+        createTransport: () => transport
+      }
+    });
+
+    await expect(
+      composition.embeddingProvider?.embed(validRequest())
+    ).rejects.toThrow("Runtime helper protocol message is invalid.");
+
+    expect(transport.operations).toEqual([
+      "health",
+      "load",
+      "embed",
+      "shutdown"
+    ]);
+    expect(scheduler.acquireCount).toBe(1);
+    expect(scheduler.releaseCount).toBe(1);
+    expect(scheduler.activeLeaseCount).toBe(0);
+  });
+
   it("closes the helper when lifecycle health is degraded or unsafe", async () => {
     const transport = new LifecycleOnlyRuntimeTransport({
       modelArtifactsAccessed: true
@@ -184,7 +262,9 @@ describe("Core Host local embedding runtime session factory", () => {
 
     await expect(
       composition.embeddingProvider?.embed(validRequest())
-    ).rejects.toThrow("Transformers local runtime scaffold is not configured.");
+    ).rejects.toThrow(
+      "Embedding execution remains disabled by the runtime gate."
+    );
 
     expect(transport.operations).toEqual(["health", "load", "shutdown"]);
     expect(scheduler.acquireCount).toBe(1);
@@ -205,6 +285,12 @@ describe("Core Host local embedding runtime session factory", () => {
       })
     ).toBe("approved-model-dir");
     expect(readLocalEmbeddingModelDirectory({})).toBeUndefined();
+    expect(
+      isLocalEmbeddingProviderExecutionOptInEnabled({
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: " 1 "
+      })
+    ).toBe(true);
+    expect(isLocalEmbeddingProviderExecutionOptInEnabled({})).toBe(false);
   });
 
   it("verifies local artifact digests without exposing paths or digest values", async () => {
@@ -275,6 +361,7 @@ class LifecycleOnlyRuntimeTransport implements RuntimeHelperTransport {
   public constructor(
     private readonly options: {
       modelArtifactsAccessed?: boolean;
+      invalidEmbeddingShape?: boolean;
     } = {}
   ) {}
 
@@ -362,6 +449,24 @@ class LifecycleOnlyRuntimeTransport implements RuntimeHelperTransport {
           modelId: request.payload.modelId,
           capability: request.payload.capability,
           loadedAt: "2026-08-02T00:00:01.000Z"
+        }
+      };
+    }
+    if (request.operation === "embed") {
+      const values = this.options.invalidEmbeddingShape
+        ? [0.5]
+        : [0.5, -0.5];
+      return {
+        ...base,
+        ok: true,
+        payload: {
+          modelId: request.payload.request.modelId,
+          dimensions: 2,
+          vectors: request.payload.request.inputs.map((input) => ({
+            ...(input.id === undefined ? {} : { inputId: input.id }),
+            values
+          })),
+          generatedAt: "2026-08-02T00:00:01.000Z"
         }
       };
     }

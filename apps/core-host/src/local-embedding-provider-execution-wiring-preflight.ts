@@ -11,11 +11,9 @@ import { LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV } from "./local-embedding-compositi
 import { LOCAL_EMBEDDING_HELPER_EMBED_DIAGNOSTIC_OPT_IN_ENV } from "./local-embedding-helper-embed-diagnostic-runner";
 import {
   LOCAL_EMBEDDING_MODEL_DIR_ENV,
+  LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV,
   LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV
 } from "./local-embedding-runtime-session-factory";
-
-export const LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV =
-  "JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION";
 
 export type CoreHostLocalEmbeddingProviderExecutionWiringPreflightStatus =
   | "blocked"

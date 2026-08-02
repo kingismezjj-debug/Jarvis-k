@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV,
-  evaluateCoreHostLocalEmbeddingProviderExecutionWiringPreflight
-} from "../src/local-embedding-provider-execution-wiring-preflight";
+import { evaluateCoreHostLocalEmbeddingProviderExecutionWiringPreflight } from "../src/local-embedding-provider-execution-wiring-preflight";
+import { LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV } from "../src/local-embedding-runtime-session-factory";
 
 describe("Core Host local embedding provider execution wiring preflight", () => {
   it("accepts complete review evidence without enabling provider execution", () => {

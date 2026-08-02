@@ -5,7 +5,7 @@ current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.37
 Model Artifact Path Handoff and Helper Load plus Phase 7.38 Helper Embed
 Preflight plus Phase 7.39 Diagnostic Harness Preflight plus Phase 7.40
 Diagnostic Execution Runner plus Phase 7.41 Provider Execution Wiring
-Preflight**: the
+Preflight plus Phase 7.42 Provider Execution Wiring**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -29,7 +29,11 @@ ports, installability policy, resource diagnostics, dry-run model install
   writes remain disabled. Phase 7.41 adds only a provider execution wiring
   preflight for a future product path; provider execution, helper `embed`
   product wiring, vectors, Memory routing, UI visibility changes, downloads,
-  and persistent cache writes remain blocked pending separate approval.
+  and persistent cache writes remain blocked pending separate approval. Phase
+  7.42 wires provider execution only behind
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1`; default behavior,
+  fixture fallback, Memory routing, vector persistence, UI visibility changes,
+  downloads, and persistent cache writes remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -125,6 +129,12 @@ They are not runtime dependencies.
   execution, session factory embed, helper `embed` product calls, product
   vectors, Memory routing, vector persistence, default opt-in changes, UI
   visibility changes, downloads, and persistent cache writes remain blocked.
+- Phase 7.42 provider execution wiring: explicit opt-in Core Host wiring can
+  call helper `embed` through the runtime-backed local embedding provider only
+  when `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1` is set alongside
+  the existing provider/runtime/model environment gates. Default behavior,
+  fixture fallback, Memory routing, vector persistence, UI visibility changes,
+  downloads, and persistent cache writes remain blocked.
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -217,13 +227,20 @@ npm run smoke:runtime-transformers
 ```
 
 The runtime-backed local embedding provider remains explicit opt-in. The
-Phase 7.37 model-load-only path also requires a separately approved local
-artifact directory:
+Phase 7.37 model-load-only path requires a separately approved local artifact
+directory:
 
 ```powershell
 $env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
 $env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
 $env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+```
+
+The Phase 7.42 provider execution path requires the same gates plus the
+separate execution opt-in:
+
+```powershell
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
 ```
 
 The Phase 7.40 helper embed diagnostic runner is separate from provider
@@ -315,6 +332,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.39 helper embed diagnostic harness preflight](docs/phase-7-39-helper-embed-diagnostic-harness-preflight.md)
 - [Phase 7.40 helper embed diagnostic execution](docs/phase-7-40-helper-embed-diagnostic-execution.md)
 - [Phase 7.41 provider execution wiring preflight](docs/phase-7-41-provider-execution-wiring-preflight.md)
+- [Phase 7.42 provider execution wiring](docs/phase-7-42-provider-execution-wiring.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)

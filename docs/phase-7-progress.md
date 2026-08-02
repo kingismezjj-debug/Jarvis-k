@@ -1537,6 +1537,55 @@ packaging, license, benchmark, and composition gate passes.
   persistent model caches, or create installer/update behavior without
   separate product and security approval for that exact implementation wave.
 
+## Phase 7.42: Provider Execution Wiring
+
+- Status: complete as explicit opt-in Core Host provider execution
+  wiring.
+- Added `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1` as a second
+  explicit opt-in for runtime-backed local embedding provider execution.
+- Provider composition without the execution opt-in still fails closed before
+  helper `embed`.
+- The session factory now calls helper `embed` only after artifact digest
+  verification, helper `load`, resource lease acquisition, and the execution
+  opt-in are present.
+- Embedding requests and results are schema-validated, including model ID,
+  vector count, requested dimensions, input IDs, vector shape, and finite
+  values.
+- Runtime/helper failures, protocol failures, timeout failures, artifact/load
+  failures, and invalid vector shapes are mapped to sanitized errors.
+- Resource leases and helper sessions are released on success and failure.
+- The local embedding provider configuration report now exposes the execution
+  opt-in as a separate environment requirement.
+- Fixture fallback remains unchanged when
+  `JARVIS_K_ENABLE_FIXTURE_INFERENCE=1` is set.
+- No Memory vector routing, vector persistence/logging, Memory schema/index
+  migration, default opt-in change, UI visibility change, download, persistent
+  cache write, credential/signed URL persistence, raw diagnostic exposure, or
+  Windows/PowerShell behavior change was added.
+
+### Current Gate
+
+- Core Host local embedding composition, runtime session factory, and provider
+  execution wiring preflight tests: PASS, 20 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 106 test files and 528 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Memory vector routing and schema/index migration: BLOCKED.
+- UI/default opt-in/provider visibility changes: BLOCKED.
+
+### Next Hard Pause
+
+- Do not route real embedding vectors to Memory, persist vectors, run a Memory
+  schema/index migration, expose local embedding controls in UI, change
+  provider default opt-in behavior, add downloads, write persistent model
+  caches, create installer/update/rollback behavior, or convert model output
+  into Windows/PowerShell operations without separate product and security
+  approval for that exact implementation wave.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

@@ -13,6 +13,7 @@ import {
   LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV,
   createCoreHostLocalEmbeddingComposition
 } from "../src/local-embedding-composition";
+import { LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV } from "../src/local-embedding-runtime-session-factory";
 
 describe("Core Host local embedding composition", () => {
   it("keeps runtime-backed local embedding disabled by default", async () => {
@@ -77,6 +78,10 @@ describe("Core Host local embedding composition", () => {
           configured: true
         }),
         expect.objectContaining({
+          key: LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV,
+          configured: false
+        }),
+        expect.objectContaining({
           key: "runtime.resource_lease",
           configured: true
         }),
@@ -85,6 +90,28 @@ describe("Core Host local embedding composition", () => {
           configured: true
         })
       ])
+    );
+  });
+
+  it("marks provider execution configured only after the separate execution opt-in", () => {
+    const composition = createCoreHostLocalEmbeddingComposition({
+      env: {
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      resourceScheduler: new RecordingResourceScheduler()
+    });
+
+    expect(composition.providerConfigurationReport.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV,
+          configured: true
+        })
+      ])
+    );
+    expect(composition.providerDescriptor.reasons).toContain(
+      "Local embedding provider execution is enabled by separate explicit Core Host opt-in."
     );
   });
 

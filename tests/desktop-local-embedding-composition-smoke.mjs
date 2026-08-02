@@ -128,7 +128,13 @@ async function queryLocalEmbeddingState(window) {
         transformersAdapter?.capabilities ?? [],
       localRequirementConfiguredCount:
         localReport?.requirements.filter((item) => item.configured).length ?? 0,
-      localRequirementCount: localReport?.requirements.length ?? 0
+      localRequirementCount: localReport?.requirements.length ?? 0,
+      executionRequirementConfigured:
+        localReport?.requirements.find(
+          (item) =>
+            item.key ===
+            "JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION"
+        )?.configured ?? false
     };
   });
 }
@@ -164,7 +170,8 @@ try {
     state.fixtureProviderStatus === "available" ||
     state.runtimeAdapterCount !== 1 ||
     !state.transformersAdapterCapabilities.includes("embedding") ||
-    state.localRequirementConfiguredCount !== state.localRequirementCount
+    state.executionRequirementConfigured ||
+    state.localRequirementConfiguredCount !== state.localRequirementCount - 1
   ) {
     throw new Error("Local embedding opt-in composition state was invalid.");
   }
