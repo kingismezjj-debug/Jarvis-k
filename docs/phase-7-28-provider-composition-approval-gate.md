@@ -74,6 +74,12 @@ Before a later composition implementation wave:
 5. Obtain separate product and security approval for provider registration and
    execution enablement.
 
+Phase 7.32 records items 1-4 as implementation review materials and produces
+only `ready_for_product_security_composition_approval`. Item 5 remains a
+separate hard pause before any `apps/core-host` composition change, provider
+registration, execution enablement, provider visibility change, or default
+opt-in behavior change.
+
 ## Verification
 
 ```powershell

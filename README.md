@@ -56,6 +56,10 @@ They are not runtime dependencies.
 - Phase 7.31 alternative resource evidence: approved diagnostic evidence now
   satisfies local resource readiness for composition review only; provider
   composition and execution remain disabled
+- Phase 7.32 provider composition implementation review: exact composition
+  review materials are ready for separate product and security approval;
+  provider registration, visibility, execution, and default opt-in remain
+  disabled
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -211,6 +215,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.29 resource profile product and security approval](docs/phase-7-29-resource-profile-product-security-approval.md)
 - [Phase 7.30 memory sampling gap disposition](docs/phase-7-30-memory-sampling-gap-disposition.md)
 - [Phase 7.31 alternative resource evidence](docs/phase-7-31-alternative-resource-evidence.md)
+- [Phase 7.32 provider composition implementation review](docs/phase-7-32-provider-composition-implementation-review.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)

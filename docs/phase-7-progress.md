@@ -1030,6 +1030,50 @@ packaging, license, benchmark, and composition gate passes.
 - Obtain separate product and security approval for provider registration and
   execution enablement.
 
+## Phase 7.32: Provider Composition Implementation Review
+
+- Status: complete as a provider-local implementation review preparation wave.
+- Added a composition implementation review guard that consumes the accepted
+  Phase 7.31 composition approval gate evidence.
+- The guard requires explicit confirmation of the Phase 7.31 alternative
+  resource evidence plus review of the exact future `apps/core-host`
+  composition diff, explicit opt-in behavior, fixture fallback preservation,
+  sanitized runtime error mapping, resource lease enforcement,
+  startup/restart behavior, provider visibility behavior, rollback plan, and
+  desktop smoke plan.
+- An accepted result means only
+  `ready_for_product_security_composition_approval`.
+- The guard still returns `compositionApprovalGranted: false`,
+  `compositionAllowed: false`, `coreHostCompositionChanged: false`,
+  `providerVisibilityChanged: false`, `providerRegistrationEnabled: false`,
+  `executionEnabled: false`, and `defaultOptInEnabled: false`.
+- Product and security composition approval remain pending for a separate
+  wave.
+- No Core Host composition change, provider registration, provider visibility
+  change, execution enablement, default opt-in change, artifact access, cache
+  write, runtime load, inference execution, Desktop IPC, UI behavior, or
+  installer behavior was added.
+
+### Current Gate
+
+- Provider composition implementation review normal, blocked, missing Phase
+  7.31 alternative evidence, missing exact diff, missing
+  fallback/resource/error/lifecycle/rollback/smoke review, attempted mutation,
+  and sanitized-output tests: PASS.
+- Implementation review:
+  `ready_for_product_security_composition_approval`.
+- Provider composition approval: NOT GRANTED.
+- Provider composition implementation: BLOCKED pending separate product and
+  security approval.
+
+### Next Hard Pause
+
+- Do not change `apps/core-host`, register the runtime-backed embedding
+  provider, enable execution, expose provider visibility, change default
+  opt-in behavior, access model artifacts, write caches, or load the runtime
+  without separate product and security approval for the exact composition
+  implementation.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

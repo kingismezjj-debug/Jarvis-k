@@ -177,6 +177,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     sanitized failure reason code. It does not create a product SLO, enter UI
     or Core, grant composition approval, register the provider, enable
     execution, or change default opt-in.
+43. Provider composition implementation has its own provider-local review guard.
+    It can mark Phase 7.31 alternative resource evidence confirmation, exact
+    `apps/core-host` diff review, explicit opt-in behavior, fixture fallback,
+    sanitized errors, resource leases, startup/restart, provider visibility,
+    rollback, and desktop smoke planning as ready for separate product and
+    security approval. It does not grant composition,
+    change `apps/core-host`, register the provider, enable execution, expose
+    provider visibility, load a runtime, access artifacts, write caches, or
+    change default opt-in.
 
 ## Restart policy
 
