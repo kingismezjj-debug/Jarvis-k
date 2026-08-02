@@ -218,6 +218,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     download artifacts, load models, expose raw vectors or diagnostics, change
     provider registration/default opt-in/UI visibility, or enable real local
     embedding inference.
+48. The approved model artifact path handoff and helper load step is
+    implemented only inside `apps/core-host` under explicit local embedding
+    provider opt-in. Core Host reads `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR`,
+    verifies the approved artifact SHA-256 pin set before launching the helper,
+    passes the verified directory only through private helper load handoff, and
+    keeps helper `embed`, real vectors, provider registration/default opt-in
+    changes, UI visibility changes, downloads, persistent cache writes, raw
+    diagnostics, and Windows/PowerShell operations blocked.
 
 ## Restart policy
 

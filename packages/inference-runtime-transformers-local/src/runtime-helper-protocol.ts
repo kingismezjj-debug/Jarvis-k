@@ -117,6 +117,7 @@ export interface RuntimeHelperLoadRequest extends RuntimeHelperRequestBase {
     modelId: string;
     capability: LocalModelCapability;
     resourceLeaseId: string;
+    modelDirectory?: string;
   };
 }
 
@@ -224,6 +225,7 @@ export interface RuntimeHelperLoadRequestInput
   modelId: string;
   capability: LocalModelCapability;
   resourceLeaseId: string;
+  modelDirectory?: string;
 }
 
 export interface RuntimeHelperEmbedRequestInput
@@ -388,14 +390,19 @@ export function createRuntimeHelperHealthRequest(
 export function createRuntimeHelperLoadRequest(
   input: RuntimeHelperLoadRequestInput
 ): RuntimeHelperLoadRequest {
+  const payload: RuntimeHelperLoadRequest["payload"] = {
+    modelId: input.modelId,
+    capability: input.capability,
+    resourceLeaseId: input.resourceLeaseId
+  };
+  if (input.modelDirectory !== undefined) {
+    payload.modelDirectory = input.modelDirectory;
+  }
+
   return parseRuntimeHelperRequest({
     ...createRequestIdentity(input),
     operation: "load",
-    payload: {
-      modelId: input.modelId,
-      capability: input.capability,
-      resourceLeaseId: input.resourceLeaseId
-    }
+    payload
   }) as RuntimeHelperLoadRequest;
 }
 
@@ -458,19 +465,32 @@ export function parseRuntimeHelperRequest(
       };
     case "load":
       if (
-        !hasOnlyKeys(payload, ["modelId", "capability", "resourceLeaseId"])
+        !hasOnlyKeys(payload, [
+          "modelId",
+          "capability",
+          "resourceLeaseId",
+          "modelDirectory"
+        ])
       ) {
         throwProtocolError();
       }
-      return {
-        ...base,
-        operation,
-        payload: {
+      {
+        const parsedPayload: RuntimeHelperLoadRequest["payload"] = {
           modelId: parseModelId(payload.modelId),
           capability: parseCapability(payload.capability),
           resourceLeaseId: parseIdentifier(payload.resourceLeaseId)
+        };
+        if (payload.modelDirectory !== undefined) {
+          parsedPayload.modelDirectory = parseModelDirectory(
+            payload.modelDirectory
+          );
         }
-      };
+        return {
+          ...base,
+          operation,
+          payload: parsedPayload
+        };
+      }
     case "embed": {
       if (
         !hasOnlyKeys(payload, ["sessionId", "resourceLeaseId", "request"])
@@ -851,6 +871,20 @@ function parseIdentifier(value: unknown): string {
 
 function parseModelId(value: unknown): string {
   if (!isSafeModelId(value)) {
+    throwProtocolError();
+  }
+  return value;
+}
+
+function parseModelDirectory(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.trim() !== value ||
+    value.length < 1 ||
+    value.length > 1024 ||
+    value.includes("\x00") ||
+    value.includes("://")
+  ) {
     throwProtocolError();
   }
   return value;

@@ -221,20 +221,27 @@ def handle_load(request: dict[str, Any]) -> dict[str, Any]:
     payload = request.get("payload")
     if not is_record(payload):
         raise HelperFailure("HELPER_PROTOCOL_INVALID")
-    require_exact_keys(payload, {"modelId", "capability", "resourceLeaseId"})
+    require_keys(
+        payload,
+        {"modelId", "capability", "resourceLeaseId"},
+        {"modelDirectory"},
+    )
     model_id = payload.get("modelId")
     capability = payload.get("capability")
     resource_lease_id = payload.get("resourceLeaseId")
+    model_directory = payload.get("modelDirectory") or os.environ.get(
+        "JARVIS_K_TRANSFORMERS_MODEL_DIR"
+    )
     if (
         not is_safe_model_id(model_id)
         or capability != "embedding"
         or not is_identifier(resource_lease_id)
+        or not is_safe_model_directory(model_directory)
     ):
         raise HelperFailure("HELPER_PROTOCOL_INVALID")
     if not DEPENDENCIES_AVAILABLE:
         raise HelperFailure("RUNTIME_DEPENDENCY_UNAVAILABLE")
 
-    model_directory = os.environ.get("JARVIS_K_TRANSFORMERS_MODEL_DIR")
     if not model_directory or not os.path.isdir(model_directory):
         raise HelperFailure("MODEL_ARTIFACT_UNAVAILABLE")
 
@@ -278,6 +285,16 @@ def load_model(model_directory: str, model_id: str) -> None:
     except Exception:
         clear_model()
         raise HelperFailure("MODEL_RUNTIME_INCOMPATIBLE")
+
+
+def is_safe_model_directory(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 1024
+        and "\x00" not in value
+        and "://" not in value
+        and value.strip() == value
+    )
 
 
 def clear_model() -> None:

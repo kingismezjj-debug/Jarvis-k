@@ -1278,6 +1278,52 @@ packaging, license, benchmark, and composition gate passes.
   opt-in behavior, change UI visibility, or enable real local embedding
   inference without separate product and security approval.
 
+## Phase 7.37: Model Artifact Path Handoff and Helper Load
+
+- Status: complete as an explicit opt-in Core Host model-load-only wave.
+- Added an explicit Core Host model directory env gate:
+  `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR`.
+- Core Host verifies the approved local embedding artifact set with SHA-256
+  before helper launch and before helper `load`.
+- The runtime helper protocol now accepts an optional private
+  `modelDirectory` field only on `load` requests.
+- The Python helper prefers the private `load` payload model directory and
+  retains the previous internal env fallback for approved runtime smoke and
+  acceptance scripts.
+- The helper load response returns only a sanitized session identifier, model
+  id, capability, and timestamp; it does not echo the directory, digests, raw
+  diagnostics, signed URLs, credentials, or private paths.
+- `embed()` remains blocked in the Core Host runtime session and does not call
+  helper `embed`.
+- Provider registration, default opt-in behavior, fixture fallback, UI
+  visibility, downloads, persistent cache writes, real embedding vectors, and
+  Windows/PowerShell execution behavior remain unchanged.
+
+### Current Gate
+
+- Targeted Core Host and runtime helper protocol/client/process-transport
+  tests: PASS, 5 files and 26 tests.
+- `npm.cmd run build -w @jarvis-k/inference-runtime-transformers-local`: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 102 test files and 509 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Helper `load`: ALLOWED only after local digest verification under explicit
+  provider opt-in.
+- Helper `embed`: BLOCKED.
+- Real local embedding vectors in product flow: BLOCKED.
+
+### Next Hard Pause
+
+- Do not call helper `embed`, expose real embedding vectors, route real local
+  embedding output into product retrieval or tool flows, change provider
+  registration behavior, change default opt-in behavior, change UI visibility,
+  add persistent model cache writes, download artifacts, or change Windows
+  execution behavior without separate product and security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

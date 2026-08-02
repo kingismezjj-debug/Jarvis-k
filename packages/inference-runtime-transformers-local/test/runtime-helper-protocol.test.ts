@@ -58,7 +58,8 @@ describe("runtime helper protocol guard", () => {
       requestId: "runtime-request-2",
       modelId: "jarvis-fixture/local-embedding-smoke",
       capability: "embedding",
-      resourceLeaseId: "lease-test-1"
+      resourceLeaseId: "lease-test-1",
+      modelDirectory: "approved-model-dir"
     });
     const embed = createRuntimeHelperEmbedRequest({
       ...identity,
@@ -79,6 +80,7 @@ describe("runtime helper protocol guard", () => {
 
     expect(health.operation).toBe("health");
     expect(load.payload.resourceLeaseId).toBe("lease-test-1");
+    expect(load.payload.modelDirectory).toBe("approved-model-dir");
     expect(embed.payload.request.inputs[0]?.text).toBe("protocol guard");
     expect(shutdown.payload.reason).toBe("app_shutdown");
     expect(
@@ -114,6 +116,22 @@ describe("runtime helper protocol guard", () => {
           modelId: "C:\\private\\model",
           capability: "embedding",
           resourceLeaseId: "lease-test-1"
+        }
+      })
+    ).toThrow("HELPER_PROTOCOL_INVALID");
+
+    expect(() =>
+      parseRuntimeHelperRequest({
+        protocolVersion: 1,
+        requestId: "runtime-request-1",
+        correlationId: "runtime-correlation-1",
+        createdAt: "2026-08-01T12:00:00.000Z",
+        operation: "load",
+        payload: {
+          modelId: "jarvis-fixture/local-embedding-smoke",
+          capability: "embedding",
+          resourceLeaseId: "lease-test-1",
+          modelDirectory: "https://example.invalid/model"
         }
       })
     ).toThrow("HELPER_PROTOCOL_INVALID");
