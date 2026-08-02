@@ -186,6 +186,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     change `apps/core-host`, register the provider, enable execution, expose
     provider visibility, load a runtime, access artifacts, write caches, or
     change default opt-in.
+44. Runtime-backed local embedding composition is implemented only in
+    `apps/core-host` behind `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`.
+    The opt-in composition can register the approved local embedding manifest,
+    Transformers runtime descriptor, provider descriptor, and provider shell,
+    but the default session factory still fails closed before Python helper
+    launch, model artifact access, cache writes, model loading, or real
+    embedding generation. Fixture embedding remains the explicit regression
+    fallback and keeps the embedding execution port when fixture inference is
+    enabled.
 
 ## Restart policy
 

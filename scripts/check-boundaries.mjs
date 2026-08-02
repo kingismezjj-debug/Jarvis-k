@@ -182,6 +182,7 @@ const packages = [
       "@jarvis-k/core",
       "@jarvis-k/inference-adapter-embedding-local",
       "@jarvis-k/inference-adapter-fixture",
+      "@jarvis-k/inference-runtime-transformers-local",
       "@jarvis-k/memory-sqlite",
       "@jarvis-k/voice",
       "@jarvis-k/voice-adapter-xunfei"

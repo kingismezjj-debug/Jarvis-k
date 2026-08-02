@@ -66,8 +66,9 @@ behavior do not change.
 
 ## Next Hard Pause
 
-Do not implement provider composition, change `apps/core-host`, register the
-runtime-backed embedding provider, enable execution, expose provider visibility,
-change default opt-in behavior, access model artifacts, write caches, or load
-the runtime without separate product and security approval for the exact
-composition implementation.
+Phase 7.33 implements the approved `apps/core-host` composition wiring behind
+explicit opt-in. The remaining hard pause is now real runtime session creation:
+do not launch the Python helper from product composition, access model
+artifacts, write caches, load the model, expose UI controls, change default
+opt-in behavior, or enable real local embedding inference without a separate
+product and security approval.

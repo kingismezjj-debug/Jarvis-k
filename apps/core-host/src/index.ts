@@ -12,14 +12,9 @@ import {
   PolicyModelInstallWorkflowOrchestrator,
   PolicyInferenceExecutionPlanner,
   InMemoryModelOperationSupervisor,
-  InMemoryResourceScheduler,
-  UnavailableModelRuntimeRegistry
+  InMemoryResourceScheduler
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
-import {
-  createLocalEmbeddingProviderConfigurationReport,
-  createLocalEmbeddingProviderDescriptor
-} from "@jarvis-k/inference-adapter-embedding-local";
 import {
   createFixtureEmbeddingProviderConfigurationReport,
   createFixtureEmbeddingProviderDescriptor,
@@ -44,6 +39,7 @@ import {
 } from "@jarvis-k/voice";
 import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
 import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
+import { createCoreHostLocalEmbeddingComposition } from "./local-embedding-composition";
 import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider";
 import { NodeWebSocketFactory } from "./node-websocket-factory";
 
@@ -161,7 +157,6 @@ const memoryRepository = new SqliteMemoryRepository(
   memoryDatabasePath ? { filePath: memoryDatabasePath } : {}
 );
 const capabilityProvider = new NodeDeviceCapabilityProvider();
-const modelRegistry = new StaticModelRegistry(fixtureModelManifests);
 const modelCandidateRegistry = new StaticModelCandidateRegistry(
   recommendedModelCandidates
 );
@@ -170,6 +165,14 @@ const modelOperationSupervisor = new InMemoryModelOperationSupervisor();
 const resourceScheduler = new InMemoryResourceScheduler({
   inspectDevice: async () => (await capabilityProvider.inspect()).device
 });
+const localEmbeddingComposition = createCoreHostLocalEmbeddingComposition({
+  env: process.env,
+  resourceScheduler
+});
+const modelRegistry = new StaticModelRegistry([
+  ...fixtureModelManifests,
+  ...localEmbeddingComposition.manifests
+]);
 const modelInstallWorkflowOrchestrator =
   new PolicyModelInstallWorkflowOrchestrator({
     installationPlanner: modelInstallationPlanner,
@@ -182,7 +185,8 @@ const modelLifecycleManager = new FileSystemModelLifecycleManager({
     throw new Error("MODEL_FETCHER_NOT_CONFIGURED");
   }
 });
-const modelRuntimeRegistry = new UnavailableModelRuntimeRegistry();
+const modelRuntimeRegistry =
+  localEmbeddingComposition.modelRuntimeRegistry;
 const fixtureInferenceEnabled =
   process.env.JARVIS_K_ENABLE_FIXTURE_INFERENCE === "1";
 const fixtureEmbeddingProviderDescriptor =
@@ -193,9 +197,10 @@ const fixtureEmbeddingProviderConfigurationReport =
   createFixtureEmbeddingProviderConfigurationReport({
     enabled: fixtureInferenceEnabled
   });
-const embeddingInferenceProvider = fixtureInferenceEnabled
-  ? new FixtureEmbeddingProvider()
-  : undefined;
+const embeddingInferenceProvider =
+  fixtureInferenceEnabled
+    ? new FixtureEmbeddingProvider()
+    : localEmbeddingComposition.embeddingProvider;
 const intentRoutingProvider = fixtureInferenceEnabled
   ? new FixtureIntentRoutingProvider()
   : undefined;
@@ -226,9 +231,9 @@ const fixtureRerankerConfigurationReport =
     enabled: fixtureInferenceEnabled
   });
 const localEmbeddingProviderDescriptor =
-  createLocalEmbeddingProviderDescriptor();
+  localEmbeddingComposition.providerDescriptor;
 const localEmbeddingProviderConfigurationReport =
-  createLocalEmbeddingProviderConfigurationReport();
+  localEmbeddingComposition.providerConfigurationReport;
 const inferenceProviderRegistry = new StaticInferenceProviderRegistry([
   localEmbeddingProviderDescriptor,
   fixtureEmbeddingProviderDescriptor,

@@ -45,6 +45,7 @@
     "smoke:desktop": "npm run build && node tests/desktop-smoke.mjs",
     "smoke:desktop:memory-degraded": "npm run build && node tests/desktop-memory-degraded-smoke.mjs",
     "smoke:desktop:fixture-inference": "npm run build && node tests/desktop-fixture-inference-smoke.mjs",
+    "smoke:desktop:local-embedding-composition": "npm run build && node tests/desktop-local-embedding-composition-smoke.mjs",
     "smoke:runtime-transformers": "npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-smoke.mjs",
     "smoke:runtime-transformers:fixture": "npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-fixture-smoke.mjs",
     "acceptance:runtime-transformers:approved-artifact": "npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-real-artifact-benchmark.mjs",

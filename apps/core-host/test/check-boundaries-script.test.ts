@@ -119,6 +119,17 @@ describe("check-boundaries script", () => {
     });
   });
 
+  it("allows Core Host to import the dedicated Transformers runtime package", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { createTransformersLocalRuntimeDescriptor } from \"@jarvis-k/inference-runtime-transformers-local\";\nvoid createTransformersLocalRuntimeDescriptor;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
   it("fails when UI imports capability policy directly", async () => {
     await writeSourceFile(
       path.join(directory, "apps", "ui"),

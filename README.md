@@ -60,6 +60,10 @@ They are not runtime dependencies.
   review materials are ready for separate product and security approval;
   provider registration, visibility, execution, and default opt-in remain
   disabled
+- Phase 7.33 provider composition implementation: runtime-backed local
+  embedding is composed only behind `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`;
+  default behavior, fixture fallback, model artifact access, model loading,
+  and real local inference remain disabled
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -137,6 +141,7 @@ npm run build
 npm run verify
 npm run smoke:desktop
 npm run smoke:desktop:fixture-inference
+npm run smoke:desktop:local-embedding-composition
 npm run smoke:runtime-transformers
 npm run smoke:runtime-transformers:fixture
 npm run acceptance:runtime-transformers:approved-artifact
@@ -216,6 +221,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.30 memory sampling gap disposition](docs/phase-7-30-memory-sampling-gap-disposition.md)
 - [Phase 7.31 alternative resource evidence](docs/phase-7-31-alternative-resource-evidence.md)
 - [Phase 7.32 provider composition implementation review](docs/phase-7-32-provider-composition-implementation-review.md)
+- [Phase 7.33 provider composition implementation](docs/phase-7-33-provider-composition-implementation.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)

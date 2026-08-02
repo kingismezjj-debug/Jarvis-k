@@ -1074,6 +1074,53 @@ packaging, license, benchmark, and composition gate passes.
   without separate product and security approval for the exact composition
   implementation.
 
+## Phase 7.33: Provider Composition Implementation
+
+- Status: complete as an explicit opt-in Core Host composition wave.
+- Added `apps/core-host` composition wiring behind
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`.
+- Default behavior remains unchanged: no approved local embedding manifest is
+  added, no Transformers runtime adapter is listed, no runtime-backed
+  embedding provider is composed, and the local embedding provider remains
+  `unconfigured` and `disabled`.
+- With explicit opt-in, Core Host adds the approved local embedding manifest,
+  lists the Transformers runtime adapter descriptor, reports the local
+  embedding provider as runtime-backed, and composes an embedding provider
+  shell.
+- The provider shell validates requests, requires a resource scheduler lease
+  before runtime session creation, releases provider resources on success or
+  failure, and maps runtime failures to sanitized messages.
+- The default runtime session factory still fails closed before Python helper
+  launch, model artifact access, model load, cache write, or real embedding
+  generation.
+- Fixture embedding fallback is preserved. If
+  `JARVIS_K_ENABLE_FIXTURE_INFERENCE=1` is set, the fixture embedding provider
+  continues to own the embedding execution port.
+- No model artifact download, persistent cache write, credential or signed URL
+  persistence, real Python helper launch, model load, real local embedding
+  inference, UI control, default opt-in change, or Windows/PowerShell
+  operation execution was added.
+
+### Current Gate
+
+- Core Host local embedding composition normal, default-disabled, opt-in,
+  resource-lease, sanitized-failure, model-mismatch, and boundary tests: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Provider composition implementation: available only behind explicit opt-in.
+- Real runtime session factory: NOT IMPLEMENTED.
+- Real model artifact access and model load: BLOCKED.
+
+### Next Hard Pause
+
+- Do not add a real runtime session factory, launch the Python helper from
+  Core Host composition, read `JARVIS_K_RUNTIME_PYTHON` or model artifact
+  paths for product execution, access model artifacts, write caches, load the
+  real model, expose new UI controls, change default opt-in behavior, or
+  enable real local embedding inference without a separate product and
+  security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
