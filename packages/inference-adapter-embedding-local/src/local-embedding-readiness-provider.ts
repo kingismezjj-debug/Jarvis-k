@@ -20,6 +20,10 @@ import {
   type LocalEmbeddingBenchmarkApprovalRecord
 } from "./local-embedding-benchmark-approval";
 import {
+  isLocalEmbeddingResourceProfileAlternativeEvidenceAccepted,
+  type LocalEmbeddingResourceProfileAlternativeEvidenceResult
+} from "./local-embedding-resource-profile-alternative-evidence";
+import {
   createLocalEmbeddingArtifactPinApprovalRecord,
   isLocalEmbeddingArtifactPinApprovalRecordApproved,
   type LocalEmbeddingArtifactPinApprovalRecord
@@ -78,6 +82,7 @@ export interface LocalEmbeddingReadinessInput {
   packagingReviewed?: boolean;
   redistributionReviewed?: boolean;
   benchmarkProfileReady?: boolean;
+  resourceProfileAlternativeEvidence?: LocalEmbeddingResourceProfileAlternativeEvidenceResult;
 }
 
 export interface LocalEmbeddingReadinessCheck {
@@ -233,11 +238,7 @@ export function assessLocalEmbeddingReadiness(
   addCheck(
     checks,
     "benchmarks.local_resource_profile",
-    input.benchmarkProfileReady === true &&
-      isLocalEmbeddingBenchmarkApprovalRecordApproved(
-        input.benchmarkApproval ??
-          createLocalEmbeddingBenchmarkApprovalRecord()
-      ),
+    isResourceProfileReadinessSatisfied(input),
     "Approve local quality, latency, memory, and resource benchmark profiles."
   );
 
@@ -247,6 +248,26 @@ export function assessLocalEmbeddingReadiness(
     checks,
     reasons
   };
+}
+
+function isResourceProfileReadinessSatisfied(
+  input: LocalEmbeddingReadinessInput
+): boolean {
+  if (
+    isLocalEmbeddingResourceProfileAlternativeEvidenceAccepted(
+      input.resourceProfileAlternativeEvidence
+    )
+  ) {
+    return true;
+  }
+
+  return (
+    input.benchmarkProfileReady === true &&
+    isLocalEmbeddingBenchmarkApprovalRecordApproved(
+      input.benchmarkApproval ??
+        createLocalEmbeddingBenchmarkApprovalRecord()
+    )
+  );
 }
 
 function addCheck(
@@ -321,6 +342,10 @@ function createConfigurationChecklistReasons(
   }
   if (input.benchmarkApproval !== undefined) {
     checklistInput.benchmarkApproval = input.benchmarkApproval;
+  }
+  if (input.resourceProfileAlternativeEvidence !== undefined) {
+    checklistInput.resourceProfileAlternativeEvidence =
+      input.resourceProfileAlternativeEvidence;
   }
   const checklist = createLocalEmbeddingReadinessChecklist(checklistInput);
 

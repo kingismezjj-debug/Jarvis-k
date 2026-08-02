@@ -14,6 +14,10 @@ import {
   type LocalEmbeddingBenchmarkApprovalRecord
 } from "./local-embedding-benchmark-approval";
 import {
+  isLocalEmbeddingResourceProfileAlternativeEvidenceAccepted,
+  type LocalEmbeddingResourceProfileAlternativeEvidenceResult
+} from "./local-embedding-resource-profile-alternative-evidence";
+import {
   LOCAL_EMBEDDING_MODEL_ID,
   LOCAL_EMBEDDING_PROVIDER_ID
 } from "./local-embedding-constants";
@@ -48,6 +52,7 @@ export interface LocalEmbeddingReadinessChecklistInput {
   runtimeStrategy?: LocalEmbeddingRuntimeStrategy;
   licenseApproval?: LocalEmbeddingLicenseApprovalRecord;
   benchmarkApproval?: LocalEmbeddingBenchmarkApprovalRecord;
+  resourceProfileAlternativeEvidence?: LocalEmbeddingResourceProfileAlternativeEvidenceResult;
 }
 
 export interface LocalEmbeddingReadinessChecklistItem {
@@ -128,10 +133,20 @@ export function createLocalEmbeddingReadinessChecklist(
     },
     {
       key: "benchmarks.local_resource_profile",
-      status: benchmarkApproval.status,
-      satisfied:
-        isLocalEmbeddingBenchmarkApprovalRecordApproved(benchmarkApproval),
-      reasons: [...benchmarkApproval.reasons]
+      status: isLocalEmbeddingResourceProfileAlternativeEvidenceAccepted(
+        input.resourceProfileAlternativeEvidence
+      )
+        ? "approved"
+        : benchmarkApproval.status,
+      satisfied: isResourceProfileChecklistSatisfied(
+        benchmarkApproval,
+        input.resourceProfileAlternativeEvidence
+      ),
+      reasons: isLocalEmbeddingResourceProfileAlternativeEvidenceAccepted(
+        input.resourceProfileAlternativeEvidence
+      )
+        ? []
+        : [...benchmarkApproval.reasons]
     }
   ];
 
@@ -147,4 +162,18 @@ export function createLocalEmbeddingReadinessChecklist(
     items,
     reasons
   };
+}
+
+function isResourceProfileChecklistSatisfied(
+  benchmarkApproval: LocalEmbeddingBenchmarkApprovalRecord,
+  alternativeEvidence:
+    | LocalEmbeddingResourceProfileAlternativeEvidenceResult
+    | undefined
+): boolean {
+  return (
+    isLocalEmbeddingResourceProfileAlternativeEvidenceAccepted(
+      alternativeEvidence
+    ) ||
+    isLocalEmbeddingBenchmarkApprovalRecordApproved(benchmarkApproval)
+  );
 }

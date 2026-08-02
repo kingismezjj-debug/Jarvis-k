@@ -171,6 +171,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     a deferred local diagnostic limitation. This disposition does not complete
     the resource profile, satisfy readiness, grant composition, expose resource
     values, register the provider, enable execution, or change default opt-in.
+42. Approved alternative resource evidence may satisfy the local resource
+    requirement only for provider composition review. It is limited to bounded
+    sampling attempts, successful runtime benchmark completion, cleanup, and a
+    sanitized failure reason code. It does not create a product SLO, enter UI
+    or Core, grant composition approval, register the provider, enable
+    execution, or change default opt-in.
 
 ## Restart policy
 

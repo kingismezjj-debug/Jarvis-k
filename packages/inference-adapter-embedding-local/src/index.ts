@@ -17,6 +17,7 @@ export * from "./local-embedding-manifest-draft";
 export * from "./local-embedding-readiness-checklist";
 export * from "./local-embedding-readiness-provider";
 export * from "./local-embedding-resource-profile-approval";
+export * from "./local-embedding-resource-profile-alternative-evidence";
 export * from "./local-embedding-resource-profile-disposition";
 export * from "./local-embedding-revision-approval";
 export * from "./local-embedding-revision-selection-procedure";

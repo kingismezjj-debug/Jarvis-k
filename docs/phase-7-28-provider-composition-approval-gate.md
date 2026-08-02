@@ -15,18 +15,19 @@ an installer.
 
 ## Current Handoff
 
-The review boundary is accepted for evaluation, but the handoff is currently
-classified as `deferred_pending_readiness`.
-
-The remaining readiness blocker is:
-
-- `benchmarks.local_resource_profile`
+The review boundary is accepted for evaluation. After Phase 7.31, the handoff
+can be classified as `ready_for_manual_composition_approval` when all existing
+readiness evidence is supplied with the approved alternative resource evidence.
 
 Phase 7.26 latency, quality, normalization, stability, temporary artifact
 cleanup, and model-load evidence is complete. Phase 7.27 hardened the Windows
 probe and verified it against a temporary non-model child, but the configured
-real-model rerun still produced no valid lifecycle memory sample. No memory
-value is claimed or persisted.
+real-model rerun still produced no valid lifecycle memory sample. Phase 7.30
+formally dispositioned that sampling gap as a deferred local diagnostic
+limitation. Phase 7.31 approves bounded sampling attempts, successful runtime
+benchmark completion, cleanup, and the sanitized `memory_probe_failed` reason
+code as alternative local resource evidence for composition review only. No
+memory value is claimed or persisted.
 
 ## Gate Semantics
 
@@ -63,7 +64,7 @@ approval is still required before an implementation wave may change
 
 Before a later composition implementation wave:
 
-1. Resolve or explicitly disposition the deferred local resource profile.
+1. Confirm the accepted Phase 7.31 alternative resource evidence.
 2. Reconfirm runtime acceptance, adapter isolation, packaging, license, and
    benchmark evidence.
 3. Review the exact `apps/core-host` composition diff and explicit opt-in

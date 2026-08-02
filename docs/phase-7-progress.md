@@ -988,6 +988,48 @@ packaging, license, benchmark, and composition gate passes.
 - Do not register the real provider, change default opt-in, compose execution,
   or modify `apps/core-host`.
 
+## Phase 7.31: Alternative Resource Evidence
+
+- Status: complete as a provider-local alternative evidence wave.
+- Added an approved alternative resource evidence guard that consumes the Phase
+  7.30 deferred disposition plus explicit product and security approvals.
+- The accepted evidence is limited to bounded sampling attempts, successful
+  runtime benchmark completion, cleanup, and the sanitized
+  `memory_probe_failed` reason code.
+- The evidence is a local acceptance diagnostic only, not a product SLO, and
+  does not enter UI, Core, provider visibility, or default behavior.
+- Local embedding readiness may now satisfy
+  `benchmarks.local_resource_profile` with accepted alternative evidence.
+- The provider-local composition gate can now report
+  `ready_for_manual_composition_approval` when all other readiness evidence is
+  present.
+- The composition gate still returns `compositionApprovalGranted: false`,
+  `compositionAllowed: false`, `providerRegistrationEnabled: false`,
+  `executionEnabled: false`, and `defaultOptInEnabled: false`.
+- No model artifact access, cache write, model load, provider registration,
+  execution enablement, default opt-in change, Core Host composition, Desktop
+  IPC, UI visibility, or installer behavior was added.
+
+### Current Gate
+
+- Alternative resource evidence normal, blocked, approval, product-SLO,
+  UI/Core exposure, provider-registration, execution, default opt-in, readiness,
+  composition-review, and sanitized-output tests: PASS.
+- Formal alternative evidence:
+  `accepted_for_composition_review_only`.
+- Local resource readiness: SATISFIED for composition review only.
+- Provider composition approval: NOT GRANTED.
+- Provider composition implementation: BLOCKED pending separate review.
+
+### Next Hard Pause
+
+- Review the exact `apps/core-host` composition diff and explicit opt-in
+  behavior before any real provider registration.
+- Reconfirm fixture fallback, sanitized errors, resource lease enforcement,
+  startup/restart behavior, provider visibility, and rollback path.
+- Obtain separate product and security approval for provider registration and
+  execution enablement.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

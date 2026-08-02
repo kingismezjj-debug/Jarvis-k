@@ -69,8 +69,7 @@ change.
 
 ## Next Hard Pause
 
-Do not enter provider composition from this disposition alone. A future wave
-must either capture valid resource evidence with a separately approved method
-or make a separate product, security, and release decision to replace the
-resource-profile requirement before `apps/core-host` can register or enable
-the real provider.
+Do not enter provider composition from this disposition alone. Phase 7.31
+selects a separately approved alternative evidence path for composition review
+only. That later evidence still does not authorize `apps/core-host` provider
+registration or execution enablement by itself.
