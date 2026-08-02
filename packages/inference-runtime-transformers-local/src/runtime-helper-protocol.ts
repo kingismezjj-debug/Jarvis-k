@@ -52,6 +52,10 @@ export type RuntimeHelperErrorCode =
   | "HELPER_PROTOCOL_INVALID"
   | "RESOURCE_LEASE_REQUIRED"
   | "MODEL_LOAD_UNAVAILABLE"
+  | "RUNTIME_DEPENDENCY_UNAVAILABLE"
+  | "MODEL_ARTIFACT_UNAVAILABLE"
+  | "MODEL_RUNTIME_INCOMPATIBLE"
+  | "EMBEDDING_DIMENSIONS_UNSUPPORTED"
   | "EMBEDDING_EXECUTION_DISABLED"
   | "HELPER_PROCESS_EXITED"
   | "HELPER_INTERNAL";
@@ -87,10 +91,10 @@ export interface RuntimeHelperHealth {
   transport: typeof RUNTIME_HELPER_IPC_MODE;
   resourceLeaseRequired: true;
   directShellExecutionAllowed: false;
-  runtimeDependenciesIntroduced: false;
+  runtimeDependenciesIntroduced: boolean;
   downloadEnabled: false;
-  executionEnabled: false;
-  modelArtifactsAccessed: false;
+  executionEnabled: boolean;
+  modelArtifactsAccessed: boolean;
   reasons: string[];
 }
 
@@ -248,6 +252,14 @@ const ERROR_MESSAGES: Record<RuntimeHelperErrorCode, string> = {
   HELPER_PROTOCOL_INVALID: "Runtime helper protocol message is invalid.",
   RESOURCE_LEASE_REQUIRED: "A resource lease is required before runtime use.",
   MODEL_LOAD_UNAVAILABLE: "Runtime helper cannot load the requested model.",
+  RUNTIME_DEPENDENCY_UNAVAILABLE:
+    "Runtime helper dependencies are unavailable.",
+  MODEL_ARTIFACT_UNAVAILABLE:
+    "Runtime helper model artifacts are unavailable.",
+  MODEL_RUNTIME_INCOMPATIBLE:
+    "Runtime helper model is incompatible with the configured runtime.",
+  EMBEDDING_DIMENSIONS_UNSUPPORTED:
+    "Requested embedding dimensions are not supported by the loaded model.",
   EMBEDDING_EXECUTION_DISABLED:
     "Embedding execution remains disabled by the runtime gate.",
   HELPER_PROCESS_EXITED: "Runtime helper process exited unexpectedly.",
@@ -259,7 +271,8 @@ const RETRYABLE_ERRORS = new Set<RuntimeHelperErrorCode>([
   "HELPER_STARTUP_TIMEOUT",
   "HELPER_REQUEST_TIMEOUT",
   "HELPER_PROCESS_EXITED",
-  "HELPER_INTERNAL"
+  "HELPER_INTERNAL",
+  "RUNTIME_DEPENDENCY_UNAVAILABLE"
 ]);
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
@@ -609,7 +622,7 @@ export function mapRuntimeHelperError(
         operation === "shutdown"
           ? "HELPER_SHUTDOWN_TIMEOUT"
           : operation === "health"
-            ? "HELPER_REQUEST_TIMEOUT"
+            ? "HELPER_STARTUP_TIMEOUT"
             : "HELPER_REQUEST_TIMEOUT"
       );
     }
@@ -734,17 +747,17 @@ function parseHealth(value: unknown): RuntimeHelperHealth {
     record.transport !== RUNTIME_HELPER_IPC_MODE ||
     record.resourceLeaseRequired !== true ||
     record.directShellExecutionAllowed !== false ||
-    record.runtimeDependenciesIntroduced !== false ||
-    record.downloadEnabled !== false ||
-    record.executionEnabled !== false ||
-    record.modelArtifactsAccessed !== false
+    record.downloadEnabled !== false
   ) {
     throwProtocolError();
   }
 
   if (
     !isHealthStatus(record.status) ||
-    !isProcessState(record.processState)
+    !isProcessState(record.processState) ||
+    typeof record.runtimeDependenciesIntroduced !== "boolean" ||
+    typeof record.executionEnabled !== "boolean" ||
+    typeof record.modelArtifactsAccessed !== "boolean"
   ) {
     throwProtocolError();
   }
@@ -756,10 +769,10 @@ function parseHealth(value: unknown): RuntimeHelperHealth {
     transport: RUNTIME_HELPER_IPC_MODE,
     resourceLeaseRequired: true,
     directShellExecutionAllowed: false,
-    runtimeDependenciesIntroduced: false,
+    runtimeDependenciesIntroduced: record.runtimeDependenciesIntroduced,
     downloadEnabled: false,
-    executionEnabled: false,
-    modelArtifactsAccessed: false,
+    executionEnabled: record.executionEnabled,
+    modelArtifactsAccessed: record.modelArtifactsAccessed,
     reasons: parseReasons(record.reasons)
   };
 }
@@ -905,6 +918,10 @@ function isRuntimeHelperErrorCode(
     value === "HELPER_PROTOCOL_INVALID" ||
     value === "RESOURCE_LEASE_REQUIRED" ||
     value === "MODEL_LOAD_UNAVAILABLE" ||
+    value === "RUNTIME_DEPENDENCY_UNAVAILABLE" ||
+    value === "MODEL_ARTIFACT_UNAVAILABLE" ||
+    value === "MODEL_RUNTIME_INCOMPATIBLE" ||
+    value === "EMBEDDING_DIMENSIONS_UNSUPPORTED" ||
     value === "EMBEDDING_EXECUTION_DISABLED" ||
     value === "HELPER_PROCESS_EXITED" ||
     value === "HELPER_INTERNAL"

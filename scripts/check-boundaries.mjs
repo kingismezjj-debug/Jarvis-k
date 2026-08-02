@@ -82,6 +82,7 @@ const packages = [
     name: "inference-runtime-transformers-local",
     root: path.join(root, "packages", "inference-runtime-transformers-local"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    allowedImports: new Set(["node:child_process"]),
     forbiddenImportPrefixes: [
       "electron",
       "node:",
@@ -314,7 +315,8 @@ for (const workspacePackage of packages) {
       if (
         workspacePackage.forbiddenImportPrefixes.some((prefix) =>
           matchesForbiddenPrefix(specifier, prefix)
-        )
+        ) &&
+        !(workspacePackage.allowedImports?.has(specifier) ?? false)
       ) {
         violations.push(
           `${path.relative(root, filePath)} imports forbidden runtime dependency ${specifier}`

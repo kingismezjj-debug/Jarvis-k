@@ -134,6 +134,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     are testable without enabling installer, update, rollback, filesystem,
     network, model-loading, provider-registration, Core Host, Desktop IPC, UI,
     or provider-visibility behavior.
+35. The dedicated Transformers runtime package owns the Python helper,
+    dependency manifest, and child-process JSONL transport. The helper loads
+    only local artifacts with remote code and network access disabled, runs on
+    CPU, and returns sanitized embedding DTOs. `apps/core-host` remains the
+    only composition root; runtime implementation does not register or enable
+    the provider.
 
 ## Restart policy
 

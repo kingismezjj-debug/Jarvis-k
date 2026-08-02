@@ -9,6 +9,7 @@ export * from "./controlled-artifact-cache-executor";
 export * from "./controlled-artifact-download-guard";
 export * from "./runtime-helper-protocol";
 export * from "./runtime-helper-client";
+export * from "./runtime-helper-process-transport";
 export * from "./runtime-constants";
 import {
   TRANSFORMERS_LOCAL_RUNTIME,
@@ -26,6 +27,7 @@ export interface TransformersLocalRuntimeHealth {
   runtime: typeof TRANSFORMERS_LOCAL_RUNTIME;
   status: typeof TRANSFORMERS_LOCAL_RUNTIME_STATUS;
   packageScaffolded: true;
+  runtimeHelperImplemented: true;
   fakeRuntimeOnly: true;
   runtimeDependenciesIntroduced: false;
   downloadEnabled: false;
@@ -58,8 +60,8 @@ export function createTransformersLocalRuntimeDescriptor(): ModelRuntimeAdapterD
     capabilities: ["embedding"],
     accelerationBackends: [],
     notes: [
-      "Fake runtime scaffold; no Transformers dependency is installed.",
-      "Runtime execution remains unavailable until dependency, cache, benchmark, and enablement gates pass.",
+      "A concrete Python Transformers helper is implemented inside the dedicated runtime package.",
+      "The default adapter remains unavailable until model artifact, benchmark, and enablement gates pass.",
       "Future execution must remain behind the dedicated runtime package and supervised child-process boundary."
     ]
   });
@@ -73,6 +75,7 @@ export function createTransformersLocalRuntimeHealth(): TransformersLocalRuntime
     runtime: TRANSFORMERS_LOCAL_RUNTIME,
     status: TRANSFORMERS_LOCAL_RUNTIME_STATUS,
     packageScaffolded: true,
+    runtimeHelperImplemented: true,
     fakeRuntimeOnly: true,
     runtimeDependenciesIntroduced: false,
     downloadEnabled: false,

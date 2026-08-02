@@ -702,17 +702,46 @@ packaging, license, benchmark, and composition gate passes.
 ## Remaining Phase 7 Work
 
 - Phase 7.13 through Phase 7.23 automation scope is complete.
-- Phase 7 is now at the explicit composition approval boundary. Do not
-  register the real provider, enable execution, change default opt-in behavior,
-  add runtime dependencies, access model artifacts, or modify `apps/core-host`
-  without a separate approval and implementation stage.
+- Phase 7.24 now implements the real Python Transformers helper and supervised
+  child-process transport inside the dedicated runtime package.
+- The runtime helper is not registered, provider execution is not enabled,
+  default opt-in is unchanged, and no real Qwen artifact is accessed.
+- Do not register the real provider, change default opt-in behavior, access
+  real model artifacts, or modify `apps/core-host` without a separate
+  composition and artifact approval stage.
 - Capture and approve real benchmark latency, memory, quality, and resource
-  profiles only after runtime dependencies and execution are separately
-  approved.
-- Implement the dedicated runtime package only after artifact, license,
-  packaging, and benchmark gates are approved.
+  profiles only after a real approved model artifact is available.
 - Register runtime and execution providers only in `apps/core-host`, behind
   explicit enablement and preflight checks, after the hard pause is lifted.
+
+## Phase 7.24: Real Python Transformers Runtime
+
+- Status: complete as a dedicated runtime implementation wave; real model
+  artifact execution remains separately gated.
+- Added a supervised Node child-process JSONL transport with shell execution
+  disabled, minimal child environment, bounded output framing, stderr
+  draining, process-exit recovery, and sanitized protocol failures.
+- Added a Python Transformers helper with local-file-only loading,
+  `trust_remote_code=False`, CPU execution, attention-mask mean pooling, L2
+  normalization, resource-lease validation, and sanitized error mapping.
+- Added a pinned Python dependency manifest inside the dedicated runtime
+  package only.
+- Added a runtime smoke that proves dependency health and a temporary
+  synthetic-model load/embed lifecycle without downloading or retaining a real
+  model artifact.
+- No provider registration, Core Host composition, Desktop IPC, UI behavior,
+  public contract change, real Qwen artifact access, model cache, or default
+  opt-in change was added.
+
+### Current Gate
+
+- Node child-process transport tests: PASS.
+- Python helper dependency health smoke: PASS.
+- Temporary synthetic Transformers load/embed smoke: PASS.
+- Runtime package build: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run verify`: PASS, 92 test files and 460 tests.
 
 ## Phase 8.1: Embedding Memory Retrieval Contract
 

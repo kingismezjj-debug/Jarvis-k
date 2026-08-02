@@ -6,11 +6,12 @@ supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
 ports, installability policy, resource diagnostics, dry-run model install
-preparation, deterministic fixture providers, and provider-neutral
-developer-alpha guards are in place. Phase 7 through Phase 12 remain
-fail-closed preparation and fixture work; real local model downloads, model
-runtime execution, installers, updates, and rollback side effects remain
-disabled.
+preparation, deterministic fixture providers, provider-neutral
+developer-alpha guards, and the isolated Python Transformers helper are in
+place. Phase 7 through Phase 12 remain fail-closed preparation and fixture
+work at the product-composition boundary; real Qwen model downloads, provider
+registration, default opt-in, installers, updates, and rollback side effects
+remain disabled.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -32,6 +33,9 @@ They are not runtime dependencies.
   descriptor and configuration gates
 - Phase 7 local embedding readiness guards: complete through the composition
   preflight; runtime execution remains disabled
+- Phase 7 real Python Transformers helper: implemented inside the dedicated
+  runtime package with offline local-file loading, CPU embedding execution,
+  and child-process JSONL transport; provider composition remains disabled
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -109,7 +113,19 @@ npm run build
 npm run verify
 npm run smoke:desktop
 npm run smoke:desktop:fixture-inference
+npm run smoke:runtime-transformers
+npm run smoke:runtime-transformers:fixture
 ```
+
+The Transformers runtime smoke requires an approved Python environment path:
+
+```powershell
+$env:JARVIS_K_RUNTIME_PYTHON='C:\path\to\python.exe'
+npm run smoke:runtime-transformers
+```
+
+The fixture smoke creates only a temporary random model outside the repository
+and removes it after the run. It does not download or access a real model.
 
 Real Xunfei connectivity acceptance is opt-in:
 
@@ -133,6 +149,8 @@ the local settings window first. It must not be enabled in default CI.
   runtime, or network access.
 - `packages/inference-adapter-embedding-local`: Phase 6 fail-closed local
   embedding provider readiness descriptor and configuration gate reports.
+- `packages/inference-runtime-transformers-local`: provider-local artifact
+  guards, Python Transformers helper, and supervised child-process transport.
 - `packages/memory`: provider-neutral memory ports and schemas.
 - `packages/memory-sqlite`: SQLite-backed message, conversation, summary,
   health, export, and import persistence.
@@ -164,6 +182,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7 progress](docs/phase-7-progress.md)
 - [Phase 7.18 tokenizer/config integration review](docs/phase-7-18-tokenizer-config-integration-review.md)
 - [Phase 7.19 runtime helper protocol](docs/phase-7-19-runtime-helper-protocol.md)
+- [Real Python Transformers runtime](docs/phase-7-24-real-python-transformers-runtime.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
