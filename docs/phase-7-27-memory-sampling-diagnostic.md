@@ -24,10 +24,15 @@ The probe now:
 
 - A short-lived local non-model child process produced a positive peak
   working-set sample through the hardened API path.
-- The approved Transformers environment was not configured in the current
-  shell, so the real artifact benchmark was not rerun in this diagnostic wave.
-- No real artifact was accessed, no model directory was created, and no
+- The approved Transformers environment was configured transiently with
+  Python `3.14.4`, Transformers `5.14.1`, Torch `2.13.0+cpu`, and
+  Safetensors `0.8.0`.
+- The real artifact benchmark was rerun successfully. Artifact verification,
+  model load, embedding quality, latency capture, and cleanup passed.
+- The real model lifecycle still produced no valid memory sample, so no
   benchmark memory value is claimed.
+- The temporary environment, caches, and artifact directory were removed after
+  the rerun.
 
 ## Acceptance State
 
@@ -43,5 +48,5 @@ behavior.
 
 - Acceptance runner syntax check: PASS.
 - Hardened memory probe against a temporary non-model child: PASS.
-- Real artifact-backed memory capture: DEFERRED pending the configured
-  approved Python environment.
+- Real artifact-backed memory capture: DEFERRED; the configured environment
+  rerun completed without a valid lifecycle sample.

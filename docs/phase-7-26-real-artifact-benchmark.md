@@ -23,16 +23,18 @@ files.
 
 ## Latest Runtime Result
 
-The latest run completed with:
+The latest rerun completed with:
 
 - artifact verification: `passed`;
 - artifact count: `10`;
 - total verified bytes: `1,207,470,234`;
 - aggregate manifest size: matched;
 - helper health: `ready`;
-- model load: `583.29 ms`;
-- first embedding batch: `485.22 ms`;
-- warm embedding latency: p50 `459.15 ms`, p95 `466.43 ms`, 5 samples;
+- Python environment: Python `3.14.4`, Transformers `5.14.1`,
+  Torch `2.13.0+cpu`, Safetensors `0.8.0`;
+- model load: `475.90 ms`;
+- first embedding batch: `482.38 ms`;
+- warm embedding latency: p50 `438.82 ms`, p95 `441.24 ms`, 5 samples;
 - embedding dimensions: `1024`;
 - vector count: `5`;
 - finite-value check: passed;
@@ -45,10 +47,14 @@ SLOs.
 
 ## Deferred Resource Metric
 
-Peak helper working-set capture remains `deferred`. The sanitized child-process
-transport does not expose memory metrics, and the optional standard-library
-probe could not obtain a sample in the current Python environment. No memory
-value is claimed or persisted.
+Peak helper working-set capture remains `deferred`. The hardened Windows probe
+captured a positive sample from a dependency-ready helper health process, but
+did not obtain a valid sample during the real artifact model lifecycle. No
+memory value is claimed or persisted.
+
+The approved Python environment was created transiently under the system
+temporary directory with pip and Hugging Face caches redirected there. The
+environment, caches, and artifact directory were removed after the rerun.
 
 ## Product Boundary
 
@@ -67,4 +73,6 @@ npm.cmd run check:boundaries
 npm.cmd run check:sensitive-artifacts
 ```
 
-The latest post-run verification passed with 93 test files and 464 tests.
+The repository verification baseline remains 93 test files and 464 tests. The
+acceptance rerun itself also rebuilt both provider-local packages and completed
+with cleanup passed.

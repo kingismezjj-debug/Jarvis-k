@@ -802,11 +802,13 @@ packaging, license, benchmark, and composition gate passes.
   removes the temporary directory on every exit path.
 - Latest run passed artifact verification for 10 artifacts and matched the
   approved aggregate size of `1,207,470,234` bytes.
-- Latest runtime-backed result: 1024 dimensions, 5 vectors, model load
-  `583.29 ms`, first embedding `485.22 ms`, warm p50 `459.15 ms`, warm p95
-  `466.43 ms`, finite values and normalization passed, stable cosine `1`.
-- Peak helper working-set capture is deferred because the optional sanitized
-  resource probe could not obtain a sample; no memory value is claimed.
+- Latest runtime-backed rerun result: Python `3.14.4`, Transformers `5.14.1`,
+  Torch `2.13.0+cpu`, 1024 dimensions, 5 vectors, model load `475.90 ms`,
+  first embedding `482.38 ms`, warm p50 `438.82 ms`, warm p95 `441.24 ms`,
+  finite values and normalization passed, stable cosine `1`.
+- Peak helper working-set capture remains deferred. The hardened probe works
+  against a dependency-ready health process but did not obtain a valid sample
+  during the real model lifecycle; no memory value is claimed.
 - No model file or cache remains after the run. Provider registration,
   execution enablement, Core Host composition, Desktop IPC, UI behavior, and
   default opt-in remain unchanged.
@@ -838,8 +840,9 @@ packaging, license, benchmark, and composition gate passes.
   `PeakWorkingSetSize` rather than a single current working-set sample.
 - A short-lived non-model child process produced a positive sanitized sample
   through the hardened probe path.
-- The approved Transformers environment was not configured in the current
-  shell, so the real artifact benchmark was not rerun and no memory value is
+- The approved Transformers environment was configured transiently for a
+  successful benchmark rerun and then removed with its caches. The real model
+  lifecycle still produced no valid memory sample, so no memory value is
   claimed.
 - No artifact access, model directory, model cache, provider registration,
   execution enablement, Core Host composition, Desktop IPC, UI behavior, or
