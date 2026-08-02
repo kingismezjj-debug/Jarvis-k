@@ -273,6 +273,16 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     fallback, UI visibility, Memory vector routing, vector persistence,
     downloads, persistent caches, installer/update behavior, and
     Windows/PowerShell actions remain unchanged.
+54. Provider execution acceptance is a separate local diagnostic behind
+    `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION_ACCEPTANCE=1` plus the
+    provider and execution opt-ins. It verifies approved artifact digests,
+    starts Core Host with temporary memory/model lifecycle paths, and calls the
+    existing `agent.generateEmbeddings` product command path. The report may
+    expose only sanitized status, fixed reason codes, vector count, dimension
+    count, operation phase, and cleanup state. It does not route vectors to
+    Memory, persist vectors, change provider visibility/default opt-in
+    behavior, add downloads or persistent caches, expose raw diagnostics or
+    private paths, or convert model output into Windows/PowerShell actions.
 
 ## Restart policy
 

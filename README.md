@@ -5,7 +5,8 @@ current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.37
 Model Artifact Path Handoff and Helper Load plus Phase 7.38 Helper Embed
 Preflight plus Phase 7.39 Diagnostic Harness Preflight plus Phase 7.40
 Diagnostic Execution Runner plus Phase 7.41 Provider Execution Wiring
-Preflight plus Phase 7.42 Provider Execution Wiring**: the
+Preflight plus Phase 7.42 Provider Execution Wiring plus Phase 7.43 Provider
+Execution Acceptance Diagnostic**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -33,7 +34,12 @@ ports, installability policy, resource diagnostics, dry-run model install
   7.42 wires provider execution only behind
   `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1`; default behavior,
   fixture fallback, Memory routing, vector persistence, UI visibility changes,
-  downloads, and persistent cache writes remain blocked.
+  downloads, and persistent cache writes remain blocked. Phase 7.43 adds a
+  separate explicit opt-in acceptance diagnostic that verifies the Phase 7.42
+  product command path via `agent.generateEmbeddings` and reports only
+  sanitized counts and fixed reason codes; Memory routing, vector persistence,
+  UI visibility changes, downloads, and persistent cache writes remain
+  blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -135,6 +141,13 @@ They are not runtime dependencies.
   the existing provider/runtime/model environment gates. Default behavior,
   fixture fallback, Memory routing, vector persistence, UI visibility changes,
   downloads, and persistent cache writes remain blocked.
+- Phase 7.43 provider execution acceptance diagnostic: a separate explicit
+  opt-in local diagnostic can verify the Phase 7.42 product command path
+  through `agent.generateEmbeddings` after SHA-256 artifact verification and
+  temporary Core Host startup. Reports expose only sanitized status, fixed
+  reason codes, vector count, dimension count, operation phase, and cleanup
+  status. Memory routing, vector persistence, UI/default opt-in changes,
+  downloads, and persistent cache writes remain blocked.
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -216,6 +229,7 @@ npm run smoke:desktop:local-embedding-composition
 npm run smoke:runtime-transformers
 npm run smoke:runtime-transformers:fixture
 npm run diagnostic:local-embedding:helper-embed
+npm run diagnostic:local-embedding:provider-execution-acceptance
 npm run acceptance:runtime-transformers:approved-artifact
 ```
 
@@ -255,6 +269,21 @@ npm run diagnostic:local-embedding:helper-embed
 
 The diagnostic report is sanitized and must not expose raw inputs, vectors,
 artifact paths, private paths, signed URLs, credentials, or raw helper output.
+
+The Phase 7.43 provider execution acceptance diagnostic is separate from the
+Phase 7.40 helper diagnostic and verifies the product command path:
+
+```powershell
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION_ACCEPTANCE='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+npm run diagnostic:local-embedding:provider-execution-acceptance
+```
+
+It uses temporary memory/model lifecycle paths and prints only a sanitized
+pass/degraded/fail report.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
@@ -333,6 +362,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.40 helper embed diagnostic execution](docs/phase-7-40-helper-embed-diagnostic-execution.md)
 - [Phase 7.41 provider execution wiring preflight](docs/phase-7-41-provider-execution-wiring-preflight.md)
 - [Phase 7.42 provider execution wiring](docs/phase-7-42-provider-execution-wiring.md)
+- [Phase 7.43 provider execution acceptance diagnostic](docs/phase-7-43-provider-execution-acceptance-diagnostic.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)

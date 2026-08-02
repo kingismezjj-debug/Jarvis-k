@@ -1586,6 +1586,60 @@ packaging, license, benchmark, and composition gate passes.
   into Windows/PowerShell operations without separate product and security
   approval for that exact implementation wave.
 
+## Phase 7.43: Provider Execution Acceptance Diagnostic
+
+- Status: complete as an explicit opt-in acceptance diagnostic
+  implementation; local runtime-backed execution degraded because this shell
+  did not provide the required acceptance/provider/runtime/model environment
+  gates.
+- Adds a one-shot Core Host acceptance diagnostic for Phase 7.42 provider
+  execution wiring.
+- The diagnostic requires product/security approval input plus
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION_ACCEPTANCE=1`,
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`,
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1`, approved
+  `JARVIS_K_RUNTIME_PYTHON`, and approved
+  `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR`.
+- It verifies the approved SHA-256 artifact pin set before starting Core Host
+  with temporary memory/model lifecycle paths and sending
+  `agent.generateEmbeddings` through the product command path.
+- The report exposes only sanitized status, fixed reason codes, vector count,
+  dimension count, operation phase, and cleanup status.
+- Raw vectors, raw input text, artifact paths, private paths, signed URLs,
+  credentials, raw helper diagnostics, and artifact digests remain excluded.
+- No Memory vector routing, vector persistence/logging, Memory schema/index
+  migration, provider default opt-in change, provider visibility change, UI
+  visibility change, download, persistent model cache write,
+  credential/signed URL persistence, raw diagnostic exposure, or
+  Windows/PowerShell behavior change is added.
+
+### Current Gate
+
+- Core Host provider execution acceptance diagnostic tests: PASS, 4 tests.
+- Core Host local embedding composition, runtime session factory, and provider
+  execution acceptance diagnostic tests: PASS, 20 tests.
+- `npm.cmd run diagnostic:local-embedding:provider-execution-acceptance`:
+  DEGRADED safely with `acceptance_opt_in_missing`; no Core Host product
+  command was called and no artifact digest verification was run.
+- `npm.cmd run verify`: PASS, 107 test files and 532 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Runtime-backed product-path acceptance with real local artifact execution:
+  NOT RUN in this shell because the explicit acceptance/provider/runtime/model
+  environment gates were not configured.
+
+### Next Hard Pause
+
+- Do not route real embedding vectors to Memory, persist vectors, run a Memory
+  schema/index migration, expose local embedding controls in UI, change
+  provider default opt-in behavior, add downloads, write persistent model
+  caches, create installer/update/rollback behavior, or convert model output
+  into Windows/PowerShell operations without separate product and security
+  approval for that exact implementation wave.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
