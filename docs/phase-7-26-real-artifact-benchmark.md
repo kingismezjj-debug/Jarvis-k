@@ -66,3 +66,5 @@ npm.cmd run verify
 npm.cmd run check:boundaries
 npm.cmd run check:sensitive-artifacts
 ```
+
+The latest post-run verification passed with 93 test files and 464 tests.

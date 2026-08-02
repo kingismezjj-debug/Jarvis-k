@@ -709,6 +709,9 @@ packaging, license, benchmark, and composition gate passes.
 - Phase 7.26 now runs the approved artifact verification and runtime-backed
   embedding benchmark in a temporary directory; peak helper memory remains
   deferred.
+- Phase 7.27 now hardens the provider-local peak working-set probe; real
+  artifact-backed memory capture remains deferred until the approved
+  Transformers environment is configured for a rerun.
 - The runtime helper is not registered, provider execution is not enabled,
   default opt-in is unchanged, and no real Qwen artifact is retained.
 - Do not register the real provider, change default opt-in behavior, access
@@ -815,7 +818,8 @@ packaging, license, benchmark, and composition gate passes.
 - Runtime latency and quality benchmark: PASS.
 - Temporary directory cleanup: PASS.
 - Peak helper memory benchmark: DEFERRED.
-- Full repository verification after this wave: pending.
+- Full repository verification after this wave: PASS, 93 test files and
+  464 tests.
 
 ### Next Hard Pause
 
@@ -824,6 +828,38 @@ packaging, license, benchmark, and composition gate passes.
   behavior without a separate composition and product approval.
 - Treat peak memory capture as an open acceptance item until a safe,
   sanitized sampling path is approved and verified.
+
+## Phase 7.27: Peak Memory Sampling Diagnostic
+
+- Status: complete as a provider-local probe hardening and diagnostic wave;
+  real artifact-backed memory acceptance remains deferred.
+- Updated the optional Windows process probe to request the query and virtual
+  memory read rights required by the memory API and to report
+  `PeakWorkingSetSize` rather than a single current working-set sample.
+- A short-lived non-model child process produced a positive sanitized sample
+  through the hardened probe path.
+- The approved Transformers environment was not configured in the current
+  shell, so the real artifact benchmark was not rerun and no memory value is
+  claimed.
+- No artifact access, model directory, model cache, provider registration,
+  execution enablement, Core Host composition, Desktop IPC, UI behavior, or
+  default opt-in change was added.
+
+### Current Gate
+
+- Hardened probe syntax: PASS.
+- Non-model child-process probe: PASS.
+- Real artifact-backed peak memory capture: DEFERRED.
+- Provider registration and execution enablement: unchanged and disabled.
+
+### Next Hard Pause
+
+- Rerun the already approved temporary artifact benchmark only after the
+  approved Transformers environment is configured.
+- If the sanitized probe still cannot capture a sample, keep the resource
+  gate deferred and write a handoff before any composition review.
+- Do not register the real provider, change default opt-in, modify
+  `apps/core-host`, or expose provider visibility in this wave.
 
 ## Phase 8.1: Embedding Memory Retrieval Contract
 

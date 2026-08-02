@@ -152,6 +152,10 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     remains outside product composition; it never registers the provider,
     changes default opt-in, persists signed URLs or credentials, or retains
     model files.
+38. Peak memory acceptance remains provider-local and acceptance-only. Its
+    Windows probe reports only a sanitized `PeakWorkingSetSize` sample from
+    the supervised helper process; it must not enter contracts, Core,
+    Desktop, UI, provider visibility, or default opt-in behavior.
 
 ## Restart policy
 

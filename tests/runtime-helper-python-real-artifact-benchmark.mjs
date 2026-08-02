@@ -423,9 +423,10 @@ class ProcessMemoryCounters(ctypes.Structure):
     ]
 
 pid = int(sys.argv[1])
-process_query_limited_information = 0x1000
-psapi = ctypes.CDLL("psapi.dll")
-kernel32 = ctypes.CDLL("kernel32.dll")
+process_query_information = 0x0400
+process_vm_read = 0x0010
+psapi = ctypes.CDLL("psapi.dll", use_last_error=True)
+kernel32 = ctypes.CDLL("kernel32.dll", use_last_error=True)
 kernel32.OpenProcess.argtypes = [
     ctypes.c_uint32,
     ctypes.c_int,
@@ -441,7 +442,11 @@ psapi.GetProcessMemoryInfo.argtypes = [
 ]
 psapi.GetProcessMemoryInfo.restype = ctypes.c_int
 
-handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+handle = kernel32.OpenProcess(
+    process_query_information | process_vm_read,
+    False,
+    pid,
+)
 if not handle:
     raise SystemExit(1)
 
@@ -454,7 +459,7 @@ try:
         counters.cb,
     ):
         raise SystemExit(1)
-    print(int(counters.WorkingSetSize))
+    print(int(counters.PeakWorkingSetSize))
 finally:
     kernel32.CloseHandle(handle)
 `;

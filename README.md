@@ -41,6 +41,9 @@ They are not runtime dependencies.
 - Phase 7.26 approved artifact benchmark: temporary artifact verification,
   real model load/embed, latency, quality, and cleanup passed; peak memory
   capture remains deferred
+- Phase 7.27 peak memory sampling diagnostic: provider-local probe hardened
+  and verified against a temporary non-model child; real artifact-backed
+  memory capture remains deferred
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -191,6 +194,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Real Python Transformers runtime](docs/phase-7-24-real-python-transformers-runtime.md)
 - [Phase 7.25 real artifact access approval](docs/phase-7-25-real-artifact-access-approval.md)
 - [Phase 7.26 real artifact benchmark](docs/phase-7-26-real-artifact-benchmark.md)
+- [Phase 7.27 peak memory sampling diagnostic](docs/phase-7-27-memory-sampling-diagnostic.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
