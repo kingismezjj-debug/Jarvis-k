@@ -251,6 +251,18 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     inputs or vectors, change provider registration/default opt-in/UI
     visibility, download artifacts, write persistent caches, expose private
     paths or raw diagnostics, or convert model output into shell execution.
+52. Provider execution wiring has a separate Core Host preflight before any
+    product-path helper `embed` implementation. The preflight reserves a
+    future execution-specific opt-in and reviews the exact Core Host diff,
+    session factory embed wiring, digest verification, helper load ordering,
+    resource lease lifecycle, schema validation, vector sanitization,
+    sanitized errors, operation supervision, fixture fallback, and smoke
+    planning. It does not enable provider execution, call helper `embed`,
+    return vectors to product flows, route vectors to Memory, persist vectors,
+    change provider registration/default opt-in/UI visibility, access
+    artifacts, download artifacts, write persistent caches, expose raw
+    diagnostics or private paths, or convert model output into shell
+    execution.
 
 ## Restart policy
 

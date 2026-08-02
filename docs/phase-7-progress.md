@@ -1485,6 +1485,58 @@ packaging, license, benchmark, and composition gate passes.
   persistent model caches, or create installer/update behavior without
   separate product and security approval for that exact implementation wave.
 
+## Phase 7.41: Provider Execution Wiring Preflight
+
+- Status: complete as a Core Host review-only provider execution wiring
+  preflight.
+- Added a fail-closed guard for future runtime-backed local embedding provider
+  execution wiring.
+- The preflight reserves
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION` as the future
+  execution-specific opt-in, separate from provider composition opt-in and the
+  Phase 7.40 diagnostic opt-in.
+- The guard reviews Phase 7.38, 7.39, and 7.40 readiness, diagnostic/product
+  path separation, exact Core Host diff, session factory embed wiring, digest
+  verification before embed, helper load before embed, resource lease
+  lifecycle, request/result schema boundaries, vector finite-value validation,
+  vector redaction, timeout/cancellation/release behavior, sanitized errors,
+  operation supervisor boundary, fixture fallback, and startup/restart/rollback
+  smoke planning.
+- Accepted preflight status is only
+  `ready_for_provider_execution_approval`.
+- No provider execution, session factory embed, helper `embed` product call,
+  product vector return, Memory routing, vector persistence/logging, Memory
+  migration, provider registration/default opt-in/UI change, download,
+  persistent cache write, model artifact access, raw diagnostic exposure,
+  private path exposure, or Windows/PowerShell behavior change was added.
+
+### Current Gate
+
+- Core Host provider execution wiring preflight normal, degraded, blocked,
+  approval, provider execution, helper embed, vector, Memory, visibility,
+  cache, artifact, diagnostic opt-in, shell, and sanitized-output tests: PASS,
+  4 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 106 test files and 525 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Provider execution helper `embed` path: BLOCKED.
+- Real local embedding vectors in product flow: BLOCKED.
+- Memory vector routing and schema/index migration: BLOCKED.
+
+### Next Hard Pause
+
+- Do not wire helper `embed` into the provider execution path, enable
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION`, return real embedding
+  vectors to product flows, route vectors to Memory, persist vectors, run a
+  Memory schema/index migration, change provider registration behavior, change
+  default opt-in behavior, change UI visibility, add downloads, write
+  persistent model caches, or create installer/update behavior without
+  separate product and security approval for that exact implementation wave.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

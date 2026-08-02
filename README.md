@@ -4,7 +4,8 @@ Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
 current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.37
 Model Artifact Path Handoff and Helper Load plus Phase 7.38 Helper Embed
 Preflight plus Phase 7.39 Diagnostic Harness Preflight plus Phase 7.40
-Diagnostic Execution Runner**: the
+Diagnostic Execution Runner plus Phase 7.41 Provider Execution Wiring
+Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -25,7 +26,10 @@ ports, installability policy, resource diagnostics, dry-run model install
   opt-in Core Host diagnostic runner that may call helper `embed` only for a
   sanitized local diagnostic report; product inference, Memory routing,
   vector persistence, UI visibility changes, downloads, and persistent cache
-  writes remain disabled.
+  writes remain disabled. Phase 7.41 adds only a provider execution wiring
+  preflight for a future product path; provider execution, helper `embed`
+  product wiring, vectors, Memory routing, UI visibility changes, downloads,
+  and persistent cache writes remain blocked pending separate approval.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -115,6 +119,12 @@ They are not runtime dependencies.
   access. Product execution, Memory routing, vector persistence, provider
   default opt-in changes, UI visibility changes, downloads, and persistent
   cache writes remain blocked.
+- Phase 7.41 provider execution wiring preflight: Core Host review-only guard
+  complete for future provider execution wiring; `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION`
+  is reserved for a later separately approved implementation. Provider
+  execution, session factory embed, helper `embed` product calls, product
+  vectors, Memory routing, vector persistence, default opt-in changes, UI
+  visibility changes, downloads, and persistent cache writes remain blocked.
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -304,6 +314,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.38 helper embed implementation preflight](docs/phase-7-38-helper-embed-preflight.md)
 - [Phase 7.39 helper embed diagnostic harness preflight](docs/phase-7-39-helper-embed-diagnostic-harness-preflight.md)
 - [Phase 7.40 helper embed diagnostic execution](docs/phase-7-40-helper-embed-diagnostic-execution.md)
+- [Phase 7.41 provider execution wiring preflight](docs/phase-7-41-provider-execution-wiring-preflight.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
