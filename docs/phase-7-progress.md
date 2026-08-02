@@ -560,14 +560,18 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run typecheck`: PASS.
 - `npm run verify`: PASS, 66 test files and 335 tests.
 
-## Wave 7.19: Runtime Helper Protocol Guard
+## Wave 7.19: Runtime Helper Protocol and Client
 
-- Status: complete.
-- Added a pure protocol and validation guard to
-  `@jarvis-k/inference-runtime-transformers-local` for the future supervised
-  runtime helper.
+- Status: complete as a provider-local protocol and transport-agnostic client
+  preparation wave.
+- Added a pure protocol and validation guard plus an injected-transport client
+  to `@jarvis-k/inference-runtime-transformers-local` for the future
+  supervised runtime helper.
 - The protocol defines `health`, `load`, `embed`, and `shutdown` messages with
   bounded request/correlation IDs and response correlation preservation.
+- The client owns request correlation, bounded timeouts, response validation,
+  shutdown, helper exit recovery, and sanitized error mapping without owning a
+  concrete process launcher.
 - `load` and `embed` require a resource lease identifier.
 - Startup, request, and shutdown timeout policy is explicit and bounded.
 - The guard requires private child-process IPC under `apps/core-host`, rejects
@@ -581,7 +585,7 @@ packaging, license, benchmark, and composition gate passes.
 
 ### Current Gate
 
-- Runtime helper protocol tests: PASS, 8 tests.
+- Runtime helper protocol and client tests: PASS, 12 tests.
 - `npm run check:boundaries`: PASS.
 - `npm run check:sensitive-artifacts`: PASS.
 - `npm run typecheck`: PASS.
