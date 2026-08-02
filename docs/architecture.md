@@ -211,6 +211,13 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     caches, load models, expose raw diagnostics, change default opt-in
     behavior, or enable real local embedding inference without a later
     approval.
+47. Model artifact path handoff, helper `load`, and helper `embed` have a
+    separate Core Host preflight before implementation. That preflight can
+    reach only `ready_for_model_load_inference_approval`; it does not read
+    artifact paths, pass model directories, access artifacts, write caches,
+    download artifacts, load models, expose raw vectors or diagnostics, change
+    provider registration/default opt-in/UI visibility, or enable real local
+    embedding inference.
 
 ## Restart policy
 

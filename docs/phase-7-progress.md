@@ -1223,6 +1223,61 @@ packaging, license, benchmark, and composition gate passes.
   registration behavior, change default opt-in behavior, or enable real local
   embedding inference without separate product and security approval.
 
+## Phase 7.36: Model Load and Inference Preflight
+
+- Status: complete as a Core Host review-only preflight wave.
+- Added a fail-closed `apps/core-host` preflight for the next possible model
+  artifact path, helper `load`, and helper `embed` implementation stage.
+- The preflight reviews Core Host composition root ownership, explicit opt-in
+  provider behavior, Phase 7.35 helper lifecycle wiring, runtime Python
+  environment approval evidence, approved manifest availability, artifact pin
+  review, model artifact path policy, digest verification before load, helper
+  `load` and `embed` contracts, resource lease before load, sanitized error
+  mapping, fixture fallback, startup/restart/rollback review, and separate
+  product/security approval requirements.
+- Accepted preflight status is only
+  `ready_for_model_load_inference_approval`.
+- Degraded results cover incomplete review evidence while every side effect
+  remains blocked.
+- Blocked results cover attempted approval mutation, model artifact path read,
+  model directory passing, helper `load` or `embed` call, artifact access,
+  cache write, download, model load, real inference, raw vector exposure,
+  provider registration change, default opt-in change, UI visibility change,
+  raw diagnostics exposure, private path exposure, credential or signed URL
+  persistence, or model-output shell execution.
+- No model artifact path read, model directory handoff, helper `load`, helper
+  `embed`, artifact access, persistent cache write, download, model load, real
+  local embedding inference, UI change, provider registration behavior change,
+  default opt-in change, raw diagnostics exposure, raw vector exposure, or
+  Windows/PowerShell operation execution was added.
+
+### Current Gate
+
+- Core Host model load/inference preflight normal, degraded, blocked, approval
+  mutation, side-effect, visibility, diagnostics, credential, shell, and
+  sanitized-output tests: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd test -- apps/core-host/test/local-embedding-model-load-inference-preflight.test.ts`: PASS.
+- `npm.cmd run verify`: PASS, 102 test files and 506 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- Desktop smoke tests were not required because Core Host startup, provider
+  composition, Desktop IPC, UI visibility, and execution behavior did not
+  change.
+- Real model artifact path reads: BLOCKED.
+- Helper `load`: BLOCKED.
+- Helper `embed`: BLOCKED.
+- Real local embedding inference: BLOCKED.
+
+### Next Hard Pause
+
+- Do not read model artifact paths, pass a model directory to the helper, call
+  helper `load`, call helper `embed`, access artifacts, write caches, download
+  artifacts, load the real model, expose raw runtime diagnostics, expose raw
+  embedding vectors, change provider registration behavior, change default
+  opt-in behavior, change UI visibility, or enable real local embedding
+  inference without separate product and security approval.
+
 ## Phase 8.1: Embedding Memory Retrieval Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

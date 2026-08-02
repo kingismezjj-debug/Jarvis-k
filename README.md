@@ -1,8 +1,8 @@
 # Jarvis-K
 
 Jarvis-K is an Electron, React, and TypeScript desktop agent runtime. The
-current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.35
-Runtime Session Factory Lifecycle**: the
+current baseline is **Phase 12.3 Developer-Alpha Hardening plus Phase 7.36
+Model Load and Inference Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -12,9 +12,10 @@ ports, installability policy, resource diagnostics, dry-run model install
   place. The approved Phase 7.26 acceptance runner has verified a temporary
   real artifact load and benchmark; Phase 7.35 adds only explicit opt-in Core
   Host session factory wiring and supervised Python helper lifecycle health.
-  Product downloads, model artifact path reads, model loading, real provider
-  execution, default opt-in, installers, updates, and rollback side effects
-  remain disabled.
+  Phase 7.36 adds only a review-only preflight for future artifact path,
+  helper load, and helper embed work. Product downloads, model artifact path
+  reads, model loading, real provider execution, default opt-in, installers,
+  updates, and rollback side effects remain disabled.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -76,6 +77,10 @@ They are not runtime dependencies.
   wiring reads `JARVIS_K_RUNTIME_PYTHON`, starts the supervised Python helper
   for health, and shuts it down on release; model artifact path reads, helper
   load/embed calls, model loading, and real inference remain blocked
+- Phase 7.36 model load and inference preflight: Core Host review-only guard
+  complete; model artifact path reads, model directory handoff, helper
+  load/embed calls, model loading, raw vector exposure, and real inference
+  remain blocked pending separate product and security approval
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -236,6 +241,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.33 provider composition implementation](docs/phase-7-33-provider-composition-implementation.md)
 - [Phase 7.34 runtime session factory preflight](docs/phase-7-34-runtime-session-factory-preflight.md)
 - [Phase 7.35 runtime session factory lifecycle](docs/phase-7-35-runtime-session-factory-lifecycle.md)
+- [Phase 7.36 model load and inference preflight](docs/phase-7-36-model-load-inference-preflight.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)
