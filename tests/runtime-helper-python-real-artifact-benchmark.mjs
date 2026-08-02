@@ -212,7 +212,13 @@ async function runRuntimeBenchmark(
   pythonExecutable
 ) {
   const memorySamples = [];
-  sampleProcessMemory(runtimeTransport, pythonExecutable, memorySamples);
+  const memoryCapture = createMemoryCaptureState();
+  sampleProcessMemory(
+    runtimeTransport,
+    pythonExecutable,
+    memorySamples,
+    memoryCapture
+  );
 
   const healthStarted = performance.now();
   const health = await runtimeClient.health();
@@ -228,7 +234,12 @@ async function runRuntimeBenchmark(
     resourceLeaseId: "phase-7-26-benchmark-lease"
   });
   const modelLoadMs = roundMilliseconds(performance.now() - loadStarted);
-  sampleProcessMemory(runtimeTransport, pythonExecutable, memorySamples);
+  sampleProcessMemory(
+    runtimeTransport,
+    pythonExecutable,
+    memorySamples,
+    memoryCapture
+  );
 
   const inputs = [
     { id: "en-similar-1", text: "Jarvis-K local embedding runtime" },
@@ -251,7 +262,12 @@ async function runRuntimeBenchmark(
   const firstEmbedMs = roundMilliseconds(
     performance.now() - firstEmbedStarted
   );
-  sampleProcessMemory(runtimeTransport, pythonExecutable, memorySamples);
+  sampleProcessMemory(
+    runtimeTransport,
+    pythonExecutable,
+    memorySamples,
+    memoryCapture
+  );
 
   const warmLatencies = [];
   let lastEmbedding = firstEmbedding;
@@ -263,7 +279,12 @@ async function runRuntimeBenchmark(
       request
     });
     warmLatencies.push(roundMilliseconds(performance.now() - warmStarted));
-    sampleProcessMemory(runtimeTransport, pythonExecutable, memorySamples);
+    sampleProcessMemory(
+      runtimeTransport,
+      pythonExecutable,
+      memorySamples,
+      memoryCapture
+    );
   }
 
   const quality = evaluateQuality(firstEmbedding, lastEmbedding, inputs.length);
@@ -286,13 +307,29 @@ async function runRuntimeBenchmark(
       vectorCount: firstEmbedding.vectors.length
     },
     quality,
-    resource: createResourceSummary(memorySamples)
+    resource: createResourceSummary(memorySamples, memoryCapture)
   };
 }
 
-function sampleProcessMemory(runtimeTransport, pythonExecutable, samples) {
+function createMemoryCaptureState() {
+  return {
+    attempts: 0,
+    pidUnavailable: 0,
+    probeFailures: 0,
+    invalidSamples: 0
+  };
+}
+
+function sampleProcessMemory(
+  runtimeTransport,
+  pythonExecutable,
+  samples,
+  captureState
+) {
+  captureState.attempts += 1;
   const pid = runtimeTransport.pid;
   if (!Number.isInteger(pid) || pid <= 0) {
+    captureState.pidUnavailable += 1;
     return;
   }
 
@@ -303,30 +340,41 @@ function sampleProcessMemory(runtimeTransport, pythonExecutable, samples) {
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
-        windowsHide: true
+        windowsHide: true,
+        timeout: 5_000
       }
     ).trim();
     const bytes = Number(output);
     if (Number.isSafeInteger(bytes) && bytes > 0) {
       samples.push(bytes);
+    } else {
+      captureState.invalidSamples += 1;
     }
   } catch {
-    // Resource capture is optional; benchmark failure remains sanitized.
+    captureState.probeFailures += 1;
   }
 }
 
-function createResourceSummary(samples) {
+function createResourceSummary(samples, captureState) {
   if (samples.length === 0) {
     return {
       memoryPeakCaptured: false,
       status: "deferred",
-      reason: "Child-process memory sampling was unavailable."
+      samplingAttempts: captureState.attempts,
+      sampleCount: 0,
+      reasonCode:
+        captureState.probeFailures > 0
+          ? "memory_probe_failed"
+          : captureState.pidUnavailable === captureState.attempts
+            ? "helper_pid_unavailable"
+            : "memory_sample_invalid"
     };
   }
 
   return {
     memoryPeakCaptured: true,
     status: "captured",
+    samplingAttempts: captureState.attempts,
     sampleCount: samples.length,
     peakWorkingSetBytes: Math.max(...samples)
   };

@@ -716,6 +716,9 @@ packaging, license, benchmark, and composition gate passes.
 - Phase 7.28 now enters a separate provider composition approval gate. The
   review boundary is accepted only as a handoff; readiness is still deferred
   on the local resource profile and composition remains disabled.
+- Phase 7.29 now prepares the independent product and security approval package
+  for the resource profile. The latest real-model memory sample remains
+  deferred, and neither approval is recorded yet.
 - The runtime helper is not registered, provider execution is not enabled,
   default opt-in is unchanged, and no real Qwen artifact is retained.
 - Do not register the real provider, change default opt-in behavior, access
@@ -900,6 +903,42 @@ packaging, license, benchmark, and composition gate passes.
 - Do not treat the handoff as product, security, or release approval.
 - Resolve the deferred local resource profile and obtain a separate explicit
   approval before any composition implementation wave.
+
+## Phase 7.29: Resource Profile Product and Security Approval
+
+- Status: in progress as a provider-local approval preparation wave.
+- Added a separate resource profile gate with explicit product and security
+  decisions.
+- The gate distinguishes missing sample, ready for review, approved for
+  composition review, and blocked safety states.
+- The current state is `deferred_pending_sample` because the latest real-model
+  lifecycle did not produce a valid memory sample.
+- The acceptance runner now records only bounded sample counts and fixed
+  sanitized failure reason codes.
+- Product approval and security approval remain `pending`; no approval is
+  self-recorded by this wave.
+- Provider registration, execution enablement, default opt-in, Core Host
+  composition, Desktop IPC, UI visibility, artifact access, cache writes,
+  model loading, and installer behavior remain unchanged.
+
+### Current Gate
+
+- Resource profile policy and normal, deferred, ready, approved, blocked, and
+  sanitized-output tests: PASS, 5 tests.
+- Acceptance runner syntax check: PASS.
+- Real-model memory profile: DEFERRED.
+- Product approval: PENDING.
+- Security approval: PENDING.
+
+### Next Hard Pause
+
+- Obtain an explicit product decision on the resource profile semantics.
+- Obtain an explicit security decision on the narrowly scoped temporary
+  benchmark rerun and cleanup boundary.
+- Only after both decisions and a valid real-model sample exist may the
+  resource gate report `approved_for_composition_review`.
+- Do not register the real provider, change default opt-in, compose execution,
+  or modify `apps/core-host`.
 
 ## Phase 8.1: Embedding Memory Retrieval Contract
 

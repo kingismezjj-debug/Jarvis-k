@@ -162,6 +162,11 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     pending local resource profile keeps the handoff deferred; only a later
     explicit product and security approval may change `apps/core-host`,
     register the provider, or enable execution.
+40. The local embedding resource profile has its own product and security
+    approval gate. It may record only bounded sanitized sampling state and
+    fixed failure reason codes. A completed resource profile and both approvals
+    still produce only a handoff for composition review; they do not register
+    the provider, enable execution, expose metrics, or change default opt-in.
 
 ## Restart policy
 
