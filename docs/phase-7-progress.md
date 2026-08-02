@@ -704,11 +704,13 @@ packaging, license, benchmark, and composition gate passes.
 - Phase 7.13 through Phase 7.23 automation scope is complete.
 - Phase 7.24 now implements the real Python Transformers helper and supervised
   child-process transport inside the dedicated runtime package.
+- Phase 7.25 now prepares the explicit real-artifact access and runtime-backed
+  benchmark approval handoff without granting any side effect.
 - The runtime helper is not registered, provider execution is not enabled,
   default opt-in is unchanged, and no real Qwen artifact is accessed.
 - Do not register the real provider, change default opt-in behavior, access
-  real model artifacts, or modify `apps/core-host` without a separate
-  composition and artifact approval stage.
+  real model artifacts, or modify `apps/core-host` without the separate
+  composition and artifact approval stages.
 - Capture and approve real benchmark latency, memory, quality, and resource
   profiles only after a real approved model artifact is available.
 - Register runtime and execution providers only in `apps/core-host`, behind
@@ -742,6 +744,45 @@ packaging, license, benchmark, and composition gate passes.
 - `npm run check:boundaries`: PASS.
 - `npm run check:sensitive-artifacts`: PASS.
 - `npm run verify`: PASS, 92 test files and 460 tests.
+
+## Phase 7.25: Real Artifact Access Approval Gate
+
+- Status: complete as a provider-local, review-only approval handoff wave.
+- Added a fail-closed gate for the first real artifact access and
+  runtime-backed benchmark run.
+- The gate checks runtime helper evidence, synthetic fixture coverage, package
+  build and verification status, artifact/license/benchmark/cache review,
+  approved Python environment availability, fixture fallback availability, and
+  composition remaining opt-in.
+- A complete result means only
+  `ready_for_explicit_artifact_access_approval`.
+- Incomplete evidence reports `degraded`; any requested network, filesystem,
+  model, benchmark, registration, enablement, or diagnostic side effect is
+  `blocked`.
+- Artifact access, cache writes, real model loading, benchmark capture,
+  provider registration, execution enablement, and default opt-in remain
+  disabled.
+
+### Current Gate
+
+- Artifact access approval policy, normal, degraded, blocked, and sanitized
+  output tests: PASS.
+- Runtime package build: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 93 test files and 464 tests.
+- Offline synthetic runtime smoke: blocked by the current external Python
+  environment; the smoke now reports only a sanitized environment failure and
+  does not expose child-process commands or temporary paths.
+
+### Next Hard Pause
+
+- Stop before any real Qwen artifact access, network request, cache write,
+  model directory read, real model load, runtime-backed benchmark capture,
+  provider registration, execution enablement, or default opt-in change.
+- Require explicit user approval for the artifact-access scope and retain the
+  workspace in a clean, locally verifiable state.
 
 ## Phase 8.1: Embedding Memory Retrieval Contract
 

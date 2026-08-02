@@ -36,6 +36,8 @@ They are not runtime dependencies.
 - Phase 7 real Python Transformers helper: implemented inside the dedicated
   runtime package with offline local-file loading, CPU embedding execution,
   and child-process JSONL transport; provider composition remains disabled
+- Phase 7.25 real artifact access approval: review-only handoff guard complete;
+  real artifact access and runtime-backed benchmark capture remain blocked
 - Phase 8.1 embedding memory retrieval: provider-neutral contract and fixture
   preflight complete; production indexing and retrieval remain disabled
 - Phase 8.2 retrieval benchmark harness: fixture-only measurement complete;
@@ -183,6 +185,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 7.18 tokenizer/config integration review](docs/phase-7-18-tokenizer-config-integration-review.md)
 - [Phase 7.19 runtime helper protocol](docs/phase-7-19-runtime-helper-protocol.md)
 - [Real Python Transformers runtime](docs/phase-7-24-real-python-transformers-runtime.md)
+- [Phase 7.25 real artifact access approval](docs/phase-7-25-real-artifact-access-approval.md)
 - [Phase 7.20 controlled artifact cache executor](docs/phase-7-20-controlled-artifact-cache-executor.md)
 - [Phase 7.21 runtime adapter isolation guard](docs/phase-7-21-runtime-adapter-isolation-guard.md)
 - [Phase 7.22 runtime acceptance preflight](docs/phase-7-22-runtime-acceptance-preflight.md)

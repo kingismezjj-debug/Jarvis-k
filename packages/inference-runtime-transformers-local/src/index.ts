@@ -7,6 +7,7 @@ import {
 export * from "./artifact-cache-dry-run";
 export * from "./controlled-artifact-cache-executor";
 export * from "./controlled-artifact-download-guard";
+export * from "./runtime-artifact-access-approval";
 export * from "./runtime-helper-protocol";
 export * from "./runtime-helper-client";
 export * from "./runtime-helper-process-transport";

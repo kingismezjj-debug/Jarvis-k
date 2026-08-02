@@ -140,6 +140,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     CPU, and returns sanitized embedding DTOs. `apps/core-host` remains the
     only composition root; runtime implementation does not register or enable
     the provider.
+36. Real artifact access and runtime-backed benchmark capture have a separate
+    provider-local approval gate. Completing its review evidence only creates
+    an explicit approval handoff; it does not grant network access, filesystem
+    cache writes, model loading, provider registration, execution enablement,
+    or default opt-in changes. The fixture provider remains the fallback until
+    the separate approval and composition stages are completed.
 
 ## Restart policy
 

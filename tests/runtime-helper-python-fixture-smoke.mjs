@@ -62,6 +62,11 @@ try {
     }
   );
   process.stdout.write(output);
+} catch {
+  console.error(
+    "FAIL runtime Transformers fixture smoke: external Python environment is unavailable or incompatible."
+  );
+  process.exitCode = 1;
 } finally {
   fs.rmSync(fixtureRoot, { recursive: true, force: true });
 }
