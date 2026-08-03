@@ -18,7 +18,8 @@ Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring plus Phase
 8.15 Provider Query Vector Approval Gate plus Phase 8.16 Provider-Backed Query
 Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight plus Phase
 8.18 Provider Query Vector Acceptance Diagnostic plus Phase 8.19 Provider
-Vector Write Approval Gate**: the
+Vector Write Approval Gate plus Phase 8.20 Provider Vector Write
+Implementation**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -133,6 +134,13 @@ ports, installability policy, resource diagnostics, dry-run model install
   vector persistence, SQLite migrations, UI/Desktop changes, provider
   visibility/default opt-in changes, raw vector/text/diagnostic exposure, and
   shell execution remain blocked pending separate implementation approval.
+  Phase 8.20 implements the approved explicit opt-in Core Host repository
+  wrapper that can write provider-backed vectors for newly accepted minimized
+  user messages only when every retrieval/provider execution gate is enabled;
+  default behavior, historical batch indexing, Desktop/UI controls, provider
+  visibility/default opt-in behavior, SQLite schema/indexes, raw
+  vector/text/diagnostic exposure, downloads, persistent model caches, and
+  shell execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -326,6 +334,12 @@ They are not runtime dependencies.
   Memory vector writes, vector persistence, SQLite migrations, UI/Desktop
   changes, provider visibility/default opt-in changes, raw vector/text/
   diagnostic exposure, and shell execution remain deferred
+- Phase 8.20 provider vector write implementation: explicit opt-in Core Host
+  repository wrapper complete for newly accepted minimized user messages;
+  default behavior, historical batch indexing, Desktop/UI controls, provider
+  visibility/default opt-in changes, SQLite schema/indexes, raw vector/text/
+  diagnostic exposure, downloads, persistent model caches, and shell execution
+  remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -478,6 +492,21 @@ It uses temporary memory/model lifecycle paths and prints only sanitized recall
 metadata and fixed reason codes. It does not write Memory vectors or persist
 runtime vectors.
 
+The Phase 8.20 provider-backed Memory vector write path remains explicit
+opt-in and indexes only newly accepted minimized user messages:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+```
+
+It does not batch-index historical records, add UI controls, expose raw
+vectors/text, or change default opt-in behavior.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -579,6 +608,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.17 provider query vector acceptance preflight](docs/phase-8-17-provider-query-vector-acceptance-preflight.md)
 - [Phase 8.18 provider query vector acceptance diagnostic](docs/phase-8-18-provider-query-vector-acceptance-diagnostic.md)
 - [Phase 8.19 provider vector write approval gate](docs/phase-8-19-provider-vector-write-approval-gate.md)
+- [Phase 8.20 provider vector write implementation](docs/phase-8-20-provider-vector-write-implementation.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

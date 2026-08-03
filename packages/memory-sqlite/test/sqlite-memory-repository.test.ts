@@ -383,6 +383,67 @@ describe("SqliteMemoryRepository", () => {
     await repository.close();
   });
 
+  it("allows approved provider embedding model writes only through constructor allowlist", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: ["Qwen/Qwen3-Embedding-0.6B"]
+    });
+    await repository.initialize();
+
+    expect(
+      await repository.writeEmbeddingRecord(
+        embeddingRecord("embedding-runtime", "msg-1", {
+          modelId: "Qwen/Qwen3-Embedding-0.6B"
+        })
+      )
+    ).toEqual({
+      status: "accepted",
+      recordId: "embedding-runtime"
+    });
+    await repository.close();
+
+    expect(await inspectVectorRows(filePath)).toEqual([
+      {
+        id: "embedding-runtime",
+        conversationId: "primary",
+        sourceType: "message",
+        sourceId: "msg-1",
+        modelId: "Qwen/Qwen3-Embedding-0.6B",
+        dimensions: 3,
+        payloadLength: 12,
+        createdAt: "2026-08-03T00:00:00.000Z"
+      }
+    ]);
+  });
+
+  it("deletes approved provider embedding rows during snapshot restore rollback", async () => {
+    const filePath = createTempDatabasePath();
+    const first = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: ["Qwen/Qwen3-Embedding-0.6B"]
+    });
+    await first.initialize();
+    await first.writeEmbeddingRecord(
+      embeddingRecord("embedding-runtime", "msg-1", {
+        modelId: "Qwen/Qwen3-Embedding-0.6B"
+      })
+    );
+    await first.close();
+
+    const second = new SqliteMemoryRepository({ filePath });
+    await second.initialize();
+    await second.restoreSnapshot({
+      messages: [message("msg-new", "primary", "00.002Z")]
+    });
+    await second.close();
+
+    expect((await inspectVectorSchema(filePath)).rowCount).toBe(0);
+    expect(JSON.stringify(await inspectVectorRows(filePath))).not.toContain(
+      "Qwen3-Embedding"
+    );
+  });
+
   it("queries fixture embedding records with deterministic bounded similarity results", async () => {
     const repository = new SqliteMemoryRepository({
       now: () => new Date("2026-08-03T00:00:10.000Z")

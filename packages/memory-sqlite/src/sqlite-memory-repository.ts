@@ -40,6 +40,7 @@ import {
 export interface SqliteMemoryRepositoryOptions {
   filePath?: string;
   now?: () => Date;
+  allowedEmbeddingModelIds?: readonly string[];
 }
 
 const ACTIVE_CONVERSATION_KEY = "active_conversation_id";
@@ -488,7 +489,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
     if (!parsed) {
       return this.degradedVectorWrite("VECTOR_RECORD_INVALID");
     }
-    if (!this.isFixtureEmbeddingModel(parsed.modelId)) {
+    if (!this.isAllowedEmbeddingModel(parsed.modelId)) {
       return this.degradedVectorWrite("VECTOR_NON_FIXTURE_WRITE_BLOCKED");
     }
 
@@ -550,7 +551,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
         1
       );
     }
-    if (!this.isFixtureEmbeddingModel(parsed.modelId)) {
+    if (!this.isAllowedEmbeddingModel(parsed.modelId)) {
       return this.degradedVectorQuery(
         "VECTOR_NON_FIXTURE_QUERY_BLOCKED",
         "blocked",
@@ -703,6 +704,13 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
   private isFixtureEmbeddingModel(modelId: string): boolean {
     return modelId.startsWith("fixture/");
+  }
+
+  private isAllowedEmbeddingModel(modelId: string): boolean {
+    return (
+      this.isFixtureEmbeddingModel(modelId) ||
+      (this.options.allowedEmbeddingModelIds ?? []).includes(modelId)
+    );
   }
 
   private listEmbeddingCandidates(

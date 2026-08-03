@@ -15,6 +15,7 @@ import {
   InMemoryResourceScheduler
 } from "@jarvis-k/capabilities";
 import { CoreRuntime } from "@jarvis-k/core";
+import { LOCAL_EMBEDDING_MODEL_ID } from "@jarvis-k/inference-adapter-embedding-local";
 import {
   createFixtureEmbeddingProviderConfigurationReport,
   createFixtureEmbeddingProviderDescriptor,
@@ -40,6 +41,10 @@ import {
 import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
 import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
 import { createCoreHostMemoryRetrievalEnvWiring } from "./core-memory-retrieval-env-wiring";
+import {
+  areMemoryProviderVectorWriteGatesEnabled,
+  createCoreHostProviderVectorWriteWiring,
+} from "./memory-provider-vector-write-wiring";
 import { createCoreHostLocalEmbeddingComposition } from "./local-embedding-composition";
 import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider";
 import { NodeWebSocketFactory } from "./node-websocket-factory";
@@ -154,9 +159,6 @@ const configurableProvider = new ConfigurableAsrProvider(
   unavailableProvider
 );
 const memoryDatabasePath = resolveMemoryDatabasePath();
-const memoryRepository = new SqliteMemoryRepository(
-  memoryDatabasePath ? { filePath: memoryDatabasePath } : {}
-);
 const capabilityProvider = new NodeDeviceCapabilityProvider();
 const modelCandidateRegistry = new StaticModelCandidateRegistry(
   recommendedModelCandidates
@@ -169,6 +171,18 @@ const resourceScheduler = new InMemoryResourceScheduler({
 const localEmbeddingComposition = createCoreHostLocalEmbeddingComposition({
   env: process.env,
   resourceScheduler
+});
+const providerVectorWriteModelIds = areMemoryProviderVectorWriteGatesEnabled(
+  process.env,
+  localEmbeddingComposition.embeddingProvider
+)
+  ? [LOCAL_EMBEDDING_MODEL_ID]
+  : [];
+const sqliteMemoryRepository = new SqliteMemoryRepository({
+  ...(memoryDatabasePath ? { filePath: memoryDatabasePath } : {}),
+  ...(providerVectorWriteModelIds.length > 0
+    ? { allowedEmbeddingModelIds: providerVectorWriteModelIds }
+    : {})
 });
 const modelRegistry = new StaticModelRegistry([
   ...fixtureModelManifests,
@@ -254,7 +268,14 @@ const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
 });
 const memoryRetrievalEnvWiring = createCoreHostMemoryRetrievalEnvWiring({
   env: process.env,
-  memoryRepository,
+  memoryRepository: sqliteMemoryRepository,
+  ...(localEmbeddingComposition.embeddingProvider === undefined
+    ? {}
+    : { embeddingProvider: localEmbeddingComposition.embeddingProvider })
+});
+const providerVectorWriteWiring = createCoreHostProviderVectorWriteWiring({
+  env: process.env,
+  memoryRepository: sqliteMemoryRepository,
   ...(localEmbeddingComposition.embeddingProvider === undefined
     ? {}
     : { embeddingProvider: localEmbeddingComposition.embeddingProvider })
@@ -285,7 +306,7 @@ runtime = new CoreRuntime(
   },
   voiceEngine,
   () => new Date(),
-  memoryRepository,
+  providerVectorWriteWiring.memoryRepository,
   capabilityProvider,
   modelRegistry,
   modelLifecycleManager,

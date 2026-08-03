@@ -2408,6 +2408,61 @@ packaging, license, benchmark, and composition gate passes.
   retrieval/model output into Windows/PowerShell operations without separate
   product and security approval.
 
+## Phase 8.20: Provider Vector Write Implementation
+
+- Status: complete as an explicit opt-in Core Host implementation.
+- Added Core Host provider-backed Memory vector write wiring behind
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES=1`.
+- Writes require
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1`,
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES=1`,
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`, and
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1`.
+- `CoreRuntime` remains unchanged and still depends only on the injected
+  provider-neutral `MemoryRepository`; Core Host wraps SQLite at composition
+  time and attempts vector writes only after `appendMessage` succeeds.
+- The wrapper selects only newly accepted user messages, minimizes source text
+  before embedding, bounds provider execution with a timeout, validates model
+  ID, vector count, dimensions, and finite values, and writes through the
+  existing SQLite vector record API.
+- SQLite still blocks non-fixture model IDs by default. Core Host supplies the
+  approved local embedding model allowlist only when every provider vector
+  write gate is enabled.
+- Provider embedding failures, invalid vectors, duplicate source rows, and
+  SQLite vector write degradation do not block normal message acceptance.
+- Snapshot restore/import rollback clears approved provider vector rows.
+- This phase does not batch-index historical records, change default retrieval
+  behavior, add Desktop IPC/UI controls, change provider visibility/default
+  opt-in behavior, change fixture fallback, run SQLite schema/index
+  migrations, expose raw vectors/raw text/private paths/raw diagnostics,
+  download artifacts, write persistent model caches, persist signed URLs or
+  credentials, or enable shell execution.
+
+### Current Gate
+
+- Provider vector write wiring and SQLite allowlist/rollback tests: PASS, 29
+  tests.
+- Provider vector write wiring, SQLite allowlist/rollback, and Phase 8.19
+  approval gate regression tests: PASS, 34 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run build -w @jarvis-k/memory-sqlite`: PASS.
+- `npm.cmd run verify`: PASS, 120 test files and 621 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+
+### Next Hard Pause
+
+- Do not enable provider-backed vector writes by default, batch-index
+  historical Memory records, expose Desktop IPC/UI controls for indexing, route
+  provider-written vectors into default recall behavior, add a real-provider
+  write acceptance diagnostic, expose raw vectors/raw text/private paths/raw
+  diagnostics, change SQLite schema/indexes, persist credentials or signed
+  URLs, download artifacts, write persistent model caches, or convert
+  retrieval/model output into Windows/PowerShell operations without separate
+  product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
