@@ -1992,6 +1992,44 @@ packaging, license, benchmark, and composition gate passes.
   vectors, or expose raw vectors/raw text/private paths/raw diagnostics
   without separate product and security approval.
 
+## Phase 8.11: Core Memory Retrieval Routing Approval Gate
+
+- Status: complete as an approval-only Core read-routing implementation
+  handoff.
+- Added a Core-owned approval gate in `@jarvis-k/core` for the future Memory
+  retrieval read-routing implementation.
+- The gate reviews the Phase 8.10 prerequisite, provider-neutral retrieval
+  port, Core turn assembly surface, explicit
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING` opt-in, sanitized recall payload,
+  bounded result behavior, fixture-only test plan, degraded fail-closed
+  behavior, fixture fallback, and rollback plan.
+- The accepted status is only
+  `ready_for_core_retrieval_routing_implementation_approval`.
+- Core runtime behavior changes, retrieval routing implementation, provider
+  execution routing, Memory repository contract changes, Desktop IPC changes,
+  UI/default opt-in changes, provider visibility changes, Phase 7.43 vector
+  persistence, real runtime vector persistence, raw vector exposure, raw text
+  exposure, private path exposure, raw diagnostics exposure, and shell
+  execution remain blocked.
+
+### Current Gate
+
+- Core memory retrieval routing approval gate tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 113 test files and 577 tests.
+
+### Next Hard Pause
+
+- Do not implement Core retrieval read routing in `CoreRuntime`, inject
+  Memory recall into product turn assembly, connect provider execution output
+  to Memory writes, persist Phase 7.43 or real runtime vectors, change
+  Desktop IPC/UI/provider visibility/default opt-in behavior, change the
+  Memory repository contract, or expose raw vectors/raw text/private
+  paths/raw diagnostics without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

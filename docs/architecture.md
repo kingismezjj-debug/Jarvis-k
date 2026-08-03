@@ -344,6 +344,17 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     product flows, change provider execution or visibility, change UI
     defaults, persist Phase 7.43 or real runtime vectors, or expose raw
     vectors, raw text, private paths, or raw diagnostics.
+63. Core Memory retrieval read routing has its own approval gate inside
+    `@jarvis-k/core`. Phase 8.11 can approve the future Core turn assembly
+    surface, injected provider-neutral retrieval port, explicit opt-in gate,
+    sanitized recall payload, bounded fixture-only result behavior,
+    fail-closed degraded mode, fixture fallback, and rollback plan, but it
+    does not change `CoreRuntime`, route retrieval into product behavior,
+    change the `MemoryRepository` contract, connect provider execution output
+    to Memory, change Desktop IPC or UI behavior, change provider visibility
+    or default opt-in, persist Phase 7.43 or real runtime vectors, expose raw
+    vectors, raw text, private paths, or raw diagnostics, or convert
+    retrieval/model output into shell execution.
 
 ## Restart policy
 
