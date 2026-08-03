@@ -2261,6 +2261,48 @@ packaging, license, benchmark, and composition gate passes.
   retrieval/model output into Windows/PowerShell operations without separate
   product and security approval.
 
+## Phase 8.17: Provider Query Vector Acceptance Preflight
+
+- Status: complete as a Core Host preflight-only diagnostic approval handoff.
+- Added the planned future acceptance env key
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE`.
+- The preflight reviews the future Phase 8.16 product-path diagnostic plan,
+  explicit acceptance env review, approved local runtime environment plan,
+  artifact digest verification plan, sanitized report shape,
+  no-vector-persistence rule, no-Memory-write rule, cleanup plan, rollback
+  plan, and clean verification evidence.
+- The preflight does not read the acceptance env, read `JARVIS_K_RUNTIME_PYTHON`,
+  read the local model artifact directory, verify artifacts, start the helper,
+  call provider execution, call helper `embed`, return/log/expose raw vectors,
+  expose raw text, expose private paths, expose raw diagnostics, persist signed
+  URLs or credentials, persist Phase 7.43 or real runtime vectors, write Memory
+  vector data, run SQLite schema/index migrations, change Desktop IPC, change
+  UI behavior, change provider visibility, change default opt-in behavior, or
+  enable shell execution.
+
+### Current Gate
+
+- Memory retrieval provider query-vector acceptance preflight tests: PASS, 5
+  tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 117 test files and 604 tests.
+
+### Next Hard Pause
+
+- Do not read
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE`, read
+  the local Python runtime path or model artifact directory, run SHA-256
+  artifact verification for this diagnostic, start the helper, call provider
+  execution or helper `embed` through the retrieval product path, return/log/
+  expose/persist raw vectors, write Memory vector records from real provider
+  output, change Desktop IPC/UI behavior/provider visibility/default opt-in,
+  change SQLite schema/indexes, expose raw text/private paths/raw diagnostics,
+  or convert retrieval/model output into Windows/PowerShell operations without
+  separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

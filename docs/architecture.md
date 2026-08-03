@@ -418,6 +418,20 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     Desktop IPC or UI behavior, change provider visibility, fixture fallback,
     or default opt-in, expose raw vectors, raw text, private paths, or raw
     diagnostics, or convert retrieval/model output into shell execution.
+69. Provider-backed Memory retrieval query-vector acceptance has a separate
+    Core Host preflight. Phase 8.17 can review a future local diagnostic for
+    the Phase 8.16 product path, including the explicit
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE` env
+    key, approved local runtime environment plan, artifact digest verification
+    plan, sanitized report shape, no-vector-persistence rule, no-Memory-write
+    rule, cleanup plan, and rollback plan. It does not read env values, read
+    Python or model artifact paths, verify artifacts, start the helper, call
+    provider execution or helper `embed`, return or expose raw vectors, write
+    Memory vector data, persist Phase 7.43 or real runtime vectors, run SQLite
+    migrations, change Desktop IPC or UI behavior, change provider visibility
+    or default opt-in, expose raw text, private paths, signed URLs,
+    credentials, or raw diagnostics, or convert retrieval/model output into
+    shell execution.
 
 ## Restart policy
 
