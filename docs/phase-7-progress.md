@@ -1589,9 +1589,8 @@ packaging, license, benchmark, and composition gate passes.
 ## Phase 7.43: Provider Execution Acceptance Diagnostic
 
 - Status: complete as an explicit opt-in acceptance diagnostic
-  implementation; local runtime-backed execution degraded because this shell
-  did not provide the required acceptance/provider/runtime/model environment
-  gates.
+  implementation; the approved temporary runtime-backed product-path
+  acceptance rerun passed.
 - Adds a one-shot Core Host acceptance diagnostic for Phase 7.42 provider
   execution wiring.
 - The diagnostic requires product/security approval input plus
@@ -1618,18 +1617,26 @@ packaging, license, benchmark, and composition gate passes.
 - Core Host provider execution acceptance diagnostic tests: PASS, 4 tests.
 - Core Host local embedding composition, runtime session factory, and provider
   execution acceptance diagnostic tests: PASS, 20 tests.
-- `npm.cmd run diagnostic:local-embedding:provider-execution-acceptance`:
-  DEGRADED safely with `acceptance_opt_in_missing`; no Core Host product
-  command was called and no artifact digest verification was run.
+- `npm.cmd run diagnostic:local-embedding:provider-execution-acceptance`
+  without local opt-ins: DEGRADED safely with `acceptance_opt_in_missing`; no
+  Core Host product command was called and no artifact digest verification was
+  run.
+- Approved temporary Python Transformers environment and temporary artifact
+  run: PASS. The run created only temporary directories, installed pinned
+  runtime requirements there, downloaded the approved artifact set, verified
+  SHA-256 pins, and removed the temporary root after completion.
+- Temporary artifact verification: PASS, 10 artifacts and 1,207,470,234 bytes.
+- Runtime-backed product-path acceptance through `agent.generateEmbeddings`:
+  PASS with sanitized `vectorCount: 1`, `dimensionCount: 1024`,
+  `operationPhase: completed`, and `cleanupStatus: passed`.
 - `npm.cmd run verify`: PASS, 107 test files and 532 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.
 - `npm.cmd run smoke:desktop`: PASS.
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
-- Runtime-backed product-path acceptance with real local artifact execution:
-  NOT RUN in this shell because the explicit acceptance/provider/runtime/model
-  environment gates were not configured.
+- Temp cleanup check after the approved runtime-backed acceptance run: PASS,
+  0 leftover Phase 7.43 temporary directories.
 
 ### Next Hard Pause
 
