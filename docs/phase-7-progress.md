@@ -2652,15 +2652,70 @@ packaging, license, benchmark, and composition gate passes.
 
 ### Next Hard Pause
 
-- Do not implement or run the real provider-vector retrieval acceptance
-  diagnostic, read `JARVIS_K_RUNTIME_PYTHON` or
-  `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR`, verify/access model artifacts, start
-  the Python helper, call helper `embed`, write temporary Memory vectors,
-  query provider-written vectors in a diagnostic, download artifacts, write
-  persistent model caches, expose raw vectors/raw text/private paths/raw
-  diagnostics, change Desktop/UI/provider visibility/default opt-in, run
-  SQLite schema/index migrations, or convert retrieval/model output into
-  Windows/PowerShell operations without separate product and security approval.
+- Separate product and security approval has now been granted for Phase 8.25.
+- Do not enable provider-vector retrieval by default, batch-index historical
+  records, expose Desktop/UI controls, change provider visibility/default
+  opt-in, write persistent model caches, download artifacts, persist or expose
+  raw vectors/raw text/private paths/raw diagnostics, run SQLite schema/index
+  migrations, or convert retrieval/model output into Windows/PowerShell
+  operations without a separate approval.
+
+## Phase 8.25: Provider Vector Retrieval Acceptance Diagnostic
+
+- Status: implementation complete with a safety-degraded local run; true
+  artifact-backed acceptance pass remains pending because the current Codex
+  process did not have the required opt-in/runtime/model environment variables
+  configured.
+- Added a one-shot Core Host diagnostic runner behind
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE=1`.
+- The runner requires the existing Memory retrieval routing, provider
+  query-vector, provider vector-write, provider vector-read, local embedding
+  provider, and provider execution opt-ins before reading runtime/model env
+  values.
+- When all gates are configured, the diagnostic verifies the approved artifact
+  SHA-256 pin set, starts Core Host with a temporary Memory database, writes
+  one fixed diagnostic message through the existing provider vector-write
+  product path, sends one fixed diagnostic query through the provider-vector
+  retrieval route, and inspects only sanitized `memoryRecall` metadata.
+- Added a sanitized report shape for write/read command status, recall
+  status/mode, bounded match count, bounded query dimension count, cleanup
+  status, and unsafe-exposure flags.
+- The local diagnostic run in the current Codex process returned sanitized
+  `degraded` with reason code `acceptance_opt_in_missing`, and did not read
+  Python/model paths, verify artifacts, launch the helper, write temporary
+  vectors, query provider-written vectors, or expose raw values.
+- Default behavior, Desktop/UI behavior, provider visibility, default opt-in,
+  historical batch indexing, downloads, persistent caches, SQLite schema/index
+  migrations, raw vector/text/path/diagnostic exposure, and shell execution
+  remain unchanged or blocked.
+
+### Current Gate
+
+- Memory provider vector retrieval acceptance diagnostic tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run diagnostic:memory-retrieval:provider-vector-read-acceptance`:
+  PASS as sanitized degraded, `acceptance_opt_in_missing`.
+- `npm.cmd run verify`: PASS, 124 test files and 646 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not claim provider-vector retrieval acceptance is artifact-backed passed
+  until the diagnostic is rerun with the approved local Python runtime,
+  approved local model artifact directory, SHA-256 verification, temporary
+  Memory database, provider vector write, provider-vector retrieval read,
+  sanitized recall report, and cleanup all passing.
+- Do not enable provider-vector retrieval by default, batch-index historical
+  records, expose Desktop/UI controls, change provider visibility/default
+  opt-in, write persistent model caches, download artifacts, persist or expose
+  raw vectors/raw text/private paths/raw diagnostics, run SQLite schema/index
+  migrations, or convert retrieval/model output into Windows/PowerShell
+  operations without a separate approval.
 
 ## Phase 9.1: Tool Governance Contract
 

@@ -22,7 +22,8 @@ Vector Write Approval Gate plus Phase 8.20 Provider Vector Write
 Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic plus
 Phase 8.22 Provider Vector Retrieval Preflight plus Phase 8.23 Provider
 Vector Retrieval Routing plus Phase 8.24 Provider Vector Retrieval Acceptance
-Preflight**: the
+Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic**:
+the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -166,7 +167,17 @@ ports, installability policy, resource diagnostics, dry-run model install
   vector writes, provider-written vector retrieval execution, Desktop/UI
   changes, provider visibility/default opt-in changes, raw vector/text/
   diagnostic exposure, downloads, persistent caches, SQLite migrations, and
-  shell execution remain blocked pending separate approval.
+  shell execution remain blocked pending separate approval. Phase 8.25 adds
+  the approved one-shot provider-vector retrieval acceptance diagnostic behind
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE=1` plus
+  all existing retrieval/provider execution gates. It verifies artifacts before
+  product-path execution, uses a temporary Memory database, writes one fixed
+  diagnostic message, sends one fixed diagnostic query, and reports only
+  sanitized recall metadata. The current Codex-process run degraded before
+  artifact access because the required env gates were not configured; default
+  behavior, Desktop/UI controls, provider visibility/default opt-in, downloads,
+  persistent caches, historical batch indexing, SQLite migrations, raw
+  vector/text/path/diagnostic exposure, and shell execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -391,6 +402,10 @@ They are not runtime dependencies.
   changes, provider visibility/default opt-in changes, raw vector/text/
   diagnostic exposure, downloads, persistent caches, SQLite migrations, and
   shell execution remain deferred
+- Phase 8.25 provider vector retrieval acceptance diagnostic: one-shot
+  diagnostic runner complete behind explicit opt-in; the current local run was
+  sanitized degraded because the Codex process had no approved runtime/model
+  env configured, so true artifact-backed pass remains pending
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -470,6 +485,8 @@ npm run smoke:runtime-transformers:fixture
 npm run diagnostic:local-embedding:helper-embed
 npm run diagnostic:local-embedding:provider-execution-acceptance
 npm run diagnostic:memory-retrieval:provider-query-vector-acceptance
+npm run diagnostic:memory-retrieval:provider-vector-write-acceptance
+npm run diagnostic:memory-retrieval:provider-vector-read-acceptance
 npm run acceptance:runtime-transformers:approved-artifact
 ```
 
@@ -594,6 +611,28 @@ $env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
 It does not run by default, batch-index historical records, add UI controls,
 expose raw vectors/text, or change provider visibility.
 
+The Phase 8.25 provider-written Memory vector retrieval acceptance diagnostic
+verifies the Phase 8.23 read route with one provider vector write followed by
+one provider-vector retrieval read:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+npm run diagnostic:memory-retrieval:provider-vector-read-acceptance
+```
+
+It uses a temporary Memory database and prints only sanitized recall metadata
+and fixed reason codes. It does not batch-index historical records, expose raw
+vectors/text/paths, write persistent caches, run SQLite migrations, or change
+default behavior.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -701,6 +740,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.22 provider vector retrieval preflight](docs/phase-8-22-provider-vector-retrieval-preflight.md)
 - [Phase 8.23 provider vector retrieval routing](docs/phase-8-23-provider-vector-retrieval-routing.md)
 - [Phase 8.24 provider vector retrieval acceptance preflight](docs/phase-8-24-provider-vector-retrieval-acceptance-preflight.md)
+- [Phase 8.25 provider vector retrieval acceptance diagnostic](docs/phase-8-25-provider-vector-retrieval-acceptance-diagnostic.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

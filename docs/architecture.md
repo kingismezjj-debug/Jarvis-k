@@ -525,6 +525,21 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     Desktop IPC/UI behavior, change provider visibility/default opt-in, expose
     raw vectors or raw text, download artifacts, write persistent model
     caches, or convert retrieval/model output into shell execution.
+77. Provider-written Memory vector retrieval acceptance is implemented only as
+    a one-shot Core Host diagnostic behind
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE=1` plus
+    the existing retrieval, provider query-vector, provider vector-write,
+    provider vector-read, local embedding provider, and provider execution
+    gates. Phase 8.25 verifies approved local artifact digests before
+    product-path execution, uses only a temporary Memory database, writes one
+    fixed diagnostic message, sends one fixed diagnostic query through the
+    provider-vector retrieval route, and reports only sanitized recall
+    metadata. The current local run degraded before artifact access because
+    the required env gates were not configured. This does not enable default
+    retrieval, batch-index history, persist model caches, run SQLite
+    migrations, change Desktop IPC/UI/provider visibility/default opt-in,
+    expose raw vectors/raw text/private paths/raw diagnostics, download
+    artifacts, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 
