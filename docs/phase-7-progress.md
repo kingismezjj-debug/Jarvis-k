@@ -1817,6 +1817,42 @@ packaging, license, benchmark, and composition gate passes.
   diagnostics, or convert retrieval output into Windows/PowerShell operations
   without separate product and security approval.
 
+## Phase 8.6: Memory Vector Write Preflight
+
+- Status: complete as a provider-neutral vector write API implementation
+  approval handoff.
+- Added a future vector write implementation plan, validation rule plan,
+  duplicate handling plan, sanitized failure-code plan, and fixture-only
+  safety report to `@jarvis-k/memory`.
+- Added a fail-closed preflight whose accepted status is only
+  `ready_for_vector_write_implementation_approval`.
+- Added fixture-only safety reporting for normal, blocked, degraded, and
+  sanitized-output cases. The report exposes only bounded counts and fixed
+  reason codes.
+- Vector write API implementation, vector writes, `packages/memory-sqlite`
+  changes, Phase 7.43 vector persistence, real runtime vector persistence,
+  Core retrieval routing, provider execution routing, UI behavior changes, raw
+  vector exposure, private path exposure, raw diagnostics exposure, and shell
+  execution remain disabled.
+
+### Current Gate
+
+- Memory vector write preflight tests: PASS, 6 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not implement vector write methods in `packages/memory-sqlite`, enable
+  vector writes, persist Phase 7.43 or real runtime vectors, connect vector
+  writes to Core retrieval/product flows, change provider execution behavior
+  or UI defaults, expose raw vectors/private paths/raw diagnostics, or convert
+  vector write/retrieval output into Windows/PowerShell operations without
+  separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

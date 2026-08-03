@@ -8,7 +8,8 @@ Diagnostic Execution Runner plus Phase 7.41 Provider Execution Wiring
 Preflight plus Phase 7.42 Provider Execution Wiring plus Phase 7.43 Provider
 Execution Acceptance Diagnostic plus Phase 8.3 Memory Vector Execution
 Preflight plus Phase 8.4 Memory Vector Migration Preflight plus Phase 8.5
-Memory SQLite Vector Migration**: the
+Memory SQLite Vector Migration plus Phase 8.6 Memory Vector Write
+Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -52,7 +53,10 @@ ports, installability policy, resource diagnostics, dry-run model install
   `packages/memory-sqlite` to schema version 3 with the vector table and
   indexes; vector write/query APIs, Phase 7.43 vector persistence, Core/UI
   behavior changes, provider visibility changes, and shell execution remain
-  blocked.
+  blocked. Phase 8.6 adds only a vector write implementation approval
+  preflight; write methods, vector writes, real/Phase 7.43 vector persistence,
+  Core retrieval routing, provider execution routing, UI behavior changes, and
+  shell execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -174,6 +178,9 @@ They are not runtime dependencies.
 - Phase 8.5 memory SQLite vector migration: schema version 3 table/index
   migration complete; vector write/query APIs and vector persistence remain
   deferred
+- Phase 8.6 memory vector write preflight: write implementation approval
+  handoff complete; vector write methods, vector writes, and vector
+  persistence remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -394,6 +401,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.3 memory vector execution preflight](docs/phase-8-3-memory-vector-execution-preflight.md)
 - [Phase 8.4 memory vector migration preflight](docs/phase-8-4-memory-vector-migration-preflight.md)
 - [Phase 8.5 memory SQLite vector migration](docs/phase-8-5-memory-sqlite-vector-migration.md)
+- [Phase 8.6 memory vector write preflight](docs/phase-8-6-memory-vector-write-preflight.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

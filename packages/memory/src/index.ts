@@ -5,3 +5,4 @@ export * from "./embedding-retrieval-benchmark";
 export * from "./embedding-retrieval-preflight";
 export * from "./embedding-vector-execution-preflight";
 export * from "./embedding-vector-migration-preflight";
+export * from "./embedding-vector-write-preflight";

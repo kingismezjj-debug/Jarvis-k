@@ -304,6 +304,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     vectors are not persisted, Core/UI behavior is unchanged, and raw vectors,
     private paths, raw diagnostics, and model-output command conversion remain
     blocked.
+58. Memory vector writes have a separate implementation approval handoff.
+    Phase 8.6 can review the future SQLite write API, validation rules,
+    duplicate handling, sanitized failure mapping, rollback expectation, and
+    fixture safety tests, but it does not implement write methods, enable
+    vector writes, change `packages/memory-sqlite`, persist Phase 7.43 or real
+    runtime vectors, route writes to Core retrieval/product flows, change
+    provider execution or UI behavior, or expose raw vectors, private paths, or
+    raw diagnostics.
 
 ## Restart policy
 
