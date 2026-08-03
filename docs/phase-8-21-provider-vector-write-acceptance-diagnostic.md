@@ -73,6 +73,12 @@ npm.cmd run smoke:desktop:local-embedding-composition
 - Memory SQLite build: PASS.
 - Default diagnostic without acceptance opt-in: PASS with sanitized
   `acceptance_opt_in_missing` degradation and no product-path command call.
+- Approved real local acceptance diagnostic: PASS. The run created only
+  temporary Python/runtime/cache/artifact directories, downloaded the approved
+  artifact set, verified SHA-256 pins, completed the Core Host product path,
+  wrote one provider vector record in a temporary Memory database, reported
+  `writeStatus: accepted`, `recordCount: 1`, `dimensionCount: 1024`, and
+  removed the temporary root after completion.
 - `npm.cmd run verify`: PASS, 121 test files and 627 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.

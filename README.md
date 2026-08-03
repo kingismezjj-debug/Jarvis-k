@@ -19,7 +19,8 @@ Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring plus Phase
 Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight plus Phase
 8.18 Provider Query Vector Acceptance Diagnostic plus Phase 8.19 Provider
 Vector Write Approval Gate plus Phase 8.20 Provider Vector Write
-Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic**: the
+Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic plus
+Phase 8.22 Provider Vector Retrieval Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -144,7 +145,11 @@ ports, installability policy, resource diagnostics, dry-run model install
   local acceptance diagnostic for the Phase 8.20 product path; it uses a
   temporary Memory database, inspects only row count and dimensions for the
   newly accepted message vector, and reports only sanitized write metadata and
-  fixed reason codes.
+  fixed reason codes. Phase 8.22 adds only a review-only preflight for future
+  provider-written vector retrieval behind a separate planned opt-in; Core Host
+  routing, CoreRuntime behavior, Desktop/UI behavior, provider visibility,
+  default opt-in, raw vector/text exposure, SQLite migrations, and shell
+  execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -350,6 +355,12 @@ They are not runtime dependencies.
   behavior, historical batch indexing, Desktop/UI controls, provider
   visibility/default opt-in, raw vector/text/diagnostic exposure, downloads,
   persistent caches, and shell execution remain deferred
+- Phase 8.22 provider vector retrieval preflight: review-only gate complete
+  for future provider-written vector retrieval; env reads, Core Host routing
+  changes, CoreRuntime changes, product reads from provider vector records,
+  Desktop/UI controls, provider visibility/default opt-in changes, raw
+  vector/text/diagnostic exposure, SQLite migrations, and shell execution
+  remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -639,6 +650,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.19 provider vector write approval gate](docs/phase-8-19-provider-vector-write-approval-gate.md)
 - [Phase 8.20 provider vector write implementation](docs/phase-8-20-provider-vector-write-implementation.md)
 - [Phase 8.21 provider vector write acceptance diagnostic](docs/phase-8-21-provider-vector-write-acceptance-diagnostic.md)
+- [Phase 8.22 provider vector retrieval preflight](docs/phase-8-22-provider-vector-retrieval-preflight.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

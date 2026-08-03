@@ -488,6 +488,18 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     credentials, expose raw diagnostics, change Desktop IPC or UI behavior,
     change provider visibility/default opt-in, run SQLite schema migrations, or
     convert retrieval/model output into shell execution.
+74. Provider-written Memory vector retrieval has a separate review-only
+    preflight. Phase 8.22 can review the future explicit
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS` opt-in,
+    same-model ID alignment between provider query vectors and stored provider
+    vectors, bounded recall limits, sanitized recall metadata, fallback to
+    existing fixture/no-recall modes, and rollback smoke planning. It does not
+    read env values, change Core Host retrieval routing, change CoreRuntime,
+    query provider-written vectors, call provider execution for reads, call
+    helper `embed`, write Memory vectors, run SQLite schema migrations, change
+    Desktop IPC or UI behavior, change provider visibility/default opt-in,
+    expose raw vectors, raw text, private paths, signed URLs, credentials, or
+    raw diagnostics, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 

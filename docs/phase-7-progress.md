@@ -2493,6 +2493,10 @@ packaging, license, benchmark, and composition gate passes.
 - `npm.cmd run diagnostic:memory-retrieval:provider-vector-write-acceptance`:
   PASS with sanitized `acceptance_opt_in_missing` degradation and no
   product-path command call.
+- Approved real local acceptance diagnostic: PASS with temporary Python
+  runtime setup, temporary artifact fetch and SHA-256 verification,
+  `writeStatus: accepted`, `recordCount: 1`, `dimensionCount: 1024`, all
+  unsafe exposure flags false, and cleanup passed.
 - `npm.cmd run verify`: PASS, 121 test files and 627 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.
@@ -2511,6 +2515,51 @@ packaging, license, benchmark, and composition gate passes.
   download artifacts, write persistent model caches, or convert
   retrieval/model output into Windows/PowerShell operations without a separate
   product and security approval.
+
+## Phase 8.22: Provider Vector Retrieval Preflight
+
+- Status: complete as a review-only preflight preparation wave.
+- Added an approval/preflight gate for future provider-written Memory vector
+  retrieval behind the planned explicit opt-in
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS=1`.
+- The preflight requires evidence from Phase 7.43, Phase 8.16, Phase 8.18,
+  Phase 8.20, and the approved real Phase 8.21 diagnostic before it can become
+  ready for separate implementation approval.
+- The reviewed future plan requires same-model ID alignment between
+  provider-backed query vectors and stored provider vectors, bounded recall
+  limits, sanitized recall payloads, fail-closed fallback, no default behavior
+  change, no historical batch indexing, and rollback smoke coverage.
+- This phase does not read env values, change Core Host routing, change
+  `CoreRuntime`, query provider-written vectors, call provider execution for
+  reads, call helper `embed`, alter Memory vector writes, run SQLite
+  schema/index migrations, change Desktop IPC/UI behavior, change provider
+  visibility/default opt-in, expose raw vectors/raw text/private paths/raw
+  diagnostics, persist signed URLs or credentials, or enable shell execution.
+
+### Current Gate
+
+- Memory provider vector retrieval preflight tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 122 test files and 632 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Phase 8.21 real diagnostic cleanup check: PASS, 0 leftover
+  `jarvis-k-phase-8-21-real-*` temporary directories.
+
+### Next Hard Pause
+
+- Do not implement provider-written vector retrieval, read the new opt-in env,
+  change Core Host retrieval routing, change CoreRuntime behavior, query
+  provider-written vectors in product flow, call provider execution for reads,
+  persist additional vectors, add Desktop/UI controls, change provider
+  visibility/default opt-in, run SQLite schema/index migrations, expose raw
+  vectors/raw text/private paths/raw diagnostics, download artifacts, write
+  persistent model caches, or convert retrieval/model output into
+  Windows/PowerShell operations without separate product and security approval.
 
 ## Phase 9.1: Tool Governance Contract
 
