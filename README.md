@@ -20,7 +20,8 @@ Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight plus Phase
 8.18 Provider Query Vector Acceptance Diagnostic plus Phase 8.19 Provider
 Vector Write Approval Gate plus Phase 8.20 Provider Vector Write
 Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic plus
-Phase 8.22 Provider Vector Retrieval Preflight**: the
+Phase 8.22 Provider Vector Retrieval Preflight plus Phase 8.23 Provider
+Vector Retrieval Routing**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -149,7 +150,15 @@ ports, installability policy, resource diagnostics, dry-run model install
   provider-written vector retrieval behind a separate planned opt-in; Core Host
   routing, CoreRuntime behavior, Desktop/UI behavior, provider visibility,
   default opt-in, raw vector/text exposure, SQLite migrations, and shell
-  execution remain blocked.
+  execution remain blocked. Phase 8.23 implements provider-written vector
+  retrieval only behind
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS=1` plus the existing
+  retrieval, provider query-vector, provider vector-write, local embedding
+  provider, and provider execution gates. Core remains provider-neutral through
+  an injected exact model allowlist; default behavior, Desktop/UI controls,
+  provider visibility/default opt-in changes, raw vector/text/diagnostic
+  exposure, SQLite migrations, artifact access, downloads, persistent caches,
+  historical batch indexing, and shell execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -361,6 +370,12 @@ They are not runtime dependencies.
   Desktop/UI controls, provider visibility/default opt-in changes, raw
   vector/text/diagnostic exposure, SQLite migrations, and shell execution
   remain deferred
+- Phase 8.23 provider vector retrieval routing: explicit opt-in Core Host
+  routing complete for provider-written vectors using exact same-model
+  alignment; default behavior, Desktop/UI controls, provider visibility/default
+  opt-in changes, raw vector/text/diagnostic exposure, SQLite migrations,
+  artifact access, downloads, persistent caches, historical batch indexing,
+  and shell execution remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -546,6 +561,24 @@ It uses a temporary Memory database and prints only sanitized write metadata
 and fixed reason codes. It does not batch-index historical records or expose
 raw vectors/text.
 
+The Phase 8.23 provider-written Memory vector retrieval path remains explicit
+opt-in and reads only vectors written under the approved local embedding model
+ID:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+```
+
+It does not run by default, batch-index historical records, add UI controls,
+expose raw vectors/text, or change provider visibility.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -651,6 +684,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.20 provider vector write implementation](docs/phase-8-20-provider-vector-write-implementation.md)
 - [Phase 8.21 provider vector write acceptance diagnostic](docs/phase-8-21-provider-vector-write-acceptance-diagnostic.md)
 - [Phase 8.22 provider vector retrieval preflight](docs/phase-8-22-provider-vector-retrieval-preflight.md)
+- [Phase 8.23 provider vector retrieval routing](docs/phase-8-23-provider-vector-retrieval-routing.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

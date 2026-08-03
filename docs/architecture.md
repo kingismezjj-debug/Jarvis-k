@@ -500,6 +500,19 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     Desktop IPC or UI behavior, change provider visibility/default opt-in,
     expose raw vectors, raw text, private paths, signed URLs, credentials, or
     raw diagnostics, or convert retrieval/model output into shell execution.
+75. Provider-written Memory vector retrieval is implemented only behind
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS=1` plus the
+    existing Memory retrieval, provider query-vector, provider vector-write,
+    local embedding provider, and provider execution opt-ins. `apps/core-host`
+    is responsible for selecting the exact approved local embedding model ID
+    for reads. Core remains provider-neutral and accepts non-fixture retrieval
+    models only when an injected `provider_vector` route includes an exact
+    allowed model ID. Incomplete gates fall back to fixture-only retrieval.
+    This does not run a real acceptance diagnostic, batch-index history,
+    persist additional vectors, run SQLite migrations, change Desktop IPC or
+    UI behavior, change provider visibility/default opt-in, expose raw vectors
+    or raw text, access artifacts, download artifacts, write persistent model
+    caches, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 

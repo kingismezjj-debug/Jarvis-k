@@ -2561,6 +2561,58 @@ packaging, license, benchmark, and composition gate passes.
   persistent model caches, or convert retrieval/model output into
   Windows/PowerShell operations without separate product and security approval.
 
+## Phase 8.23: Provider Vector Retrieval Routing
+
+- Status: complete as an explicit opt-in provider-vector retrieval routing
+  implementation.
+- Implemented
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS=1` in
+  `apps/core-host` as a separate gate for querying provider-written Memory
+  vectors.
+- The provider-vector read path requires Memory retrieval routing,
+  provider-backed query vectors, provider-backed vector writes, local embedding
+  provider composition, local embedding provider execution, and an injected
+  embedding provider to all be present. Incomplete gates fall back to the
+  existing fixture-only retrieval route.
+- Extended `CoreRuntime` with provider-neutral `provider_vector` recall mode
+  and an exact injected `allowedModelId`. Core still imports no concrete
+  provider packages and rejects non-fixture model IDs unless the injected
+  provider-vector route exactly allows that model ID.
+- The route uses the same approved local embedding model ID for the provider
+  query vector and stored provider vector records, bounds recall matches, and
+  keeps recall payloads sanitized to metadata only.
+- This phase does not run a real local diagnostic, access or download
+  artifacts, write persistent model caches, persist additional vectors,
+  batch-index historical records, run SQLite schema/index migrations, change
+  Desktop IPC/UI behavior, change provider visibility/default opt-in, expose
+  raw vectors/raw text/private paths/raw diagnostics, persist signed URLs or
+  credentials, or enable shell execution.
+
+### Current Gate
+
+- Core Host retrieval env wiring and provider-vector read tests: PASS, 8
+  tests.
+- Core runtime Memory retrieval routing regression tests: PASS, 35 tests.
+- Targeted combined command: PASS, 2 test files and 43 tests.
+- `npm.cmd run build -w @jarvis-k/core`: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 122 test files and 636 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not run a real provider-vector retrieval acceptance diagnostic, access
+  model artifacts, download artifacts, write persistent model caches, expose
+  raw vectors/raw text/private paths/raw diagnostics, add Desktop/UI controls,
+  batch-index history, change provider visibility/default opt-in, or move
+  provider-written retrieval into a default product path without separate
+  product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

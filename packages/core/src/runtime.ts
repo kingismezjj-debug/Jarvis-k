@@ -70,6 +70,11 @@ type EventSink = (event: EventEnvelope) => void;
 
 const MEMORY_RETRIEVAL_ROUTING_LIMIT = 5;
 const MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX = "fixture/";
+const MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE = "provider_vector";
+
+export type CoreMemoryRetrievalRoutingMode =
+  | "fixture_only"
+  | typeof MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE;
 
 export interface CoreMemoryRetrievalRoutingQueryContext {
   messageId: string;
@@ -81,6 +86,8 @@ export interface CoreMemoryRetrievalRoutingQueryContext {
 export interface CoreMemoryRetrievalRoutingOptions {
   enabled: boolean;
   modelId: string;
+  mode?: CoreMemoryRetrievalRoutingMode;
+  allowedModelId?: string;
   limit?: number;
   minScore?: number;
   resolveQueryVector(
@@ -100,7 +107,7 @@ export interface CoreMemoryRecallMatch {
 
 export interface CoreMemoryRecallObservation {
   status: "ok" | "degraded";
-  mode: "fixture_only";
+  mode: CoreMemoryRetrievalRoutingMode;
   injectedIntoTurnAssembly: boolean;
   modelId: string;
   queryDimensions: number;
@@ -944,9 +951,9 @@ export class CoreRuntime {
     }
 
     const modelId = this.memoryRetrievalRouting.modelId;
-    if (!modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX)) {
+    if (!this.isAllowedMemoryRetrievalModelId(modelId)) {
       return this.degradedMemoryRecall(
-        "MEMORY_RETRIEVAL_NON_FIXTURE_MODEL_BLOCKED"
+        "MEMORY_RETRIEVAL_MODEL_BLOCKED"
       );
     }
 
@@ -977,9 +984,9 @@ export class CoreRuntime {
           conversationId: message.conversationId
         })
       );
-      if (!result.modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX)) {
+      if (!this.isAllowedMemoryRetrievalModelId(result.modelId)) {
         return this.degradedMemoryRecall(
-          "MEMORY_RETRIEVAL_NON_FIXTURE_RESULT_BLOCKED"
+          "MEMORY_RETRIEVAL_RESULT_MODEL_BLOCKED"
         );
       }
 
@@ -997,7 +1004,7 @@ export class CoreRuntime {
         .map((match) => this.sanitizeMemoryRecallMatch(match));
       return {
         status: "ok",
-        mode: "fixture_only",
+        mode: this.memoryRetrievalMode(),
         injectedIntoTurnAssembly: matches.length > 0,
         modelId: result.modelId,
         queryDimensions: result.queryDimensions,
@@ -1037,7 +1044,7 @@ export class CoreRuntime {
   ): CoreMemoryRecallObservation {
     return {
       status: "degraded",
-      mode: "fixture_only",
+      mode: this.memoryRetrievalMode(),
       injectedIntoTurnAssembly: false,
       modelId,
       queryDimensions,
@@ -1062,9 +1069,31 @@ export class CoreRuntime {
   }
 
   private sanitizeMemoryRecallModelId(modelId: string): string {
-    return modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX)
+    return this.isAllowedMemoryRetrievalModelId(modelId)
       ? modelId
       : "blocked";
+  }
+
+  private memoryRetrievalMode(): CoreMemoryRetrievalRoutingMode {
+    return this.memoryRetrievalRouting?.mode ===
+      MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE
+      ? MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE
+      : "fixture_only";
+  }
+
+  private isAllowedMemoryRetrievalModelId(modelId: string): boolean {
+    if (
+      this.memoryRetrievalMode() ===
+      MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE
+    ) {
+      const allowedModelId = this.memoryRetrievalRouting?.allowedModelId;
+      return (
+        typeof allowedModelId === "string" &&
+        allowedModelId.length > 0 &&
+        modelId === allowedModelId
+      );
+    }
+    return modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX);
   }
 
   private sanitizeMemoryRecallMatch(

@@ -2,6 +2,7 @@ export { CoreRuntime } from "./runtime";
 export type {
   CoreMemoryRecallMatch,
   CoreMemoryRecallObservation,
+  CoreMemoryRetrievalRoutingMode,
   CoreMemoryRetrievalRoutingOptions,
   CoreMemoryRetrievalRoutingQueryContext
 } from "./runtime";

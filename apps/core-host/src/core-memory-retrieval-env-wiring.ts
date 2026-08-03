@@ -5,6 +5,8 @@ import type { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import { MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV } from "./core-memory-retrieval-env-wiring-approval-gate";
 import { isLocalEmbeddingProviderOptInEnabled } from "./local-embedding-composition";
 import { isLocalEmbeddingProviderExecutionOptInEnabled } from "./local-embedding-runtime-session-factory";
+import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV } from "./memory-provider-vector-retrieval-preflight";
+import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "./memory-provider-vector-write-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "./memory-retrieval-provider-query-vector-approval-gate";
 
 export const CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID =
@@ -43,7 +45,7 @@ export function createCoreHostMemoryRetrievalEnvWiring(
     ),
     routingOptions: {
       enabled: true,
-      modelId: CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID,
+      ...createMemoryRetrievalRoutingModelOptions(options, env),
       limit: 5,
       resolveQueryVector: createQueryVectorResolver(options, env)
     }
@@ -60,6 +62,45 @@ export function isMemoryRetrievalProviderQueryVectorOptInEnabled(
   env: Readonly<Record<string, string | undefined>> = process.env
 ): boolean {
   return env[MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]?.trim() === "1";
+}
+
+export function isMemoryProviderVectorRetrievalOptInEnabled(
+  env: Readonly<Record<string, string | undefined>> = process.env
+): boolean {
+  return env[MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]?.trim() === "1";
+}
+
+function createMemoryRetrievalRoutingModelOptions(
+  options: CoreHostMemoryRetrievalEnvWiringOptions,
+  env: Readonly<Record<string, string | undefined>>
+): Pick<CoreMemoryRetrievalRoutingOptions, "allowedModelId" | "modelId" | "mode"> {
+  if (areMemoryProviderVectorRetrievalGatesEnabled(env, options.embeddingProvider)) {
+    return {
+      allowedModelId: LOCAL_EMBEDDING_MODEL_ID,
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      mode: "provider_vector"
+    };
+  }
+
+  return {
+    modelId: CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID,
+    mode: "fixture_only"
+  };
+}
+
+function areMemoryProviderVectorRetrievalGatesEnabled(
+  env: Readonly<Record<string, string | undefined>>,
+  embeddingProvider: EmbeddingInferenceProvider | undefined
+): boolean {
+  return (
+    embeddingProvider !== undefined &&
+    isMemoryProviderVectorRetrievalOptInEnabled(env) &&
+    isMemoryRetrievalRoutingOptInEnabled(env) &&
+    isMemoryRetrievalProviderQueryVectorOptInEnabled(env) &&
+    env[MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV]?.trim() === "1" &&
+    isLocalEmbeddingProviderOptInEnabled(env) &&
+    isLocalEmbeddingProviderExecutionOptInEnabled(env)
+  );
 }
 
 function createQueryVectorResolver(

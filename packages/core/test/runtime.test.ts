@@ -1302,6 +1302,122 @@ describe("CoreRuntime", () => {
     expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
   });
 
+  it("routes provider-vector Memory retrieval reads only for the configured model ID", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    retrievalPort.result = {
+      status: "ok",
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      queryDimensions: 3,
+      matches: [
+        {
+          id: "embedding-provider-1",
+          conversationId: "primary",
+          sourceType: "message",
+          sourceId: "msg-provider-source",
+          modelId: "Qwen/Qwen3-Embedding-0.6B",
+          score: 0.91,
+          createdAt: "2026-08-03T00:00:00.000Z"
+        }
+      ],
+      generatedAt: "2026-08-03T00:00:01.000Z"
+    };
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      allowedModelId: "Qwen/Qwen3-Embedding-0.6B",
+      mode: "provider_vector",
+      resolveQueryVector: () => [0.2, 0.4, 0.6]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Provider recall text must stay out of the report"
+        }
+      })
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(result.ok).toBe(true);
+    expect(retrievalPort.lastQuery).toEqual({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      vector: [0.2, 0.4, 0.6],
+      limit: 5,
+      conversationId: "primary"
+    });
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "ok",
+        mode: "provider_vector",
+        injectedIntoTurnAssembly: true,
+        modelId: "Qwen/Qwen3-Embedding-0.6B",
+        queryDimensions: 3,
+        matchCount: 1,
+        matches: [
+          {
+            id: "embedding-provider-1",
+            conversationId: "primary",
+            sourceType: "message",
+            sourceId: "msg-provider-source",
+            modelId: "Qwen/Qwen3-Embedding-0.6B",
+            score: 0.91,
+            createdAt: "2026-08-03T00:00:00.000Z"
+          }
+        ]
+      }
+    });
+    expect(serialized).not.toContain("Provider recall text");
+    expect(serialized).not.toMatch(/values|raw|diagnostics/iu);
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
+  it("degrades provider-vector Memory retrieval when result model ID does not match", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    retrievalPort.result = {
+      status: "ok",
+      modelId: "fixture/core-memory-retrieval",
+      queryDimensions: 3,
+      matches: [],
+      generatedAt: "2026-08-03T00:00:01.000Z"
+    };
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      allowedModelId: "Qwen/Qwen3-Embedding-0.6B",
+      mode: "provider_vector",
+      resolveQueryVector: () => [0.2, 0.4, 0.6]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Mismatched provider result should degrade"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(retrievalPort.calls).toBe(1);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        mode: "provider_vector",
+        injectedIntoTurnAssembly: false,
+        modelId: "blocked",
+        queryDimensions: 0,
+        matchCount: 0,
+        matches: [],
+        reasonCode: "MEMORY_RETRIEVAL_RESULT_MODEL_BLOCKED"
+      }
+    });
+  });
+
   it("degrades to no-recall when Memory retrieval fails", async () => {
     const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
     retrievalPort.throwOnRetrieve = true;
@@ -1368,7 +1484,7 @@ describe("CoreRuntime", () => {
         queryDimensions: 0,
         matchCount: 0,
         matches: [],
-        reasonCode: "MEMORY_RETRIEVAL_NON_FIXTURE_MODEL_BLOCKED"
+        reasonCode: "MEMORY_RETRIEVAL_MODEL_BLOCKED"
       }
     });
   });
@@ -1447,7 +1563,7 @@ describe("CoreRuntime", () => {
         queryDimensions: 0,
         matchCount: 0,
         matches: [],
-        reasonCode: "MEMORY_RETRIEVAL_NON_FIXTURE_RESULT_BLOCKED"
+        reasonCode: "MEMORY_RETRIEVAL_RESULT_MODEL_BLOCKED"
       }
     });
     expect(serialized).not.toContain("Qwen/Qwen3-Embedding-0.6B");

@@ -14,11 +14,14 @@ import { MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV } from "../src/core-memory-retrieva
 import {
   CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID,
   createCoreHostMemoryRetrievalEnvWiring,
+  isMemoryProviderVectorRetrievalOptInEnabled,
   isMemoryRetrievalProviderQueryVectorOptInEnabled,
   isMemoryRetrievalRoutingOptInEnabled
 } from "../src/core-memory-retrieval-env-wiring";
 import { LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV } from "../src/local-embedding-composition";
 import { LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV } from "../src/local-embedding-runtime-session-factory";
+import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV } from "../src/memory-provider-vector-retrieval-preflight";
+import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "../src/memory-provider-vector-write-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "../src/memory-retrieval-provider-query-vector-approval-gate";
 
 describe("Core Host memory retrieval env wiring", () => {
@@ -155,6 +158,88 @@ describe("Core Host memory retrieval env wiring", () => {
     ).rejects.toThrow("MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_UNAVAILABLE");
     expect(embeddingProvider.calls).toBe(0);
     expect(repository.calls).toBe(0);
+  });
+
+  it("routes provider-written vector reads only when every explicit gate is enabled", async () => {
+    const repository = new FakeSqliteMemoryRepository();
+    const embeddingProvider = new FakeEmbeddingInferenceProvider();
+    const wiring = createCoreHostMemoryRetrievalEnvWiring({
+      env: {
+        [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
+        [MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      memoryRepository: repository.asRepository(),
+      embeddingProvider
+    });
+
+    expect(
+      isMemoryProviderVectorRetrievalOptInEnabled({
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: " 1 "
+      })
+    ).toBe(true);
+    expect(wiring.routingOptions).toMatchObject({
+      enabled: true,
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      allowedModelId: LOCAL_EMBEDDING_MODEL_ID,
+      mode: "provider_vector",
+      limit: 5
+    });
+
+    const vector = await wiring.routingOptions?.resolveQueryVector({
+      messageId: "msg-provider-read",
+      conversationId: "primary",
+      createdAt: "2026-08-03T00:00:00.000Z",
+      queryText: "Use provider-written vectors for recall."
+    });
+    const result = await wiring.retrievalPort?.retrieve({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      vector: vector ?? [],
+      limit: 5,
+      conversationId: "primary"
+    });
+
+    expect(vector).toEqual([0.25, 0.5, 0.75]);
+    expect(repository.lastQuery).toEqual({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      vector: [0.25, 0.5, 0.75],
+      limit: 5,
+      conversationId: "primary"
+    });
+    expect(result).toMatchObject({
+      status: "ok",
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      queryDimensions: 3,
+      matches: []
+    });
+    expect(JSON.stringify(wiring)).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
+  it("falls back to fixture reads when provider vector read gates are incomplete", () => {
+    const repository = new FakeSqliteMemoryRepository();
+    const embeddingProvider = new FakeEmbeddingInferenceProvider();
+    const wiring = createCoreHostMemoryRetrievalEnvWiring({
+      env: {
+        [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
+        [MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      memoryRepository: repository.asRepository(),
+      embeddingProvider
+    });
+
+    expect(wiring.routingOptions).toMatchObject({
+      enabled: true,
+      modelId: CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID,
+      mode: "fixture_only",
+      limit: 5
+    });
+    expect(wiring.routingOptions).not.toHaveProperty("allowedModelId");
   });
 
   it("fails closed for invalid provider query text and invalid provider vectors", async () => {
