@@ -243,7 +243,7 @@ describe("SqliteMemoryRepository", () => {
     await second.close();
   });
 
-  it("creates the v3 vector table and indexes without enabling vector writes", async () => {
+  it("creates the v3 vector table and indexes with fixture-only vector writes", async () => {
     const filePath = createTempDatabasePath();
     const repository = new SqliteMemoryRepository({ filePath });
     await repository.initialize();
@@ -251,7 +251,7 @@ describe("SqliteMemoryRepository", () => {
     expect(
       "writeEmbeddingRecord" in
         (repository as unknown as Record<string, unknown>)
-    ).toBe(false);
+    ).toBe(true);
     expect(
       "querySimilar" in (repository as unknown as Record<string, unknown>)
     ).toBe(false);
@@ -282,6 +282,105 @@ describe("SqliteMemoryRepository", () => {
       ])
     );
     expect(schema.rowCount).toBe(0);
+  });
+
+  it("writes fixture embedding records without exposing raw vectors", async () => {
+    const filePath = createTempDatabasePath();
+    const first = new SqliteMemoryRepository({ filePath });
+    await first.initialize();
+    await first.appendMessage(message("msg-1", "primary", "00.001Z"));
+
+    await expect(
+      first.writeEmbeddingRecord(embeddingRecord("embedding-1", "msg-1"))
+    ).resolves.toEqual({
+      status: "accepted",
+      recordId: "embedding-1"
+    });
+    await first.close();
+
+    const rows = await inspectVectorRows(filePath);
+    expect(rows).toEqual([
+      {
+        id: "embedding-1",
+        conversationId: "primary",
+        sourceType: "message",
+        sourceId: "msg-1",
+        modelId: "fixture/embedding",
+        dimensions: 3,
+        payloadLength: 12,
+        createdAt: "2026-08-03T00:00:00.000Z"
+      }
+    ]);
+    expect(JSON.stringify(rows)).not.toContain("0.125");
+    expect(JSON.stringify(rows)).not.toContain("0.25");
+    expect(JSON.stringify(rows)).not.toContain("0.5");
+  });
+
+  it("blocks duplicate fixture writes without overwriting the original row", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({ filePath });
+    await repository.initialize();
+    await repository.appendMessage(message("msg-1", "primary", "00.001Z"));
+
+    expect(
+      await repository.writeEmbeddingRecord(
+        embeddingRecord("embedding-1", "msg-1")
+      )
+    ).toEqual({
+      status: "accepted",
+      recordId: "embedding-1"
+    });
+    expect(
+      await repository.writeEmbeddingRecord(
+        embeddingRecord("embedding-duplicate", "msg-1", {
+          vector: [0.75, 0.5, 0.25]
+        })
+      )
+    ).toEqual({
+      status: "degraded",
+      reasonCode: "VECTOR_DUPLICATE_SOURCE"
+    });
+    await repository.close();
+
+    const rows = await inspectVectorRows(filePath);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: "embedding-1",
+      sourceId: "msg-1",
+      payloadLength: 12
+    });
+    expect(JSON.stringify(rows)).not.toContain("0.75");
+  });
+
+  it("blocks non-fixture and invalid vector records with sanitized reason codes", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({ filePath });
+    await repository.initialize();
+
+    const nonFixture = await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-runtime", "msg-1", {
+        modelId: "Qwen/Qwen3-Embedding-0.6B"
+      })
+    );
+    const invalid = await repository.writeEmbeddingRecord({
+      ...embeddingRecord("embedding-invalid", "msg-2"),
+      dimensions: 4
+    });
+    const serialized = JSON.stringify({ nonFixture, invalid });
+
+    expect(nonFixture).toEqual({
+      status: "degraded",
+      reasonCode: "VECTOR_NON_FIXTURE_WRITE_BLOCKED"
+    });
+    expect(invalid).toEqual({
+      status: "degraded",
+      reasonCode: "VECTOR_RECORD_INVALID"
+    });
+    expect(await inspectVectorRows(filePath)).toEqual([]);
+    expect(serialized).not.toContain("Qwen3-Embedding");
+    expect(serialized).not.toContain("0.125");
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+    await repository.close();
   });
 
   it("upgrades v2 databases to the vector schema while preserving existing records", async () => {
@@ -396,9 +495,16 @@ describe("SqliteMemoryRepository", () => {
     await first.appendMessage(message("msg-old", "primary", "00.001Z"));
     await first.close();
 
-    await withDatabase(filePath, (database) => {
-      insertFixtureEmbedding(database, "embedding-old");
+    const writer = new SqliteMemoryRepository({ filePath });
+    await writer.initialize();
+    expect(
+      await writer.writeEmbeddingRecord(
+        embeddingRecord("embedding-old", "msg-old")
+      )
+    ).toMatchObject({
+      status: "accepted"
     });
+    await writer.close();
 
     const second = new SqliteMemoryRepository({ filePath });
     await second.initialize();
@@ -595,6 +701,17 @@ interface VectorSchemaInspection {
   rowCount: number;
 }
 
+interface VectorRowInspection {
+  id: string;
+  conversationId: string;
+  sourceType: string;
+  sourceId: string;
+  modelId: string;
+  dimensions: number;
+  payloadLength: number;
+  createdAt: string;
+}
+
 async function inspectVectorSchema(
   filePath: string
 ): Promise<VectorSchemaInspection> {
@@ -616,6 +733,36 @@ async function inspectVectorSchema(
         .sort((left, right) => left.name.localeCompare(right.name)),
       rowCount: Number(countRow[0]?.values[0]?.[0] ?? 0)
     };
+  });
+}
+
+async function inspectVectorRows(
+  filePath: string
+): Promise<VectorRowInspection[]> {
+  return withDatabase(filePath, (database) => {
+    const rows = database.exec(
+      `SELECT
+        id,
+        conversation_id,
+        source_type,
+        source_id,
+        model_id,
+        dimensions,
+        length(vector_payload),
+        created_at
+       FROM memory_embeddings
+       ORDER BY created_at ASC, id ASC`
+    );
+    return (rows[0]?.values ?? []).map((row) => ({
+      id: String(row[0]),
+      conversationId: String(row[1]),
+      sourceType: String(row[2]),
+      sourceId: String(row[3]),
+      modelId: String(row[4]),
+      dimensions: Number(row[5]),
+      payloadLength: Number(row[6]),
+      createdAt: String(row[7])
+    }));
   });
 }
 
@@ -667,6 +814,27 @@ function insertFixtureEmbedding(
       "2026-08-03T00:00:00.000Z"
     ]
   );
+}
+
+function embeddingRecord(
+  id: string,
+  sourceId: string,
+  options: {
+    modelId?: string;
+    vector?: number[];
+  } = {}
+) {
+  const vector = options.vector ?? [0.125, 0.25, 0.5];
+  return {
+    id,
+    conversationId: "primary",
+    sourceType: "message" as const,
+    sourceId,
+    modelId: options.modelId ?? "fixture/embedding",
+    dimensions: vector.length,
+    vector,
+    createdAt: "2026-08-03T00:00:00.000Z"
+  };
 }
 
 function createTempDatabasePath(): string {

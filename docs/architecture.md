@@ -312,6 +312,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     runtime vectors, route writes to Core retrieval/product flows, change
     provider execution or UI behavior, or expose raw vectors, private paths, or
     raw diagnostics.
+59. The SQLite Memory repository can write fixture-only embedding records
+    through `writeEmbeddingRecord(record)`. The method validates
+    provider-neutral records, accepts only `fixture/` model IDs, stores the
+    vector payload inside the existing schema v3 `memory_embeddings` table,
+    and returns sanitized result codes. It does not expose a query/retrieval
+    API, persist Phase 7.43 or real runtime vectors, route provider execution
+    output to Memory, change Core/Desktop/UI behavior, expose raw vectors or
+    private paths, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 

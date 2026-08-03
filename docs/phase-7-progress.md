@@ -1853,6 +1853,40 @@ packaging, license, benchmark, and composition gate passes.
   vector write/retrieval output into Windows/PowerShell operations without
   separate product and security approval.
 
+## Phase 8.7: Memory SQLite Fixture Vector Write
+
+- Status: complete as a fixture-only SQLite vector write implementation.
+- Added `writeEmbeddingRecord(record)` to `packages/memory-sqlite` using the
+  provider-neutral embedding record validation from `@jarvis-k/memory`.
+- The method accepts only `fixture/` model IDs, serializes finite vector values
+  into the existing schema v3 `memory_embeddings` table, and returns sanitized
+  accepted/degraded result codes.
+- Duplicate `(model_id, source_type, source_id)` rows fail closed with
+  `VECTOR_DUPLICATE_SOURCE`; non-fixture model IDs fail closed with
+  `VECTOR_NON_FIXTURE_WRITE_BLOCKED`.
+- Query/retrieval API implementation, Phase 7.43 vector persistence, real
+  runtime vector persistence, Core retrieval routing, provider execution
+  routing, Desktop IPC, UI behavior changes, raw vector exposure, private path
+  exposure, raw diagnostics exposure, and shell execution remain blocked.
+
+### Current Gate
+
+- SQLite memory repository tests: PASS, 18 tests.
+- `npm run build -w @jarvis-k/memory-sqlite`: PASS.
+- Targeted SQLite repository Vitest: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 110 test files and 557 tests.
+
+### Next Hard Pause
+
+- Do not add SQLite vector query/retrieval APIs, persist Phase 7.43 or real
+  runtime vectors, connect provider execution output to vector writes, route
+  vector retrieval into Core product behavior, change Desktop/UI behavior, or
+  expose raw vectors/private paths/raw diagnostics without separate product
+  and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

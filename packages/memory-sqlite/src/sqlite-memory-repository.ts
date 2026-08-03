@@ -26,8 +26,11 @@ import {
   type RecentMessageListOptions,
   type SummaryListOptions,
   type SummaryWriteInput,
+  type EmbeddingMemoryRecord,
+  type EmbeddingMemoryVectorWriteResult,
   cloneConversation,
-  cloneMessage
+  cloneMessage,
+  validateEmbeddingMemoryVectorWriteInput
 } from "@jarvis-k/memory";
 
 export interface SqliteMemoryRepositoryOptions {
@@ -452,6 +455,64 @@ export class SqliteMemoryRepository implements MemoryRepository {
     await this.restoreSnapshot(snapshot);
   }
 
+  public async writeEmbeddingRecord(
+    record: EmbeddingMemoryRecord
+  ): Promise<EmbeddingMemoryVectorWriteResult> {
+    const parsed = this.parseEmbeddingRecord(record);
+    if (!parsed) {
+      return this.degradedVectorWrite("VECTOR_RECORD_INVALID");
+    }
+    if (!this.isFixtureEmbeddingModel(parsed.modelId)) {
+      return this.degradedVectorWrite("VECTOR_NON_FIXTURE_WRITE_BLOCKED");
+    }
+
+    const database = await this.getDatabase();
+    if (this.readSchemaVersion(database) < 3) {
+      return this.degradedVectorWrite("VECTOR_SCHEMA_UNAVAILABLE");
+    }
+    if (this.hasEmbeddingForSource(database, parsed)) {
+      return this.degradedVectorWrite("VECTOR_DUPLICATE_SOURCE");
+    }
+
+    database.run("BEGIN IMMEDIATE TRANSACTION");
+    try {
+      database.run(
+        `INSERT INTO memory_embeddings
+          (
+            id,
+            conversation_id,
+            source_type,
+            source_id,
+            model_id,
+            dimensions,
+            vector_payload,
+            created_at
+          )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          parsed.id,
+          parsed.conversationId,
+          parsed.sourceType,
+          parsed.sourceId,
+          parsed.modelId,
+          parsed.dimensions,
+          this.serializeEmbeddingVector(parsed.vector),
+          parsed.createdAt
+        ]
+      );
+      database.run("COMMIT");
+    } catch {
+      database.run("ROLLBACK");
+      return this.degradedVectorWrite("VECTOR_WRITE_FAILED");
+    }
+
+    await this.flush();
+    return {
+      status: "accepted",
+      recordId: parsed.id
+    };
+  }
+
   public async close(): Promise<void> {
     if (!this.database) {
       return;
@@ -542,6 +603,50 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const rows = database.exec("PRAGMA user_version");
     const value = rows[0]?.values[0]?.[0];
     return typeof value === "number" ? value : 0;
+  }
+
+  private parseEmbeddingRecord(
+    record: EmbeddingMemoryRecord
+  ): EmbeddingMemoryRecord | undefined {
+    try {
+      return validateEmbeddingMemoryVectorWriteInput(record);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private isFixtureEmbeddingModel(modelId: string): boolean {
+    return modelId.startsWith("fixture/");
+  }
+
+  private hasEmbeddingForSource(
+    database: Database,
+    record: EmbeddingMemoryRecord
+  ): boolean {
+    const rows = database.exec(
+      `SELECT id
+       FROM memory_embeddings
+       WHERE model_id = ?
+        AND source_type = ?
+        AND source_id = ?
+       LIMIT 1`,
+      [record.modelId, record.sourceType, record.sourceId]
+    );
+    return (rows[0]?.values.length ?? 0) > 0;
+  }
+
+  private serializeEmbeddingVector(vector: readonly number[]): Uint8Array {
+    const payload = new Float32Array(vector);
+    return new Uint8Array(payload.buffer);
+  }
+
+  private degradedVectorWrite(
+    reasonCode: string
+  ): EmbeddingMemoryVectorWriteResult {
+    return {
+      status: "degraded",
+      reasonCode
+    };
   }
 
   private async getConversation(
