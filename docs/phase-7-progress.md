@@ -2684,6 +2684,16 @@ packaging, license, benchmark, and composition gate passes.
   `degraded` with reason code `acceptance_opt_in_missing`, and did not read
   Python/model paths, verify artifacts, launch the helper, write temporary
   vectors, query provider-written vectors, or expose raw values.
+- After separate approval, added an acceptance-only temporary artifact chained
+  diagnostic runner. It can materialize only the approved pinned artifact set
+  into a temporary directory, verify SHA-256 digests, pass that directory only
+  through same-process diagnostic env wiring, run the existing Phase 8.25
+  product-path diagnostic, and cleanup the temporary directory.
+- The chained diagnostic local run stopped before artifact download because
+  the resolved Python runtime lacks the required Transformers dependencies.
+  It returned sanitized `degraded` with reason code
+  `runtime_dependencies_missing`, `artifactMaterialization: not_run`, and
+  `cleanupStatus: passed`.
 - Default behavior, Desktop/UI behavior, provider visibility, default opt-in,
   historical batch indexing, downloads, persistent caches, SQLite schema/index
   migrations, raw vector/text/path/diagnostic exposure, and shell execution
@@ -2695,6 +2705,11 @@ packaging, license, benchmark, and composition gate passes.
 - `npm.cmd run build -w @jarvis-k/core-host`: PASS.
 - `npm.cmd run diagnostic:memory-retrieval:provider-vector-read-acceptance`:
   PASS as sanitized degraded, `acceptance_opt_in_missing`.
+- `node --check tests/memory-provider-vector-retrieval-temporary-artifact-acceptance.mjs`:
+  PASS.
+- `npm.cmd run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact`:
+  PASS as sanitized degraded, `runtime_dependencies_missing`, before artifact
+  download.
 - `npm.cmd run verify`: PASS, 124 test files and 646 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.
@@ -2710,6 +2725,8 @@ packaging, license, benchmark, and composition gate passes.
   approved local model artifact directory, SHA-256 verification, temporary
   Memory database, provider vector write, provider-vector retrieval read,
   sanitized recall report, and cleanup all passing.
+- Do not create or install a temporary Python Transformers environment for
+  this diagnostic without separate product and security approval.
 - Do not enable provider-vector retrieval by default, batch-index historical
   records, expose Desktop/UI controls, change provider visibility/default
   opt-in, write persistent model caches, download artifacts, persist or expose

@@ -61,6 +61,41 @@ helper, writing temporary vectors, or querying provider-written vectors. A
 true artifact-backed pass still requires rerunning this same diagnostic from
 an approved shell with all required gates configured.
 
+## Temporary Artifact Chained Diagnostic
+
+After separate product and security approval, a chained diagnostic runner was
+added:
+
+```powershell
+npm.cmd run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
+```
+
+The runner materializes only the approved pinned artifact set into a temporary
+directory, verifies SHA-256 digests, passes the temporary directory only through
+same-process diagnostic environment wiring, runs the existing Phase 8.25
+provider-vector retrieval acceptance path, and removes the temporary directory
+on exit.
+
+The runner reports only sanitized status, fixed reason codes, artifact count,
+aggregate artifact bytes, manifest-size match, cleanup status, and the nested
+sanitized 8.25 diagnostic result. It does not print temporary artifact paths,
+raw vectors, raw text, raw helper diagnostics, private paths, signed URLs, or
+credentials.
+
+The current local run stopped before artifact download because the resolved
+Python runtime does not have the required `torch`, `transformers`, and
+`safetensors` dependencies available:
+
+- Result: sanitized `degraded`.
+- Reason code: `runtime_dependencies_missing`.
+- Artifact materialization: `not_run`.
+- Artifact digest verification: `not_run`.
+- Cleanup: `passed`.
+
+True artifact-backed Phase 8.25 acceptance still requires a separately
+approved temporary Python Transformers environment or an already approved
+runtime with the required dependencies installed.
+
 ## Verification
 
 Completed locally on 2026-08-03:
@@ -76,6 +111,8 @@ npm.cmd run smoke:desktop
 npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector
 npm.cmd run smoke:desktop:fixture-inference
 npm.cmd run smoke:desktop:local-embedding-composition
+node --check tests/memory-provider-vector-retrieval-temporary-artifact-acceptance.mjs
+npm.cmd run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
 ```
 
 - Memory provider vector retrieval acceptance diagnostic tests: PASS, 5 tests.
@@ -88,6 +125,9 @@ npm.cmd run smoke:desktop:local-embedding-composition
 - `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Temporary artifact chained diagnostic syntax check: PASS.
+- Temporary artifact chained diagnostic local run: PASS as sanitized degraded,
+  `runtime_dependencies_missing`, before artifact download.
 
 ## Next Hard Pause
 
@@ -96,6 +136,9 @@ until the diagnostic is rerun with the approved local Python runtime, approved
 local model artifact directory, SHA-256 verification, temporary Memory
 database, provider vector write, provider-vector retrieval read, sanitized
 recall report, and cleanup all passing.
+
+Do not create or install a temporary Python Transformers environment for this
+diagnostic without separate product and security approval.
 
 Do not enable provider-vector retrieval by default, batch-index historical
 records, expose Desktop/UI controls, change provider visibility/default

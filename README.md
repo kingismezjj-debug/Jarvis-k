@@ -487,6 +487,7 @@ npm run diagnostic:local-embedding:provider-execution-acceptance
 npm run diagnostic:memory-retrieval:provider-query-vector-acceptance
 npm run diagnostic:memory-retrieval:provider-vector-write-acceptance
 npm run diagnostic:memory-retrieval:provider-vector-read-acceptance
+npm run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
 npm run acceptance:runtime-transformers:approved-artifact
 ```
 
@@ -632,6 +633,21 @@ It uses a temporary Memory database and prints only sanitized recall metadata
 and fixed reason codes. It does not batch-index historical records, expose raw
 vectors/text/paths, write persistent caches, run SQLite migrations, or change
 default behavior.
+
+The temporary-artifact Phase 8.25 chained diagnostic materializes only the
+approved pinned artifact set into a temporary directory, verifies SHA-256
+digests, and then runs the same provider-vector retrieval acceptance path in
+one process:
+
+```powershell
+npm run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
+```
+
+It never prints the temporary artifact path, raw vectors, raw text, raw helper
+diagnostics, signed URLs, or credentials, and it removes the temporary
+directory on exit. If the configured Python runtime lacks the approved
+Transformers dependencies, it stops before downloading artifacts with a
+sanitized `runtime_dependencies_missing` reason.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.

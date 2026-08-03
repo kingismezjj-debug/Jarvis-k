@@ -540,6 +540,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     migrations, change Desktop IPC/UI/provider visibility/default opt-in,
     expose raw vectors/raw text/private paths/raw diagnostics, download
     artifacts, or convert retrieval/model output into shell execution.
+78. The temporary-artifact Phase 8.25 chained diagnostic is acceptance-only.
+    It may materialize only the approved pinned local embedding artifact set
+    into a temporary directory, verify SHA-256 digests, pass that temporary
+    directory only through same-process diagnostic environment wiring, run the
+    existing provider-vector retrieval acceptance path, and remove the
+    temporary directory on exit. It does not print artifact paths, raw vectors,
+    raw text, raw helper diagnostics, signed URLs, credentials, or private
+    paths. If the configured Python runtime lacks required Transformers
+    dependencies, it fails closed before artifact download.
 
 ## Restart policy
 
