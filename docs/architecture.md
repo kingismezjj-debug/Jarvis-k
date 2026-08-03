@@ -283,6 +283,12 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     Memory, persist vectors, change provider visibility/default opt-in
     behavior, add downloads or persistent caches, expose raw diagnostics or
     private paths, or convert model output into Windows/PowerShell actions.
+55. Memory vector execution preparation remains provider-neutral in
+    `packages/memory`. Phase 8.3 defines only a proposed vector table/index
+    shape, rollback plan, vector write/query port, and fixture-only safety
+    preflight. It does not change SQLite schema, add vector indexes, persist
+    Phase 7.43 runtime vectors, alter Core default retrieval, expose UI
+    behavior, or convert retrieval output into Windows/PowerShell actions.
 
 ## Restart policy
 

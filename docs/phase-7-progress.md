@@ -1710,6 +1710,42 @@ packaging, license, benchmark, and composition gate passes.
 - Do not add SQLite vector schema/index migration, vector writes, model-backed
   retrieval, Core Host composition, or user-facing retrieval output.
 
+## Phase 8.3: Memory Vector Execution Preflight
+
+- Status: complete as a provider-neutral schema proposal, port, rollback, and
+  fixture-only safety preflight wave.
+- Added a Memory vector schema and index proposal for a future
+  `memory_embeddings` table without executing a SQLite migration or changing
+  `packages/memory-sqlite`.
+- Added a provider-neutral vector write/query port shape in `@jarvis-k/memory`
+  and validation helpers for existing retrieval DTOs.
+- Added a fail-closed preflight whose accepted status is only
+  `ready_for_migration_approval`.
+- Added fixture-only safety reporting for normal, blocked, degraded, and
+  sanitized-output cases. The report exposes only bounded counts and fixed
+  reason codes.
+- Memory schema/index migration, real vector writes, Phase 7.43 vector
+  persistence, Core default retrieval changes, UI behavior changes, raw vector
+  exposure, private path exposure, raw diagnostics exposure, and shell
+  execution from retrieval output remain disabled.
+
+### Current Gate
+
+- Memory vector execution preflight tests: PASS, 6 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not execute a SQLite schema/index migration, change
+  `packages/memory-sqlite`, write real Memory vectors, persist Phase 7.43
+  runtime vectors, route vectors into Core retrieval/product flows, change UI
+  defaults, or convert retrieval output into Windows/PowerShell operations
+  without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
