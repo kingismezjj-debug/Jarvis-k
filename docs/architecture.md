@@ -328,6 +328,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     `packages/memory-sqlite`, persist Phase 7.43 or real runtime vectors,
     route retrieval into Core/product flows, change Desktop/UI behavior, or
     expose raw vectors, raw text, private paths, or raw diagnostics.
+61. The SQLite Memory repository can query fixture-only embedding records
+    through `querySimilar(query)`. The method validates provider-neutral
+    queries, accepts only `fixture/` model IDs, reads bounded candidates from
+    schema v3 `memory_embeddings`, scores them with deterministic cosine
+    similarity in memory, and returns sanitized match metadata only. It does
+    not route retrieval into Core/product flows, connect provider execution
+    output to Memory, persist Phase 7.43 or real runtime vectors, change
+    Desktop/UI behavior, expose raw vectors or raw text, or convert
+    retrieval/model output into shell execution.
 
 ## Restart policy
 

@@ -254,7 +254,7 @@ describe("SqliteMemoryRepository", () => {
     ).toBe(true);
     expect(
       "querySimilar" in (repository as unknown as Record<string, unknown>)
-    ).toBe(false);
+    ).toBe(true);
     await repository.close();
 
     const schema = await inspectVectorSchema(filePath);
@@ -380,6 +380,171 @@ describe("SqliteMemoryRepository", () => {
     expect(serialized).not.toContain("Qwen3-Embedding");
     expect(serialized).not.toContain("0.125");
     expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+    await repository.close();
+  });
+
+  it("queries fixture embedding records with deterministic bounded similarity results", async () => {
+    const repository = new SqliteMemoryRepository({
+      now: () => new Date("2026-08-03T00:00:10.000Z")
+    });
+    await repository.initialize();
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-a", "msg-a", {
+        vector: [1, 0, 0],
+        createdAt: "2026-08-03T00:00:03.000Z"
+      })
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-b", "msg-b", {
+        vector: [0, 1, 0],
+        createdAt: "2026-08-03T00:00:01.000Z"
+      })
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-c", "msg-c", {
+        vector: [0.5, 0.5, 0],
+        createdAt: "2026-08-03T00:00:02.000Z"
+      })
+    );
+
+    const result = await repository.querySimilar({
+      modelId: "fixture/embedding",
+      vector: [1, 0, 0],
+      limit: 2,
+      minScore: 0.7
+    });
+    const serialized = JSON.stringify(result);
+
+    expect(result).toMatchObject({
+      status: "ok",
+      modelId: "fixture/embedding",
+      queryDimensions: 3,
+      generatedAt: "2026-08-03T00:00:10.000Z"
+    });
+    expect(result.matches.map((match) => match.sourceId)).toEqual([
+      "msg-a",
+      "msg-c"
+    ]);
+    expect(result.matches[0]).toMatchObject({
+      id: "embedding-a",
+      conversationId: "primary",
+      sourceType: "message",
+      modelId: "fixture/embedding",
+      score: 1,
+      createdAt: "2026-08-03T00:00:03.000Z"
+    });
+    expect(result.matches[1].score).toBeCloseTo(0.7071, 4);
+    expect(serialized).not.toContain("0.5,0.5");
+    expect(serialized).not.toContain("private memory text");
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+    await repository.close();
+  });
+
+  it("filters fixture vector queries by conversation and stable tie ordering", async () => {
+    const repository = new SqliteMemoryRepository();
+    await repository.initialize();
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-b", "msg-b", {
+        conversationId: "primary",
+        vector: [1, 0],
+        createdAt: "2026-08-03T00:00:02.000Z"
+      })
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-a", "msg-a", {
+        conversationId: "primary",
+        vector: [1, 0],
+        createdAt: "2026-08-03T00:00:01.000Z"
+      })
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-other", "msg-other", {
+        conversationId: "other",
+        vector: [1, 0],
+        createdAt: "2026-08-03T00:00:00.000Z"
+      })
+    );
+
+    const result = await repository.querySimilar({
+      modelId: "fixture/embedding",
+      vector: [1, 0],
+      limit: 5,
+      conversationId: "primary"
+    });
+
+    expect(result).toMatchObject({
+      status: "ok",
+      modelId: "fixture/embedding",
+      queryDimensions: 2
+    });
+    expect(result.matches.map((match) => match.id)).toEqual([
+      "embedding-a",
+      "embedding-b"
+    ]);
+    await repository.close();
+  });
+
+  it("degrades non-fixture and invalid vector queries with sanitized outputs", async () => {
+    const repository = new SqliteMemoryRepository();
+    await repository.initialize();
+
+    const nonFixture = await repository.querySimilar({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      vector: [1, 0, 0],
+      limit: 2
+    });
+    const invalid = await repository.querySimilar({
+      modelId: "fixture/embedding",
+      vector: [1, 0, 0],
+      limit: 0
+    });
+    const serialized = JSON.stringify({ nonFixture, invalid });
+
+    expect(nonFixture).toMatchObject({
+      status: "degraded",
+      modelId: "blocked",
+      queryDimensions: 3,
+      matches: [],
+      reasonCode: "VECTOR_NON_FIXTURE_QUERY_BLOCKED"
+    });
+    expect(invalid).toMatchObject({
+      status: "degraded",
+      modelId: "invalid",
+      queryDimensions: 1,
+      matches: [],
+      reasonCode: "VECTOR_QUERY_INVALID"
+    });
+    expect(serialized).not.toContain("Qwen3-Embedding");
+    expect(serialized).not.toContain("1,0,0");
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+    await repository.close();
+  });
+
+  it("returns empty fixture query results without exposing stored vector payloads", async () => {
+    const repository = new SqliteMemoryRepository();
+    await repository.initialize();
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-short", "msg-short", {
+        vector: [1, 0],
+        createdAt: "2026-08-03T00:00:00.000Z"
+      })
+    );
+
+    const result = await repository.querySimilar({
+      modelId: "fixture/embedding",
+      vector: [1, 0, 0],
+      limit: 5
+    });
+    const serialized = JSON.stringify(result);
+
+    expect(result).toMatchObject({
+      status: "ok",
+      modelId: "fixture/embedding",
+      queryDimensions: 3,
+      matches: []
+    });
+    expect(serialized).not.toContain("embedding-short-vector");
+    expect(serialized).not.toContain("1,0");
     await repository.close();
   });
 
@@ -820,20 +985,23 @@ function embeddingRecord(
   id: string,
   sourceId: string,
   options: {
+    conversationId?: string;
+    createdAt?: string;
     modelId?: string;
+    sourceType?: "message" | "summary";
     vector?: number[];
   } = {}
 ) {
   const vector = options.vector ?? [0.125, 0.25, 0.5];
   return {
     id,
-    conversationId: "primary",
-    sourceType: "message" as const,
+    conversationId: options.conversationId ?? "primary",
+    sourceType: options.sourceType ?? "message",
     sourceId,
     modelId: options.modelId ?? "fixture/embedding",
     dimensions: vector.length,
     vector,
-    createdAt: "2026-08-03T00:00:00.000Z"
+    createdAt: options.createdAt ?? "2026-08-03T00:00:00.000Z"
   };
 }
 

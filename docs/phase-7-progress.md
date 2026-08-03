@@ -1925,6 +1925,41 @@ packaging, license, benchmark, and composition gate passes.
   text/private paths/raw diagnostics without separate product and security
   approval.
 
+## Phase 8.9: Memory SQLite Fixture Vector Query
+
+- Status: complete as a fixture-only SQLite vector query implementation.
+- Added `querySimilar(query)` to `packages/memory-sqlite` using the
+  provider-neutral query validation and retrieval result schema from
+  `@jarvis-k/memory`.
+- The method accepts only `fixture/` model IDs, reads bounded candidates from
+  the existing schema v3 `memory_embeddings` table, deserializes vectors in
+  memory, computes deterministic cosine similarity, applies optional
+  conversation and `minScore` filters, and returns bounded match metadata.
+- Non-fixture model IDs fail closed with
+  `VECTOR_NON_FIXTURE_QUERY_BLOCKED` and a sanitized `blocked` model ID.
+  Invalid queries fail closed with `VECTOR_QUERY_INVALID`.
+- Core retrieval routing, provider execution routing, Phase 7.43 vector
+  persistence, real runtime vector persistence, Desktop IPC, UI behavior
+  changes, raw vector exposure, raw text exposure, private path exposure, raw
+  diagnostics exposure, and shell execution remain blocked.
+
+### Current Gate
+
+- SQLite memory repository tests: PASS, 22 tests.
+- `npm run build -w @jarvis-k/memory-sqlite`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 111 test files and 567 tests.
+
+### Next Hard Pause
+
+- Do not connect provider execution output to Memory writes, persist Phase
+  7.43 or real runtime vectors, route Memory retrieval into Core product
+  behavior, change Desktop/UI behavior, expose raw vectors/raw text/private
+  paths/raw diagnostics, or convert retrieval output into Windows/PowerShell
+  operations without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

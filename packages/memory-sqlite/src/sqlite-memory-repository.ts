@@ -26,10 +26,14 @@ import {
   type RecentMessageListOptions,
   type SummaryListOptions,
   type SummaryWriteInput,
+  type EmbeddingMemoryQuery,
   type EmbeddingMemoryRecord,
+  type EmbeddingMemoryRetrievalResult,
   type EmbeddingMemoryVectorWriteResult,
+  EmbeddingMemoryRetrievalResultSchema,
   cloneConversation,
   cloneMessage,
+  validateEmbeddingMemoryVectorQueryInput,
   validateEmbeddingMemoryVectorWriteInput
 } from "@jarvis-k/memory";
 
@@ -40,6 +44,28 @@ export interface SqliteMemoryRepositoryOptions {
 
 const ACTIVE_CONVERSATION_KEY = "active_conversation_id";
 const SCHEMA_VERSION = 3;
+const VECTOR_QUERY_CANDIDATE_LIMIT = 500;
+
+interface EmbeddingCandidateRow {
+  id: string;
+  conversationId: string;
+  sourceType: "message" | "summary";
+  sourceId: string;
+  modelId: string;
+  dimensions: number;
+  vectorPayload: Uint8Array;
+  createdAt: string;
+}
+
+interface ScoredEmbeddingMatch {
+  id: string;
+  conversationId: string;
+  sourceType: "message" | "summary";
+  sourceId: string;
+  modelId: string;
+  score: number;
+  createdAt: string;
+}
 
 export class SqliteMemoryRepository implements MemoryRepository {
   private sql: SqlJsStatic | undefined;
@@ -513,6 +539,56 @@ export class SqliteMemoryRepository implements MemoryRepository {
     };
   }
 
+  public async querySimilar(
+    query: EmbeddingMemoryQuery
+  ): Promise<EmbeddingMemoryRetrievalResult> {
+    const parsed = this.parseEmbeddingQuery(query);
+    if (!parsed) {
+      return this.degradedVectorQuery(
+        "VECTOR_QUERY_INVALID",
+        "invalid",
+        1
+      );
+    }
+    if (!this.isFixtureEmbeddingModel(parsed.modelId)) {
+      return this.degradedVectorQuery(
+        "VECTOR_NON_FIXTURE_QUERY_BLOCKED",
+        "blocked",
+        parsed.vector.length
+      );
+    }
+
+    try {
+      const database = await this.getDatabase();
+      if (this.readSchemaVersion(database) < 3) {
+        return this.degradedVectorQuery(
+          "VECTOR_SCHEMA_UNAVAILABLE",
+          parsed.modelId,
+          parsed.vector.length
+        );
+      }
+
+      const matches = this.scoreEmbeddingCandidates(
+        parsed,
+        this.listEmbeddingCandidates(database, parsed)
+      );
+
+      return EmbeddingMemoryRetrievalResultSchema.parse({
+        status: "ok",
+        modelId: parsed.modelId,
+        queryDimensions: parsed.vector.length,
+        matches,
+        generatedAt: this.nowIso()
+      });
+    } catch {
+      return this.degradedVectorQuery(
+        "VECTOR_QUERY_EXECUTION_FAILED",
+        parsed.modelId,
+        parsed.vector.length
+      );
+    }
+  }
+
   public async close(): Promise<void> {
     if (!this.database) {
       return;
@@ -615,8 +691,129 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
   }
 
+  private parseEmbeddingQuery(
+    query: EmbeddingMemoryQuery
+  ): EmbeddingMemoryQuery | undefined {
+    try {
+      return validateEmbeddingMemoryVectorQueryInput(query);
+    } catch {
+      return undefined;
+    }
+  }
+
   private isFixtureEmbeddingModel(modelId: string): boolean {
     return modelId.startsWith("fixture/");
+  }
+
+  private listEmbeddingCandidates(
+    database: Database,
+    query: EmbeddingMemoryQuery
+  ): EmbeddingCandidateRow[] {
+    const conversationFilter = query.conversationId
+      ? "AND conversation_id = ?"
+      : "";
+    const rows = database.exec(
+      `SELECT
+        id,
+        conversation_id,
+        source_type,
+        source_id,
+        model_id,
+        dimensions,
+        vector_payload,
+        created_at
+       FROM memory_embeddings
+       WHERE model_id = ?
+        ${conversationFilter}
+       ORDER BY created_at ASC, id ASC
+       LIMIT ${VECTOR_QUERY_CANDIDATE_LIMIT}`,
+      query.conversationId
+        ? [query.modelId, query.conversationId]
+        : [query.modelId]
+    );
+
+    return (rows[0]?.values ?? [])
+      .map((row) => this.toEmbeddingCandidateRow(row))
+      .filter((row): row is EmbeddingCandidateRow => row !== undefined);
+  }
+
+  private toEmbeddingCandidateRow(
+    row: unknown[]
+  ): EmbeddingCandidateRow | undefined {
+    if (
+      typeof row[0] !== "string" ||
+      typeof row[1] !== "string" ||
+      (row[2] !== "message" && row[2] !== "summary") ||
+      typeof row[3] !== "string" ||
+      typeof row[4] !== "string" ||
+      typeof row[5] !== "number" ||
+      !(row[6] instanceof Uint8Array) ||
+      typeof row[7] !== "string"
+    ) {
+      return undefined;
+    }
+
+    return {
+      id: row[0],
+      conversationId: row[1],
+      sourceType: row[2],
+      sourceId: row[3],
+      modelId: row[4],
+      dimensions: row[5],
+      vectorPayload: row[6],
+      createdAt: row[7]
+    };
+  }
+
+  private scoreEmbeddingCandidates(
+    query: EmbeddingMemoryQuery,
+    candidates: EmbeddingCandidateRow[]
+  ): ScoredEmbeddingMatch[] {
+    return candidates
+      .map((candidate) => this.scoreEmbeddingCandidate(query, candidate))
+      .filter((match): match is ScoredEmbeddingMatch => match !== undefined)
+      .filter((match) =>
+        query.minScore === undefined ? true : match.score >= query.minScore
+      )
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+        if (left.createdAt !== right.createdAt) {
+          return left.createdAt.localeCompare(right.createdAt);
+        }
+        return left.id.localeCompare(right.id);
+      })
+      .slice(0, query.limit);
+  }
+
+  private scoreEmbeddingCandidate(
+    query: EmbeddingMemoryQuery,
+    candidate: EmbeddingCandidateRow
+  ): ScoredEmbeddingMatch | undefined {
+    if (candidate.dimensions !== query.vector.length) {
+      return undefined;
+    }
+
+    const vector = this.deserializeEmbeddingVector(candidate.vectorPayload);
+    if (!vector || vector.length !== query.vector.length) {
+      return undefined;
+    }
+
+    const score = this.cosineSimilarity(query.vector, vector);
+    if (!Number.isFinite(score)) {
+      return undefined;
+    }
+
+    return {
+      id: candidate.id,
+      conversationId: candidate.conversationId,
+      sourceType: candidate.sourceType,
+      sourceId: candidate.sourceId,
+      modelId: candidate.modelId,
+      score,
+      createdAt: candidate.createdAt
+    };
   }
 
   private hasEmbeddingForSource(
@@ -640,6 +837,35 @@ export class SqliteMemoryRepository implements MemoryRepository {
     return new Uint8Array(payload.buffer);
   }
 
+  private deserializeEmbeddingVector(
+    payload: Uint8Array
+  ): Float32Array | undefined {
+    if (payload.byteLength % Float32Array.BYTES_PER_ELEMENT !== 0) {
+      return undefined;
+    }
+    return new Float32Array(payload.slice().buffer);
+  }
+
+  private cosineSimilarity(
+    left: ArrayLike<number>,
+    right: ArrayLike<number>
+  ): number {
+    let dot = 0;
+    let leftMagnitude = 0;
+    let rightMagnitude = 0;
+    for (let index = 0; index < left.length; index += 1) {
+      const leftValue = left[index] ?? 0;
+      const rightValue = right[index] ?? 0;
+      dot += leftValue * rightValue;
+      leftMagnitude += leftValue * leftValue;
+      rightMagnitude += rightValue * rightValue;
+    }
+    if (leftMagnitude === 0 || rightMagnitude === 0) {
+      return 0;
+    }
+    return dot / (Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude));
+  }
+
   private degradedVectorWrite(
     reasonCode: string
   ): EmbeddingMemoryVectorWriteResult {
@@ -647,6 +873,21 @@ export class SqliteMemoryRepository implements MemoryRepository {
       status: "degraded",
       reasonCode
     };
+  }
+
+  private degradedVectorQuery(
+    reasonCode: string,
+    modelId: string,
+    queryDimensions: number
+  ): EmbeddingMemoryRetrievalResult {
+    return EmbeddingMemoryRetrievalResultSchema.parse({
+      status: "degraded",
+      modelId,
+      queryDimensions,
+      matches: [],
+      reasonCode,
+      generatedAt: this.nowIso()
+    });
   }
 
   private async getConversation(
