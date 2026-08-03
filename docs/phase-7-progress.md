@@ -1746,6 +1746,42 @@ packaging, license, benchmark, and composition gate passes.
   defaults, or convert retrieval output into Windows/PowerShell operations
   without separate product and security approval.
 
+## Phase 8.4: Memory Vector Migration Preflight
+
+- Status: complete as a provider-neutral, review-only migration
+  implementation approval handoff.
+- Added a future SQLite migration review plan for the proposed
+  `memory_embeddings` table and indexes without implementing or executing a
+  migration.
+- Added a fail-closed preflight whose accepted status is only
+  `ready_for_sqlite_migration_implementation_approval`.
+- Added fixture-only safety reporting for normal, blocked, degraded, and
+  sanitized-output cases. The report exposes only bounded counts and fixed
+  reason codes.
+- SQLite migration implementation, migration execution, index creation,
+  `packages/memory-sqlite` changes, vector writes, real vector persistence,
+  Phase 7.43 vector persistence, Core retrieval behavior changes, UI behavior
+  changes, raw vector exposure, private path exposure, raw diagnostics
+  exposure, and shell execution remain disabled.
+
+### Current Gate
+
+- Memory vector migration preflight tests: PASS, 6 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not create/modify SQLite migrations, change `packages/memory-sqlite`,
+  execute schema/index migration, persist real vectors, persist Phase 7.43
+  runtime vectors, connect vector writes or queries to Core retrieval/product
+  flows, change UI defaults, or convert retrieval output into
+  Windows/PowerShell operations without separate product and security
+  approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

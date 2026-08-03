@@ -289,6 +289,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     preflight. It does not change SQLite schema, add vector indexes, persist
     Phase 7.43 runtime vectors, alter Core default retrieval, expose UI
     behavior, or convert retrieval output into Windows/PowerShell actions.
+56. Memory vector migration preparation has a separate review-only approval
+    handoff. Phase 8.4 can mark a future SQLite migration implementation plan,
+    rollback plan, backup/restore plan, health check plan, export/import
+    regression plan, and fixture safety tests as ready for separate approval,
+    but it does not implement or execute a migration, change
+    `packages/memory-sqlite`, create indexes, write vectors, persist Phase
+    7.43 runtime vectors, alter Core/UI behavior, or expose raw vectors,
+    private paths, or raw diagnostics.
 
 ## Restart policy
 
