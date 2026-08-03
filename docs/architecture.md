@@ -297,6 +297,13 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     `packages/memory-sqlite`, create indexes, write vectors, persist Phase
     7.43 runtime vectors, alter Core/UI behavior, or expose raw vectors,
     private paths, or raw diagnostics.
+57. The SQLite Memory schema can create the Phase 8.5 vector table and indexes
+    at schema version 3 inside `packages/memory-sqlite`. This is schema
+    readiness only: no vector write/query repository API is exposed, snapshots
+    remain provider-neutral, restore clears vector rows, Phase 7.43 runtime
+    vectors are not persisted, Core/UI behavior is unchanged, and raw vectors,
+    private paths, raw diagnostics, and model-output command conversion remain
+    blocked.
 
 ## Restart policy
 

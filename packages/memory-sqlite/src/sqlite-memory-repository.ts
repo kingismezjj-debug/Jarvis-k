@@ -36,7 +36,7 @@ export interface SqliteMemoryRepositoryOptions {
 }
 
 const ACTIVE_CONVERSATION_KEY = "active_conversation_id";
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 export class SqliteMemoryRepository implements MemoryRepository {
   private sql: SqlJsStatic | undefined;
@@ -371,6 +371,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
     database.run("BEGIN IMMEDIATE TRANSACTION");
     try {
       database.run("DELETE FROM memory_settings");
+      database.run("DELETE FROM memory_embeddings");
       database.run("DELETE FROM summaries");
       database.run("DELETE FROM messages");
       database.run("DELETE FROM conversations");
@@ -500,6 +501,20 @@ export class SqliteMemoryRepository implements MemoryRepository {
         ON summaries (conversation_id, updated_at, id);
       CREATE INDEX IF NOT EXISTS idx_summaries_order
         ON summaries (updated_at, id);
+      CREATE TABLE IF NOT EXISTS memory_embeddings (
+        id TEXT PRIMARY KEY NOT NULL,
+        conversation_id TEXT NOT NULL,
+        source_type TEXT NOT NULL CHECK (source_type IN ('message', 'summary')),
+        source_id TEXT NOT NULL,
+        model_id TEXT NOT NULL,
+        dimensions INTEGER NOT NULL CHECK (dimensions >= 1 AND dimensions <= 8192),
+        vector_payload BLOB NOT NULL CHECK (length(vector_payload) > 0),
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_memory_embeddings_model_conversation
+        ON memory_embeddings (model_id, conversation_id, created_at, id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_embeddings_source
+        ON memory_embeddings (model_id, source_type, source_id);
     `);
 
     const version = this.readSchemaVersion(database);

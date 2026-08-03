@@ -1782,6 +1782,41 @@ packaging, license, benchmark, and composition gate passes.
   Windows/PowerShell operations without separate product and security
   approval.
 
+## Phase 8.5: Memory SQLite Vector Migration
+
+- Status: complete as a SQLite schema migration implementation wave.
+- Upgraded `packages/memory-sqlite` to schema version 3.
+- Added the `memory_embeddings` table with guarded source type, dimensions,
+  non-empty payload, and source uniqueness constraints.
+- Added the approved vector indexes:
+  `idx_memory_embeddings_model_conversation` and
+  `idx_memory_embeddings_source`.
+- Preserved existing messages, conversations, summaries, and active
+  conversation state during v1/v2 upgrades.
+- Snapshot export remains provider-neutral and excludes vector rows. Snapshot
+  restore clears `memory_embeddings` to avoid stale or orphaned vector rows.
+- Vector write APIs, vector query/retrieval APIs, Phase 7.43 vector
+  persistence, Core retrieval/product flow routing, UI behavior changes, raw
+  vector exposure, private path exposure, raw diagnostics exposure, and shell
+  execution remain disabled.
+
+### Current Gate
+
+- SQLite memory repository tests: PASS, 15 tests.
+- `npm run build -w @jarvis-k/memory-sqlite`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS.
+
+### Next Hard Pause
+
+- Do not add vector write/query repository APIs, persist Phase 7.43 runtime
+  vectors, connect vector writes or queries to Core retrieval/product flows,
+  change UI defaults/provider visibility, expose raw vectors/private paths/raw
+  diagnostics, or convert retrieval output into Windows/PowerShell operations
+  without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
