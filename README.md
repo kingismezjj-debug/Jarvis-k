@@ -16,7 +16,8 @@ Memory Retrieval Routing Approval Gate plus Phase 8.12 Core Memory Retrieval
 Read Routing plus Phase 8.13 Core Host Memory Retrieval Env Wiring Approval
 Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring plus Phase
 8.15 Provider Query Vector Approval Gate plus Phase 8.16 Provider-Backed Query
-Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight**: the
+Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight plus Phase
+8.18 Provider Query Vector Acceptance Diagnostic**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -117,6 +118,15 @@ ports, installability policy, resource diagnostics, dry-run model install
   helper `embed`, raw vectors, vector persistence, Memory vector writes,
   Desktop/UI changes, provider visibility/default opt-in changes, SQLite
   migrations, and shell execution remain blocked pending separate approval.
+  Phase 8.18 adds the approved one-shot Core Host acceptance diagnostic for
+  that product path behind
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE=1` plus
+  the existing retrieval/provider execution gates. It verifies pinned local
+  artifacts before helper load/embed and reports only sanitized recall
+  metadata; Memory vector writes, vector persistence, Desktop/UI changes,
+  provider visibility/default opt-in changes, SQLite migrations, downloads,
+  persistent caches, raw vector/text/diagnostic exposure, and shell execution
+  remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -298,6 +308,12 @@ They are not runtime dependencies.
   persistence, Memory vector writes, Desktop/UI changes, provider
   visibility/default opt-in changes, SQLite migrations, and shell execution
   remain deferred
+- Phase 8.18 provider query vector acceptance diagnostic: explicit opt-in Core
+  Host one-shot diagnostic runner complete for the Phase 8.16 product path;
+  Memory vector writes, vector persistence, Desktop/UI changes, provider
+  visibility/default opt-in changes, SQLite migrations, downloads, persistent
+  caches, raw vector/text/diagnostic exposure, and shell execution remain
+  deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -376,6 +392,7 @@ npm run smoke:runtime-transformers
 npm run smoke:runtime-transformers:fixture
 npm run diagnostic:local-embedding:helper-embed
 npm run diagnostic:local-embedding:provider-execution-acceptance
+npm run diagnostic:memory-retrieval:provider-query-vector-acceptance
 npm run acceptance:runtime-transformers:approved-artifact
 ```
 
@@ -430,6 +447,24 @@ npm run diagnostic:local-embedding:provider-execution-acceptance
 
 It uses temporary memory/model lifecycle paths and prints only a sanitized
 pass/degraded/fail report.
+
+The Phase 8.18 provider-backed Memory retrieval query-vector acceptance
+diagnostic verifies the Phase 8.16 product path through `agent.sendMessage`:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+npm run diagnostic:memory-retrieval:provider-query-vector-acceptance
+```
+
+It uses temporary memory/model lifecycle paths and prints only sanitized recall
+metadata and fixed reason codes. It does not write Memory vectors or persist
+runtime vectors.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
@@ -530,6 +565,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.15 provider query vector approval gate](docs/phase-8-15-provider-query-vector-approval-gate.md)
 - [Phase 8.16 provider-backed query vector](docs/phase-8-16-provider-backed-query-vector.md)
 - [Phase 8.17 provider query vector acceptance preflight](docs/phase-8-17-provider-query-vector-acceptance-preflight.md)
+- [Phase 8.18 provider query vector acceptance diagnostic](docs/phase-8-18-provider-query-vector-acceptance-diagnostic.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

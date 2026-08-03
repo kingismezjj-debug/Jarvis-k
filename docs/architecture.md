@@ -432,6 +432,19 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     or default opt-in, expose raw text, private paths, signed URLs,
     credentials, or raw diagnostics, or convert retrieval/model output into
     shell execution.
+70. The provider-backed Memory retrieval query-vector acceptance diagnostic is
+    implemented only as a one-shot Core Host runner behind
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE=1` plus
+    the existing Memory retrieval, provider query-vector, local embedding
+    provider, and provider execution opt-ins. Phase 8.18 verifies the approved
+    local artifact digest set before product-path execution, sends one fixed
+    `agent.sendMessage`, reads only sanitized `memoryRecall` metadata, and
+    cleans up its temporary memory/model lifecycle paths. It does not write
+    Memory vector records, persist Phase 7.43 or real runtime vectors, run
+    SQLite migrations, change Desktop IPC or UI behavior, change provider
+    visibility or default opt-in, expose raw vectors, raw text, private paths,
+    signed URLs, credentials, or raw diagnostics, or convert retrieval/model
+    output into shell execution.
 
 ## Restart policy
 

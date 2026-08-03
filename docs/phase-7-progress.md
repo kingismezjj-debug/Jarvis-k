@@ -2303,6 +2303,65 @@ packaging, license, benchmark, and composition gate passes.
   or convert retrieval/model output into Windows/PowerShell operations without
   separate product and security approval.
 
+## Phase 8.18: Provider Query Vector Acceptance Diagnostic
+
+- Status: complete as an explicit opt-in Core Host one-shot diagnostic runner.
+- Added
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_ACCEPTANCE=1` as the
+  separate acceptance diagnostic opt-in after Phase 8.17 approval.
+- The diagnostic also requires
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1`,
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR=1`,
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`,
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1`, an approved
+  `JARVIS_K_RUNTIME_PYTHON`, and an approved
+  `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR`.
+- The runner verifies the pinned local artifact SHA-256 set before product-path
+  execution, starts Core Host with temporary memory/model lifecycle paths,
+  sends one fixed `agent.sendMessage`, and reads only sanitized `memoryRecall`
+  metadata from the command result.
+- The report exposes only status, fixed reason codes, recall status, recall
+  mode, recall match count, query dimension count, cleanup status, and unsafe
+  side-effect flags.
+- When approval, opt-in, runtime, model, artifact, or product-path gates are
+  missing, the diagnostic fails closed as `degraded` or `blocked` without raw
+  diagnostics, private paths, raw text, raw vectors, or artifact digests.
+- Added `npm.cmd run
+  diagnostic:memory-retrieval:provider-query-vector-acceptance` as the
+  sanitized local runner.
+- Memory vector writes, Phase 7.43 vector persistence, real runtime vector
+  persistence, SQLite schema/index changes, Desktop IPC changes, UI/default
+  opt-in changes, provider visibility changes, fixture fallback changes, raw
+  vector exposure, raw text exposure, private path exposure, raw diagnostics
+  exposure, downloads, persistent cache writes, and shell execution remain
+  blocked.
+
+### Current Gate
+
+- Memory retrieval provider query-vector acceptance diagnostic tests: PASS, 5
+  tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run diagnostic:memory-retrieval:provider-query-vector-acceptance`
+  without local opt-ins: DEGRADED safely with
+  `acceptance_opt_in_missing`; no Core Host product command was called and no
+  artifact digest verification was run.
+- `npm.cmd run verify`: PASS, 118 test files and 609 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+
+### Next Hard Pause
+
+- Do not write Memory vector records from real provider output, persist Phase
+  7.43 or real runtime vectors, run additional real-provider acceptance beyond
+  this diagnostic, use real provider vectors as stored Memory index data, add
+  Desktop IPC/UI controls for Memory retrieval, change provider visibility or
+  default opt-in behavior, change SQLite schema/indexes, expose raw
+  vectors/raw text/private paths/raw diagnostics, or convert retrieval/model
+  output into Windows/PowerShell operations without separate product and
+  security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
