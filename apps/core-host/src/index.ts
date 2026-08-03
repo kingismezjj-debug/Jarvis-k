@@ -254,7 +254,10 @@ const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
 });
 const memoryRetrievalEnvWiring = createCoreHostMemoryRetrievalEnvWiring({
   env: process.env,
-  memoryRepository
+  memoryRepository,
+  ...(localEmbeddingComposition.embeddingProvider === undefined
+    ? {}
+    : { embeddingProvider: localEmbeddingComposition.embeddingProvider })
 });
 const voiceEngine = new VoiceEngine({
   provider:

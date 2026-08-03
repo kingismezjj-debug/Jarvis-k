@@ -404,6 +404,20 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     migrations, change Desktop IPC or UI behavior, change provider visibility,
     fixture fallback, or default opt-in, expose raw text, private paths, or
     raw diagnostics, or convert retrieval/model output into shell execution.
+68. Core Host can resolve Memory retrieval query vectors through the existing
+    runtime-backed local embedding provider only when
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1`,
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR=1`,
+    `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`, and
+    `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1` are all explicitly
+    enabled. Phase 8.16 keeps the Memory query indexed under the fixture model
+    ID, uses bounded sanitized query text, validates the returned vector
+    shape and finite values, and fail-closes to no-recall degradation on any
+    provider or validation failure. It does not write Memory vector records,
+    persist Phase 7.43 or real runtime vectors, run SQLite migrations, change
+    Desktop IPC or UI behavior, change provider visibility, fixture fallback,
+    or default opt-in, expose raw vectors, raw text, private paths, or raw
+    diagnostics, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 

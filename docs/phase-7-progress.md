@@ -2207,6 +2207,60 @@ packaging, license, benchmark, and composition gate passes.
   output into Windows/PowerShell operations without separate product and
   security approval.
 
+## Phase 8.16: Provider-Backed Query Vector
+
+- Status: complete as an explicit opt-in Core Host implementation.
+- Added `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR=1` as a
+  separate provider-backed query-vector opt-in for Memory retrieval.
+- The provider-backed resolver is available only when
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1`,
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER=1`, and
+  `JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION=1` are also set.
+- Extended the Core retrieval resolver context with bounded sanitized
+  `queryText`; raw message text still does not enter command results, events,
+  snapshots, smoke reports, or docs.
+- Core Host validates provider query text, uses the existing local embedding
+  provider execution path, bounds provider query-vector generation with a
+  timeout guard, validates a single finite vector shape, and returns only a
+  copied vector to `SqliteMemoryRepository.querySimilar(query)`.
+- The Memory query remains fixture-indexed under
+  `fixture/core-host-memory-retrieval`; this phase does not store real
+  provider vectors in Memory.
+- If any opt-in, provider execution, timeout, text, vector, or retrieval
+  validation fails, the route degrades to sanitized no-recall and normal
+  message acceptance continues.
+- Memory vector writes, Phase 7.43 vector persistence, real runtime vector
+  persistence, SQLite schema/index changes, Desktop IPC changes, UI/default
+  opt-in changes, provider visibility changes, fixture fallback changes, raw
+  vector exposure, raw text exposure, private path exposure, raw diagnostics
+  exposure, and shell execution remain blocked.
+
+### Current Gate
+
+- Core Host Memory retrieval env wiring and provider query-vector tests:
+  PASS, 6 tests.
+- Core runtime Memory retrieval routing regression tests: PASS, 33 tests.
+- Memory retrieval provider query-vector approval gate regression tests:
+  PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core`: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 116 test files and 599 tests.
+- `npm.cmd run smoke:desktop`: PASS.
+
+### Next Hard Pause
+
+- Do not write Memory vector records from real provider output, persist Phase
+  7.43 or real runtime vectors, use real provider vectors as stored Memory
+  index data, add Desktop IPC/UI controls for Memory retrieval, change
+  provider visibility/default opt-in behavior, change SQLite schema/indexes,
+  expose raw vectors/raw text/private paths/raw diagnostics, or convert
+  retrieval/model output into Windows/PowerShell operations without separate
+  product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

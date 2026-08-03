@@ -75,6 +75,7 @@ export interface CoreMemoryRetrievalRoutingQueryContext {
   messageId: string;
   conversationId: string;
   createdAt: string;
+  queryText?: string;
 }
 
 export interface CoreMemoryRetrievalRoutingOptions {
@@ -954,10 +955,12 @@ export class CoreRuntime {
     }
 
     try {
+      const queryText = this.sanitizeMemoryRetrievalQueryText(message.text);
       const vector = await this.memoryRetrievalRouting.resolveQueryVector({
         messageId: message.id,
         conversationId: message.conversationId,
-        createdAt: message.createdAt
+        createdAt: message.createdAt,
+        ...(queryText === undefined ? {} : { queryText })
       });
       if (!this.isValidMemoryRetrievalQueryVector(vector)) {
         return this.degradedMemoryRecall("MEMORY_RETRIEVAL_QUERY_INVALID");
@@ -1076,6 +1079,16 @@ export class CoreRuntime {
       score: match.score,
       createdAt: match.createdAt
     };
+  }
+
+  private sanitizeMemoryRetrievalQueryText(text: string): string | undefined {
+    const sanitized = text
+      .replace(/[\u0000-\u001f\u007f]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .slice(0, 2_000)
+      .trim();
+    return sanitized.length > 0 ? sanitized : undefined;
   }
 
   private async executeInferenceOperation<T>(

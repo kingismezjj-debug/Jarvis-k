@@ -1264,7 +1264,8 @@ describe("CoreRuntime", () => {
     expect(observedContext).toEqual({
       messageId: expect.stringMatching(/^msg-/u),
       conversationId: "primary",
-      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/u)
+      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/u),
+      queryText: "This message text must not appear in recall"
     });
     expect(retrievalPort.calls).toBe(1);
     expect(retrievalPort.lastQuery).toEqual({
