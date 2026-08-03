@@ -320,6 +320,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     API, persist Phase 7.43 or real runtime vectors, route provider execution
     output to Memory, change Core/Desktop/UI behavior, expose raw vectors or
     private paths, or convert retrieval/model output into shell execution.
+60. SQLite vector query implementation has a separate review-only approval
+    handoff. Phase 8.8 can review the future `querySimilar(query)` method,
+    vector deserialization plan, fixture-only cosine scoring, bounded result
+    ordering, sanitized failure mapping, and fixture safety tests, but it does
+    not implement query methods, enable retrieval execution, change
+    `packages/memory-sqlite`, persist Phase 7.43 or real runtime vectors,
+    route retrieval into Core/product flows, change Desktop/UI behavior, or
+    expose raw vectors, raw text, private paths, or raw diagnostics.
 
 ## Restart policy
 

@@ -9,7 +9,8 @@ Preflight plus Phase 7.42 Provider Execution Wiring plus Phase 7.43 Provider
 Execution Acceptance Diagnostic plus Phase 8.3 Memory Vector Execution
 Preflight plus Phase 8.4 Memory Vector Migration Preflight plus Phase 8.5
 Memory SQLite Vector Migration plus Phase 8.6 Memory Vector Write
-Preflight plus Phase 8.7 Memory SQLite Fixture Vector Write**: the
+Preflight plus Phase 8.7 Memory SQLite Fixture Vector Write plus Phase 8.8
+Memory Vector Query Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -61,7 +62,11 @@ ports, installability policy, resource diagnostics, dry-run model install
   and stores vector payloads behind sanitized result codes; vector
   query/retrieval APIs, real/Phase 7.43 vector persistence, Core routing,
   provider execution routing, UI behavior changes, and shell execution remain
-  blocked.
+  blocked. Phase 8.8 adds only a review-only preflight for a future SQLite
+  `querySimilar(query)` implementation; query execution, SQLite query methods,
+  Core retrieval routing, provider execution routing, UI behavior changes,
+  real vector persistence, raw vector/text exposure, and shell execution
+  remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -191,6 +196,10 @@ They are not runtime dependencies.
   `packages/memory-sqlite`; query/retrieval APIs, real vector persistence,
   Core routing, provider execution routing, UI behavior changes, and shell
   execution remain deferred
+- Phase 8.8 memory vector query preflight: review-only SQLite
+  `querySimilar(query)` implementation approval handoff complete; query
+  execution, SQLite query methods, Core retrieval routing, provider execution
+  routing, UI behavior changes, and real vector persistence remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -413,6 +422,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.5 memory SQLite vector migration](docs/phase-8-5-memory-sqlite-vector-migration.md)
 - [Phase 8.6 memory vector write preflight](docs/phase-8-6-memory-vector-write-preflight.md)
 - [Phase 8.7 memory SQLite fixture vector write](docs/phase-8-7-memory-sqlite-fixture-vector-write.md)
+- [Phase 8.8 memory vector query preflight](docs/phase-8-8-memory-vector-query-preflight.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

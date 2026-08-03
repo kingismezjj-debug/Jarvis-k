@@ -1887,6 +1887,44 @@ packaging, license, benchmark, and composition gate passes.
   expose raw vectors/private paths/raw diagnostics without separate product
   and security approval.
 
+## Phase 8.8: Memory Vector Query Preflight
+
+- Status: complete as a SQLite vector query API implementation approval
+  handoff.
+- Added a provider-neutral query implementation preflight in
+  `@jarvis-k/memory` for a future `packages/memory-sqlite`
+  `querySimilar(query)` method.
+- The preflight reviews the Phase 8.5 schema prerequisite, Phase 8.7
+  fixture-only write prerequisite, provider-neutral query port, SQLite
+  implementation plan, vector deserialization plan, fixture-only cosine
+  scoring, bounded result ordering, sanitized failure mapping, and
+  fixture-only query safety tests.
+- The accepted status is only
+  `ready_for_sqlite_query_implementation_approval`.
+- Query API implementation, vector query execution, `packages/memory-sqlite`
+  changes, Phase 7.43 vector persistence, real runtime vector persistence,
+  Core retrieval routing, provider execution routing, Desktop IPC, UI behavior
+  changes, raw vector exposure, raw text exposure, private path exposure, raw
+  diagnostics exposure, and shell execution remain blocked.
+
+### Current Gate
+
+- Memory vector query preflight tests: PASS, 6 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm run check:boundaries`: PASS.
+- `npm run check:sensitive-artifacts`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run verify`: PASS, 111 test files and 563 tests.
+
+### Next Hard Pause
+
+- Do not implement `querySimilar(query)` in `packages/memory-sqlite`, enable
+  vector query execution, persist Phase 7.43 or real runtime vectors, connect
+  provider execution output to Memory writes, route retrieval into Core
+  product behavior, change Desktop/UI behavior, or expose raw vectors/raw
+  text/private paths/raw diagnostics without separate product and security
+  approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
