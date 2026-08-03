@@ -55,13 +55,59 @@ import type {
   ModelRuntimeRegistry,
   ResourceScheduler
 } from "@jarvis-k/capabilities";
-import type { MemoryRepository } from "@jarvis-k/memory";
+import {
+  EmbeddingMemoryRetrievalResultSchema,
+  type EmbeddingMemoryMatch,
+  type EmbeddingMemoryRetrievalPort,
+  type MemoryRepository
+} from "@jarvis-k/memory";
 import type {
   VoiceActionResult,
   VoiceEnginePort
 } from "@jarvis-k/voice";
 
 type EventSink = (event: EventEnvelope) => void;
+
+const MEMORY_RETRIEVAL_ROUTING_LIMIT = 5;
+const MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX = "fixture/";
+
+export interface CoreMemoryRetrievalRoutingQueryContext {
+  messageId: string;
+  conversationId: string;
+  createdAt: string;
+}
+
+export interface CoreMemoryRetrievalRoutingOptions {
+  enabled: boolean;
+  modelId: string;
+  limit?: number;
+  minScore?: number;
+  resolveQueryVector(
+    context: CoreMemoryRetrievalRoutingQueryContext
+  ): readonly number[] | Promise<readonly number[]>;
+}
+
+export interface CoreMemoryRecallMatch {
+  id: string;
+  conversationId: string;
+  sourceType: "message" | "summary";
+  sourceId: string;
+  modelId: string;
+  score: number;
+  createdAt: string;
+}
+
+export interface CoreMemoryRecallObservation {
+  status: "ok" | "degraded";
+  mode: "fixture_only";
+  injectedIntoTurnAssembly: boolean;
+  modelId: string;
+  queryDimensions: number;
+  matchCount: number;
+  matches: CoreMemoryRecallMatch[];
+  generatedAt: string;
+  reasonCode?: string;
+}
 
 export class CoreRuntime {
   private readonly coreInstanceId = createId("core");
@@ -96,7 +142,9 @@ export class CoreRuntime {
     private readonly embeddingInferenceProvider?: EmbeddingInferenceProvider,
     private readonly intentRoutingProvider?: IntentRoutingProvider,
     private readonly ocrRecognitionProvider?: OcrRecognitionProvider,
-    private readonly rerankingProvider?: RerankingProvider
+    private readonly rerankingProvider?: RerankingProvider,
+    private readonly embeddingMemoryRetrievalPort?: EmbeddingMemoryRetrievalPort,
+    private readonly memoryRetrievalRouting?: CoreMemoryRetrievalRoutingOptions
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -838,10 +886,13 @@ export class CoreRuntime {
           },
           envelope.correlationId
         );
+        const memoryRecall =
+          await this.retrieveMemoryRecallForAcceptedMessage(message);
         this.publishSnapshot(envelope.correlationId);
         return this.success(envelope, {
           accepted: true,
-          messageId: message.id
+          messageId: message.id,
+          ...(memoryRecall ? { memoryRecall } : {})
         });
       }
 
@@ -882,6 +933,149 @@ export class CoreRuntime {
       correlationId
     );
     this.publishSnapshot(correlationId);
+  }
+
+  private async retrieveMemoryRecallForAcceptedMessage(
+    message: Message
+  ): Promise<CoreMemoryRecallObservation | undefined> {
+    if (this.memoryRetrievalRouting?.enabled !== true) {
+      return undefined;
+    }
+
+    const modelId = this.memoryRetrievalRouting.modelId;
+    if (!modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX)) {
+      return this.degradedMemoryRecall(
+        "MEMORY_RETRIEVAL_NON_FIXTURE_MODEL_BLOCKED"
+      );
+    }
+
+    if (!this.embeddingMemoryRetrievalPort) {
+      return this.degradedMemoryRecall("MEMORY_RETRIEVAL_PORT_UNAVAILABLE");
+    }
+
+    try {
+      const vector = await this.memoryRetrievalRouting.resolveQueryVector({
+        messageId: message.id,
+        conversationId: message.conversationId,
+        createdAt: message.createdAt
+      });
+      if (!this.isValidMemoryRetrievalQueryVector(vector)) {
+        return this.degradedMemoryRecall("MEMORY_RETRIEVAL_QUERY_INVALID");
+      }
+
+      const result = EmbeddingMemoryRetrievalResultSchema.parse(
+        await this.embeddingMemoryRetrievalPort.retrieve({
+          modelId,
+          vector: [...vector],
+          limit: this.memoryRetrievalLimit(),
+          ...(this.memoryRetrievalRouting.minScore === undefined
+            ? {}
+            : { minScore: this.memoryRetrievalRouting.minScore }),
+          conversationId: message.conversationId
+        })
+      );
+      if (!result.modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX)) {
+        return this.degradedMemoryRecall(
+          "MEMORY_RETRIEVAL_NON_FIXTURE_RESULT_BLOCKED"
+        );
+      }
+
+      if (result.status === "degraded") {
+        return this.degradedMemoryRecall(
+          this.sanitizeMemoryRecallReasonCode(result.reasonCode),
+          this.sanitizeMemoryRecallModelId(result.modelId),
+          result.queryDimensions,
+          result.generatedAt
+        );
+      }
+
+      const matches = result.matches
+        .slice(0, MEMORY_RETRIEVAL_ROUTING_LIMIT)
+        .map((match) => this.sanitizeMemoryRecallMatch(match));
+      return {
+        status: "ok",
+        mode: "fixture_only",
+        injectedIntoTurnAssembly: matches.length > 0,
+        modelId: result.modelId,
+        queryDimensions: result.queryDimensions,
+        matchCount: matches.length,
+        matches,
+        generatedAt: result.generatedAt
+      };
+    } catch {
+      return this.degradedMemoryRecall("MEMORY_RETRIEVAL_ROUTING_FAILED");
+    }
+  }
+
+  private memoryRetrievalLimit(): number {
+    const limit = this.memoryRetrievalRouting?.limit;
+    if (typeof limit !== "number" || !Number.isInteger(limit)) {
+      return MEMORY_RETRIEVAL_ROUTING_LIMIT;
+    }
+    return Math.max(1, Math.min(MEMORY_RETRIEVAL_ROUTING_LIMIT, limit));
+  }
+
+  private isValidMemoryRetrievalQueryVector(
+    vector: readonly number[]
+  ): boolean {
+    return (
+      Array.isArray(vector) &&
+      vector.length > 0 &&
+      vector.length <= 8192 &&
+      vector.every((value) => Number.isFinite(value))
+    );
+  }
+
+  private degradedMemoryRecall(
+    reasonCode: string | undefined,
+    modelId = "blocked",
+    queryDimensions = 0,
+    generatedAt = this.now().toISOString()
+  ): CoreMemoryRecallObservation {
+    return {
+      status: "degraded",
+      mode: "fixture_only",
+      injectedIntoTurnAssembly: false,
+      modelId,
+      queryDimensions,
+      matchCount: 0,
+      matches: [],
+      generatedAt,
+      reasonCode:
+        this.sanitizeMemoryRecallReasonCode(reasonCode) ??
+        "MEMORY_RETRIEVAL_ROUTING_DEGRADED"
+    };
+  }
+
+  private sanitizeMemoryRecallReasonCode(
+    reasonCode: string | undefined
+  ): string | undefined {
+    if (!reasonCode) {
+      return undefined;
+    }
+    return /^[A-Z0-9_]{1,128}$/u.test(reasonCode)
+      ? reasonCode
+      : "MEMORY_RETRIEVAL_ROUTING_DEGRADED";
+  }
+
+  private sanitizeMemoryRecallModelId(modelId: string): string {
+    return modelId.startsWith(MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX)
+      ? modelId
+      : "blocked";
+  }
+
+  private sanitizeMemoryRecallMatch(
+    match: EmbeddingMemoryMatch
+  ): CoreMemoryRecallMatch {
+    return {
+      id: match.id,
+      conversationId: match.conversationId,
+      sourceType: match.sourceType,
+      sourceId: match.sourceId,
+      modelId: match.modelId,
+      score: match.score,
+      createdAt: match.createdAt
+    };
   }
 
   private async executeInferenceOperation<T>(

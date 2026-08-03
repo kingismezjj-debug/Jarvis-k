@@ -355,6 +355,18 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     or default opt-in, persist Phase 7.43 or real runtime vectors, expose raw
     vectors, raw text, private paths, or raw diagnostics, or convert
     retrieval/model output into shell execution.
+64. `CoreRuntime` can perform an opt-in fixture-only Memory retrieval read
+    after `agent.sendMessage` accepts a user message. Phase 8.12 uses only an
+    injected `EmbeddingMemoryRetrievalPort` and an injected fixture query
+    vector resolver, accepts only `fixture/` model IDs, bounds recall matches
+    to five sanitized metadata entries, and fail-closes to no-recall degraded
+    observations without blocking message acceptance. It does not read raw
+    message text for vector generation, call provider execution, write Memory
+    vectors, persist Phase 7.43 or real runtime vectors, change the
+    `MemoryRepository` contract, change Core Host composition, change Desktop
+    IPC or UI behavior, change provider visibility or default opt-in, expose
+    raw vectors, raw text, private paths, or raw diagnostics, or convert
+    retrieval/model output into shell execution.
 
 ## Restart policy
 

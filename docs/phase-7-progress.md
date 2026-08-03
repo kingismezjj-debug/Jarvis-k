@@ -2030,6 +2030,52 @@ packaging, license, benchmark, and composition gate passes.
   Memory repository contract, or expose raw vectors/raw text/private
   paths/raw diagnostics without separate product and security approval.
 
+## Phase 8.12: Core Memory Retrieval Read Routing
+
+- Status: complete as an opt-in fixture-only Core read-routing
+  implementation.
+- Added a disabled-by-default Memory retrieval read route to `CoreRuntime`
+  after `agent.sendMessage` accepts a user message.
+- The route requires an injected Core option equivalent to
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1`, an injected
+  `EmbeddingMemoryRetrievalPort`, and an injected fixture query vector
+  resolver.
+- The resolver receives only message metadata (`messageId`, `conversationId`,
+  `createdAt`) and does not receive raw message text.
+- The route accepts only `fixture/` model IDs, validates finite bounded query
+  vectors, clamps recall to at most five matches, and returns sanitized recall
+  metadata only in the command result.
+- Disabled routing preserves the previous `agent.sendMessage` response shape.
+- Retrieval failures, invalid vectors, non-fixture model IDs, unavailable
+  ports, degraded provider-neutral results, and unexpected errors degrade to
+  sanitized no-recall observations without blocking message acceptance.
+- Provider execution routing, vector writes, Phase 7.43 vector persistence,
+  real runtime vector persistence, SQLite schema/index changes, Memory
+  repository contract changes, Core Host env wiring, Desktop IPC changes,
+  UI/default opt-in changes, provider visibility changes, raw vector exposure,
+  raw text exposure, private path exposure, raw diagnostics exposure, and
+  shell execution remain blocked.
+
+### Current Gate
+
+- Core runtime Memory retrieval routing tests: PASS, 6 tests.
+- Core memory retrieval approval gate regression tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 113 test files and 583 tests.
+
+### Next Hard Pause
+
+- Do not wire `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING` from
+  `apps/core-host`, add Desktop IPC or UI controls, route provider execution
+  output into Memory, persist Phase 7.43 or real runtime vectors, write real
+  Memory vector data, change SQLite schema/indexes, expose raw vectors/raw
+  text/private paths/raw diagnostics, or convert retrieval/model output into
+  Windows/PowerShell operations without separate product and security
+  approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

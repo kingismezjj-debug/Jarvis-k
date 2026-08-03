@@ -46,6 +46,8 @@ import { InMemoryModelOperationSupervisor } from "@jarvis-k/capabilities";
 import type {
   Conversation,
   ConversationCreateInput,
+  EmbeddingMemoryRetrievalPort,
+  EmbeddingMemoryRetrievalResult,
   ConversationListOptions,
   ConversationUpdateInput,
   MemoryHealth,
@@ -62,7 +64,10 @@ import type {
   VoiceActionResult,
   VoiceEnginePort
 } from "@jarvis-k/voice";
-import { CoreRuntime } from "../src/runtime";
+import {
+  CoreRuntime,
+  type CoreMemoryRetrievalRoutingOptions
+} from "../src/runtime";
 
 class FakeVoiceEngine implements VoiceEnginePort {
   private eventSink: ((event: VoiceEvent) => void) | undefined;
@@ -854,6 +859,47 @@ class FakeRerankingProvider implements RerankingProvider {
   }
 }
 
+class FakeEmbeddingMemoryRetrievalPort
+  implements EmbeddingMemoryRetrievalPort
+{
+  public calls = 0;
+  public lastQuery:
+    | Parameters<EmbeddingMemoryRetrievalPort["retrieve"]>[0]
+    | undefined;
+  public throwOnRetrieve = false;
+  public result: EmbeddingMemoryRetrievalResult = {
+    status: "ok",
+    modelId: "fixture/core-memory-retrieval",
+    queryDimensions: 3,
+    matches: [
+      {
+        id: "embedding-1",
+        conversationId: "primary",
+        sourceType: "message",
+        sourceId: "msg-source-1",
+        modelId: "fixture/core-memory-retrieval",
+        score: 0.92,
+        createdAt: "2026-08-03T00:00:00.000Z"
+      }
+    ],
+    generatedAt: "2026-08-03T00:00:01.000Z"
+  };
+
+  public async retrieve(
+    query: Parameters<EmbeddingMemoryRetrievalPort["retrieve"]>[0]
+  ): Promise<EmbeddingMemoryRetrievalResult> {
+    this.calls += 1;
+    this.lastQuery = { ...query, vector: [...query.vector] };
+    if (this.throwOnRetrieve) {
+      throw new Error("Fixture retrieval failed.");
+    }
+    return {
+      ...this.result,
+      matches: this.result.matches.map((match) => ({ ...match }))
+    };
+  }
+}
+
 function createRuntime(
   memoryRepository?: MemoryRepository,
   capabilityProvider?: CapabilityProvider,
@@ -870,7 +916,9 @@ function createRuntime(
   embeddingInferenceProvider?: EmbeddingInferenceProvider,
   intentRoutingProvider?: IntentRoutingProvider,
   ocrRecognitionProvider?: OcrRecognitionProvider,
-  rerankingProvider?: RerankingProvider
+  rerankingProvider?: RerankingProvider,
+  embeddingMemoryRetrievalPort?: EmbeddingMemoryRetrievalPort,
+  memoryRetrievalRouting?: CoreMemoryRetrievalRoutingOptions
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -893,10 +941,39 @@ function createRuntime(
     embeddingInferenceProvider,
     intentRoutingProvider,
     ocrRecognitionProvider,
-    rerankingProvider
+    rerankingProvider,
+    embeddingMemoryRetrievalPort,
+    memoryRetrievalRouting
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
+}
+
+function createRuntimeWithMemoryRetrieval(
+  embeddingMemoryRetrievalPort: EmbeddingMemoryRetrievalPort,
+  memoryRetrievalRouting: CoreMemoryRetrievalRoutingOptions,
+  memoryRepository?: MemoryRepository
+) {
+  return createRuntime(
+    memoryRepository,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    embeddingMemoryRetrievalPort,
+    memoryRetrievalRouting
+  );
 }
 
 function embeddingModelRegistry(): ModelRegistry {
@@ -1125,6 +1202,254 @@ describe("CoreRuntime", () => {
 
     expect(result.ok).toBe(true);
     expect(memoryRepository.messages.at(-1)?.conversationId).toBe("active");
+  });
+
+  it("keeps Memory retrieval read routing disabled by default", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: false,
+      modelId: "fixture/core-memory-retrieval",
+      resolveQueryVector: () => [1, 0, 0]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Default path"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(retrievalPort.calls).toBe(0);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true
+    });
+    expect(
+      result.ok
+        ? "memoryRecall" in (result.data as Record<string, unknown>)
+        : false
+    ).toBe(false);
+  });
+
+  it("routes fixture-only Memory retrieval reads with sanitized recall metadata", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    let observedContext:
+      | Parameters<CoreMemoryRetrievalRoutingOptions["resolveQueryVector"]>[0]
+      | undefined;
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "fixture/core-memory-retrieval",
+      limit: 10,
+      resolveQueryVector: (context) => {
+        observedContext = context;
+        return [1, 0, 0];
+      }
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "This message text must not appear in recall"
+        }
+      })
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(result.ok).toBe(true);
+    expect(observedContext).toEqual({
+      messageId: expect.stringMatching(/^msg-/u),
+      conversationId: "primary",
+      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/u)
+    });
+    expect(retrievalPort.calls).toBe(1);
+    expect(retrievalPort.lastQuery).toEqual({
+      modelId: "fixture/core-memory-retrieval",
+      vector: [1, 0, 0],
+      limit: 5,
+      conversationId: "primary"
+    });
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "ok",
+        mode: "fixture_only",
+        injectedIntoTurnAssembly: true,
+        modelId: "fixture/core-memory-retrieval",
+        queryDimensions: 3,
+        matchCount: 1,
+        matches: [
+          {
+            id: "embedding-1",
+            conversationId: "primary",
+            sourceType: "message",
+            sourceId: "msg-source-1",
+            modelId: "fixture/core-memory-retrieval",
+            score: 0.92,
+            createdAt: "2026-08-03T00:00:00.000Z"
+          }
+        ],
+        generatedAt: "2026-08-03T00:00:01.000Z"
+      }
+    });
+    expect(serialized).not.toContain("This message text");
+    expect(serialized).not.toMatch(/vector/iu);
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
+  it("degrades to no-recall when Memory retrieval fails", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    retrievalPort.throwOnRetrieve = true;
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "fixture/core-memory-retrieval",
+      resolveQueryVector: () => [1, 0, 0]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Continue without recall"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(runtime.getSnapshot().messages).toHaveLength(1);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        mode: "fixture_only",
+        injectedIntoTurnAssembly: false,
+        modelId: "blocked",
+        queryDimensions: 0,
+        matchCount: 0,
+        matches: [],
+        reasonCode: "MEMORY_RETRIEVAL_ROUTING_FAILED"
+      }
+    });
+  });
+
+  it("blocks non-fixture Memory retrieval models before querying the port", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      resolveQueryVector: () => [1, 0, 0]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Non fixture should not route"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(retrievalPort.calls).toBe(0);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        mode: "fixture_only",
+        injectedIntoTurnAssembly: false,
+        modelId: "blocked",
+        queryDimensions: 0,
+        matchCount: 0,
+        matches: [],
+        reasonCode: "MEMORY_RETRIEVAL_NON_FIXTURE_MODEL_BLOCKED"
+      }
+    });
+  });
+
+  it("degrades Memory retrieval when the fixture query vector is invalid", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "fixture/core-memory-retrieval",
+      resolveQueryVector: () => [Number.NaN]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Invalid vector should degrade"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(retrievalPort.calls).toBe(0);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        mode: "fixture_only",
+        injectedIntoTurnAssembly: false,
+        modelId: "blocked",
+        queryDimensions: 0,
+        matchCount: 0,
+        matches: [],
+        reasonCode: "MEMORY_RETRIEVAL_QUERY_INVALID"
+      }
+    });
+  });
+
+  it("blocks non-fixture Memory retrieval results after querying the port", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    retrievalPort.result = {
+      status: "degraded",
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      queryDimensions: 3,
+      matches: [],
+      reasonCode: "UPSTREAM_DEGRADED",
+      generatedAt: "2026-08-03T00:00:01.000Z"
+    };
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "fixture/core-memory-retrieval",
+      resolveQueryVector: () => [1, 0, 0]
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Non fixture result should not route"
+        }
+      })
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(result.ok).toBe(true);
+    expect(retrievalPort.calls).toBe(1);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        mode: "fixture_only",
+        injectedIntoTurnAssembly: false,
+        modelId: "blocked",
+        queryDimensions: 0,
+        matchCount: 0,
+        matches: [],
+        reasonCode: "MEMORY_RETRIEVAL_NON_FIXTURE_RESULT_BLOCKED"
+      }
+    });
+    expect(serialized).not.toContain("Qwen/Qwen3-Embedding-0.6B");
   });
 
   it("returns provider-neutral memory health", async () => {
