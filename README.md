@@ -11,7 +11,7 @@ Preflight plus Phase 8.4 Memory Vector Migration Preflight plus Phase 8.5
 Memory SQLite Vector Migration plus Phase 8.6 Memory Vector Write
 Preflight plus Phase 8.7 Memory SQLite Fixture Vector Write plus Phase 8.8
 Memory Vector Query Preflight plus Phase 8.9 Memory SQLite Fixture Vector
-Query**: the
+Query plus Phase 8.10 Memory Retrieval Routing Preflight**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -71,6 +71,9 @@ ports, installability policy, resource diagnostics, dry-run model install
   API that returns bounded match metadata from fixture vectors only; Core
   retrieval routing, provider execution routing, real vector persistence,
   UI/Desktop behavior changes, raw vector/text exposure, and shell execution
+  remain blocked. Phase 8.10 adds only a review-only preflight for future Core
+  retrieval routing; product routing, provider execution routing, UI/default
+  opt-in changes, provider visibility changes, and raw vector/text exposure
   remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
@@ -210,6 +213,10 @@ They are not runtime dependencies.
   Core retrieval routing, provider execution routing, real vector persistence,
   Desktop/UI behavior changes, raw vector/text exposure, and shell execution
   remain deferred
+- Phase 8.10 memory retrieval routing preflight: review-only Core routing
+  approval handoff complete; Core runtime behavior, provider execution
+  routing, UI/default opt-in changes, provider visibility changes, and raw
+  vector/text exposure remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -434,6 +441,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.7 memory SQLite fixture vector write](docs/phase-8-7-memory-sqlite-fixture-vector-write.md)
 - [Phase 8.8 memory vector query preflight](docs/phase-8-8-memory-vector-query-preflight.md)
 - [Phase 8.9 memory SQLite fixture vector query](docs/phase-8-9-memory-sqlite-fixture-vector-query.md)
+- [Phase 8.10 memory retrieval routing preflight](docs/phase-8-10-memory-retrieval-routing-preflight.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

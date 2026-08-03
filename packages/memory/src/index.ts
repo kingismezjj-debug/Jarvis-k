@@ -7,3 +7,4 @@ export * from "./embedding-vector-execution-preflight";
 export * from "./embedding-vector-migration-preflight";
 export * from "./embedding-vector-write-preflight";
 export * from "./embedding-vector-query-preflight";
+export * from "./embedding-retrieval-routing-preflight";

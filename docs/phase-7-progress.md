@@ -1960,6 +1960,38 @@ packaging, license, benchmark, and composition gate passes.
   paths/raw diagnostics, or convert retrieval output into Windows/PowerShell
   operations without separate product and security approval.
 
+## Phase 8.10: Memory Retrieval Routing Preflight
+
+- Status: complete as a provider-neutral Core routing implementation approval
+  handoff.
+- Added a provider-neutral retrieval routing preflight in `@jarvis-k/memory`
+  for the future Core recall injection path.
+- The preflight reviews the fixture write API, fixture query API, provider-
+  neutral routing plan, bounded routing guards, fallback plan, sanitized recall
+  observation shape, and fixture-only routing tests.
+- The accepted status is only `ready_for_core_routing_approval`.
+- Core routing implementation, provider execution routing, UI/default opt-in
+  changes, provider visibility changes, Phase 7.43 vector persistence, real
+  runtime vector persistence, raw vector exposure, raw text exposure, private
+  path exposure, raw diagnostics exposure, and shell execution remain blocked.
+
+### Current Gate
+
+- Memory retrieval routing preflight tests: PASS, 5 tests.
+- `npm run build -w @jarvis-k/memory`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 112 test files and 572 tests.
+
+### Next Hard Pause
+
+- Do not connect Memory retrieval to Core product behavior, change Core
+  runtime behavior, provider visibility, or UI defaults, connect provider
+  execution output to Memory writes, persist Phase 7.43 or real runtime
+  vectors, or expose raw vectors/raw text/private paths/raw diagnostics
+  without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

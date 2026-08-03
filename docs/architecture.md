@@ -337,6 +337,13 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     output to Memory, persist Phase 7.43 or real runtime vectors, change
     Desktop/UI behavior, expose raw vectors or raw text, or convert
     retrieval/model output into shell execution.
+62. Memory retrieval routing has a separate review-only approval handoff.
+    Phase 8.10 can review a future Core recall injection plan, fixture fallback
+    behavior, bounded routing guards, and sanitized recall observation shape,
+    but it does not change Core runtime behavior, route retrieval into
+    product flows, change provider execution or visibility, change UI
+    defaults, persist Phase 7.43 or real runtime vectors, or expose raw
+    vectors, raw text, private paths, or raw diagnostics.
 
 ## Restart policy
 
