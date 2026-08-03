@@ -2362,6 +2362,52 @@ packaging, license, benchmark, and composition gate passes.
   output into Windows/PowerShell operations without separate product and
   security approval.
 
+## Phase 8.19: Provider Vector Write Approval Gate
+
+- Status: complete as a Core Host approval-gate-only handoff.
+- Added the planned future provider-backed Memory vector write env key
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES`.
+- The gate reviews Phase 7.42 provider execution wiring, Phase 7.43 provider
+  execution acceptance, Phase 8.5 SQLite vector schema, Phase 8.7 fixture
+  vector write, Phase 8.9 fixture vector query, Phase 8.12 Core read route,
+  Phase 8.16 provider query-vector route, and Phase 8.18 provider
+  query-vector acceptance prerequisites.
+- The gate records review evidence for explicit opt-in behavior, source record
+  selection, source text minimization, vector shape validation, model/provider
+  allowlisting, duplicate and update policy, rollback deletion, sanitized
+  failure mapping, UI/default behavior unchanged, and future implementation
+  approval.
+- The gate does not read env values, implement provider vector writes, route
+  provider execution for writes, call helper `embed` for writes, return/log/
+  expose raw vectors, expose raw text, expose private paths, expose raw
+  diagnostics, persist signed URLs or credentials, persist Phase 7.43 or real
+  runtime vectors, write Memory vector data, run SQLite schema/index
+  migrations, change Desktop IPC, change UI behavior, change provider
+  visibility, change default opt-in behavior, change fixture fallback, or
+  enable shell execution.
+
+### Current Gate
+
+- Memory provider vector write approval gate tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 119 test files and 614 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+
+### Next Hard Pause
+
+- Do not read
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES`, implement
+  provider-backed Memory vector writes, route provider execution for stored
+  Memory vectors, call helper `embed` for stored vectors, write Memory vector
+  records from real provider output, persist Phase 7.43 or real runtime
+  vectors, add Desktop IPC/UI controls for Memory indexing/retrieval, change
+  provider visibility/default opt-in behavior, change SQLite schema/indexes,
+  expose raw vectors/raw text/private paths/raw diagnostics, or convert
+  retrieval/model output into Windows/PowerShell operations without separate
+  product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

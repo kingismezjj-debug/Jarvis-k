@@ -17,7 +17,8 @@ Read Routing plus Phase 8.13 Core Host Memory Retrieval Env Wiring Approval
 Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring plus Phase
 8.15 Provider Query Vector Approval Gate plus Phase 8.16 Provider-Backed Query
 Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight plus Phase
-8.18 Provider Query Vector Acceptance Diagnostic**: the
+8.18 Provider Query Vector Acceptance Diagnostic plus Phase 8.19 Provider
+Vector Write Approval Gate**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -126,7 +127,12 @@ ports, installability policy, resource diagnostics, dry-run model install
   metadata; Memory vector writes, vector persistence, Desktop/UI changes,
   provider visibility/default opt-in changes, SQLite migrations, downloads,
   persistent caches, raw vector/text/diagnostic exposure, and shell execution
-  remain blocked.
+  remain blocked. Phase 8.19 adds only a Core Host approval gate for future
+  provider-backed Memory vector writes; env reads, provider execution routing
+  for writes, helper `embed` for stored vectors, Memory vector writes,
+  vector persistence, SQLite migrations, UI/Desktop changes, provider
+  visibility/default opt-in changes, raw vector/text/diagnostic exposure, and
+  shell execution remain blocked pending separate implementation approval.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -314,6 +320,12 @@ They are not runtime dependencies.
   visibility/default opt-in changes, SQLite migrations, downloads, persistent
   caches, raw vector/text/diagnostic exposure, and shell execution remain
   deferred
+- Phase 8.19 provider vector write approval gate: approval-only Core Host
+  handoff complete for future provider-backed Memory vector writes; env reads,
+  provider execution routing for writes, helper `embed` for stored vectors,
+  Memory vector writes, vector persistence, SQLite migrations, UI/Desktop
+  changes, provider visibility/default opt-in changes, raw vector/text/
+  diagnostic exposure, and shell execution remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -566,6 +578,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.16 provider-backed query vector](docs/phase-8-16-provider-backed-query-vector.md)
 - [Phase 8.17 provider query vector acceptance preflight](docs/phase-8-17-provider-query-vector-acceptance-preflight.md)
 - [Phase 8.18 provider query vector acceptance diagnostic](docs/phase-8-18-provider-query-vector-acceptance-diagnostic.md)
+- [Phase 8.19 provider vector write approval gate](docs/phase-8-19-provider-vector-write-approval-gate.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)
