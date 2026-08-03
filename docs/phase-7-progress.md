@@ -2613,6 +2613,55 @@ packaging, license, benchmark, and composition gate passes.
   provider-written retrieval into a default product path without separate
   product and security approval.
 
+## Phase 8.24: Provider Vector Retrieval Acceptance Preflight
+
+- Status: complete as a preflight-only acceptance diagnostic approval
+  handoff.
+- Added a Core Host preflight for a future real local diagnostic behind the
+  planned explicit opt-in
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE=1`.
+- The reviewed future diagnostic plan may, only after separate approval, use a
+  temporary Memory database, verify approved local artifacts, write one
+  provider vector through the existing product path, send a second fixed
+  diagnostic message through the Phase 8.23 provider-vector retrieval route,
+  and inspect only sanitized recall metadata.
+- The preflight requires Phase 7.43, Phase 8.18, Phase 8.21, and Phase 8.23
+  evidence, explicit acceptance env review, temporary database scope,
+  provider vector write-then-read plan, same-model read/write alignment,
+  artifact digest verification plan, sanitized recall report shape, cleanup,
+  rollback, and clean verification evidence.
+- This phase does not read env values, read Python paths, read model artifact
+  paths, verify artifacts, call provider execution, call helper `embed`, write
+  temporary or persistent Memory vectors, query provider-written vectors, run
+  SQLite schema/index migrations, change Desktop IPC/UI behavior, change
+  provider visibility/default opt-in, expose raw vectors/raw text/private paths
+  or raw diagnostics, download artifacts, write persistent model caches,
+  persist signed URLs or credentials, or enable shell execution.
+
+### Current Gate
+
+- Memory provider vector retrieval acceptance preflight tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run verify`: PASS, 123 test files and 641 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not implement or run the real provider-vector retrieval acceptance
+  diagnostic, read `JARVIS_K_RUNTIME_PYTHON` or
+  `JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR`, verify/access model artifacts, start
+  the Python helper, call helper `embed`, write temporary Memory vectors,
+  query provider-written vectors in a diagnostic, download artifacts, write
+  persistent model caches, expose raw vectors/raw text/private paths/raw
+  diagnostics, change Desktop/UI/provider visibility/default opt-in, run
+  SQLite schema/index migrations, or convert retrieval/model output into
+  Windows/PowerShell operations without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

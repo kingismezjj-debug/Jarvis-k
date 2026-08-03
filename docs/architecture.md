@@ -513,6 +513,18 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     UI behavior, change provider visibility/default opt-in, expose raw vectors
     or raw text, access artifacts, download artifacts, write persistent model
     caches, or convert retrieval/model output into shell execution.
+76. Provider-written Memory vector retrieval acceptance has a separate Core
+    Host preflight. Phase 8.24 can review a future diagnostic behind
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE=1` that
+    would use only a temporary Memory database, approved artifact digest
+    verification, one provider vector write, one provider-vector retrieval
+    read, sanitized recall metadata, and cleanup. The preflight itself does
+    not read env values, read Python or model artifact paths, verify artifacts,
+    start the helper, call helper `embed`, write temporary or persistent
+    vectors, query provider-written vectors, run SQLite migrations, change
+    Desktop IPC/UI behavior, change provider visibility/default opt-in, expose
+    raw vectors or raw text, download artifacts, write persistent model
+    caches, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 
