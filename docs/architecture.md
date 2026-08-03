@@ -367,6 +367,19 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     IPC or UI behavior, change provider visibility or default opt-in, expose
     raw vectors, raw text, private paths, or raw diagnostics, or convert
     retrieval/model output into shell execution.
+65. Core Host Memory retrieval env wiring has a separate approval gate.
+    Phase 8.13 can review the future
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING` env key, exact Core Host diff,
+    constructor wiring plan, fixture-only retrieval port plan, fixture query
+    vector resolver plan, default-disabled behavior, Desktop smoke plan,
+    rollback plan, and sanitized recall observation plan. It does not read
+    the env value, change Core Host startup behavior, modify `CoreRuntime`
+    construction, inject retrieval ports or query vector resolvers, route
+    provider execution, write Memory vectors, persist Phase 7.43 or real
+    runtime vectors, run SQLite migrations, change Desktop IPC or UI behavior,
+    change provider visibility or default opt-in, expose raw vectors, raw
+    text, private paths, or raw diagnostics, or convert retrieval/model output
+    into shell execution.
 
 ## Restart policy
 

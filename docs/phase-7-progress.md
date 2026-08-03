@@ -2076,6 +2076,48 @@ packaging, license, benchmark, and composition gate passes.
   Windows/PowerShell operations without separate product and security
   approval.
 
+## Phase 8.13: Core Host Memory Retrieval Env Wiring Approval Gate
+
+- Status: complete as an approval-only Core Host env wiring handoff.
+- Added a Core Host approval gate for future
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING` env wiring after the Phase 8.12
+  Core read route.
+- The gate reviews the env key, exact Core Host diff, CoreRuntime constructor
+  wiring plan, fixture-only retrieval port plan, fixture query vector resolver
+  plan, default-disabled behavior, Desktop smoke plan, rollback plan, and
+  sanitized recall observation plan.
+- The accepted status is only
+  `ready_for_env_wiring_implementation_approval`.
+- Env value reads, Core Host env wiring implementation, Core Host default
+  behavior changes, CoreRuntime constructor changes, retrieval port injection,
+  fixture query vector resolver injection, provider execution routing, Phase
+  7.43 vector persistence, real runtime vector persistence, Memory vector
+  data writes, SQLite schema/index migration, Desktop IPC changes,
+  UI/default opt-in changes, provider visibility changes, raw vector exposure,
+  raw text exposure, private path exposure, raw diagnostics exposure, and
+  shell execution remain blocked.
+
+### Current Gate
+
+- Core Host Memory retrieval env wiring approval gate tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 114 test files and 588 tests.
+- `npm.cmd run smoke:desktop`: PASS.
+
+### Next Hard Pause
+
+- Do not read `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING`, pass Memory
+  retrieval options into `CoreRuntime`, inject a fixture-only
+  `EmbeddingMemoryRetrievalPort`, inject a fixture query vector resolver, add
+  Desktop IPC/UI controls, route provider execution output into Memory,
+  persist Phase 7.43 or real runtime vectors, write Memory vector data, change
+  SQLite schema/indexes, expose raw vectors/raw text/private paths/raw
+  diagnostics, or convert retrieval/model output into Windows/PowerShell
+  operations without separate product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
