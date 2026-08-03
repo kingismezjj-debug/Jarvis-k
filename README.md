@@ -14,7 +14,8 @@ Memory Vector Query Preflight plus Phase 8.9 Memory SQLite Fixture Vector
 Query plus Phase 8.10 Memory Retrieval Routing Preflight plus Phase 8.11 Core
 Memory Retrieval Routing Approval Gate plus Phase 8.12 Core Memory Retrieval
 Read Routing plus Phase 8.13 Core Host Memory Retrieval Env Wiring Approval
-Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring**: the
+Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring plus Phase
+8.15 Provider Query Vector Approval Gate**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -95,7 +96,12 @@ ports, installability policy, resource diagnostics, dry-run model install
   a fixture retrieval port and fixture query vector resolver; real provider
   output as query vectors, Memory vector writes, real vector persistence,
   Desktop/UI controls, provider visibility/default opt-in changes, SQLite
-  migrations, and raw vector/text exposure remain blocked.
+  migrations, and raw vector/text exposure remain blocked. Phase 8.15 adds
+  only a Core Host approval gate for a future provider-backed query-vector
+  resolver; env reads, provider execution routing for retrieval, helper
+  `embed` calls, raw vectors, vector persistence, Memory vector writes,
+  Desktop/UI controls, provider visibility/default opt-in changes, SQLite
+  migrations, and shell execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -258,6 +264,12 @@ They are not runtime dependencies.
   real provider output as query vectors, Memory vector writes, real vector
   persistence, Desktop/UI controls, provider visibility/default opt-in changes,
   SQLite migrations, and raw vector/text exposure remain deferred
+- Phase 8.15 provider query vector approval gate: approval-only Core Host
+  handoff complete for a future provider-backed query-vector resolver; env
+  reads, provider execution routing for retrieval, helper `embed` calls, raw
+  vectors, vector persistence, Memory vector writes, Desktop/UI controls,
+  provider visibility/default opt-in changes, SQLite migrations, and shell
+  execution remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -487,6 +499,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.12 Core memory retrieval read routing](docs/phase-8-12-core-memory-retrieval-read-routing.md)
 - [Phase 8.13 Core Host memory retrieval env wiring approval gate](docs/phase-8-13-core-host-memory-retrieval-env-wiring-approval-gate.md)
 - [Phase 8.14 Core Host fixture memory retrieval env wiring](docs/phase-8-14-core-host-fixture-memory-retrieval-env-wiring.md)
+- [Phase 8.15 provider query vector approval gate](docs/phase-8-15-provider-query-vector-approval-gate.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

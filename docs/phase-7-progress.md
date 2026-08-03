@@ -2165,6 +2165,48 @@ packaging, license, benchmark, and composition gate passes.
   retrieval/model output into Windows/PowerShell operations without separate
   product and security approval.
 
+## Phase 8.15: Provider Query Vector Approval Gate
+
+- Status: complete as a Core Host approval-only gate for a future
+  provider-backed Memory retrieval query-vector resolver.
+- Added `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR` as the
+  planned future explicit opt-in key, but this gate does not read the env
+  value or change Core Host startup behavior.
+- The gate reviews Phase 7.42 provider execution wiring, Phase 7.43 provider
+  execution acceptance, Phase 8.12 Core read routing, Phase 8.14 Core Host
+  fixture env wiring, query input sanitization, provider execution preflight,
+  bounded timeout/cancellation, vector shape validation, fail-closed
+  no-recall behavior, no-vector-persistence behavior, UI/default behavior
+  preservation, and rollback smoke planning.
+- Provider query-vector implementation, provider execution routing for
+  retrieval, helper `embed` calls, raw vector return/log/exposure, raw text
+  exposure, private path exposure, raw diagnostics exposure, Phase 7.43 or
+  real runtime vector persistence, Memory vector writes, SQLite schema/index
+  migration, Desktop IPC changes, UI behavior changes, provider visibility
+  changes, default opt-in changes, fixture fallback changes, and shell
+  execution remain blocked.
+
+### Current Gate
+
+- Memory retrieval provider query-vector approval gate tests: PASS, 5 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 116 test files and 596 tests.
+
+### Next Hard Pause
+
+- Do not read `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR`, use
+  provider execution output as a Memory retrieval query vector, call helper
+  `embed` for retrieval routing, return/log/expose/persist raw vectors, write
+  Memory vector records from real provider output, persist Phase 7.43 or real
+  runtime vectors, add Desktop IPC/UI controls for Memory retrieval, change
+  provider visibility/default opt-in behavior, change SQLite schema/indexes,
+  expose raw text/private paths/raw diagnostics, or convert retrieval/model
+  output into Windows/PowerShell operations without separate product and
+  security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
