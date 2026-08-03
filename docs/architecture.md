@@ -474,6 +474,20 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     migrations, expose raw vectors, raw text, private paths, signed URLs,
     credentials, or raw diagnostics, or convert retrieval/model output into
     shell execution.
+73. Provider-backed Memory vector write acceptance is implemented only as a
+    one-shot Core Host diagnostic runner behind
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITE_ACCEPTANCE=1` plus
+    the existing Memory retrieval, provider vector-write, local embedding
+    provider, and provider execution opt-ins. Phase 8.21 verifies the approved
+    local artifact digest set before product-path execution, sends one fixed
+    `agent.sendMessage`, and inspects only temporary SQLite vector metadata for
+    the newly accepted message. It reports only write status, record count,
+    dimension count, cleanup status, fixed reason codes, and unsafe flags. It
+    does not batch-index history, write persistent model caches, expose raw
+    vectors, expose raw text, expose private paths, expose signed URLs or
+    credentials, expose raw diagnostics, change Desktop IPC or UI behavior,
+    change provider visibility/default opt-in, run SQLite schema migrations, or
+    convert retrieval/model output into shell execution.
 
 ## Restart policy
 

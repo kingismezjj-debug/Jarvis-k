@@ -2463,6 +2463,55 @@ packaging, license, benchmark, and composition gate passes.
   retrieval/model output into Windows/PowerShell operations without separate
   product and security approval.
 
+## Phase 8.21: Provider Vector Write Acceptance Diagnostic
+
+- Status: complete as an explicit opt-in local acceptance diagnostic.
+- Added a Core Host one-shot diagnostic runner behind
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITE_ACCEPTANCE=1`.
+- The diagnostic also requires the existing Memory retrieval routing,
+  provider vector-write, local embedding provider, and local embedding provider
+  execution opt-ins before artifact verification or Core Host startup.
+- The runner verifies the pinned local artifact digest set, starts Core Host
+  with a temporary Memory database, sends one fixed `agent.sendMessage`, and
+  inspects only vector metadata for the newly accepted message source.
+- Added SQLite metadata inspection that reads only row count and dimensions;
+  it does not read vector payloads or source text.
+- Reports expose only sanitized status, fixed reason codes, write status,
+  record count, dimension count, cleanup status, and unsafe flags.
+- No default behavior, Desktop IPC, UI behavior, provider visibility, fixture
+  fallback, persistent model cache, historical batch indexing, SQLite
+  schema/index migration, raw vector/text/diagnostic exposure, private path
+  exposure, signed URL/credential persistence, or shell execution behavior was
+  added.
+
+### Current Gate
+
+- Memory provider vector-write acceptance and SQLite metadata regression tests:
+  PASS, 30 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run build -w @jarvis-k/memory-sqlite`: PASS.
+- `npm.cmd run diagnostic:memory-retrieval:provider-vector-write-acceptance`:
+  PASS with sanitized `acceptance_opt_in_missing` degradation and no
+  product-path command call.
+- `npm.cmd run verify`: PASS, 121 test files and 627 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not run the real provider vector-write acceptance diagnostic with local
+  artifacts, enable provider-backed vector writes by default, route
+  provider-written vectors into default recall behavior, expose Desktop/UI
+  indexing controls, batch-index historical Memory records, expose raw
+  vectors/raw text/private paths/raw diagnostics, change SQLite schema/indexes,
+  download artifacts, write persistent model caches, or convert
+  retrieval/model output into Windows/PowerShell operations without a separate
+  product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

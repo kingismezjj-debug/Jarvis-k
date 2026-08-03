@@ -417,6 +417,53 @@ describe("SqliteMemoryRepository", () => {
     ]);
   });
 
+  it("inspects provider vector metadata without reading payloads or source text", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: ["Qwen/Qwen3-Embedding-0.6B"]
+    });
+    await repository.initialize();
+    await repository.appendMessage(
+      message("msg-private", "primary", "00.001Z", "private memory text")
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-runtime", "msg-private", {
+        modelId: "Qwen/Qwen3-Embedding-0.6B"
+      })
+    );
+
+    const inspection = await repository.inspectEmbeddingRecordMetadata({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      sourceType: "message",
+      sourceId: "msg-private"
+    });
+    const invalid = await repository.inspectEmbeddingRecordMetadata({
+      modelId: "",
+      sourceType: "message",
+      sourceId: "msg-private"
+    });
+    await repository.close();
+    const serialized = JSON.stringify({ inspection, invalid });
+
+    expect(inspection).toEqual({
+      status: "ok",
+      recordCount: 1,
+      dimensionCount: 3
+    });
+    expect(invalid).toEqual({
+      status: "degraded",
+      recordCount: 0,
+      dimensionCount: 0,
+      reasonCode: "VECTOR_METADATA_QUERY_INVALID"
+    });
+    expect(serialized).not.toContain("private memory text");
+    expect(serialized).not.toContain("0.125");
+    expect(serialized).not.toContain("0.25");
+    expect(serialized).not.toContain("0.5");
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
   it("deletes approved provider embedding rows during snapshot restore rollback", async () => {
     const filePath = createTempDatabasePath();
     const first = new SqliteMemoryRepository({

@@ -19,7 +19,7 @@ Gate plus Phase 8.14 Core Host Fixture Memory Retrieval Env Wiring plus Phase
 Vector plus Phase 8.17 Provider Query Vector Acceptance Preflight plus Phase
 8.18 Provider Query Vector Acceptance Diagnostic plus Phase 8.19 Provider
 Vector Write Approval Gate plus Phase 8.20 Provider Vector Write
-Implementation**: the
+Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic**: the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
 SQLite memory persistence, device capability inspection, model governance
@@ -140,7 +140,11 @@ ports, installability policy, resource diagnostics, dry-run model install
   default behavior, historical batch indexing, Desktop/UI controls, provider
   visibility/default opt-in behavior, SQLite schema/indexes, raw
   vector/text/diagnostic exposure, downloads, persistent model caches, and
-  shell execution remain blocked.
+  shell execution remain blocked. Phase 8.21 adds a separate explicit opt-in
+  local acceptance diagnostic for the Phase 8.20 product path; it uses a
+  temporary Memory database, inspects only row count and dimensions for the
+  newly accepted message vector, and reports only sanitized write metadata and
+  fixed reason codes.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -340,6 +344,12 @@ They are not runtime dependencies.
   visibility/default opt-in changes, SQLite schema/indexes, raw vector/text/
   diagnostic exposure, downloads, persistent model caches, and shell execution
   remain deferred
+- Phase 8.21 provider vector write acceptance diagnostic: explicit opt-in
+  one-shot Core Host diagnostic complete for the Phase 8.20 product path using
+  a temporary Memory database and sanitized vector metadata only; default
+  behavior, historical batch indexing, Desktop/UI controls, provider
+  visibility/default opt-in, raw vector/text/diagnostic exposure, downloads,
+  persistent caches, and shell execution remain deferred
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -507,6 +517,24 @@ $env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
 It does not batch-index historical records, add UI controls, expose raw
 vectors/text, or change default opt-in behavior.
 
+The Phase 8.21 provider-backed Memory vector write acceptance diagnostic
+verifies the Phase 8.20 product path through `agent.sendMessage`:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITE_ACCEPTANCE='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON='<approved-python-executable>'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR='<approved-local-artifact-directory>'
+npm run diagnostic:memory-retrieval:provider-vector-write-acceptance
+```
+
+It uses a temporary Memory database and prints only sanitized write metadata
+and fixed reason codes. It does not batch-index historical records or expose
+raw vectors/text.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -536,7 +564,8 @@ the local settings window first. It must not be enabled in default CI.
   guards, Python Transformers helper, and supervised child-process transport.
 - `packages/memory`: provider-neutral memory ports and schemas.
 - `packages/memory-sqlite`: SQLite-backed message, conversation, summary,
-  health, export, and import persistence.
+  health, export/import, fixture vector query/write, and sanitized vector
+  metadata persistence.
 - `packages/voice`: platform-neutral Voice Engine state machine and session
   policies.
 - `packages/voice-capture-browser`: browser microphone, AudioContext,
@@ -609,6 +638,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.18 provider query vector acceptance diagnostic](docs/phase-8-18-provider-query-vector-acceptance-diagnostic.md)
 - [Phase 8.19 provider vector write approval gate](docs/phase-8-19-provider-vector-write-approval-gate.md)
 - [Phase 8.20 provider vector write implementation](docs/phase-8-20-provider-vector-write-implementation.md)
+- [Phase 8.21 provider vector write acceptance diagnostic](docs/phase-8-21-provider-vector-write-acceptance-diagnostic.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

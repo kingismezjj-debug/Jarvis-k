@@ -43,6 +43,19 @@ export interface SqliteMemoryRepositoryOptions {
   allowedEmbeddingModelIds?: readonly string[];
 }
 
+export interface EmbeddingRecordMetadataInspectionInput {
+  modelId: string;
+  sourceType: "message" | "summary";
+  sourceId: string;
+}
+
+export interface EmbeddingRecordMetadataInspection {
+  status: "ok" | "degraded";
+  recordCount: number;
+  dimensionCount: number;
+  reasonCode?: string;
+}
+
 const ACTIVE_CONVERSATION_KEY = "active_conversation_id";
 const SCHEMA_VERSION = 3;
 const VECTOR_QUERY_CANDIDATE_LIMIT = 500;
@@ -587,6 +600,55 @@ export class SqliteMemoryRepository implements MemoryRepository {
         parsed.modelId,
         parsed.vector.length
       );
+    }
+  }
+
+  public async inspectEmbeddingRecordMetadata(
+    input: EmbeddingRecordMetadataInspectionInput
+  ): Promise<EmbeddingRecordMetadataInspection> {
+    if (
+      !isSafeEmbeddingMetadataValue(input.modelId, 300) ||
+      (input.sourceType !== "message" && input.sourceType !== "summary") ||
+      !isSafeEmbeddingMetadataValue(input.sourceId, 128)
+    ) {
+      return {
+        status: "degraded",
+        recordCount: 0,
+        dimensionCount: 0,
+        reasonCode: "VECTOR_METADATA_QUERY_INVALID"
+      };
+    }
+
+    try {
+      const database = await this.getDatabase();
+      if (this.readSchemaVersion(database) < 3) {
+        return {
+          status: "degraded",
+          recordCount: 0,
+          dimensionCount: 0,
+          reasonCode: "VECTOR_SCHEMA_UNAVAILABLE"
+        };
+      }
+      const rows = database.exec(
+        `SELECT COUNT(*), COALESCE(MAX(dimensions), 0)
+         FROM memory_embeddings
+         WHERE model_id = ?
+          AND source_type = ?
+          AND source_id = ?`,
+        [input.modelId, input.sourceType, input.sourceId]
+      );
+      return {
+        status: "ok",
+        recordCount: Number(rows[0]?.values[0]?.[0] ?? 0),
+        dimensionCount: Number(rows[0]?.values[0]?.[1] ?? 0)
+      };
+    } catch {
+      return {
+        status: "degraded",
+        recordCount: 0,
+        dimensionCount: 0,
+        reasonCode: "VECTOR_METADATA_QUERY_FAILED"
+      };
     }
   }
 
@@ -1175,4 +1237,8 @@ export class SqliteMemoryRepository implements MemoryRepository {
     fs.mkdirSync(path.dirname(this.options.filePath), { recursive: true });
     fs.writeFileSync(this.options.filePath, this.database.export());
   }
+}
+
+function isSafeEmbeddingMetadataValue(value: string, maxLength: number): boolean {
+  return value.length > 0 && value.length <= maxLength;
 }
