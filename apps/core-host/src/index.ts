@@ -39,6 +39,7 @@ import {
 } from "@jarvis-k/voice";
 import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
 import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
+import { createCoreHostMemoryRetrievalEnvWiring } from "./core-memory-retrieval-env-wiring";
 import { createCoreHostLocalEmbeddingComposition } from "./local-embedding-composition";
 import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider";
 import { NodeWebSocketFactory } from "./node-websocket-factory";
@@ -251,6 +252,10 @@ const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
   inferenceProviderRegistry,
   resourceScheduler
 });
+const memoryRetrievalEnvWiring = createCoreHostMemoryRetrievalEnvWiring({
+  env: process.env,
+  memoryRepository
+});
 const voiceEngine = new VoiceEngine({
   provider:
     process.env.JARVIS_K_SMOKE_VOICE === "1"
@@ -292,7 +297,9 @@ runtime = new CoreRuntime(
   embeddingInferenceProvider,
   intentRoutingProvider,
   ocrRecognitionProvider,
-  rerankingProvider
+  rerankingProvider,
+  memoryRetrievalEnvWiring.retrievalPort,
+  memoryRetrievalEnvWiring.routingOptions
 );
 
 let inboundQueue = Promise.resolve();

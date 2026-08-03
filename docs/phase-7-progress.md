@@ -2118,6 +2118,53 @@ packaging, license, benchmark, and composition gate passes.
   diagnostics, or convert retrieval/model output into Windows/PowerShell
   operations without separate product and security approval.
 
+## Phase 8.14: Core Host Fixture Memory Retrieval Env Wiring
+
+- Status: complete as an explicit opt-in fixture-only Core Host env wiring
+  implementation.
+- Wired `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1` in `apps/core-host` to
+  the Phase 8.12 `CoreRuntime` Memory retrieval read route.
+- Default behavior remains disabled when the env value is absent or not
+  exactly `1`.
+- Added a Core Host fixture retrieval port backed by the existing
+  `SqliteMemoryRepository.querySimilar(query)` read API.
+- Added a fixed fixture query vector resolver that receives no raw message
+  text and does not call any embedding provider.
+- The Core Host opt-in route uses only
+  `fixture/core-host-memory-retrieval`, bounded recall, and sanitized
+  degraded/no-recall handling.
+- Provider execution routing, real embedding provider output as query vectors,
+  Memory vector writes, Phase 7.43 vector persistence, real runtime vector
+  persistence, SQLite schema/index changes, Desktop IPC changes, UI/default
+  opt-in changes, provider visibility changes, raw vector exposure, raw text
+  exposure, private path exposure, raw diagnostics exposure, and shell
+  execution remain blocked.
+
+### Current Gate
+
+- Core Host Memory retrieval env wiring tests: PASS, 3 tests.
+- Core Host Memory retrieval env wiring approval gate regression tests: PASS,
+  5 tests.
+- Core runtime Memory retrieval routing regression tests: PASS, 33 tests.
+- `npm.cmd run build -w @jarvis-k/core`: PASS.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run typecheck`: PASS.
+- `npm.cmd run verify`: PASS, 115 test files and 591 tests.
+- `npm.cmd run smoke:desktop`: PASS.
+
+### Next Hard Pause
+
+- Do not use real embedding provider output as a query vector, write Memory
+  vector data from provider execution output, persist Phase 7.43 or real
+  runtime vectors, add Desktop IPC/UI controls for Memory retrieval, change
+  provider visibility/default opt-in behavior, change SQLite schema/indexes,
+  expose raw vectors/raw text/private paths/raw diagnostics, or convert
+  retrieval/model output into Windows/PowerShell operations without separate
+  product and security approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

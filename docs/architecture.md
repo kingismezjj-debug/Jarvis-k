@@ -380,6 +380,17 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     change provider visibility or default opt-in, expose raw vectors, raw
     text, private paths, or raw diagnostics, or convert retrieval/model output
     into shell execution.
+66. Core Host can wire the explicit
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING=1` opt-in to the Phase 8.12
+    Core read route. Phase 8.14 injects only a fixture
+    `EmbeddingMemoryRetrievalPort` backed by
+    `SqliteMemoryRepository.querySimilar(query)` and a fixed fixture query
+    vector resolver that does not receive raw message text or call embedding
+    provider execution. The route remains default-off and does not write
+    Memory vectors, persist Phase 7.43 or real runtime vectors, run SQLite
+    migrations, change Desktop IPC or UI behavior, change provider visibility
+    or default opt-in, expose raw vectors, raw text, private paths, or raw
+    diagnostics, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 
