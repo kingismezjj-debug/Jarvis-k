@@ -2837,7 +2837,7 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 8.28: Provider Vector Retrieval Developer-Alpha Runbook
 
-- Status: complete locally; push and CI pending.
+- Status: complete, pushed, and CI passed.
 - Added a documentation-only developer-alpha usage test runbook for the
   provider-vector retrieval path.
 - The runbook covers preconditions, explicit env gate setup, safe configured
