@@ -552,6 +552,17 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     paths. With a separately approved temporary Python Transformers
     environment, it passed artifact materialization, SHA-256 verification,
     provider-vector write/read, sanitized recall reporting, and cleanup.
+79. Provider-vector retrieval developer-alpha usage testing has a separate
+    Core Host plan-only gate. Phase 8.26 reserves a future explicit
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA` opt-in
+    and records the prerequisite gate chain, single-developer alpha scope,
+    source minimization, retention and rollback, sanitized telemetry, degraded
+    fallback, and no-default-behavior-change requirements. The gate does not
+    read env values, access artifacts, start the helper, call provider
+    execution, write or query provider vectors, change Desktop IPC/UI/provider
+    visibility/default opt-in, run SQLite migrations, expose raw vectors/raw
+    text/private paths/raw diagnostics, download artifacts, write persistent
+    caches, or convert retrieval/model output into shell execution.
 
 ## Restart policy
 

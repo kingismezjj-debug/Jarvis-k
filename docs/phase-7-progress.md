@@ -2738,6 +2738,45 @@ packaging, license, benchmark, and composition gate passes.
   migrations, or convert retrieval/model output into Windows/PowerShell
   operations without a separate approval.
 
+## Phase 8.26: Provider Vector Retrieval Developer-Alpha Usage Test Plan
+
+- Status: complete as a Core Host plan-only gate.
+- Added a sanitized developer-alpha usage test plan gate for moving
+  provider-vector retrieval from diagnostic evidence toward a controlled local
+  developer-alpha trial.
+- Reserved the future explicit opt-in
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA`, but did
+  not read it or wire it into Core Host startup.
+- The plan records the future prerequisite env chain, single-developer alpha
+  scope, source selection and minimization policy, bounded recall limit,
+  retention and rollback plan, sanitized telemetry shape, degraded fallback,
+  and no-default-behavior-change requirements.
+- This wave does not access artifacts, start the helper, call helper `embed`,
+  run provider execution, write provider vectors, query provider vectors, write
+  persistent Memory vector data, run SQLite migrations, change Desktop IPC,
+  change UI behavior, change provider visibility, change default opt-in,
+  download artifacts, write persistent caches, expose raw vectors/text/paths/
+  diagnostics, or convert retrieval/model output into shell execution.
+
+### Current Gate
+
+- Developer-alpha usage test plan normal, degraded, blocked, and
+  sanitized-output tests: PASS, 6 tests.
+- `npm.cmd run build -w @jarvis-k/core-host`: PASS.
+
+### Next Hard Pause
+
+- Do not implement or enable the developer-alpha usage test path without
+  separate product, security, and release approval.
+- Do not read
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA`, start
+  non-diagnostic provider execution, access model artifacts, write persistent
+  provider vectors, expose UI controls, change provider visibility, batch-index
+  historical Memory, write persistent model caches, run SQLite migrations,
+  expose raw vectors/raw text/private paths/raw diagnostics, or convert
+  retrieval/model output into Windows/PowerShell operations without that
+  separate approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

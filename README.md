@@ -22,7 +22,8 @@ Vector Write Approval Gate plus Phase 8.20 Provider Vector Write
 Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic plus
 Phase 8.22 Provider Vector Retrieval Preflight plus Phase 8.23 Provider
 Vector Retrieval Routing plus Phase 8.24 Provider Vector Retrieval Acceptance
-Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic**:
+Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic plus
+Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -180,6 +181,13 @@ ports, installability policy, resource diagnostics, dry-run model install
   visibility/default opt-in, downloads outside the approved diagnostic,
   persistent caches, historical batch indexing, SQLite migrations, raw
   vector/text/path/diagnostic exposure, and shell execution remain blocked.
+  Phase 8.26 adds only a Core Host plan gate for a future controlled local
+  developer-alpha usage test, reserving a separate explicit opt-in and
+  recording prerequisite gates, source minimization, rollback, sanitized
+  telemetry, degraded fallback, and no-default-behavior-change requirements.
+  It does not read env values, access artifacts, execute provider retrieval,
+  write persistent provider vectors, change UI/Desktop/provider visibility, or
+  change default behavior.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -408,6 +416,9 @@ They are not runtime dependencies.
   diagnostic runner complete behind explicit opt-in; the approved
   temporary-artifact chained diagnostic passed with SHA-256 verification,
   provider-vector write/read, sanitized recall, and cleanup
+- Phase 8.26 provider vector retrieval developer-alpha usage test plan: Core
+  Host plan-only gate complete; implementation and enablement remain blocked
+  pending separate product, security, and release approval
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -653,6 +664,18 @@ sanitized `runtime_dependencies_missing` reason. The approved temporary
 Python environment run passed artifact materialization, SHA-256 verification,
 provider-vector write/read, sanitized recall, and cleanup.
 
+The Phase 8.26 provider-vector retrieval developer-alpha usage test plan
+reserves a future explicit opt-in but does not enable it:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA='1'
+```
+
+That env key must not be used until a later implementation wave receives
+separate product, security, and release approval. The current plan does not
+read the env key, expose UI controls, change provider visibility, batch-index
+history, or change default behavior.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -761,6 +784,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.23 provider vector retrieval routing](docs/phase-8-23-provider-vector-retrieval-routing.md)
 - [Phase 8.24 provider vector retrieval acceptance preflight](docs/phase-8-24-provider-vector-retrieval-acceptance-preflight.md)
 - [Phase 8.25 provider vector retrieval acceptance diagnostic](docs/phase-8-25-provider-vector-retrieval-acceptance-diagnostic.md)
+- [Phase 8.26 provider vector retrieval developer-alpha usage test plan](docs/phase-8-26-provider-vector-retrieval-developer-alpha-plan.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)
