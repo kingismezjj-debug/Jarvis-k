@@ -2929,6 +2929,49 @@ packaging, license, benchmark, and composition gate passes.
   broaden tester scope, or connect retrieval output to Windows/PowerShell
   execution without separate product, security, and release approval.
 
+## Phase 8.30: Provider Vector Retrieval Continuous Alpha Preflight
+
+- Status: complete as a Core Host preflight guard only; continuous
+  developer-alpha retrieval remains disabled.
+- Added a sanitized preflight evaluator for moving from one-shot Phase 8.29
+  evidence toward a later controlled continuous alpha decision.
+- The guard requires evidence for Phase 8.26 planning, Phase 8.27
+  implementation, Phase 8.28 runbook, Phase 8.29 one-shot usage evidence,
+  continuous observation, sanitized telemetry, disable plan, exact-source
+  rollback, rollback readiness, bounded usage window, source minimization,
+  no-recall fallback, stop conditions, fixture fallback, release scope, and
+  clean verification.
+- Added an observation policy that permits only sanitized counts, statuses, and
+  fixed reason codes; the policy names the disable action as unsetting the
+  developer-alpha env chain and the rollback action as exact test-window
+  provider-vector deletion only.
+- Added normal, degraded, blocked, observation-policy, and sensitive-output
+  tests.
+- This wave does not read env values, access artifacts, start the helper, call
+  provider execution, write/query provider vectors, write real Memory vectors,
+  create persistent caches, run SQLite migrations, change Desktop IPC, change
+  UI behavior, change provider visibility, change default opt-in, broaden
+  release scope, expose raw vectors/text/private paths/raw diagnostics, or
+  connect retrieval/model output to Windows or PowerShell execution.
+
+### Current Gate
+
+- Core Host build: PASS.
+- Continuous alpha preflight normal/blocked/degraded/sensitive-output tests:
+  PASS, 5 tests.
+- `npm.cmd run verify`: PASS, including 127 test files and 667 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not enable continuous developer-alpha retrieval, run another real usage
+  session, access artifacts, create a persistent model cache, broaden tester
+  scope, expose UI/provider controls, batch-index historical Memory, run
+  SQLite migrations, expose raw vectors/text/private paths/raw diagnostics, or
+  connect retrieval/model output to Windows or PowerShell execution without
+  separate product, security, and release approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

@@ -26,7 +26,8 @@ Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic plus
 Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan plus
 Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation plus
 Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook plus
-Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session**:
+Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session plus
+Phase 8.30 Provider Vector Retrieval Continuous Alpha Preflight**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -217,7 +218,14 @@ ports, installability policy, resource diagnostics, dry-run model install
   developer-alpha usage session passed with sanitized provider-vector
   write/read, exact-source rollback, and cleanup evidence. Default behavior,
   UI/provider visibility, historical indexing, persistent model caches, and
-  release behavior remain unchanged.
+  release behavior remain unchanged. Phase 8.30 adds only a Core Host
+  preflight for the next continuous-alpha decision, covering sanitized
+  observation, disable, exact-source rollback, bounded usage, source
+  minimization, no-recall fallback, stop conditions, fixture fallback, release
+  scope, and clean verification evidence. It does not read env values, access
+  artifacts, start helpers, write or query provider vectors, change
+  Core/Desktop/UI/provider visibility/default behavior, run migrations, create
+  persistent caches, broaden tester scope, or enable shell execution.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -847,6 +855,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.27 provider vector retrieval developer-alpha implementation](docs/phase-8-27-provider-vector-retrieval-developer-alpha-implementation.md)
 - [Phase 8.28 provider vector retrieval developer-alpha runbook](docs/phase-8-28-provider-vector-retrieval-developer-alpha-runbook.md)
 - [Phase 8.29 provider vector retrieval developer-alpha usage session](docs/phase-8-29-provider-vector-retrieval-developer-alpha-usage-session.md)
+- [Phase 8.30 provider vector retrieval continuous alpha preflight](docs/phase-8-30-provider-vector-retrieval-continuous-alpha-preflight.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

@@ -595,6 +595,16 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     historical indexing, UI/default/provider visibility changes, and shell
     execution fail closed. The runner does not create a new provider, alter
     Core contracts, or enable default behavior.
+83. Continuous developer-alpha provider-vector retrieval has a separate Core
+    Host preflight before any longer-lived usage path. Phase 8.30 can review
+    observation, disable, exact-source rollback, bounded usage, source
+    minimization, sanitized telemetry, no-recall fallback, stop conditions,
+    fixture fallback, release scope, and clean verification evidence. The
+    preflight does not read env values, access artifacts, start helpers,
+    execute provider vector write/read paths, change Core/Desktop/UI/provider
+    visibility/default behavior, run SQLite migrations, create persistent
+    caches, expose raw vectors/text/private paths/raw diagnostics, broaden
+    tester scope, or enable shell execution.
 
 ## Restart policy
 
