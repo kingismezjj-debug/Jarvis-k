@@ -29,7 +29,8 @@ Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook plus
 Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session plus
 Phase 8.30 Provider Vector Retrieval Continuous Alpha Preflight plus
 Phase 8.31 Provider Vector Retrieval Developer-Alpha Continuous Usage plus
-Phase 8.32 Provider Vector Retrieval Continuous Alpha Acceptance**:
+Phase 8.32 Provider Vector Retrieval Continuous Alpha Acceptance plus
+Phase 8.33 Continuous Alpha Operator Runbook and Promotion Gate**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -242,7 +243,14 @@ ports, installability policy, resource diagnostics, dry-run model install
   rollback, and cleans up. The acceptance passed as developer-alpha evidence
   only and does not change defaults, UI/provider visibility, release policy,
   persistent cache policy, SQLite schema/indexes, or historical Memory
-  indexing.
+  indexing. Phase 8.33 adds only an operator runbook and promotion gate for
+  future continuous-alpha expansion approval. It defines sanitized
+  observation, stop, disable, exact-source rollback, source minimization,
+  redaction, cleanup verification, fail-closed, and release-gate criteria
+  before any broader tester request. It does not expand testers, access
+  artifacts, start helpers, execute provider-vector write/read, change
+  Desktop/UI/provider visibility/default behavior, create persistent caches,
+  migrate SQLite, batch-index historical Memory, or define a product SLO.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -474,6 +482,34 @@ They are not runtime dependencies.
 - Phase 8.26 provider vector retrieval developer-alpha usage test plan: Core
   Host plan-only gate complete; implementation and enablement remain blocked
   pending separate product, security, and release approval
+- Phase 8.27 provider vector retrieval developer-alpha implementation:
+  explicit opt-in developer-alpha gate complete for bounded provider-vector
+  write/read usage; default behavior, Desktop/UI controls, provider
+  visibility/default opt-in, release policy, persistent model caches,
+  historical indexing, raw outputs, and shell execution remain deferred
+- Phase 8.28 provider vector retrieval developer-alpha runbook:
+  documentation-only usage runbook, env checklist, rollback checklist, stop
+  conditions, and sanitized telemetry expectations complete
+- Phase 8.29 provider vector retrieval developer-alpha usage session:
+  one-shot local usage runner complete; approved artifact-backed session
+  passed with sanitized provider-vector write/read, exact-source rollback, and
+  cleanup evidence
+- Phase 8.30 provider vector retrieval continuous alpha preflight: Core Host
+  preflight complete for sanitized observation, disable, rollback, bounded
+  usage, source minimization, fail-closed no-recall, and release scope
+- Phase 8.31 provider vector retrieval developer-alpha continuous usage:
+  explicit opt-in bounded continuous session API complete; real execution
+  remained blocked until the separate Phase 8.32 acceptance approval
+- Phase 8.32 provider vector retrieval continuous alpha acceptance:
+  temporary-artifact continuous acceptance passed as developer-alpha evidence
+  only with SHA-256 verification, temporary Memory DB, exact-source rollback,
+  cleanup, and no default/UI/provider/release behavior changes
+- Phase 8.33 continuous alpha operator runbook and promotion gate:
+  documentation, preflight, and fixture-only promotion gate complete for
+  future tester expansion approval; no tester expansion, artifact access,
+  helper execution, provider-vector execution, default behavior change,
+  SQLite migration, persistent cache, historical indexing, raw output
+  exposure, shell execution, release policy change, or product SLO
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -903,6 +939,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.30 provider vector retrieval continuous alpha preflight](docs/phase-8-30-provider-vector-retrieval-continuous-alpha-preflight.md)
 - [Phase 8.31 provider vector retrieval developer-alpha continuous usage](docs/phase-8-31-provider-vector-retrieval-developer-alpha-continuous-usage.md)
 - [Phase 8.32 provider vector retrieval continuous alpha acceptance](docs/phase-8-32-provider-vector-retrieval-continuous-alpha-acceptance.md)
+- [Phase 8.33 continuous alpha operator runbook and promotion gate](docs/phase-8-33-continuous-alpha-operator-runbook-promotion-gate.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

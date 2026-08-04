@@ -622,6 +622,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     artifacts, create a cache policy, broaden tester scope, alter Desktop/UI
     behavior, change provider visibility/default opt-in, migrate SQLite, index
     historical Memory, or define a product SLO.
+86. Phase 8.33 adds only an operator runbook and promotion gate for continuous
+    developer-alpha provider-vector retrieval. The gate defines observation,
+    stop, disable, rollback, source minimization, redaction, cleanup,
+    fail-closed, and release-gate criteria before any tester expansion can be
+    requested. It does not run provider execution, access artifacts, broaden
+    tester scope, change Desktop/UI/provider visibility/default behavior,
+    create persistent caches, migrate SQLite, index historical Memory, or
+    change release policy.
 
 ## Restart policy
 

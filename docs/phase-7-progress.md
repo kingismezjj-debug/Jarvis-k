@@ -3064,6 +3064,53 @@ packaging, license, benchmark, and composition gate passes.
   Windows/PowerShell action routing without separate product, security, and
   release approval.
 
+## Phase 8.33: Continuous Alpha Operator Runbook and Promotion Gate
+
+- Status: complete as a documentation, preflight, and fixture-only gate wave.
+- Added a Core Host promotion gate evaluator for continuous developer-alpha
+  provider-vector retrieval. A passing result can only reach
+  `ready_for_tester_expansion_approval`.
+- Added an operator runbook covering full gate chain review, approved
+  runtime/model handling, SHA-256 verification requirements, temporary or
+  reviewed alpha Memory database policy, source minimization, sanitized
+  telemetry, disable/rollback procedure, incident stop conditions, raw-output
+  redaction, credential/private path handling, cleanup verification, and
+  fail-closed behavior.
+- Added tester expansion criteria and a release gate requiring separate
+  product, security, and release approval before more testers or longer usage
+  windows.
+- Added normal, degraded, blocked, policy-schema, and sensitive-output tests.
+- This wave does not expand tester scope, run another real usage session,
+  access artifacts, start helper load/embed, execute provider-vector
+  write/read paths, create persistent caches, run SQLite migrations, expose
+  raw vectors/text/private paths/raw diagnostics, change Desktop/UI/provider
+  visibility/default behavior, batch-index historical Memory, alter
+  release/installer/model lifecycle/cache/update policy, or define a product
+  SLO.
+
+### Current Gate
+
+- Core Host build: PASS.
+- Promotion gate normal/degraded/blocked/policy-schema/sensitive-output tests:
+  PASS, 5 tests.
+- `npm.cmd run verify`: PASS, including 129 test files and 679 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-degraded`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not expand tester scope, run longer continuous sessions, enable UI
+  controls, change provider visibility/default behavior, create persistent
+  model caches, batch-index historical Memory, run SQLite migrations, change
+  release policy, or route retrieval/model output into Windows or PowerShell
+  actions without separate product, security, and release approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
