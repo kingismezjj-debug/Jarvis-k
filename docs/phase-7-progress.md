@@ -2877,8 +2877,8 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 8.29: Provider Vector Retrieval Developer-Alpha Usage Session
 
-- Status: runner implemented and locally preflighted; real usage session
-  blocked until approved runtime/model/database env values are supplied.
+- Status: complete as a one-time local developer-alpha usage-session
+  diagnostic; default behavior remains disabled.
 - Added a one-shot Core Host usage-session runner that sends two bounded
   synthetic messages by default, keeps one supervised Core Host child alive,
   collects sanitized provider-vector recall metadata, inspects only vector row
@@ -2895,6 +2895,14 @@ packaging, license, benchmark, and composition gate passes.
   session had no approved developer-alpha env gates configured.
 - No helper was started, no artifact was accessed, no Memory vector was
   written, and no raw output was exposed in the initial preflight.
+- After separate approval for a one-time temporary Python Transformers
+  environment and separate approval for temporary approved artifact
+  materialization, the true developer-alpha usage session passed with 10
+  approved artifacts, SHA-256 verification, 2 bounded synthetic messages, 2
+  provider vector writes, 1024-dimensional provider vectors, provider-vector
+  recall, exact-source rollback of 2 rows, and cleanup all passing.
+- The temporary artifact directory, temporary Memory database, and temporary
+  Python environment were removed after the run.
 
 ### Current Gate
 
@@ -2908,19 +2916,18 @@ packaging, license, benchmark, and composition gate passes.
 - `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
-- Real provider-vector usage session: NOT RUN; missing approved runtime/model/
-  database env configuration.
+- Real provider-vector developer-alpha usage session: PASS as sanitized
+  one-time diagnostic evidence.
+- Artifact materialization and SHA-256 verification: PASS.
+- Exact-source rollback and cleanup: PASS.
 
 ### Next Hard Pause
 
-- Do not use placeholder paths or run the real session until the approved
-  Python executable, approved local model artifact directory, explicit Memory
-  database path, and all required env gates are configured in a fresh
-  PowerShell session.
-- Do not download artifacts, persist model caches, expose raw
-  vectors/text/diagnostics, batch-index historical Memory, run SQLite
-  migrations, change UI/default/provider visibility behavior, or connect
-  retrieval output to Windows/PowerShell execution.
+- Do not run another real developer-alpha usage session, use persistent model
+  caches, expose raw vectors/text/diagnostics, batch-index historical Memory,
+  run SQLite migrations, change UI/default/provider visibility behavior,
+  broaden tester scope, or connect retrieval output to Windows/PowerShell
+  execution without separate product, security, and release approval.
 
 ## Phase 9.1: Tool Governance Contract
 

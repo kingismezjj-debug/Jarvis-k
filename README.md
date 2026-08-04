@@ -212,11 +212,12 @@ ports, installability policy, resource diagnostics, dry-run model install
   keeps one supervised Core Host child alive, sends two bounded synthetic
   messages, verifies only sanitized vector metadata, and performs exact-source
   rollback. Its implementation, full verification, and relevant desktop
-  smokes pass; the real usage session remains hard-paused until approved
-  runtime, model, and explicit Memory database values are supplied. The
-  initial preflight degraded before runtime access because the current shell
-  had no approved developer-alpha env gates configured; no helper, artifact,
-  Memory vector, or raw output was accessed.
+  smokes pass. After separate temporary Python environment and temporary
+  approved artifact materialization approvals, a one-time artifact-backed
+  developer-alpha usage session passed with sanitized provider-vector
+  write/read, exact-source rollback, and cleanup evidence. Default behavior,
+  UI/provider visibility, historical indexing, persistent model caches, and
+  release behavior remain unchanged.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -709,7 +710,8 @@ govern the controlled local alpha path described below.
 The approved Phase 8.29 developer-alpha usage runner requires all existing
 retrieval/provider gates, the developer-alpha gate, an approved runtime/model
 pair, and an explicit Memory database path. Configure values in a fresh
-PowerShell session without printing private paths:
+PowerShell session without printing private paths only after separate product,
+security, and release approval for an additional usage session:
 
 ```powershell
 $env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA='1'
@@ -729,9 +731,9 @@ npm run usage:memory-retrieval:developer-alpha
 The runner sends only two bounded synthetic messages by default, prints only
 sanitized status/count metadata, and performs exact-source rollback. It must
 not be run with placeholder paths, historical indexing, raw output exposure,
-persistent model caches, or SQLite migrations. The current repository has
-completed the implementation and local verification, but the real session has
-not been run in the present shell.
+persistent model caches, SQLite migrations, UI/provider visibility changes, or
+default opt-in changes. The first approved real local session passed as
+diagnostic evidence; another real session requires separate approval.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.

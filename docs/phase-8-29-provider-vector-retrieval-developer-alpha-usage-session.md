@@ -54,7 +54,7 @@ After the Core Host child closes, the runner:
 Message IDs are retained only in process memory for rollback and are never
 included in the report.
 
-## Current Run
+## Local Runs
 
 The first local invocation was intentionally run with the current PowerShell
 environment unchanged. It built the runner and returned this sanitized result:
@@ -77,6 +77,38 @@ environment unchanged. It built the runner and returned this sanitized result:
 
 No helper was started, no model artifact was accessed, no Memory vector was
 written, and no raw output was exposed.
+
+After separate approval for a one-time temporary Python Transformers
+environment and separate approval for temporary approved artifact
+materialization, a true artifact-backed developer-alpha usage session was run
+locally on 2026-08-04. The run used only a temporary Python venv, temporary
+approved artifact directory, and temporary Memory database. The report exposed
+only sanitized status, aggregate counts, dimensions, rollback state, cleanup
+state, and safety flags.
+
+- Result: sanitized `passed`.
+- Runtime dependency status: `passed`.
+- Artifact materialization: `passed`.
+- Artifact digest verification: `passed`.
+- Artifact count: 10.
+- Aggregate artifact bytes: 1207470234.
+- Manifest-size match: `true`.
+- Message count: 2 bounded synthetic messages.
+- Accepted message count: 2.
+- Provider vector write count: 2.
+- Provider vector dimension count: 1024.
+- Recall status/mode: `ok` / `provider_vector`.
+- Recall match count: 1.
+- Query dimension count: 1024.
+- Exact-source rollback: `passed`, deleted 2 provider vector rows.
+- Cleanup: `passed`.
+- Raw vectors, raw text, raw diagnostics, private path exposure, signed URL or
+  credential persistence, persistent cache writes, historical batch indexing,
+  SQLite schema migration, provider visibility/default opt-in changes, and
+  model-output shell execution: all reported disabled.
+
+The temporary artifact directory, temporary Memory database, and temporary
+Python environment were removed after the run.
 
 ## Verification
 
@@ -106,12 +138,13 @@ npm.cmd run smoke:desktop:local-embedding-composition
 
 ## Current Hard Pause
 
-The real developer-alpha usage session has not passed yet. It remains blocked
-until the operator supplies the approved Python executable, approved local
-model artifact directory, explicit Memory database path, and all required
-developer-alpha env gates in a fresh PowerShell session.
+The one-time local developer-alpha usage session has passed as diagnostic
+evidence only. It remains disabled by default and must not be treated as a
+general product feature, release path, installer path, broader tester path, or
+product SLO.
 
-Do not use placeholder paths, download artifacts, persist a model cache, expose
-raw vectors/text/diagnostics, index historical Memory, run SQLite migrations,
-change UI/default/provider visibility behavior, or connect retrieval output to
-Windows/PowerShell execution.
+Do not run another real developer-alpha usage session, use persistent model
+caches, expose raw vectors/text/diagnostics, index historical Memory, run
+SQLite migrations, change UI/default/provider visibility behavior, broaden
+tester scope, or connect retrieval output to Windows/PowerShell execution
+without separate product, security, and release approval.
