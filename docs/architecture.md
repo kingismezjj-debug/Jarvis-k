@@ -605,6 +605,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     visibility/default behavior, run SQLite migrations, create persistent
     caches, expose raw vectors/text/private paths/raw diagnostics, broaden
     tester scope, or enable shell execution.
+84. Phase 8.31 provides a bounded Core Host developer-alpha session API
+    behind the existing explicit gate chain and the Phase 8.30 preflight
+    approval flag. One supervised child can serve at most five minimized
+    messages per session; the session exposes only sanitized observation
+    metadata, supports operator disable/stop, stops on gate revocation or
+    degraded recall by default, and performs exact-source rollback after child
+    shutdown. The API and command do not alter Desktop IPC, UI behavior,
+    provider visibility, default opt-in, fixture fallback, release policy,
+    SQLite schema/indexes, or historical Memory indexing.
 
 ## Restart policy
 

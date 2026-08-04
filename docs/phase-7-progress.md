@@ -2972,6 +2972,54 @@ packaging, license, benchmark, and composition gate passes.
   connect retrieval/model output to Windows or PowerShell execution without
   separate product, security, and release approval.
 
+## Phase 8.31: Provider Vector Retrieval Developer-Alpha Continuous Usage
+
+- Status: complete as a bounded Core Host session implementation; no real
+  continuous alpha session was run in this wave.
+- Added a Core Host session API that keeps one supervised child alive for a
+  bounded message window, sanitizes each input, observes only recall metadata,
+  and supports operator `disable()`/`stop()` with exact-source rollback.
+- Added mid-session gate revocation handling. Any missing existing retrieval,
+  provider, or execution gate stops the session before the next message.
+- Added default stop-on-degraded-recall behavior, bounded maximum five-message
+  windows, allowlisted child environment construction, artifact digest
+  verification before startup, and sanitized cleanup/rollback status.
+- Added the explicit command
+  `npm.cmd run usage:memory-retrieval:developer-alpha:continuous`; it remains
+  disabled unless every existing gate and the Phase 8.30 preflight approval
+  flag are supplied.
+- Added normal, blocked, degraded, operator-disable, gate-revocation,
+  bounded-window, exact-source rollback, and sensitive-output tests.
+- This wave does not change Desktop IPC, UI behavior, provider visibility,
+  default opt-in, fixture fallback, release policy, installer/update policy,
+  or SQLite schema/indexes. It does not batch-index historical Memory or
+  persist raw text, raw vectors, private paths, credentials, signed URLs,
+  helper diagnostics, or model output.
+- The bounded command was not executed; no real helper, artifact, model
+  vector, or persistent Memory vector was accessed in this implementation
+  wave.
+
+### Current Gate
+
+- Core Host build: PASS.
+- Continuous session normal/blocked/degraded/disable/gate-revocation/
+  bounded-window/rollback/sensitive-output tests: PASS, 7 tests.
+- `npm.cmd run verify`: PASS, including 128 test files and 674 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+
+### Next Hard Pause
+
+- Do not run the bounded command against a real Python runtime/model artifact,
+  start a real continuous alpha session, broaden tester scope, expose
+  UI/provider controls, persist model caches, batch-index historical Memory,
+  run SQLite migrations, expose raw vectors/text/private paths/raw
+  diagnostics, or connect retrieval/model output to Windows or PowerShell
+  execution without a separate acceptance approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

@@ -27,7 +27,8 @@ Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan plus
 Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation plus
 Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook plus
 Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session plus
-Phase 8.30 Provider Vector Retrieval Continuous Alpha Preflight**:
+Phase 8.30 Provider Vector Retrieval Continuous Alpha Preflight plus
+Phase 8.31 Provider Vector Retrieval Developer-Alpha Continuous Usage**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -225,7 +226,15 @@ ports, installability policy, resource diagnostics, dry-run model install
   scope, and clean verification evidence. It does not read env values, access
   artifacts, start helpers, write or query provider vectors, change
   Core/Desktop/UI/provider visibility/default behavior, run migrations, create
-  persistent caches, broaden tester scope, or enable shell execution.
+  persistent caches, broaden tester scope, or enable shell execution. Phase
+  8.31 adds a bounded Core Host session API and explicit command that can keep
+  one supervised child alive for at most five minimized messages, expose only
+  sanitized observations, stop on gate revocation or degraded recall by
+  default, and perform exact-source rollback on stop/disable. It remains
+  explicit opt-in and does not change Desktop/UI/provider visibility/default
+  behavior, fixture fallback, release policy, SQLite schema/indexes, or
+  historical Memory indexing. The bounded command was not run during
+  implementation.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -743,6 +752,21 @@ persistent model caches, SQLite migrations, UI/provider visibility changes, or
 default opt-in changes. The first approved real local session passed as
 diagnostic evidence; another real session requires separate approval.
 
+Phase 8.31 adds a bounded continuous-session API and an explicit command
+example. It keeps one supervised Core Host child alive for at most five
+minimized messages, supports operator stop/disable, stops on gate revocation
+or degraded recall by default, and performs exact-source rollback:
+
+```powershell
+npm run usage:memory-retrieval:developer-alpha:continuous
+```
+
+This command remains disabled unless the full existing gate chain, approved
+runtime/model values, explicit Memory database path, and Phase 8.30 preflight
+approval flag are present. It was not executed during Phase 8.31
+implementation. A real artifact-backed session requires a separate acceptance
+approval.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -856,6 +880,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.28 provider vector retrieval developer-alpha runbook](docs/phase-8-28-provider-vector-retrieval-developer-alpha-runbook.md)
 - [Phase 8.29 provider vector retrieval developer-alpha usage session](docs/phase-8-29-provider-vector-retrieval-developer-alpha-usage-session.md)
 - [Phase 8.30 provider vector retrieval continuous alpha preflight](docs/phase-8-30-provider-vector-retrieval-continuous-alpha-preflight.md)
+- [Phase 8.31 provider vector retrieval developer-alpha continuous usage](docs/phase-8-31-provider-vector-retrieval-developer-alpha-continuous-usage.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)
