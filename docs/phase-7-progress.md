@@ -3111,6 +3111,58 @@ packaging, license, benchmark, and composition gate passes.
   release policy, or route retrieval/model output into Windows or PowerShell
   actions without separate product, security, and release approval.
 
+## Phase 8.34: Tester Expansion Approval Packet
+
+- Status: complete as a packet-only approval proposal and release-readiness
+  checklist wave.
+- Added a Core Host approval packet evaluator for possible bounded
+  small-cohort continuous developer-alpha provider-vector retrieval review.
+- The generated packet proposes at most 3 testers, 5 minimized messages per
+  tester, and a 2-hour window. It requires synthetic or explicitly consented
+  minimized messages, a temporary or separately reviewed alpha Memory
+  database, sanitized observation only, hard stop conditions, and exact-source
+  rollback.
+- Added a release-readiness checklist that keeps the feature in
+  developer-alpha evidence scope only. It excludes installer inclusion,
+  automatic updates, default configuration, public enabled-user docs, product
+  SLOs, model lifecycle policy changes, persistent model cache policy changes,
+  and upgrade/rollback policy changes.
+- Added normal, degraded, blocked, release-policy, and sensitive-output tests.
+- This wave does not approve or execute tester expansion, run a real usage
+  session, read env values, read runtime/model paths, access artifacts, start
+  helper load/embed, execute provider-vector write/read paths, write real
+  Memory vector data, create persistent caches, run SQLite migrations, expose
+  raw vectors/text/private paths/raw diagnostics, change Desktop/UI/provider
+  visibility/default behavior, batch-index historical Memory, alter
+  release/installer/model lifecycle/cache/update policy, declare a product SLO,
+  or route retrieval/model output to Windows or PowerShell.
+
+### Current Gate
+
+- Core Host build: PASS.
+- Tester expansion approval packet normal/degraded/blocked/release/sensitive
+  output tests: PASS, 5 tests.
+- `npm.cmd run verify`: PASS, including 130 test files and 684 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-degraded`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not expand tester scope, run a real usage session, read runtime/model env
+  values, access artifacts, start helpers, execute provider-vector write/read,
+  write real Memory vector data, enable UI controls, change provider
+  visibility or default behavior, create persistent model caches, batch-index
+  historical Memory, run SQLite migrations, change release/installer/update/
+  model lifecycle policy, declare a product SLO, or route retrieval/model
+  output into Windows or PowerShell actions without separate product, security,
+  and release approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

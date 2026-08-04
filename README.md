@@ -30,7 +30,8 @@ Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session plus
 Phase 8.30 Provider Vector Retrieval Continuous Alpha Preflight plus
 Phase 8.31 Provider Vector Retrieval Developer-Alpha Continuous Usage plus
 Phase 8.32 Provider Vector Retrieval Continuous Alpha Acceptance plus
-Phase 8.33 Continuous Alpha Operator Runbook and Promotion Gate**:
+Phase 8.33 Continuous Alpha Operator Runbook and Promotion Gate plus
+Phase 8.34 Tester Expansion Approval Packet**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -251,6 +252,13 @@ ports, installability policy, resource diagnostics, dry-run model install
   artifacts, start helpers, execute provider-vector write/read, change
   Desktop/UI/provider visibility/default behavior, create persistent caches,
   migrate SQLite, batch-index historical Memory, or define a product SLO.
+  Phase 8.34 adds only a tester expansion approval packet and
+  release-readiness checklist for possible bounded small-cohort
+  developer-alpha review. It proposes at most 3 testers, 5 minimized messages
+  per tester, and a 2-hour window, but does not approve or execute expansion,
+  read env values, access artifacts, start helpers, execute provider-vector
+  paths, change defaults/UI/provider visibility/release policy, or create a
+  product SLO.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -510,6 +518,12 @@ They are not runtime dependencies.
   helper execution, provider-vector execution, default behavior change,
   SQLite migration, persistent cache, historical indexing, raw output
   exposure, shell execution, release policy change, or product SLO
+- Phase 8.34 tester expansion approval packet: packet-only approval proposal
+  and release-readiness checklist complete for possible bounded small-cohort
+  developer-alpha review; no tester expansion, real usage session, env reads,
+  artifact access, helper execution, provider-vector execution, default/UI/
+  provider visibility change, persistent cache, SQLite migration, historical
+  indexing, release policy change, shell execution, or product SLO
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -940,6 +954,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.31 provider vector retrieval developer-alpha continuous usage](docs/phase-8-31-provider-vector-retrieval-developer-alpha-continuous-usage.md)
 - [Phase 8.32 provider vector retrieval continuous alpha acceptance](docs/phase-8-32-provider-vector-retrieval-continuous-alpha-acceptance.md)
 - [Phase 8.33 continuous alpha operator runbook and promotion gate](docs/phase-8-33-continuous-alpha-operator-runbook-promotion-gate.md)
+- [Phase 8.34 tester expansion approval packet](docs/phase-8-34-tester-expansion-approval-packet.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

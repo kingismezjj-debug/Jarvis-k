@@ -630,6 +630,15 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     tester scope, change Desktop/UI/provider visibility/default behavior,
     create persistent caches, migrate SQLite, index historical Memory, or
     change release policy.
+87. Phase 8.34 adds only a tester expansion approval packet and release
+    readiness checklist for possible bounded small-cohort developer-alpha
+    review. The packet proposes a maximum tester count, message count, time
+    window, consent/minimization policy, sanitized observation, stop, rollback,
+    and non-release checklist. It does not approve or execute expansion, read
+    env values, access artifacts, start helpers, run provider-vector write/read
+    paths, change Desktop/UI/provider visibility/default behavior, migrate
+    SQLite, index historical Memory, alter installer/update/model lifecycle
+    policy, or define a product SLO.
 
 ## Restart policy
 
