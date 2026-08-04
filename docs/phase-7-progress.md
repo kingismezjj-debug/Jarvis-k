@@ -2662,10 +2662,7 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 8.25: Provider Vector Retrieval Acceptance Diagnostic
 
-- Status: implementation complete with a safety-degraded local run; true
-  artifact-backed acceptance pass remains pending because the current Codex
-  process did not have the required opt-in/runtime/model environment variables
-  configured.
+- Status: complete with an approved temporary artifact-backed acceptance pass.
 - Added a one-shot Core Host diagnostic runner behind
   `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READ_ACCEPTANCE=1`.
 - The runner requires the existing Memory retrieval routing, provider
@@ -2689,10 +2686,19 @@ packaging, license, benchmark, and composition gate passes.
   into a temporary directory, verify SHA-256 digests, pass that directory only
   through same-process diagnostic env wiring, run the existing Phase 8.25
   product-path diagnostic, and cleanup the temporary directory.
-- The chained diagnostic local run stopped before artifact download because
-  the resolved Python runtime lacks the required Transformers dependencies.
-  It returned sanitized `degraded` with reason code
-  `runtime_dependencies_missing`, `artifactMaterialization: not_run`, and
+- The first chained diagnostic local run stopped before artifact download
+  because the resolved Python runtime lacked the required Transformers
+  dependencies. After separate approval, a temporary Python Transformers
+  environment was created in the system temporary directory, pip/runtime cache
+  roots were scoped to the same temporary root, the chained diagnostic
+  materialized and verified the approved artifact set, ran the nested
+  provider-vector retrieval product-path diagnostic, and cleaned up.
+- The approved artifact-backed chained diagnostic returned sanitized `passed`:
+  `artifactMaterialization: passed`, `artifactDigestVerification: passed`,
+  `artifactCount: 10`, `artifactBytes: 1207470234`,
+  `manifestSizeMatched: true`, nested product-path write/read `passed`,
+  `recallStatus: ok`, `recallMode: provider_vector`,
+  `recallMatchCount: 2`, `queryDimensionCount: 1024`, and
   `cleanupStatus: passed`.
 - Default behavior, Desktop/UI behavior, provider visibility, default opt-in,
   historical batch indexing, downloads, persistent caches, SQLite schema/index
@@ -2708,8 +2714,9 @@ packaging, license, benchmark, and composition gate passes.
 - `node --check tests/memory-provider-vector-retrieval-temporary-artifact-acceptance.mjs`:
   PASS.
 - `npm.cmd run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact`:
-  PASS as sanitized degraded, `runtime_dependencies_missing`, before artifact
-  download.
+  PASS with approved temporary Python environment, approved artifact
+  materialization, SHA-256 verification, nested provider-vector retrieval
+  product-path write/read, sanitized recall metadata, and cleanup.
 - `npm.cmd run verify`: PASS, 124 test files and 646 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.
@@ -2720,13 +2727,10 @@ packaging, license, benchmark, and composition gate passes.
 
 ### Next Hard Pause
 
-- Do not claim provider-vector retrieval acceptance is artifact-backed passed
-  until the diagnostic is rerun with the approved local Python runtime,
-  approved local model artifact directory, SHA-256 verification, temporary
-  Memory database, provider vector write, provider-vector retrieval read,
-  sanitized recall report, and cleanup all passing.
-- Do not create or install a temporary Python Transformers environment for
-  this diagnostic without separate product and security approval.
+- Do not promote provider-vector retrieval into default product behavior,
+  Desktop/UI controls, provider visibility, persistent model cache management,
+  historical Memory indexing, or non-diagnostic runtime setup without separate
+  product, security, and release approval.
 - Do not enable provider-vector retrieval by default, batch-index historical
   records, expose Desktop/UI controls, change provider visibility/default
   opt-in, write persistent model caches, download artifacts, persist or expose

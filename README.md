@@ -173,9 +173,11 @@ ports, installability policy, resource diagnostics, dry-run model install
   all existing retrieval/provider execution gates. It verifies artifacts before
   product-path execution, uses a temporary Memory database, writes one fixed
   diagnostic message, sends one fixed diagnostic query, and reports only
-  sanitized recall metadata. The current Codex-process run degraded before
-  artifact access because the required env gates were not configured; default
-  behavior, Desktop/UI controls, provider visibility/default opt-in, downloads,
+  sanitized recall metadata. The standalone no-env run degraded before
+  artifact access, and the separately approved temporary-artifact chained run
+  passed artifact verification, provider-vector write/read, sanitized recall,
+  and cleanup. Default behavior, Desktop/UI controls, provider
+  visibility/default opt-in, downloads outside the approved diagnostic,
   persistent caches, historical batch indexing, SQLite migrations, raw
   vector/text/path/diagnostic exposure, and shell execution remain blocked.
 
@@ -403,9 +405,9 @@ They are not runtime dependencies.
   diagnostic exposure, downloads, persistent caches, SQLite migrations, and
   shell execution remain deferred
 - Phase 8.25 provider vector retrieval acceptance diagnostic: one-shot
-  diagnostic runner complete behind explicit opt-in; the current local run was
-  sanitized degraded because the Codex process had no approved runtime/model
-  env configured, so true artifact-backed pass remains pending
+  diagnostic runner complete behind explicit opt-in; the approved
+  temporary-artifact chained diagnostic passed with SHA-256 verification,
+  provider-vector write/read, sanitized recall, and cleanup
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -647,7 +649,9 @@ It never prints the temporary artifact path, raw vectors, raw text, raw helper
 diagnostics, signed URLs, or credentials, and it removes the temporary
 directory on exit. If the configured Python runtime lacks the approved
 Transformers dependencies, it stops before downloading artifacts with a
-sanitized `runtime_dependencies_missing` reason.
+sanitized `runtime_dependencies_missing` reason. The approved temporary
+Python environment run passed artifact materialization, SHA-256 verification,
+provider-vector write/read, sanitized recall, and cleanup.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.

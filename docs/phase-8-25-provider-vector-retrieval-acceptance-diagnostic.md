@@ -92,9 +92,30 @@ Python runtime does not have the required `torch`, `transformers`, and
 - Artifact digest verification: `not_run`.
 - Cleanup: `passed`.
 
-True artifact-backed Phase 8.25 acceptance still requires a separately
-approved temporary Python Transformers environment or an already approved
-runtime with the required dependencies installed.
+After separate approval for a temporary Python Transformers environment, the
+chained diagnostic was rerun locally on 2026-08-04 with all temporary cache
+roots scoped outside the repository and cleaned up after completion:
+
+- Result: sanitized `passed`.
+- Artifact materialization: `passed`.
+- Artifact digest verification: `passed`.
+- Artifact count: 10.
+- Aggregate artifact bytes: 1207470234.
+- Manifest-size match: `true`.
+- Nested product-path diagnostic: `passed`.
+- Product-path vector write/read commands: `passed`.
+- Recall status/mode: `ok` / `provider_vector`.
+- Recall match count: 2.
+- Query dimension count: 1024.
+- Cleanup: `passed`.
+- Raw vectors, raw text, private paths, raw diagnostics, downloads outside the
+  approved artifact set, persistent cache writes, SQLite migrations,
+  UI/Desktop/provider visibility/default opt-in changes, historical batch
+  indexing, and shell execution: all reported disabled.
+
+The temporary Python environment, pip cache, runtime cache roots, temporary
+artifact directory, temporary model lifecycle directory, and temporary Memory
+database were removed after the run.
 
 ## Verification
 
@@ -129,16 +150,25 @@ npm.cmd run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
 - Temporary artifact chained diagnostic local run: PASS as sanitized degraded,
   `runtime_dependencies_missing`, before artifact download.
 
+Completed locally on 2026-08-04 after separate approval for a temporary Python
+Transformers environment:
+
+```powershell
+npm.cmd run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
+```
+
+- Temporary Python Transformers environment creation: PASS.
+- Temporary artifact chained diagnostic local run: PASS.
+- Artifact materialization and SHA-256 verification: PASS.
+- Nested provider-vector retrieval acceptance diagnostic: PASS.
+- Temporary cleanup: PASS.
+
 ## Next Hard Pause
 
-Do not claim provider-vector retrieval acceptance is artifact-backed passed
-until the diagnostic is rerun with the approved local Python runtime, approved
-local model artifact directory, SHA-256 verification, temporary Memory
-database, provider vector write, provider-vector retrieval read, sanitized
-recall report, and cleanup all passing.
-
-Do not create or install a temporary Python Transformers environment for this
-diagnostic without separate product and security approval.
+Do not promote provider-vector retrieval into default product behavior,
+Desktop/UI controls, provider visibility, persistent model cache management,
+historical Memory indexing, or non-diagnostic runtime setup without separate
+product, security, and release approval.
 
 Do not enable provider-vector retrieval by default, batch-index historical
 records, expose Desktop/UI controls, change provider visibility/default
