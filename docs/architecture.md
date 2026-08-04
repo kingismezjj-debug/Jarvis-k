@@ -639,6 +639,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     paths, change Desktop/UI/provider visibility/default behavior, migrate
     SQLite, index historical Memory, alter installer/update/model lifecycle
     policy, or define a product SLO.
+88. Phase 8.35 adds only a bounded tester expansion operator checklist and
+    dry-run preflight. It records candidate roster policy, env gate checklist,
+    rollback dry-run procedure, sanitized report schema, stop conditions, and
+    release gate checklist while still blocking tester invitations, tester
+    expansion, real usage sessions, env reads, artifact access, helper
+    execution, provider-vector write/read execution, Desktop/UI/provider
+    visibility/default behavior changes, SQLite migrations, historical
+    indexing, release policy changes, and product SLOs.
 
 ## Restart policy
 
