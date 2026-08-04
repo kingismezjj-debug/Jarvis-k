@@ -578,6 +578,13 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     installer/update/release change, persistent model cache, historical batch
     indexing, raw vector/text/path/diagnostic exposure, artifact download, or
     shell execution path.
+81. Provider-vector retrieval developer-alpha usage testing must follow the
+    Phase 8.28 runbook before a real local usage session is attempted. The
+    runbook is documentation-only: it may define preconditions, env checklists,
+    sanitized telemetry, rollback checklists, and stop conditions, but it does
+    not enable execution, create maintenance wrappers, write provider vectors,
+    run schema migrations, expose Desktop/UI controls, broaden release scope,
+    print private paths, or change default behavior.
 
 ## Restart policy
 

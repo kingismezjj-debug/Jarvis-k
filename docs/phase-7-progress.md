@@ -2779,7 +2779,7 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 8.27: Provider Vector Retrieval Developer-Alpha Implementation
 
-- Status: complete locally; push and CI pending.
+- Status: complete, pushed, and CI passed.
 - Added the explicit developer-alpha opt-in
   `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA=1` to the
   Core Host provider-vector write/read gate chain.
@@ -2834,6 +2834,46 @@ packaging, license, benchmark, and composition gate passes.
   download unapproved artifacts, expose raw vectors/raw text/private paths/raw
   diagnostics, run SQLite schema/index migrations, or convert retrieval/model
   output into Windows/PowerShell operations without separate approval.
+
+## Phase 8.28: Provider Vector Retrieval Developer-Alpha Runbook
+
+- Status: complete locally; push and CI pending.
+- Added a documentation-only developer-alpha usage test runbook for the
+  provider-vector retrieval path.
+- The runbook covers preconditions, explicit env gate setup, safe configured
+  checks that do not print env values, runtime/model existence checks that do
+  not print private paths, usage-window source minimization, sanitized
+  telemetry expectations, rollback checklist, and stop conditions.
+- The rollback checklist requires unsetting developer-alpha env gates and
+  limiting any future exact-source vector deletion to the approved test window
+  through a separately approved maintenance or diagnostic wrapper.
+- This wave does not change Core Host, Core, Desktop, UI, provider visibility,
+  model lifecycle, installer/update policy, SQLite schema, runtime
+  dependencies, downloads, cache behavior, default opt-in behavior, provider
+  execution, Memory vector write/read behavior, or shell execution behavior.
+
+### Current Gate
+
+- Runbook normal path checklist: documented.
+- Blocked conditions: documented for digest failure, helper failure, unsafe
+  exposure, out-of-window writes, historical batch indexing, schema migration,
+  UI/default changes, and shell execution.
+- Degraded behavior: documented as fail-closed/no-recall without blocking
+  normal conversation.
+- Sensitive information safety: documented with no raw vectors, raw text,
+  private paths, signed URLs, credentials, or raw helper diagnostics in logs,
+  reports, screenshots, commits, docs, or chat.
+- `npm.cmd run verify`: PASS, including 125 test files and 657 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+
+### Next Hard Pause
+
+- Do not run a real developer-alpha usage session, create a maintenance
+  wrapper for rollback deletion, write persistent provider vectors outside a
+  bounded test window, expose a UI control, broaden tester scope, change
+  release policy, or promote the feature toward default behavior without
+  separate product, security, and release approval.
 
 ## Phase 9.1: Tool Governance Contract
 

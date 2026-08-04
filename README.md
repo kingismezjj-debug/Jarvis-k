@@ -24,7 +24,8 @@ Phase 8.22 Provider Vector Retrieval Preflight plus Phase 8.23 Provider
 Vector Retrieval Routing plus Phase 8.24 Provider Vector Retrieval Acceptance
 Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic plus
 Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan plus
-Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation**:
+Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation plus
+Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -201,6 +202,12 @@ ports, installability policy, resource diagnostics, dry-run model install
   provider visibility/default opt-in, installer/update/release policy,
   persistent model caches, historical batch indexing, raw vectors/text/paths/
   diagnostics, unapproved downloads, and shell execution remain blocked.
+  Phase 8.28 adds the documentation-only runbook, environment checklist,
+  rollback checklist, sanitized telemetry expectations, and stop conditions
+  for a future controlled local developer-alpha usage test. It does not run a
+  real usage session, create a maintenance wrapper, write provider vectors,
+  change Core Host/Core/Desktop/UI/provider behavior, run migrations, or
+  change release policy.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
