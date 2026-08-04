@@ -28,7 +28,8 @@ Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation plus
 Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook plus
 Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session plus
 Phase 8.30 Provider Vector Retrieval Continuous Alpha Preflight plus
-Phase 8.31 Provider Vector Retrieval Developer-Alpha Continuous Usage**:
+Phase 8.31 Provider Vector Retrieval Developer-Alpha Continuous Usage plus
+Phase 8.32 Provider Vector Retrieval Continuous Alpha Acceptance**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -234,7 +235,14 @@ ports, installability policy, resource diagnostics, dry-run model install
   explicit opt-in and does not change Desktop/UI/provider visibility/default
   behavior, fixture fallback, release policy, SQLite schema/indexes, or
   historical Memory indexing. The bounded command was not run during
-  implementation.
+  implementation. Phase 8.32 adds and runs a one-time temporary-artifact
+  acceptance path for the bounded continuous session. It materializes only the
+  approved pinned artifact set into a temporary directory, verifies SHA-256
+  digests, runs against a temporary Memory database, performs exact-source
+  rollback, and cleans up. The acceptance passed as developer-alpha evidence
+  only and does not change defaults, UI/provider visibility, release policy,
+  persistent cache policy, SQLite schema/indexes, or historical Memory
+  indexing.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -767,6 +775,19 @@ approval flag are present. It was not executed during Phase 8.31
 implementation. A real artifact-backed session requires a separate acceptance
 approval.
 
+Phase 8.32 adds the one-time temporary-artifact acceptance command:
+
+```powershell
+npm run usage:memory-retrieval:developer-alpha:continuous:temporary-artifact
+```
+
+The approved local run passed with approved artifact materialization,
+SHA-256 verification, two bounded synthetic messages, provider-vector
+write/read, exact-source rollback, and cleanup. It remains developer-alpha
+evidence only and must not be treated as default behavior, product SLO,
+installer/update policy, UI control, provider visibility, or broader tester
+enablement.
+
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
 
@@ -881,6 +902,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.29 provider vector retrieval developer-alpha usage session](docs/phase-8-29-provider-vector-retrieval-developer-alpha-usage-session.md)
 - [Phase 8.30 provider vector retrieval continuous alpha preflight](docs/phase-8-30-provider-vector-retrieval-continuous-alpha-preflight.md)
 - [Phase 8.31 provider vector retrieval developer-alpha continuous usage](docs/phase-8-31-provider-vector-retrieval-developer-alpha-continuous-usage.md)
+- [Phase 8.32 provider vector retrieval continuous alpha acceptance](docs/phase-8-32-provider-vector-retrieval-continuous-alpha-acceptance.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

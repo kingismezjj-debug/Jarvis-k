@@ -614,6 +614,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     shutdown. The API and command do not alter Desktop IPC, UI behavior,
     provider visibility, default opt-in, fixture fallback, release policy,
     SQLite schema/indexes, or historical Memory indexing.
+85. Phase 8.32 acceptance can temporarily materialize only the approved pinned
+    local embedding artifact set, verify SHA-256 digests, run the bounded
+    continuous developer-alpha session against a temporary Memory database,
+    and remove the temporary directory after completion. The acceptance report
+    is sanitized developer-alpha evidence only; it does not persist model
+    artifacts, create a cache policy, broaden tester scope, alter Desktop/UI
+    behavior, change provider visibility/default opt-in, migrate SQLite, index
+    historical Memory, or define a product SLO.
 
 ## Restart policy
 

@@ -3020,6 +3020,50 @@ packaging, license, benchmark, and composition gate passes.
   diagnostics, or connect retrieval/model output to Windows or PowerShell
   execution without a separate acceptance approval.
 
+## Phase 8.32: Provider Vector Retrieval Continuous Alpha Acceptance
+
+- Status: complete as a one-time local controlled acceptance run; continuous
+  developer-alpha retrieval remains non-release, explicit opt-in only.
+- Added a temporary-artifact chained acceptance runner for the Phase 8.31
+  bounded continuous session:
+  `npm.cmd run usage:memory-retrieval:developer-alpha:continuous:temporary-artifact`.
+- The runner materializes only the approved pinned local embedding artifact
+  set into a temporary directory, verifies SHA-256 digests, uses a temporary
+  Memory database, runs the existing Phase 8.31 product path, performs
+  exact-source rollback, and removes the temporary directory on completion or
+  failure.
+- The real local run passed with 10 approved artifacts, 1207470234 aggregate
+  artifact bytes, manifest-size match, 2 bounded synthetic messages, 2
+  accepted messages, 2 sanitized observations, 2 provider vector writes,
+  1024-dimensional provider vectors, provider-vector recall, exact-source
+  rollback of 2 rows, and cleanup passing.
+- All unsafe flags reported false or disabled: no raw vector return/logging,
+  raw text exposure, raw diagnostics exposure, private path exposure, signed
+  URL or credential persistence, persistent cache writes, SQLite schema
+  migration, Desktop IPC change, UI behavior change, provider visibility or
+  default opt-in change, historical batch indexing, or model-output shell
+  execution.
+- Temporary session directory count after cleanup: 0.
+- This wave does not promote continuous developer-alpha retrieval to a product
+  SLO, release feature, installer/update path, default configuration, broader
+  tester scope, UI control, persistent cache policy, or historical Memory
+  indexing path.
+
+### Current Gate
+
+- Temporary-artifact continuous acceptance: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run verify`: PASS, including 128 test files and 674 tests.
+- `npm.cmd run check:boundaries`: PASS.
+
+### Next Hard Pause
+
+- Do not promote continuous developer-alpha retrieval to broader testers,
+  default behavior, UI controls, provider visibility, persistent model caches,
+  historical Memory indexing, installer/update/release policy, product SLO, or
+  Windows/PowerShell action routing without separate product, security, and
+  release approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
