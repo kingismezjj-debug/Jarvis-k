@@ -2777,6 +2777,64 @@ packaging, license, benchmark, and composition gate passes.
   retrieval/model output into Windows/PowerShell operations without that
   separate approval.
 
+## Phase 8.27: Provider Vector Retrieval Developer-Alpha Implementation
+
+- Status: complete locally; push and CI pending.
+- Added the explicit developer-alpha opt-in
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA=1` to the
+  Core Host provider-vector write/read gate chain.
+- Provider-backed Memory vector writes now enable only when the developer-alpha
+  gate, Memory retrieval routing, provider vector write, local embedding
+  provider, and local embedding provider execution gates all pass.
+- Provider-written Memory vector reads now enter `provider_vector` mode only
+  when the developer-alpha gate, Memory retrieval routing, provider query
+  vector, provider vector write, provider vector read, local embedding
+  provider, and local embedding provider execution gates all pass.
+- Missing or non-exact developer-alpha opt-in fails closed: writes remain
+  disabled and provider-vector reads fall back to fixture-only routing.
+- Added a narrow SQLite rollback helper,
+  `deleteEmbeddingRecordsForSource({ modelId, sourceType, sourceId })`, that
+  deletes only exact allowlisted vector rows and returns sanitized status,
+  deleted count, and fixed reason codes without reading vector payloads or
+  source text.
+- This wave does not download artifacts, write persistent model caches, persist
+  credentials/signed URLs/private paths, expose raw vectors/raw text/raw
+  diagnostics, run SQLite schema/index migrations, change Desktop IPC, change
+  UI behavior, change provider visibility, change default opt-in, batch-index
+  historical Memory, alter installer/update/release policy, or convert
+  retrieval/model output into Windows/PowerShell operations.
+
+### Current Gate
+
+- Developer-alpha env exact opt-in tests: PASS.
+- Provider-vector write normal, blocked, degraded, and sensitive-output tests:
+  PASS.
+- Provider-vector read normal, blocked, fallback, and sensitive-output tests:
+  PASS.
+- SQLite provider-vector rollback delete normal, blocked, and
+  sensitive-output tests: PASS.
+- Targeted verification:
+  `npx vitest run apps/core-host/test/core-memory-retrieval-env-wiring.test.ts apps/core-host/test/memory-provider-vector-write-wiring.test.ts apps/core-host/test/memory-provider-vector-retrieval-developer-alpha-plan.test.ts packages/memory-sqlite/test/sqlite-memory-repository.test.ts`:
+  PASS, 49 tests.
+- `npm.cmd run verify`: PASS, including 125 test files and 657 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+
+### Next Hard Pause
+
+- Do not promote developer-alpha retrieval to a general product feature,
+  Desktop/UI control, provider visibility change, default configuration,
+  installer path, automatic update path, release policy, or broader tester
+  cohort without separate product, security, and release approval.
+- Do not batch-index historical Memory, write persistent model caches,
+  download unapproved artifacts, expose raw vectors/raw text/private paths/raw
+  diagnostics, run SQLite schema/index migrations, or convert retrieval/model
+  output into Windows/PowerShell operations without separate approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

@@ -27,9 +27,13 @@ import {
   type SummaryListOptions,
   type SummaryWriteInput,
   type EmbeddingMemoryQuery,
+  type EmbeddingMemoryDeleteSourceInput,
   type EmbeddingMemoryRecord,
   type EmbeddingMemoryRetrievalResult,
+  type EmbeddingMemoryVectorDeleteResult,
   type EmbeddingMemoryVectorWriteResult,
+  EmbeddingMemoryDeleteSourceInputSchema,
+  EmbeddingMemoryVectorDeleteResultSchema,
   EmbeddingMemoryRetrievalResultSchema,
   cloneConversation,
   cloneMessage,
@@ -652,6 +656,59 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
   }
 
+  public async deleteEmbeddingRecordsForSource(
+    input: EmbeddingMemoryDeleteSourceInput
+  ): Promise<EmbeddingMemoryVectorDeleteResult> {
+    const parsed = this.parseEmbeddingDeleteSource(input);
+    if (!parsed) {
+      return this.degradedVectorDelete("VECTOR_DELETE_SOURCE_INVALID");
+    }
+    if (!this.isAllowedEmbeddingModel(parsed.modelId)) {
+      return this.degradedVectorDelete("VECTOR_NON_FIXTURE_DELETE_BLOCKED");
+    }
+
+    try {
+      const database = await this.getDatabase();
+      if (this.readSchemaVersion(database) < 3) {
+        return this.degradedVectorDelete("VECTOR_SCHEMA_UNAVAILABLE");
+      }
+
+      const beforeCount = this.countEmbeddingRecordsForSource(
+        database,
+        parsed
+      );
+      if (beforeCount === 0) {
+        return EmbeddingMemoryVectorDeleteResultSchema.parse({
+          status: "accepted",
+          deletedCount: 0
+        });
+      }
+
+      database.run("BEGIN IMMEDIATE TRANSACTION");
+      try {
+        database.run(
+          `DELETE FROM memory_embeddings
+           WHERE model_id = ?
+            AND source_type = ?
+            AND source_id = ?`,
+          [parsed.modelId, parsed.sourceType, parsed.sourceId]
+        );
+        database.run("COMMIT");
+      } catch {
+        database.run("ROLLBACK");
+        return this.degradedVectorDelete("VECTOR_DELETE_FAILED");
+      }
+
+      await this.flush();
+      return EmbeddingMemoryVectorDeleteResultSchema.parse({
+        status: "accepted",
+        deletedCount: beforeCount
+      });
+    } catch {
+      return this.degradedVectorDelete("VECTOR_DELETE_FAILED");
+    }
+  }
+
   public async close(): Promise<void> {
     if (!this.database) {
       return;
@@ -759,6 +816,16 @@ export class SqliteMemoryRepository implements MemoryRepository {
   ): EmbeddingMemoryQuery | undefined {
     try {
       return validateEmbeddingMemoryVectorQueryInput(query);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private parseEmbeddingDeleteSource(
+    input: EmbeddingMemoryDeleteSourceInput
+  ): EmbeddingMemoryDeleteSourceInput | undefined {
+    try {
+      return EmbeddingMemoryDeleteSourceInputSchema.parse(input);
     } catch {
       return undefined;
     }
@@ -902,6 +969,21 @@ export class SqliteMemoryRepository implements MemoryRepository {
     return (rows[0]?.values.length ?? 0) > 0;
   }
 
+  private countEmbeddingRecordsForSource(
+    database: Database,
+    input: EmbeddingMemoryDeleteSourceInput
+  ): number {
+    const rows = database.exec(
+      `SELECT COUNT(*)
+       FROM memory_embeddings
+       WHERE model_id = ?
+        AND source_type = ?
+        AND source_id = ?`,
+      [input.modelId, input.sourceType, input.sourceId]
+    );
+    return Number(rows[0]?.values[0]?.[0] ?? 0);
+  }
+
   private serializeEmbeddingVector(vector: readonly number[]): Uint8Array {
     const payload = new Float32Array(vector);
     return new Uint8Array(payload.buffer);
@@ -943,6 +1025,16 @@ export class SqliteMemoryRepository implements MemoryRepository {
       status: "degraded",
       reasonCode
     };
+  }
+
+  private degradedVectorDelete(
+    reasonCode: string
+  ): EmbeddingMemoryVectorDeleteResult {
+    return EmbeddingMemoryVectorDeleteResultSchema.parse({
+      status: "degraded",
+      deletedCount: 0,
+      reasonCode
+    });
   }
 
   private degradedVectorQuery(

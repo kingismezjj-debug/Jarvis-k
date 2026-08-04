@@ -3,7 +3,8 @@ import {
   MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV,
   createMemoryProviderVectorRetrievalDeveloperAlphaUsageTestPlan,
   evaluateMemoryProviderVectorRetrievalDeveloperAlphaPlan,
-  evaluateMemoryProviderVectorRetrievalDeveloperAlphaSafety
+  evaluateMemoryProviderVectorRetrievalDeveloperAlphaSafety,
+  isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled
 } from "../src/memory-provider-vector-retrieval-developer-alpha-plan";
 
 describe("Memory provider-vector retrieval developer-alpha plan", () => {
@@ -254,6 +255,21 @@ describe("Memory provider-vector retrieval developer-alpha plan", () => {
     expect(serialized).not.toMatch(/https?:\/\//u);
     expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
     expect(serialized).not.toMatch(/\b[a-f0-9]{64}\b/u);
+  });
+
+  it("enables developer-alpha usage only for the exact explicit env value", () => {
+    expect(
+      isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled({
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]: " 1 "
+      })
+    ).toBe(true);
+    for (const value of ["", "0", "true", "yes", "2"]) {
+      expect(
+        isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled({
+          [MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]: value
+        })
+      ).toBe(false);
+    }
   });
 
   it("reports plan-only, degraded, and blocked safety observations", () => {

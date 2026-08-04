@@ -42,6 +42,30 @@ export type EmbeddingMemoryRecord = z.infer<
   typeof EmbeddingMemoryRecordSchema
 >;
 
+export const EmbeddingMemoryDeleteSourceInputSchema = z
+  .object({
+    modelId: EmbeddingModelIdSchema,
+    sourceType: EmbeddingMemorySourceTypeSchema,
+    sourceId: EmbeddingMemoryIdSchema
+  })
+  .strict();
+
+export type EmbeddingMemoryDeleteSourceInput = z.infer<
+  typeof EmbeddingMemoryDeleteSourceInputSchema
+>;
+
+export const EmbeddingMemoryVectorDeleteResultSchema = z
+  .object({
+    status: z.enum(["accepted", "degraded"]),
+    deletedCount: z.number().int().min(0).max(1000),
+    reasonCode: z.string().min(1).max(128).optional()
+  })
+  .strict();
+
+export type EmbeddingMemoryVectorDeleteResult = z.infer<
+  typeof EmbeddingMemoryVectorDeleteResultSchema
+>;
+
 export const EmbeddingMemoryQuerySchema = z
   .object({
     modelId: EmbeddingModelIdSchema,

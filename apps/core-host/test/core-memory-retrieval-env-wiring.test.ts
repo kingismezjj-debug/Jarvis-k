@@ -20,6 +20,7 @@ import {
 } from "../src/core-memory-retrieval-env-wiring";
 import { LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV } from "../src/local-embedding-composition";
 import { LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV } from "../src/local-embedding-runtime-session-factory";
+import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV } from "../src/memory-provider-vector-retrieval-developer-alpha-plan";
 import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV } from "../src/memory-provider-vector-retrieval-preflight";
 import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "../src/memory-provider-vector-write-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "../src/memory-retrieval-provider-query-vector-approval-gate";
@@ -166,6 +167,7 @@ describe("Core Host memory retrieval env wiring", () => {
     const wiring = createCoreHostMemoryRetrievalEnvWiring({
       env: {
         [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]: "1",
         [MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]: "1",
         [MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV]: "1",
         [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: "1",
@@ -225,6 +227,31 @@ describe("Core Host memory retrieval env wiring", () => {
       env: {
         [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
         [MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      memoryRepository: repository.asRepository(),
+      embeddingProvider
+    });
+
+    expect(wiring.routingOptions).toMatchObject({
+      enabled: true,
+      modelId: CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID,
+      mode: "fixture_only",
+      limit: 5
+    });
+    expect(wiring.routingOptions).not.toHaveProperty("allowedModelId");
+  });
+
+  it("falls back to fixture reads when the developer-alpha usage gate is missing", () => {
+    const repository = new FakeSqliteMemoryRepository();
+    const embeddingProvider = new FakeEmbeddingInferenceProvider();
+    const wiring = createCoreHostMemoryRetrievalEnvWiring({
+      env: {
+        [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
+        [MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV]: "1",
         [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: "1",
         [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
         [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"

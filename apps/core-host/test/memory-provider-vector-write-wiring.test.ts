@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV } from "../src/core-memory-retrieval-env-wiring-approval-gate";
 import { LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV } from "../src/local-embedding-composition";
 import { LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV } from "../src/local-embedding-runtime-session-factory";
+import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV } from "../src/memory-provider-vector-retrieval-developer-alpha-plan";
 import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "../src/memory-provider-vector-write-approval-gate";
 import {
   createCoreHostProviderVectorWriteWiring,
@@ -105,6 +106,28 @@ describe("Core Host provider vector write wiring", () => {
     expect(repository.embeddingRecords).toEqual([]);
   });
 
+  it("fails closed without the developer-alpha usage gate", async () => {
+    const repository = new FakeSqliteMemoryRepository();
+    const embeddingProvider = new FakeEmbeddingProvider();
+    const wiring = createCoreHostProviderVectorWriteWiring({
+      env: {
+        ...approvedEnv(),
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]: "0"
+      },
+      memoryRepository: repository.asRepository(),
+      embeddingProvider
+    });
+
+    await expect(
+      wiring.memoryRepository.appendMessage(message("msg-no-alpha"))
+    ).resolves.toMatchObject({
+      id: "msg-no-alpha"
+    });
+    expect(wiring.enabled).toBe(false);
+    expect(embeddingProvider.calls).toBe(0);
+    expect(repository.embeddingRecords).toEqual([]);
+  });
+
   it("does not block message acceptance when embedding or SQLite vector write fails", async () => {
     const embeddingFailureRepository = new FakeSqliteMemoryRepository();
     const embeddingProvider = new FakeEmbeddingProvider();
@@ -174,6 +197,7 @@ describe("Core Host provider vector write wiring", () => {
 function approvedEnv(): Record<string, string> {
   return {
     [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
+    [MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]: "1",
     [MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV]: "1",
     [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
     [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"

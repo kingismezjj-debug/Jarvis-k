@@ -563,6 +563,21 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     visibility/default opt-in, run SQLite migrations, expose raw vectors/raw
     text/private paths/raw diagnostics, download artifacts, write persistent
     caches, or convert retrieval/model output into shell execution.
+80. Provider-vector retrieval developer-alpha usage is implemented only behind
+    the explicit
+    `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA=1` gate
+    plus the existing Memory retrieval routing, provider query-vector,
+    provider vector-write, provider vector-read, local embedding provider, and
+    provider execution opt-ins. Missing gates fail closed: provider-vector
+    writes remain disabled and provider-vector reads fall back to fixture-only
+    routing. `packages/memory-sqlite` owns the exact-source rollback helper for
+    deleting allowlisted provider vector rows from the existing
+    `memory_embeddings` table. The helper returns only sanitized status,
+    deleted counts, and fixed reason codes. This does not add a schema/index
+    migration, Desktop IPC/UI/provider visibility/default opt-in change,
+    installer/update/release change, persistent model cache, historical batch
+    indexing, raw vector/text/path/diagnostic exposure, artifact download, or
+    shell execution path.
 
 ## Restart policy
 

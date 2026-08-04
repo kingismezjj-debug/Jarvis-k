@@ -464,6 +464,94 @@ describe("SqliteMemoryRepository", () => {
     expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
   });
 
+  it("deletes exact approved provider vectors for developer-alpha rollback", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: ["Qwen/Qwen3-Embedding-0.6B"]
+    });
+    await repository.initialize();
+    await repository.appendMessage(
+      message("msg-private", "primary", "00.001Z", "private memory text")
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-runtime", "msg-private", {
+        modelId: "Qwen/Qwen3-Embedding-0.6B"
+      })
+    );
+    await repository.writeEmbeddingRecord(
+      embeddingRecord("embedding-other", "msg-other", {
+        modelId: "Qwen/Qwen3-Embedding-0.6B"
+      })
+    );
+
+    const deleted = await repository.deleteEmbeddingRecordsForSource({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      sourceType: "message",
+      sourceId: "msg-private"
+    });
+    const deletedAgain = await repository.deleteEmbeddingRecordsForSource({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      sourceType: "message",
+      sourceId: "msg-private"
+    });
+    await repository.close();
+    const rows = await inspectVectorRows(filePath);
+    const serialized = JSON.stringify({ deleted, deletedAgain, rows });
+
+    expect(deleted).toEqual({
+      status: "accepted",
+      deletedCount: 1
+    });
+    expect(deletedAgain).toEqual({
+      status: "accepted",
+      deletedCount: 0
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: "embedding-other",
+      sourceId: "msg-other",
+      modelId: "Qwen/Qwen3-Embedding-0.6B"
+    });
+    expect(serialized).not.toContain("private memory text");
+    expect(serialized).not.toContain("0.125");
+    expect(serialized).not.toContain("0.25");
+    expect(serialized).not.toContain("0.5");
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
+  it("blocks provider vector rollback delete unless the model is allowlisted", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({ filePath });
+    await repository.initialize();
+
+    const blocked = await repository.deleteEmbeddingRecordsForSource({
+      modelId: "Qwen/Qwen3-Embedding-0.6B",
+      sourceType: "message",
+      sourceId: "msg-private"
+    });
+    const invalid = await repository.deleteEmbeddingRecordsForSource({
+      modelId: "",
+      sourceType: "message",
+      sourceId: "msg-private"
+    });
+    await repository.close();
+    const serialized = JSON.stringify({ blocked, invalid });
+
+    expect(blocked).toEqual({
+      status: "degraded",
+      deletedCount: 0,
+      reasonCode: "VECTOR_NON_FIXTURE_DELETE_BLOCKED"
+    });
+    expect(invalid).toEqual({
+      status: "degraded",
+      deletedCount: 0,
+      reasonCode: "VECTOR_DELETE_SOURCE_INVALID"
+    });
+    expect(serialized).not.toContain("Qwen3-Embedding");
+    expect(serialized).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
   it("deletes approved provider embedding rows during snapshot restore rollback", async () => {
     const filePath = createTempDatabasePath();
     const first = new SqliteMemoryRepository({

@@ -23,7 +23,8 @@ Implementation plus Phase 8.21 Provider Vector Write Acceptance Diagnostic plus
 Phase 8.22 Provider Vector Retrieval Preflight plus Phase 8.23 Provider
 Vector Retrieval Routing plus Phase 8.24 Provider Vector Retrieval Acceptance
 Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic plus
-Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan**:
+Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan plus
+Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -187,7 +188,19 @@ ports, installability policy, resource diagnostics, dry-run model install
   telemetry, degraded fallback, and no-default-behavior-change requirements.
   It does not read env values, access artifacts, execute provider retrieval,
   write persistent provider vectors, change UI/Desktop/provider visibility, or
-  change default behavior.
+  change default behavior. Phase 8.27 implements the approved explicit
+  developer-alpha gate for provider-vector write/read usage. Provider-backed
+  vector writes and provider-written vector reads now require
+  `JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA=1` plus the
+  existing Memory retrieval, provider query-vector, provider vector-write,
+  provider vector-read, local embedding provider, and provider execution gates.
+  Missing gates fail closed to disabled writes and fixture-only/no-recall
+  retrieval. A narrow SQLite exact-source rollback helper can delete
+  allowlisted provider vector rows for the test window without schema
+  migration or raw vector/text exposure. Default behavior, Desktop/UI controls,
+  provider visibility/default opt-in, installer/update/release policy,
+  persistent model caches, historical batch indexing, raw vectors/text/paths/
+  diagnostics, unapproved downloads, and shell execution remain blocked.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.

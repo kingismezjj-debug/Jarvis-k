@@ -241,6 +241,12 @@ export function createMemoryProviderVectorRetrievalDeveloperAlphaUsageTestPlan()
   };
 }
 
+export function isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled(
+  env: Readonly<Record<string, string | undefined>> = process.env
+): boolean {
+  return env[MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]?.trim() === "1";
+}
+
 export function evaluateMemoryProviderVectorRetrievalDeveloperAlphaPlan(
   input: MemoryProviderVectorRetrievalDeveloperAlphaPlanInput = {}
 ): MemoryProviderVectorRetrievalDeveloperAlphaPlanResult {

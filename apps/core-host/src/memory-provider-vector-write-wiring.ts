@@ -6,6 +6,7 @@ import type { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import { MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV } from "./core-memory-retrieval-env-wiring-approval-gate";
 import { isLocalEmbeddingProviderOptInEnabled } from "./local-embedding-composition";
 import { isLocalEmbeddingProviderExecutionOptInEnabled } from "./local-embedding-runtime-session-factory";
+import { isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled } from "./memory-provider-vector-retrieval-developer-alpha-plan";
 import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "./memory-provider-vector-write-approval-gate";
 
 const PROVIDER_VECTOR_WRITE_TIMEOUT_MS = 10_000;
@@ -70,7 +71,7 @@ export function createCoreHostProviderVectorWriteWiring(
   options: CoreHostProviderVectorWriteOptions
 ): CoreHostProviderVectorWriteWiring {
   const env = options.env ?? process.env;
-  if (!isMemoryProviderVectorWriteOptInEnabled(env)) {
+  if (!areMemoryProviderVectorWriteGatesEnabled(env, options.embeddingProvider)) {
     return {
       enabled: false,
       memoryRepository: options.memoryRepository
@@ -100,6 +101,7 @@ export function areMemoryProviderVectorWriteGatesEnabled(
 ): boolean {
   return (
     embeddingProvider !== undefined &&
+    isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled(env) &&
     env[MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]?.trim() === "1" &&
     isMemoryProviderVectorWriteOptInEnabled(env) &&
     isLocalEmbeddingProviderOptInEnabled(env) &&
