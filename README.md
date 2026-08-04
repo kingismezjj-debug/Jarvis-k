@@ -25,7 +25,8 @@ Vector Retrieval Routing plus Phase 8.24 Provider Vector Retrieval Acceptance
 Preflight plus Phase 8.25 Provider Vector Retrieval Acceptance Diagnostic plus
 Phase 8.26 Provider Vector Retrieval Developer-Alpha Usage Test Plan plus
 Phase 8.27 Provider Vector Retrieval Developer-Alpha Implementation plus
-Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook**:
+Phase 8.28 Provider Vector Retrieval Developer-Alpha Runbook plus
+Phase 8.29 Provider Vector Retrieval Developer-Alpha Usage Session**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -207,7 +208,15 @@ ports, installability policy, resource diagnostics, dry-run model install
   for a future controlled local developer-alpha usage test. It does not run a
   real usage session, create a maintenance wrapper, write provider vectors,
   change Core Host/Core/Desktop/UI/provider behavior, run migrations, or
-  change release policy.
+  change release policy. Phase 8.29 adds a one-shot usage-session runner that
+  keeps one supervised Core Host child alive, sends two bounded synthetic
+  messages, verifies only sanitized vector metadata, and performs exact-source
+  rollback. Its implementation, full verification, and relevant desktop
+  smokes pass; the real usage session remains hard-paused until approved
+  runtime, model, and explicit Memory database values are supplied. The
+  initial preflight degraded before runtime access because the current shell
+  had no approved developer-alpha env gates configured; no helper, artifact,
+  Memory vector, or raw output was accessed.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -521,6 +530,7 @@ npm run diagnostic:memory-retrieval:provider-query-vector-acceptance
 npm run diagnostic:memory-retrieval:provider-vector-write-acceptance
 npm run diagnostic:memory-retrieval:provider-vector-read-acceptance
 npm run diagnostic:memory-retrieval:provider-vector-read-temporary-artifact
+npm run usage:memory-retrieval:developer-alpha
 npm run acceptance:runtime-transformers:approved-artifact
 ```
 
@@ -685,16 +695,43 @@ Python environment run passed artifact materialization, SHA-256 verification,
 provider-vector write/read, sanitized recall, and cleanup.
 
 The Phase 8.26 provider-vector retrieval developer-alpha usage test plan
-reserves a future explicit opt-in but does not enable it:
+reserved a future explicit opt-in and did not enable it:
 
 ```powershell
 $env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA='1'
 ```
 
-That env key must not be used until a later implementation wave receives
-separate product, security, and release approval. The current plan does not
-read the env key, expose UI controls, change provider visibility, batch-index
-history, or change default behavior.
+That plan-only wave did not read the env key, expose UI controls, change
+provider visibility, batch-index history, or change default behavior. The
+separate Phase 8.27 implementation and Phase 8.29 usage-session approvals now
+govern the controlled local alpha path described below.
+
+The approved Phase 8.29 developer-alpha usage runner requires all existing
+retrieval/provider gates, the developer-alpha gate, an approved runtime/model
+pair, and an explicit Memory database path. Configure values in a fresh
+PowerShell session without printing private paths:
+
+```powershell
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_DEVELOPER_ALPHA='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_ROUTING='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_WRITES='1'
+$env:JARVIS_K_ENABLE_MEMORY_RETRIEVAL_PROVIDER_VECTOR_READS='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER='1'
+$env:JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER_EXECUTION='1'
+$env:JARVIS_K_RUNTIME_PYTHON = Read-Host 'Approved python.exe path'
+$env:JARVIS_K_LOCAL_EMBEDDING_MODEL_DIR = Read-Host 'Approved local model artifact directory'
+$env:JARVIS_K_MEMORY_DB_PATH = Read-Host 'Explicit Memory database path'
+
+npm run usage:memory-retrieval:developer-alpha
+```
+
+The runner sends only two bounded synthetic messages by default, prints only
+sanitized status/count metadata, and performs exact-source rollback. It must
+not be run with placeholder paths, historical indexing, raw output exposure,
+persistent model caches, or SQLite migrations. The current repository has
+completed the implementation and local verification, but the real session has
+not been run in the present shell.
 
 The fixture smoke creates only a temporary random model outside the repository
 and removes it after the run. It does not download or access a real model.
@@ -805,6 +842,9 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.24 provider vector retrieval acceptance preflight](docs/phase-8-24-provider-vector-retrieval-acceptance-preflight.md)
 - [Phase 8.25 provider vector retrieval acceptance diagnostic](docs/phase-8-25-provider-vector-retrieval-acceptance-diagnostic.md)
 - [Phase 8.26 provider vector retrieval developer-alpha usage test plan](docs/phase-8-26-provider-vector-retrieval-developer-alpha-plan.md)
+- [Phase 8.27 provider vector retrieval developer-alpha implementation](docs/phase-8-27-provider-vector-retrieval-developer-alpha-implementation.md)
+- [Phase 8.28 provider vector retrieval developer-alpha runbook](docs/phase-8-28-provider-vector-retrieval-developer-alpha-runbook.md)
+- [Phase 8.29 provider vector retrieval developer-alpha usage session](docs/phase-8-29-provider-vector-retrieval-developer-alpha-usage-session.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

@@ -2875,6 +2875,53 @@ packaging, license, benchmark, and composition gate passes.
   release policy, or promote the feature toward default behavior without
   separate product, security, and release approval.
 
+## Phase 8.29: Provider Vector Retrieval Developer-Alpha Usage Session
+
+- Status: runner implemented and locally preflighted; real usage session
+  blocked until approved runtime/model/database env values are supplied.
+- Added a one-shot Core Host usage-session runner that sends two bounded
+  synthetic messages by default, keeps one supervised Core Host child alive,
+  collects sanitized provider-vector recall metadata, inspects only vector row
+  counts/dimensions, and performs exact-source rollback deletion.
+- Added normal, blocked, degraded, bounded-message, rollback, cleanup, and
+  sensitive-output tests.
+- Added the root command
+  `npm.cmd run usage:memory-retrieval:developer-alpha`.
+- The child environment is allowlisted and does not forward arbitrary
+  environment values. The runner requires an explicit
+  `JARVIS_K_MEMORY_DB_PATH` and never falls back to an implicit user database.
+- The initial local invocation built successfully and degraded before runtime
+  access with `developer_alpha_opt_in_missing` because the current PowerShell
+  session had no approved developer-alpha env gates configured.
+- No helper was started, no artifact was accessed, no Memory vector was
+  written, and no raw output was exposed in the initial preflight.
+
+### Current Gate
+
+- Runner build: PASS.
+- Usage runner normal/blocked/degraded/sensitive-output tests: PASS, 5 tests.
+- `npm.cmd run verify`: PASS, including 126 test files and 662 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Real provider-vector usage session: NOT RUN; missing approved runtime/model/
+  database env configuration.
+
+### Next Hard Pause
+
+- Do not use placeholder paths or run the real session until the approved
+  Python executable, approved local model artifact directory, explicit Memory
+  database path, and all required env gates are configured in a fresh
+  PowerShell session.
+- Do not download artifacts, persist model caches, expose raw
+  vectors/text/diagnostics, batch-index historical Memory, run SQLite
+  migrations, change UI/default/provider visibility behavior, or connect
+  retrieval output to Windows/PowerShell execution.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

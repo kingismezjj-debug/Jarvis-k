@@ -585,6 +585,16 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     not enable execution, create maintenance wrappers, write provider vectors,
     run schema migrations, expose Desktop/UI controls, broaden release scope,
     print private paths, or change default behavior.
+82. Phase 8.29 owns the one-shot developer-alpha usage-session runner inside
+    the Core Host boundary. The runner sends only bounded synthetic messages,
+    uses an allowlisted child environment, verifies the approved local model
+    artifact before runtime access, observes only sanitized vector metadata,
+    and deletes exact test-window provider vector rows after the supervised
+    child closes. Missing gates, missing runtime/model/database configuration,
+    helper failure, cleanup failure, unsafe exposure, schema migration,
+    historical indexing, UI/default/provider visibility changes, and shell
+    execution fail closed. The runner does not create a new provider, alter
+    Core contracts, or enable default behavior.
 
 ## Restart policy
 
