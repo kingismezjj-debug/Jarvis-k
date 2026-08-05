@@ -604,6 +604,10 @@ They are not runtime dependencies.
   fixed-digest artifacts, helper health/load/release, lifecycle activation,
   reopen recovery, temporary-cache cleanup, and no Memory/embed/release
   behavior changes; future windows remain separately gated
+- Phase 12.6 model lifecycle alpha closeout and freeze: complete; no further
+  runtime/cache windows, artifact/model additions, persistent cache,
+  installer/update/default/release changes, or lifecycle policy changes are
+  allowed under the closed alpha; Observability is next
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements
@@ -1028,6 +1032,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 12.3 developer-alpha hardening](docs/phase-12-3-developer-alpha-hardening.md)
 - [Phase 12.4 model lifecycle implementation approval request](docs/phase-12-4-model-lifecycle-implementation-approval-request.md)
 - [Phase 12.5 model lifecycle runtime/cache approval and acceptance](docs/phase-12-5-model-lifecycle-runtime-cache-approval-request.md)
+- [Phase 12.6 model lifecycle alpha closeout and freeze](docs/phase-12-6-model-lifecycle-alpha-closeout.md)
 - [Phase 4 model candidate audit](docs/phase-4-model-candidate-audit.md)
 - [Phase 3 progress](docs/phase-3-progress.md)
 - [Phase 2 results](docs/phase-2-results.md)

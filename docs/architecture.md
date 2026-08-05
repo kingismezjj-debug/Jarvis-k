@@ -131,7 +131,11 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     12.5 completed one Product/Security/Release-approved bounded
     developer-alpha runtime/cache window with fixed artifact verification,
     helper health/load/release, temporary cache cleanup, and no Memory/embed or
-    release behavior. Any later window remains separately gated.
+    release behavior. Phase 12.6 now freezes and closes this Model Lifecycle
+    alpha: no further runtime/cache window, artifact/model addition, persistent
+    cache, installer/update/default/release change, or lifecycle policy change
+    is allowed without a new exact-scope approval. Observability is the next
+    productization route.
 34. Developer-alpha hardening remains a provider-neutral preflight and
     in-memory fixture guard. Bounded operation state, sanitized diagnostics,
     restart recovery observation, fail-closed defaults, and fixture fallback
