@@ -214,9 +214,113 @@ release approval for that exact scope.
 Push and GitHub Actions CI must pass before the implementation wave can be
 marked complete.
 
+## Fresh Minimum Diagnostic Window Approval Request
+
+Requested on 2026-08-05 after the retrieval stabilization wave. This is a
+new approval request for one exact diagnostic window; it does not reuse the
+approval that preceded the degraded real run. Product, Security, and Release
+provided explicit approval for this exact scope on 2026-08-05.
+
+### Exact Requested Scope
+
+- one tester window only;
+- one minimized synthetic message only;
+- temporary Memory DB in the system temporary directory, deleted on exit;
+- only the already approved fixed-digest model artifact set;
+- temporary artifact and helper workspace only, deleted on exit;
+- `JARVIS_K_ENABLE_LOCAL_EMBEDDING_SESSION_REUSE=1` for this diagnostic
+  process only, with no cross-process or persistent cache reuse;
+- sanitized counts, statuses, dimensions, existing reason codes, and fixed
+  `failureClass` values only;
+- exact-source provider-vector rollback followed by cleanup verification;
+- immediate stop on any blocked or degraded session, retrieval failure,
+  invalid result, helper lifecycle failure, rollback failure, or cleanup
+  failure;
+- no second tester window after the first window returns anything other than
+  `passed`.
+
+This request does not authorize unapproved artifact downloads, persistent
+model caches, raw vectors, raw text, raw helper diagnostics, private paths,
+credentials, signed URLs, SQLite migrations, historical indexing, UI or
+Desktop changes, provider visibility or default changes, release policy
+changes, product SLOs, or shell/Windows execution. It also does not authorize
+tester invitations or any expansion beyond this one-window diagnostic.
+
+### Separate Role Requests
+
+**Product.** Approve exactly one developer-alpha diagnostic window with one
+minimized synthetic message. Keep the result internal developer-alpha
+evidence only; do not expose a tester workflow, change defaults or UI, alter
+provider visibility, index historical Memory, or declare a product SLO.
+
+**Security.** Approve temporary use of the already fixed-digest artifact set,
+temporary helper/artifact workspace, temporary Memory DB, and explicit warm
+session reuse for this single diagnostic process. Permit only temporary
+materialization of the already approved fixed-digest artifact set; require
+digest
+verification, source minimization, sanitized failure classification,
+timeout/cancellation/release, exact-source rollback, cleanup verification,
+fail-closed no-recall degradation, and immediate stop on any failure. Prohibit
+unapproved downloads, persistent caches, raw output, private paths,
+credentials, signed URLs, raw diagnostics, migrations, historical indexing,
+and shell/Windows operations.
+
+**Release.** Approve this run as non-release developer-alpha evidence only.
+Exclude installer packaging, automatic updates, default configuration,
+public user documentation as an enabled feature, release-channel exposure,
+model lifecycle policy, cache policy, upgrade/rollback policy, and product
+SLO changes.
+
+### Approval Evidence
+
+| Role | Status | Required evidence |
+| --- | --- | --- |
+| Product | APPROVED | Explicit approval for the exact one-window, one-message scope received in the current task |
+| Security | APPROVED | Explicit approval for temporary artifacts/helper/DB and opt-in warm reuse under the restrictions above received in the current task |
+| Release | APPROVED | Explicit approval for developer-alpha evidence only and all release exclusions above received in the current task |
+
+The approval evidence clears the approval gate for this exact window. Runtime
+and model availability, temporary artifact materialization, helper startup,
+and the one-window execution remain separate operator steps. No broader
+tester scope is approved.
+
+## Approved Minimum Diagnostic Run
+
+Executed on 2026-08-05 after the three approvals above. The temporary
+artifact runner used only the approved fixed-digest artifact plan and deleted
+its temporary root after the process exited.
+
+- artifact materialization: `passed`;
+- artifact digest verification: `passed`;
+- artifact count: `10`;
+- manifest-size check: `passed`;
+- tester windows invoked: `1`;
+- accepted tester windows: `1`;
+- messages submitted: `1`;
+- accepted messages: `1`;
+- observations: `1`;
+- provider-vector writes: `1`;
+- provider-vector dimension: `1024`;
+- recall status: `ok`;
+- recall mode: `provider_vector`;
+- recall failure classes: none;
+- query dimension: `1024`;
+- recall matches: `1`;
+- exact-source rollback: `passed`, deleted `1`;
+- session cleanup: `passed`;
+- temporary artifact, cache, Memory DB, and helper workspace cleanup:
+  `passed`.
+
+The run returned `status=passed` and `accepted=true`. No second tester
+window was invoked, no raw output was retained, and no release, UI, default,
+provider-visibility, migration, historical-indexing, persistent-cache, or
+product-SLO behavior changed. This is developer-alpha diagnostic evidence
+only and does not approve broader tester expansion.
+
 ## Next Hard Pause
 
-Do not retry or broaden the bounded tester expansion until the degraded recall
-from the second tester window has a reviewed disposition and a fresh approval
-for the exact rerun window. Do not expand beyond 3 testers, 5 messages per
-tester, or 2 hours without separate product, security, and release approval.
+The approved minimum diagnostic window passed. Keep Phase 8.37 in
+developer-alpha evidence scope and do not expand beyond 1 tester window and
+1 minimized synthetic message without a new separate Product, Security, and
+Release approval. Any future degraded recall, rollback failure, cleanup
+failure, or unsafe output remains an immediate stop condition.

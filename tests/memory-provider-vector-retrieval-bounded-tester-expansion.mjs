@@ -9,21 +9,7 @@ const report = await runMemoryProviderVectorBoundedTesterExpansionExecution({
   testers: [
     {
       testerId: "tester-1",
-      messageTexts: [
-        "Jarvis-K bounded tester expansion synthetic topic one.",
-        "Jarvis-K bounded tester expansion synthetic topic two."
-      ]
-    },
-    {
-      testerId: "tester-2",
-      messageTexts: [
-        "Jarvis-K bounded tester expansion synthetic topic three.",
-        "Jarvis-K bounded tester expansion synthetic topic four."
-      ]
-    },
-    {
-      testerId: "tester-3",
-      messageTexts: ["Jarvis-K bounded tester expansion synthetic topic five."]
+      messageTexts: ["Jarvis-K Phase 8.37 minimum diagnostic synthetic message."]
     }
   ]
 });

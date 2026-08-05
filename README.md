@@ -278,8 +278,12 @@ ports, installability policy, resource diagnostics, dry-run model install
   can delegate at most 3 tester windows with at most 5 minimized messages each
   to the existing continuous developer-alpha session only when the approved
   env/runtime/model/database chain is configured, and stops before later tester
-  windows after the first blocked or degraded session. In the current shell
-  that chain is not configured, so the real product-path run was not started.
+  windows after the first blocked or degraded session. After fresh
+  Product/Security/Release approval on 2026-08-05, the minimum diagnostic
+  window ran with 1 tester and 1 minimized synthetic message; all 10 fixed
+  artifacts passed digest verification, provider-vector recall passed at 1024
+  dimensions, exact-source rollback passed, and temporary cleanup passed.
+  Broader tester expansion remains unapproved.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -560,11 +564,13 @@ They are not runtime dependencies.
   migration, historical indexing, release policy change, shell execution, or
   product SLO
 - Phase 8.37 bounded tester expansion execution run: bounded execution runner
-  and explicit command surface complete; current shell lacks approved
-  gate/runtime/model/database env values, so real execution was not started.
-  Default behavior, Desktop/UI/provider visibility, fixture fallback,
-  historical indexing, persistent cache, SQLite migration, release policy,
-  shell execution, raw output exposure, and product SLO remain unchanged
+  and explicit command surface complete; after fresh Product/Security/Release
+  approval, the minimum one-tester/one-message temporary-artifact diagnostic
+  passed with fixed-digest verification, 1024-dimensional provider-vector
+  recall, exact-source rollback, and cleanup. Default behavior, Desktop/UI/
+  provider visibility, fixture fallback, historical indexing, persistent cache,
+  SQLite migration, release policy, shell execution, raw output exposure, and
+  product SLO remain unchanged; broader tester expansion remains unapproved
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and

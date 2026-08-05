@@ -3270,8 +3270,8 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 8.37: Bounded Tester Expansion Execution Run
 
-- Status: implementation complete locally; real product-path run blocked by
-  missing approved local runtime/model/database env configuration; push and CI
+- Status: implementation complete and the approved minimum diagnostic run
+  passed locally; broader tester expansion remains unapproved; push and CI
   pending.
 - Added a bounded tester expansion execution runner in Core Host that requires
   Phase 8.36 preflight evidence and separate product, security, and release
@@ -3293,12 +3293,16 @@ packaging, license, benchmark, and composition gate passes.
   observation, fail-closed degradation, and exact-source rollback.
 - It stops before later tester windows if any tester session returns blocked
   or degraded, keeping the bounded expansion run fail-closed.
-- Current shell env diagnostic on 2026-08-05 found the developer-alpha,
-  Memory retrieval, provider query-vector, provider vector write/read, local
-  embedding provider, provider execution, approved Python runtime, approved
-  local model artifact directory, and explicit Memory DB env values were not
-  configured. Therefore the real Phase 8.37 product-path execution command was
-  not started in this turn.
+- A fresh Product/Security/Release approval on 2026-08-05 authorized only one
+  tester window with one minimized synthetic message, a temporary Memory DB,
+  the fixed-digest artifact set, temporary helper/artifact state, and
+  process-local warm reuse.
+- The approved minimum diagnostic materialized 10 fixed-digest artifacts,
+  passed the manifest-size check, ran one provider-vector retrieval at 1024
+  dimensions, passed exact-source rollback, and passed temporary cleanup.
+- The sanitized execution report returned `status=passed`, `accepted=true`,
+  `testerCount=1`, `messageCount=1`, `recallStatus=ok`, and no
+  `recallFailureClasses`. No second tester window was invoked.
 - This wave does not change default behavior, Desktop/UI/provider visibility,
   fixture fallback, release channel, installer/update policy, model lifecycle
   policy, cache policy, upgrade/rollback policy, or product SLOs. It does not
@@ -3311,7 +3315,7 @@ packaging, license, benchmark, and composition gate passes.
 - Core Host build: PASS.
 - Bounded tester expansion execution normal/blocked/degraded/rollback/
   sensitive-output tests: PASS, 5 tests.
-- `npm.cmd run verify`: PASS, including 133 test files and 699 tests.
+- `npm.cmd run verify`: PASS, including 134 test files and 712 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.
 - `npm.cmd run smoke:desktop`: PASS.
@@ -3324,14 +3328,11 @@ packaging, license, benchmark, and composition gate passes.
 
 ### Next Hard Pause
 
-- Do not run the real bounded tester expansion command until an operator
-  configures the full approved gate chain, approved Python runtime, approved
-  local model artifact directory, and explicit Memory DB path for the approved
-  window.
-- Do not use temporary artifact materialization or downloads without a
-  separate approval.
-- Do not expand beyond 3 testers, 5 messages per tester, or 2 hours without
-  separate product, security, and release approval.
+- Keep Phase 8.37 in developer-alpha evidence scope.
+- Do not expand beyond one tester window and one minimized synthetic message
+  without a new separate Product, Security, and Release approval.
+- Any future degraded recall, rollback failure, cleanup failure, or unsafe
+  output remains an immediate stop condition.
 
 ## Phase 9.1: Tool Governance Contract
 
