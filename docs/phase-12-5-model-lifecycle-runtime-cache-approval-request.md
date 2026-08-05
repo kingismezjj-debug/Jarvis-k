@@ -5,13 +5,12 @@ implementation and the Phase 8 Memory alpha closeout.
 
 ## Status
 
-`PENDING_RUNTIME_CACHE_APPROVAL`
+`APPROVED_RUNTIME_CACHE_WINDOW`
 
-This document is an approval request only. Creating this document, merging
-it, or passing CI does not authorize runtime activity. No artifact may be
-materialized, no real model directory may be read, no helper may be started,
-and no temporary cache may be created until Product, Security, and Release
-have each approved this exact scope.
+This document records a single approved runtime/cache window. The approval is
+consumed only by the bounded execution described below; it does not authorize
+any second window, broader artifact set, persistent cache, product inference,
+or release behavior.
 
 ## Context
 
@@ -43,8 +42,9 @@ The requested window may use only:
 - a temporary file-backed lifecycle/cache root below that same temporary root;
 - the already approved local runtime and model-directory configuration,
   injected only into the one execution process;
-- one supervised helper lifecycle for `health`, `load`, and `release` checks
-  needed by lifecycle acceptance; and
+- one supervised helper lifecycle for `health`, `load`, and release/cleanup
+  checks (the existing helper shutdown path) needed by lifecycle acceptance;
+  and
 - sanitized lifecycle evidence containing bounded phases, statuses, counts,
   cleanup/rollback state, preservation state, and fixed reason codes only.
 
@@ -218,18 +218,65 @@ readiness.
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | One exact local runtime/cache acceptance window with the fixed artifact set |
-| Security | PENDING | Temporary artifact/cache/runtime/helper scope with digest, containment, cleanup, and fail-closed controls |
-| Release | PENDING | Developer-alpha evidence only; no installer, update, default, or release-channel changes |
+| Product | APPROVED | One exact local runtime/cache acceptance window with the fixed artifact set |
+| Security | APPROVED | Temporary artifact/cache/runtime/helper scope with digest, containment, cleanup, and fail-closed controls |
+| Release | APPROVED | Developer-alpha evidence only; no installer, update, default, or release-channel changes |
 
-Until all three rows are `APPROVED`, the only permitted work is review,
-documentation, tests, and CI. The next operator action after approval must
-re-read this document, confirm the exact approval text, and perform the
-preflight before any runtime or filesystem side effect.
+The following explicit approvals were received on 2026-08-05 in the current
+task:
 
-## Verification Before Approval Handoff
+| Role | Status | Approval evidence |
+| --- | --- | --- |
+| Product | APPROVED | Exactly this one-window model lifecycle runtime/cache acceptance |
+| Security | APPROVED | Exactly this temporary artifact/cache/runtime/helper scope |
+| Release | APPROVED | Developer-alpha evidence only; no installer/update/default/release changes |
 
-The approval request is ready for handoff only after:
+These approvals clear the approval gate for one exact window. They do not
+replace the required preflight, and they do not authorize a second run after a
+degraded, blocked, failed, or uncertain-cleanup result.
+
+## Runtime Acceptance Evidence
+
+Executed on 2026-08-05 after all three approvals and the bounded preflight.
+The single window returned `status=passed` and `accepted=true`.
+
+- approved fixed artifact count: `10`;
+- artifact materialization: `passed`;
+- digest verification: `passed`;
+- approved manifest-size match: `true`;
+- temporary runtime dependency status: `passed`;
+- helper `health`: `passed`;
+- helper `load`: `passed`;
+- helper release/cleanup shutdown: `passed`;
+- helper `embed` called: `false`;
+- lifecycle `installAndActivate`: `passed`;
+- lifecycle manager `load`: `passed`;
+- lifecycle manager `release`: `passed`;
+- manager reopen and active-version recovery: `passed`;
+- previous verified version preserved: `true`;
+- rollback: `not_required` because no second approved version was introduced;
+- lifecycle reason code: `MODEL_ACTIVATION_COMMITTED`;
+- persistent cache detected: `false`;
+- Memory route composed: `false`;
+- provider registration/default opt-in changed: `false`;
+- raw diagnostics exposed: `false`; and
+- temporary cache/artifact/helper cleanup: `passed`.
+
+The lifecycle cache stored only a temporary record for the already approved
+model-weights pin. The helper loaded the separately verified 10-file model
+directory. No new artifact, digest, revision, persistent cache, Memory route,
+provider registration, or release behavior was introduced. The sanitized
+report contained no raw path, URL, credential, digest value, model value,
+vector, source text, or helper diagnostic.
+
+Independent post-run checks found no Phase 12.5 temporary root and no running
+helper process. This evidence is developer-alpha only and does not authorize a
+second runtime/cache window or any product default, installer, update, or
+release-channel change.
+
+## Verification
+
+The implementation and acceptance record are complete after:
 
 ```powershell
 npm.cmd run verify
@@ -237,4 +284,7 @@ npm.cmd run check:boundaries
 npm.cmd run check:sensitive-artifacts
 ```
 
-The request itself does not consume the approval or execute a runtime window.
+The implementation, runner syntax, dependency boundaries, sensitive-artifact
+guard, and the existing repository verification remain green. Any future
+runtime/cache window requires a new exact-scope Product, Security, and Release
+approval.

@@ -128,9 +128,10 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     previous-version preservation, and rollback journal behavior. Real
     artifact/network access, user-persistent caches, installer bundling,
     automatic updates, and final Windows release policy remain deferred. Phase
-    12.5 is a separate approval-request boundary for one bounded
-    developer-alpha runtime/cache window; it does not grant execution until
-    Product, Security, and Release approve the exact scope.
+    12.5 completed one Product/Security/Release-approved bounded
+    developer-alpha runtime/cache window with fixed artifact verification,
+    helper health/load/release, temporary cache cleanup, and no Memory/embed or
+    release behavior. Any later window remains separately gated.
 34. Developer-alpha hardening remains a provider-neutral preflight and
     in-memory fixture guard. Bounded operation state, sanitized diagnostics,
     restart recovery observation, fail-closed defaults, and fixture fallback
