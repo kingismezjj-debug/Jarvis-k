@@ -69,6 +69,53 @@ Before implementing the Memory alpha product slice, obtain separate:
 
 This document is a product decision proposal, not an implementation approval.
 
+## Memory Alpha Implementation Approval Request
+
+Requested on 2026-08-05. This is a new approval request and is separate from
+the earlier Phase 8.37 execution approval.
+
+### Authorized Implementation Scope
+
+If all three roles approve, the next wave may:
+
+- finalize the single-user Memory alpha contract, retention, disable, and
+  rollback behavior;
+- implement the Memory write, provider-vector retrieval, turn-assembly, and
+  fail-closed fallback loop behind the existing explicit opt-in gates;
+- keep Core provider-neutral and place concrete composition in Core Host;
+- add focused Core Host, deterministic fixture, file-backed SQLite, and
+  sanitized failure-classification tests;
+- use temporary test databases and injected/fixture providers for verification;
+- keep the current default-disabled and developer-alpha release boundary.
+
+### Not Authorized by This Request
+
+This implementation approval does not authorize:
+
+- real model artifact materialization or download;
+- starting the Python helper or running real provider inference;
+- a real Memory alpha usage session or new tester window;
+- persistent model caches, model lifecycle, installer, update, or rollback
+  policy changes;
+- SQLite schema/index migrations or historical Memory re-indexing;
+- new Desktop IPC, UI controls, provider visibility, or default opt-in;
+- raw vectors, raw text, helper diagnostics, private paths, credentials, or
+  signed URLs;
+- shell/Windows actions, tool execution, local voice, OCR, vision, or release
+  packaging.
+
+### Required Role Confirmations
+
+| Role | Status | Approval target |
+| --- | --- | --- |
+| Product | PENDING | Single-user opt-in closed loop, retention/disable behavior, no product SLO |
+| Security | PENDING | Local data handling, source minimization, Core Host boundary, sanitized diagnostics, rollback and cleanup |
+| Release | PENDING | Developer-alpha implementation/evidence only; no default, lifecycle, cache, installer, update, or release-channel changes |
+
+No implementation work may begin until all three rows are explicitly
+`APPROVED`. Approval of this request will still require a separate approval
+before any real runtime or local Memory alpha acceptance session.
+
 ## Next Implementation Wave
 
 1. Finalize the Memory alpha contract and retention/disable policy.
