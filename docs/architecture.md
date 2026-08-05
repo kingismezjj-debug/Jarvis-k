@@ -123,11 +123,11 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     runtimes, model artifacts, raw pixel persistence, provider registration,
     Core Host routing, Desktop IPC, and UI controls remain behind a later
     privacy and security approval boundary.
-33. Phase 12 model lifecycle preparation remains a dry-run guard. Model
-    manifests, digest verification, license review, sanitized operation state,
-    and fixture execution are provider-neutral; installer bundling, automatic
-    updates, rollback execution, filesystem/network lifecycle writes, model
-    caches, and final Windows release policy remain deferred.
+33. Phase 12 model lifecycle now has an approved Core Host file-backed
+    implementation for digest-before-ready, bounded activation health checks,
+    previous-version preservation, and rollback journal behavior. Real
+    artifact/network access, user-persistent caches, installer bundling,
+    automatic updates, and final Windows release policy remain deferred.
 34. Developer-alpha hardening remains a provider-neutral preflight and
     in-memory fixture guard. Bounded operation state, sanitized diagnostics,
     restart recovery observation, fail-closed defaults, and fixture fallback

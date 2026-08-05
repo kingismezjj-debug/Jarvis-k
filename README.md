@@ -596,9 +596,9 @@ They are not runtime dependencies.
   rollback planning complete; side effects remain disabled
 - Phase 12.3 developer-alpha hardening: provider-neutral preflight and
   deterministic fixture guard complete; release side effects remain disabled
-- Phase 12.4 model lifecycle implementation approval request: prepared;
-  real cache, download, activation, update, and rollback execution remain
-  blocked pending separate Product, Security, and Release approval
+- Phase 12.4 model lifecycle implementation: approved implementation complete;
+  real cache, download, activation, update, and rollback runtime execution
+  remain separately gated
 - Real local model downloads and model runtime execution are not enabled yet
 
 ## Requirements

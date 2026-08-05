@@ -5,7 +5,7 @@ minimum runtime acceptance window passed.
 
 ## Status
 
-`PENDING_PRODUCT_SECURITY_RELEASE_APPROVAL`
+`APPROVED_IMPLEMENTATION_COMPLETE`
 
 This document requests approval for a narrow model lifecycle implementation
 wave. It is not approval for a real model download, a real model activation,
@@ -130,6 +130,39 @@ exposure, default configuration, and production readiness.
 | Security | PENDING | Temporary file-backed implementation, digest and cleanup invariants |
 | Release | PENDING | Non-release implementation evidence only |
 
-The next action after all three approvals is the focused implementation and
-regression wave. No real model lifecycle runtime action is implied by this
-request.
+The approved implementation wave is complete in
+`apps/core-host/src/file-system-model-lifecycle.ts`.
+
+It now provides:
+
+- digest-before-ready and fixed failure classification for artifact fetch,
+  manifest, device, and verification failures;
+- preserved interrupted-download resume for direct `download()` calls;
+- deterministic cleanup of failed install candidates through
+  `installAndActivate()`;
+- a unique-file activation journal whose commit is written only after
+  verification and the injected bounded health check pass;
+- active-version selection that survives manager close and reopen;
+- previous-version preservation during activation and rollback;
+- rollback to the previous distinct verified activation record; and
+- sanitized lifecycle reports containing only operation status, cleanup and
+  rollback state, preservation state, and fixed reason codes.
+
+No Core command, Desktop IPC, UI control, provider registration, default opt-in,
+network fetcher, persistent cache path, installer, or model runtime execution
+was added or enabled.
+
+## Approval Record
+
+The following explicit approvals were received on 2026-08-05:
+
+| Role | Status | Approval target |
+| --- | --- | --- |
+| Product | APPROVED | Phase 12.4 model lifecycle implementation scope |
+| Security | APPROVED | Isolated file-backed implementation and temporary regression storage with digest-before-ready, atomic activation, cleanup, rollback preservation, and no real artifact/network/persistent cache |
+| Release | APPROVED | Implementation and fixture evidence only; no installer, update, default, or release-channel changes |
+
+The approvals authorize this implementation and its isolated regression
+evidence. They do not authorize a real model lifecycle runtime window, user
+persistent cache use, real artifact access, network download, helper/provider
+execution, installer packaging, or release behavior.
