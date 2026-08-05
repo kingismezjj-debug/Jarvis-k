@@ -27,6 +27,10 @@ import {
   readRuntimePythonExecutable,
   verifyLocalEmbeddingModelArtifacts
 } from "./local-embedding-runtime-session-factory";
+import {
+  createCoreHostObservabilityDiagnosticSurface,
+  type CoreHostObservabilityDiagnosticSubreport
+} from "./observability-diagnostic-surface";
 
 export const LOCAL_EMBEDDING_HELPER_EMBED_DIAGNOSTIC_OPT_IN_ENV =
   "JARVIS_K_ENABLE_LOCAL_EMBEDDING_EMBED_DIAGNOSTIC";
@@ -81,6 +85,9 @@ export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticInput {
   privatePathExposureEnabled?: boolean;
   signedUrlOrCredentialPersistenceEnabled?: boolean;
   modelOutputShellExecutionEnabled?: boolean;
+  observabilityAttachmentRequested?: boolean;
+  observabilitySummary?: unknown;
+  observabilityCorrelationId?: string;
 }
 
 export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
@@ -117,6 +124,7 @@ export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
   degradedCount: number;
   failedCount: number;
   reasonCodes: CoreHostLocalEmbeddingHelperEmbedDiagnosticReasonCode[];
+  observability?: CoreHostObservabilityDiagnosticSubreport;
 }
 
 type CoreHostLocalEmbeddingHelperEmbedDiagnosticStage =
@@ -139,7 +147,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     report.status = "blocked";
     report.failedCount = report.caseCount;
     report.reasonCodes.push(unsafeReason);
-    return report;
+    return attachObservabilityIfRequested(report, input);
   }
 
   const env = input.env ?? process.env;
@@ -148,7 +156,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     report.status = "degraded";
     report.degradedCount = report.caseCount;
     report.reasonCodes.push(preflightReason);
-    return report;
+    return attachObservabilityIfRequested(report, input);
   }
 
   const pythonExecutable = readRuntimePythonExecutable(env);
@@ -156,14 +164,14 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     report.status = "degraded";
     report.degradedCount = report.caseCount;
     report.reasonCodes.push("runtime_python_missing");
-    return report;
+    return attachObservabilityIfRequested(report, input);
   }
   const modelDirectory = readLocalEmbeddingModelDirectory(env);
   if (modelDirectory === undefined) {
     report.status = "degraded";
     report.degradedCount = report.caseCount;
     report.reasonCodes.push("model_directory_missing");
-    return report;
+    return attachObservabilityIfRequested(report, input);
   }
 
   let resourceLease: ResourceLease | undefined;
@@ -378,6 +386,25 @@ function findUnsafeSideEffect(
     input.modelOutputShellExecutionEnabled === true
     ? "unsafe_side_effect_requested"
     : undefined;
+}
+
+function attachObservabilityIfRequested(
+  report: CoreHostLocalEmbeddingHelperEmbedDiagnosticReport,
+  input: CoreHostLocalEmbeddingHelperEmbedDiagnosticInput
+): CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
+  if (input.observabilityAttachmentRequested !== true) {
+    return report;
+  }
+  return {
+    ...report,
+    observability: createCoreHostObservabilityDiagnosticSurface({
+      requested: true,
+      summary: input.observabilitySummary,
+      ...(input.observabilityCorrelationId === undefined
+        ? {}
+        : { expectedCorrelationId: input.observabilityCorrelationId })
+    })
+  };
 }
 
 function isEmbeddingShapeValid(

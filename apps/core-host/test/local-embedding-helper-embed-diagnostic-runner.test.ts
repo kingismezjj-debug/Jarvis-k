@@ -4,6 +4,7 @@ import type {
   ResourceRequest,
   ResourceScheduler
 } from "@jarvis-k/capabilities";
+import type { ObservabilitySummary } from "@jarvis-k/contracts";
 import type {
   RuntimeHelperRequest,
   RuntimeHelperTransport
@@ -114,6 +115,7 @@ describe("Core Host local embedding helper embed diagnostic runner", () => {
       cleanupStatus: "not_started",
       reasonCodes: ["diagnostic_not_approved"]
     });
+    expect(missingApproval).not.toHaveProperty("observability");
     expect(missingOptIn).toMatchObject({
       status: "degraded",
       helperEmbedCalled: false,
@@ -121,7 +123,179 @@ describe("Core Host local embedding helper embed diagnostic runner", () => {
       cleanupStatus: "not_started",
       reasonCodes: ["diagnostic_opt_in_missing"]
     });
+    expect(missingOptIn).not.toHaveProperty("observability");
     expect(transport.operations).toEqual([]);
+  });
+
+  it("attaches an in-memory Observability summary only on requested pre-runtime degraded reports", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new DiagnosticRuntimeTransport();
+
+    const report = await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+      ...approvedInput(),
+      productApprovalGranted: false,
+      resourceScheduler: scheduler,
+      verifyModelArtifacts: async () => {
+        throw new Error("artifact verification must not run");
+      },
+      createTransport: () => transport,
+      observabilityAttachmentRequested: true,
+      observabilityCorrelationId: "obs-runner-1",
+      observabilitySummary: observabilitySummary({
+        correlationId: "obs-runner-1",
+        status: "degraded",
+        currentPhase: "preflight",
+        healthState: "degraded",
+        stopReason: "scope_violation",
+        reasonCodes: ["OBSERVATION_DEGRADED"],
+        failureClasses: ["APPROVAL_OR_SCOPE_BLOCKED"],
+        counters: {
+          ...baseCounters(),
+          degradedCount: 1,
+          reasonCodeCount: 1,
+          failureClassCount: 1
+        }
+      })
+    });
+
+    expect(report).toMatchObject({
+      status: "degraded",
+      accepted: false,
+      helperEmbedCalled: false,
+      artifactDigestVerification: "not_run",
+      cleanupStatus: "not_started",
+      reasonCodes: ["diagnostic_not_approved"],
+      observability: {
+        observabilityAttached: true,
+        diagnosticReason: "observability_summary_attached",
+        status: "degraded",
+        currentPhase: "preflight",
+        healthState: "degraded",
+        stopReason: "scope_violation",
+        reasonCodes: ["OBSERVATION_DEGRADED"],
+        failureClasses: ["APPROVAL_OR_SCOPE_BLOCKED"],
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(report.observability).not.toHaveProperty("correlationId");
+    expect(transport.operations).toEqual([]);
+    expect(scheduler.acquireCount).toBe(0);
+    expect(JSON.stringify(report)).not.toMatch(
+      /obs-runner-1|Jarvis-K local embedding diagnostic|0\.11|https?:\/\/|[A-Za-z]:\\|\b[a-f0-9]{64}\b/iu
+    );
+  });
+
+  it("returns fixed Observability attachment reasons for missing, sensitive, and mismatched summaries", async () => {
+    const missingSummary =
+      await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+        ...approvedInput(),
+        productApprovalGranted: false,
+        resourceScheduler: new RecordingResourceScheduler(),
+        observabilityAttachmentRequested: true
+      });
+    const sensitiveSummary =
+      await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+        ...approvedInput(),
+        productApprovalGranted: false,
+        resourceScheduler: new RecordingResourceScheduler(),
+        observabilityAttachmentRequested: true,
+        observabilitySummary: {
+          ...observabilitySummary({}),
+          sourceText: "private source text",
+          privatePath: "C:\\Users\\Administrator\\private"
+        }
+      });
+    const mismatchedSummary =
+      await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+        ...approvedInput(),
+        productApprovalGranted: false,
+        resourceScheduler: new RecordingResourceScheduler(),
+        observabilityAttachmentRequested: true,
+        observabilityCorrelationId: "obs-runner-other",
+        observabilitySummary: observabilitySummary({
+          correlationId: "obs-runner-1"
+        })
+      });
+
+    expect(missingSummary).toMatchObject({
+      reasonCodes: ["diagnostic_not_approved"],
+      observability: {
+        observabilityAttached: false,
+        diagnosticReason: "observability_summary_missing",
+        reasonCodes: [],
+        failureClasses: [],
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(sensitiveSummary).toMatchObject({
+      reasonCodes: ["diagnostic_not_approved"],
+      observability: {
+        observabilityAttached: false,
+        diagnosticReason: "observability_summary_rejected",
+        status: "blocked",
+        stopReason: "sensitive_output_detected",
+        reasonCodes: ["OBSERVATION_INPUT_INVALID"],
+        failureClasses: ["SENSITIVE_OUTPUT_DETECTED"],
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(mismatchedSummary).toMatchObject({
+      reasonCodes: ["diagnostic_not_approved"],
+      observability: {
+        observabilityAttached: false,
+        diagnosticReason: "observability_summary_rejected",
+        status: "blocked",
+        stopReason: "scope_violation",
+        reasonCodes: ["OBSERVATION_INPUT_INVALID"],
+        failureClasses: ["APPROVAL_OR_SCOPE_BLOCKED"],
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(JSON.stringify(sensitiveSummary)).not.toMatch(
+      /private source text|Administrator/iu
+    );
+    expect(JSON.stringify(mismatchedSummary)).not.toContain("obs-runner-1");
+  });
+
+  it("attaches Observability to the explicit opt-in missing path without touching runtime resources", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new DiagnosticRuntimeTransport();
+
+    const report = await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+      ...approvedInput(),
+      env: {
+        [LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV]: "fixture-python",
+        [LOCAL_EMBEDDING_MODEL_DIR_ENV]: "approved-model-dir"
+      },
+      resourceScheduler: scheduler,
+      verifyModelArtifacts: async () => {
+        throw new Error("artifact verification must not run");
+      },
+      createTransport: () => transport,
+      observabilityAttachmentRequested: true,
+      observabilityCorrelationId: "obs-runner-1",
+      observabilitySummary: observabilitySummary({
+        correlationId: "obs-runner-1"
+      })
+    });
+
+    expect(report).toMatchObject({
+      status: "degraded",
+      helperEmbedCalled: false,
+      artifactDigestVerification: "not_run",
+      cleanupStatus: "not_started",
+      reasonCodes: ["diagnostic_opt_in_missing"],
+      observability: {
+        observabilityAttached: true,
+        diagnosticReason: "observability_summary_attached"
+      }
+    });
+    expect(transport.operations).toEqual([]);
+    expect(scheduler.acquireCount).toBe(0);
   });
 
   it("degrades with fixed reason codes when runtime env, artifacts, or helper embed fail", async () => {
@@ -392,5 +566,47 @@ function approvedInput() {
     securityApprovalGranted: true,
     phase738PreflightComplete: true,
     phase739PreflightComplete: true
+  };
+}
+
+function observabilitySummary(
+  overrides: Partial<ObservabilitySummary>
+): ObservabilitySummary {
+  return {
+    correlationId: "obs-runner-1",
+    domains: ["model_lifecycle"],
+    currentPhase: "activation",
+    status: "passed",
+    healthState: "not_started",
+    loadState: "not_started",
+    releaseState: "not_started",
+    activationState: "committed",
+    preservationState: "preserved",
+    rollbackState: "not_started",
+    cleanupState: "passed",
+    timeoutOccurred: false,
+    reasonCodes: ["MODEL_ACTIVATION_COMMITTED"],
+    failureClasses: [],
+    counters: baseCounters(),
+    released: false,
+    persisted: false,
+    rawDiagnosticsExposed: false,
+    ...overrides
+  };
+}
+
+function baseCounters() {
+  return {
+    observationCount: 1,
+    rejectedObservationCount: 0,
+    startedCount: 0,
+    passedCount: 1,
+    degradedCount: 0,
+    blockedCount: 0,
+    failedCount: 0,
+    stoppedCount: 0,
+    timeoutCount: 0,
+    reasonCodeCount: 1,
+    failureClassCount: 0
   };
 }
