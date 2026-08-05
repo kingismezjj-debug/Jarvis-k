@@ -3268,6 +3268,71 @@ packaging, license, benchmark, and composition gate passes.
   route retrieval/model output into Windows or PowerShell actions without
   separate product, security, and release approval for the execution run.
 
+## Phase 8.37: Bounded Tester Expansion Execution Run
+
+- Status: implementation complete locally; real product-path run blocked by
+  missing approved local runtime/model/database env configuration; push and CI
+  pending.
+- Added a bounded tester expansion execution runner in Core Host that requires
+  Phase 8.36 preflight evidence and separate product, security, and release
+  approvals before it delegates to the existing continuous developer-alpha
+  session path.
+- Added an explicit npm command:
+  `npm.cmd run usage:memory-retrieval:bounded-tester-expansion`.
+- The runner limits the window to at most 3 tester groups, at most 5 minimized
+  synthetic or explicitly consented messages per tester, and a 2 hour review
+  window.
+- The runner aggregates only sanitized tester ordinals, counts, statuses,
+  dimensions, rollback counts, cleanup status, and fixed reason codes.
+- It does not expose tester IDs, raw messages, raw vectors, raw text, raw
+  helper diagnostics, artifact paths, Python paths, private paths, signed URLs,
+  credentials, or raw Memory records.
+- It reuses the existing Phase 8.31 continuous session for approved local
+  artifact SHA-256 verification, provider execution, source minimization,
+  resource lease/timeout/release, vector validation, sanitized recall
+  observation, fail-closed degradation, and exact-source rollback.
+- It stops before later tester windows if any tester session returns blocked
+  or degraded, keeping the bounded expansion run fail-closed.
+- Current shell env diagnostic on 2026-08-05 found the developer-alpha,
+  Memory retrieval, provider query-vector, provider vector write/read, local
+  embedding provider, provider execution, approved Python runtime, approved
+  local model artifact directory, and explicit Memory DB env values were not
+  configured. Therefore the real Phase 8.37 product-path execution command was
+  not started in this turn.
+- This wave does not change default behavior, Desktop/UI/provider visibility,
+  fixture fallback, release channel, installer/update policy, model lifecycle
+  policy, cache policy, upgrade/rollback policy, or product SLOs. It does not
+  batch-index historical Memory, create persistent model caches, run SQLite
+  migrations, expose raw outputs, download artifacts, or route retrieval/model
+  output to Windows or PowerShell.
+
+### Current Gate
+
+- Core Host build: PASS.
+- Bounded tester expansion execution normal/blocked/degraded/rollback/
+  sensitive-output tests: PASS, 5 tests.
+- `npm.cmd run verify`: PASS, including 133 test files and 699 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-degraded`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Push and GitHub Actions CI are still pending.
+
+### Next Hard Pause
+
+- Do not run the real bounded tester expansion command until an operator
+  configures the full approved gate chain, approved Python runtime, approved
+  local model artifact directory, and explicit Memory DB path for the approved
+  window.
+- Do not use temporary artifact materialization or downloads without a
+  separate approval.
+- Do not expand beyond 3 testers, 5 messages per tester, or 2 hours without
+  separate product, security, and release approval.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation

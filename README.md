@@ -33,7 +33,8 @@ Phase 8.32 Provider Vector Retrieval Continuous Alpha Acceptance plus
 Phase 8.33 Continuous Alpha Operator Runbook and Promotion Gate plus
 Phase 8.34 Tester Expansion Approval Packet plus
 Phase 8.35 Bounded Tester Expansion Dry-Run Preflight plus
-Phase 8.36 Bounded Tester Expansion Approval Request Preflight**:
+Phase 8.36 Bounded Tester Expansion Approval Request Preflight plus
+Phase 8.37 Bounded Tester Expansion Execution Run**:
 the
 supervised runtime, React HUD, provider-neutral Voice Engine, browser
 microphone capture, Xunfei RTASR adapter, encrypted local voice settings,
@@ -272,7 +273,13 @@ ports, installability policy, resource diagnostics, dry-run model install
   text and fixed bounds, but does not approve expansion, send invitations, run
   usage, read env values, access artifacts, start helpers, execute
   provider-vector paths, change defaults/UI/provider visibility/release
-  policy, run SQLite migrations, or create a product SLO.
+  policy, run SQLite migrations, or create a product SLO. Phase 8.37 adds the
+  bounded tester expansion execution runner and explicit command surface. It
+  can delegate at most 3 tester windows with at most 5 minimized messages each
+  to the existing continuous developer-alpha session only when the approved
+  env/runtime/model/database chain is configured, and stops before later tester
+  windows after the first blocked or degraded session. In the current shell
+  that chain is not configured, so the real product-path run was not started.
 
 The Bailongma and Jarvis-ui source projects were migration references only.
 They are not runtime dependencies.
@@ -552,6 +559,12 @@ They are not runtime dependencies.
   execution, default/UI/provider visibility change, persistent cache, SQLite
   migration, historical indexing, release policy change, shell execution, or
   product SLO
+- Phase 8.37 bounded tester expansion execution run: bounded execution runner
+  and explicit command surface complete; current shell lacks approved
+  gate/runtime/model/database env values, so real execution was not started.
+  Default behavior, Desktop/UI/provider visibility, fixture fallback,
+  historical indexing, persistent cache, SQLite migration, release policy,
+  shell execution, raw output exposure, and product SLO remain unchanged
 - Phase 9.1 tool governance: provider-neutral contract and fixture executor
   complete; real OS execution remains disabled
 - Phase 10.1 local voice capability contract: provider-neutral preflight and
@@ -985,6 +998,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.34 tester expansion approval packet](docs/phase-8-34-tester-expansion-approval-packet.md)
 - [Phase 8.35 bounded tester expansion dry-run preflight](docs/phase-8-35-bounded-tester-expansion-dry-run-preflight.md)
 - [Phase 8.36 bounded tester expansion approval request preflight](docs/phase-8-36-bounded-tester-expansion-approval-request-preflight.md)
+- [Phase 8.37 bounded tester expansion execution run](docs/phase-8-37-bounded-tester-expansion-execution-run.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)

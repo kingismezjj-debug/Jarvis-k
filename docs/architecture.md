@@ -655,6 +655,17 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     write/read paths, change Desktop/UI/provider visibility/default behavior,
     migrate SQLite, index historical Memory, change release policy, or define
     a product SLO.
+90. Phase 8.37 adds the bounded tester expansion execution runner and explicit
+    command surface. The runner can delegate at most 3 tester windows with at
+    most 5 minimized messages each to the existing continuous
+    developer-alpha session only when the approved gate/runtime/model/database
+    env chain is configured. It aggregates only sanitized evidence and keeps
+    default behavior, Desktop/UI/provider visibility, fixture fallback,
+    historical indexing, persistent caches, SQLite migrations, release policy,
+    shell execution, raw output exposure, and product SLOs unchanged. The real
+    product-path run remains blocked when approved local runtime/model env
+    values are absent, and the wrapper stops before later tester windows after
+    the first blocked or degraded tester session.
 
 ## Restart policy
 
