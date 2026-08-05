@@ -647,6 +647,14 @@ Xunfei RTASR adapter   Memory repository Device capability provider Model govern
     execution, provider-vector write/read execution, Desktop/UI/provider
     visibility/default behavior changes, SQLite migrations, historical
     indexing, release policy changes, and product SLOs.
+89. Phase 8.36 adds only a bounded tester expansion approval-request
+    preflight. It generates product, security, and release approval request
+    text plus fixed execution bounds for a later separately approved run. It
+    does not approve expansion, send tester invitations, run usage sessions,
+    read env values, access artifacts, start helpers, execute provider-vector
+    write/read paths, change Desktop/UI/provider visibility/default behavior,
+    migrate SQLite, index historical Memory, change release policy, or define
+    a product SLO.
 
 ## Restart policy
 

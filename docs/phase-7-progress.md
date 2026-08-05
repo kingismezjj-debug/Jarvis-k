@@ -3213,6 +3213,61 @@ packaging, license, benchmark, and composition gate passes.
   route retrieval/model output into Windows or PowerShell actions without
   separate product, security, and release approval.
 
+## Phase 8.36: Bounded Tester Expansion Approval Request Preflight
+
+- Status: complete locally; pending push and CI.
+- Added a Core Host approval-request preflight evaluator for a later bounded
+  small-cohort continuous developer-alpha provider-vector retrieval execution
+  run.
+- The generated packet contains separate product, security, and release
+  approval request text for at most 3 testers, 5 minimized synthetic or
+  explicitly consented messages per tester, and a 2 hour window.
+- The security request keeps the existing gate chain, approved runtime/model
+  prerequisites, SHA-256 verification, source minimization, sanitized
+  telemetry, timeout/cancellation/release handling, exact-source rollback, and
+  fail-closed no-recall degradation as requirements for a later run.
+- The release request keeps the later run developer-alpha evidence only and
+  excludes installer, automatic update, default configuration, public user
+  docs, release channel, lifecycle policy, cache policy, upgrade/rollback
+  policy, and product SLO changes.
+- Added normal, degraded, blocked, release-policy, and sensitive-output tests.
+- This wave does not approve expansion, expand tester scope, send tester
+  invitations, run a real usage session, read env values, read runtime/model
+  paths, access artifacts, start helper load/embed, execute provider-vector
+  write/read paths, write real Memory vector data, create persistent caches,
+  run SQLite migrations, expose raw vectors/text/private paths/raw diagnostics,
+  change Desktop/UI/provider visibility/default behavior, batch-index
+  historical Memory, alter release/installer/model lifecycle/cache/update
+  policy, declare a product SLO, or route retrieval/model output to Windows or
+  PowerShell.
+
+### Current Gate
+
+- Core Host build: PASS.
+- Bounded tester expansion approval-request preflight normal/degraded/blocked/
+  release/sensitive-output tests: PASS, 5 tests.
+- `npm.cmd run verify`: PASS, including 132 test files and 694 tests.
+- `npm.cmd run check:boundaries`: PASS.
+- `npm.cmd run check:sensitive-artifacts`: PASS.
+- `npm.cmd run smoke:desktop`: PASS.
+- `npm.cmd run smoke:desktop:memory-degraded`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-env-wiring`: PASS.
+- `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
+- `npm.cmd run smoke:desktop:fixture-inference`: PASS.
+- `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
+- Push and GitHub Actions CI are still pending.
+
+### Next Hard Pause
+
+- Do not expand tester scope, send tester invitations, run a real usage
+  session, read runtime/model env values, access artifacts, start helpers,
+  execute provider-vector write/read, write real Memory vector data, enable UI
+  controls, change provider visibility or default behavior, create persistent
+  model caches, batch-index historical Memory, run SQLite migrations, change
+  release/installer/update/model lifecycle policy, declare a product SLO, or
+  route retrieval/model output into Windows or PowerShell actions without
+  separate product, security, and release approval for the execution run.
+
 ## Phase 9.1: Tool Governance Contract
 
 - Status: complete as a provider-neutral contract and fixture preparation
