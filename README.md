@@ -1005,6 +1005,7 @@ the local settings window first. It must not be enabled in default CI.
 - [Phase 8.35 bounded tester expansion dry-run preflight](docs/phase-8-35-bounded-tester-expansion-dry-run-preflight.md)
 - [Phase 8.36 bounded tester expansion approval request preflight](docs/phase-8-36-bounded-tester-expansion-approval-request-preflight.md)
 - [Phase 8.37 bounded tester expansion execution run](docs/phase-8-37-bounded-tester-expansion-execution-run.md)
+- [Phase 8 closeout and Memory alpha product decision](docs/phase-8-closeout-memory-alpha-product-decision.md)
 - [Phase 9.1 tool governance contract](docs/phase-9-1-tool-governance-contract.md)
 - [Phase 10.1 local voice capability contract](docs/phase-10-1-local-voice-contract.md)
 - [Phase 10.2 local voice fixture benchmark harness](docs/phase-10-2-local-voice-benchmark-harness.md)
