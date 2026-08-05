@@ -211,8 +211,8 @@ The real provider-vector rerun remains paused. Before enabling warm reuse or
 running the minimum real retrieval window, obtain fresh product, security, and
 release approval for that exact scope.
 
-Push and GitHub Actions CI must pass before the implementation wave can be
-marked complete.
+The implementation wave was pushed after local verification, and GitHub
+Actions CI passed for the resulting commit.
 
 ## Fresh Minimum Diagnostic Window Approval Request
 

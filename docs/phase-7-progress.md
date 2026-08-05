@@ -3255,7 +3255,7 @@ packaging, license, benchmark, and composition gate passes.
 - `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
-- Push and GitHub Actions CI are still pending.
+- Push and GitHub Actions CI: PASS.
 
 ### Next Hard Pause
 
@@ -3270,9 +3270,9 @@ packaging, license, benchmark, and composition gate passes.
 
 ## Phase 8.37: Bounded Tester Expansion Execution Run
 
-- Status: implementation complete and the approved minimum diagnostic run
-  passed locally; broader tester expansion remains unapproved; push and CI
-  pending.
+- Status: implementation complete, the approved minimum diagnostic run passed
+  locally, and push plus GitHub Actions CI passed; broader tester expansion
+  remains unapproved.
 - Added a bounded tester expansion execution runner in Core Host that requires
   Phase 8.36 preflight evidence and separate product, security, and release
   approvals before it delegates to the existing continuous developer-alpha
@@ -3324,7 +3324,7 @@ packaging, license, benchmark, and composition gate passes.
 - `npm.cmd run smoke:desktop:memory-retrieval-provider-query-vector`: PASS.
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
-- Push and GitHub Actions CI are still pending.
+- Push and GitHub Actions CI: PASS.
 
 ### Next Hard Pause
 
