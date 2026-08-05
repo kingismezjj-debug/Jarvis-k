@@ -9,6 +9,7 @@ import { isMemoryProviderVectorRetrievalDeveloperAlphaOptInEnabled } from "./mem
 import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV } from "./memory-provider-vector-retrieval-preflight";
 import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "./memory-provider-vector-write-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "./memory-retrieval-provider-query-vector-approval-gate";
+import { classifyCoreHostMemoryRetrievalFailure } from "./memory-retrieval-failure-classification";
 
 export const CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID =
   "fixture/core-host-memory-retrieval";
@@ -48,6 +49,7 @@ export function createCoreHostMemoryRetrievalEnvWiring(
       enabled: true,
       ...createMemoryRetrievalRoutingModelOptions(options, env),
       limit: 5,
+      classifyFailure: classifyCoreHostMemoryRetrievalFailure,
       resolveQueryVector: createQueryVectorResolver(options, env)
     }
   };

@@ -191,6 +191,8 @@ function assertLifecycleOnlyHealth(health: RuntimeHelperHealth): void {
 class CoreHostLocalEmbeddingRuntimeSession
   implements LocalEmbeddingRuntimeSession
 {
+  private releasePromise: Promise<void> | undefined;
+
   public constructor(
     private readonly options: {
       client: RuntimeHelperClient;
@@ -229,10 +231,15 @@ class CoreHostLocalEmbeddingRuntimeSession
   }
 
   public async release(): Promise<void> {
-    void this.options.resourceLeaseId;
-    await this.options.client
-      .shutdown({ reason: "request_cancelled" })
-      .catch(() => undefined);
+    if (!this.releasePromise) {
+      this.releasePromise = (async () => {
+        void this.options.resourceLeaseId;
+        await this.options.client
+          .shutdown({ reason: "request_cancelled" })
+          .catch(() => undefined);
+      })();
+    }
+    return this.releasePromise;
   }
 }
 

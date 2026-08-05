@@ -44,6 +44,8 @@ import {
 
 export const LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV =
   "JARVIS_K_ENABLE_LOCAL_EMBEDDING_PROVIDER";
+export const LOCAL_EMBEDDING_SESSION_REUSE_OPT_IN_ENV =
+  "JARVIS_K_ENABLE_LOCAL_EMBEDDING_SESSION_REUSE";
 
 const LOCAL_EMBEDDING_COMPOSED_REASON =
   "Runtime-backed local embedding provider is composed by explicit Core Host opt-in.";
@@ -71,6 +73,7 @@ export interface CoreHostLocalEmbeddingComposition {
   manifests: ModelManifest[];
   modelRuntimeRegistry: ModelRuntimeRegistry;
   embeddingProvider?: EmbeddingInferenceProvider;
+  close?: () => Promise<void>;
 }
 
 export interface LocalEmbeddingRuntimeSession {
@@ -89,15 +92,30 @@ export type LocalEmbeddingRuntimeSessionFactory = (
   input: LocalEmbeddingRuntimeSessionFactoryInput
 ) => Promise<LocalEmbeddingRuntimeSession>;
 
+interface ReusableLocalEmbeddingSession {
+  session: LocalEmbeddingRuntimeSession;
+  resourceLease: ResourceLease;
+  releasePromise?: Promise<void>;
+}
+
 export class CoreHostLocalEmbeddingProvider
   implements EmbeddingInferenceProvider
 {
+  private readonly sessionReuseEnabled: boolean;
+  private reusableSession: ReusableLocalEmbeddingSession | undefined;
+  private reusableSessionPromise: Promise<ReusableLocalEmbeddingSession> | undefined;
+  private closePromise: Promise<void> | undefined;
+  private closed = false;
+
   public constructor(
     private readonly options: {
       resourceScheduler: ResourceScheduler;
       sessionFactory: LocalEmbeddingRuntimeSessionFactory;
+      sessionReuseEnabled?: boolean;
     }
-  ) {}
+  ) {
+    this.sessionReuseEnabled = options.sessionReuseEnabled === true;
+  }
 
   public async embed(
     request: EmbeddingGenerationRequest
@@ -113,6 +131,37 @@ export class CoreHostLocalEmbeddingProvider
       throw new Error("Local embedding provider is not bound to this model.");
     }
 
+    if (this.closed) {
+      throw new Error("Local embedding provider session is closed.");
+    }
+
+    if (this.sessionReuseEnabled) {
+      return this.embedWithReusableSession(parsed);
+    }
+
+    return this.embedWithColdSession(parsed);
+  }
+
+  public async close(): Promise<void> {
+    if (this.closePromise) {
+      return this.closePromise;
+    }
+    this.closed = true;
+    this.closePromise = (async () => {
+      await this.reusableSessionPromise?.catch(() => undefined);
+      const reusableSession = this.reusableSession;
+      this.reusableSession = undefined;
+      if (!reusableSession) {
+        return;
+      }
+      await releaseReusableLocalEmbeddingSession(reusableSession);
+    })();
+    return this.closePromise;
+  }
+
+  private async embedWithColdSession(
+    parsed: EmbeddingGenerationRequest
+  ): Promise<EmbeddingGenerationResult> {
     let resourceLease: ResourceLease | undefined;
     let session: LocalEmbeddingRuntimeSession | undefined;
     try {
@@ -135,6 +184,90 @@ export class CoreHostLocalEmbeddingProvider
       await resourceLease?.release().catch(() => undefined);
     }
   }
+
+  private async embedWithReusableSession(
+    parsed: EmbeddingGenerationRequest
+  ): Promise<EmbeddingGenerationResult> {
+    let reusableSession: ReusableLocalEmbeddingSession | undefined;
+    try {
+      reusableSession = await this.getReusableSession(parsed);
+      return EmbeddingGenerationResultSchema.parse(
+        await reusableSession.session.embed(parsed)
+      );
+    } catch (error) {
+      if (reusableSession) {
+        await this.invalidateReusableSession(reusableSession);
+      }
+      const mapped = mapCoreHostLocalEmbeddingRuntimeError(error);
+      throw new Error(mapped.message);
+    }
+  }
+
+  private async getReusableSession(
+    request: EmbeddingGenerationRequest
+  ): Promise<ReusableLocalEmbeddingSession> {
+    if (this.reusableSession) {
+      return this.reusableSession;
+    }
+    if (!this.reusableSessionPromise) {
+      this.reusableSessionPromise = this.createReusableSession(request);
+    }
+    try {
+      return await this.reusableSessionPromise;
+    } finally {
+      this.reusableSessionPromise = undefined;
+    }
+  }
+
+  private async createReusableSession(
+    request: EmbeddingGenerationRequest
+  ): Promise<ReusableLocalEmbeddingSession> {
+    const resourceLease = await this.options.resourceScheduler.acquire({
+      capability: "embedding",
+      modelId: request.modelId
+    });
+    let session: LocalEmbeddingRuntimeSession | undefined;
+    try {
+      session = await this.options.sessionFactory({
+        request,
+        resourceLease
+      });
+      if (this.closed) {
+        throw new Error("Local embedding provider session is closed.");
+      }
+      const reusableSession = {
+        session,
+        resourceLease
+      };
+      this.reusableSession = reusableSession;
+      return reusableSession;
+    } catch (error) {
+      await session?.release().catch(() => undefined);
+      await resourceLease.release().catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async invalidateReusableSession(
+    reusableSession: ReusableLocalEmbeddingSession
+  ): Promise<void> {
+    if (this.reusableSession === reusableSession) {
+      this.reusableSession = undefined;
+    }
+    await releaseReusableLocalEmbeddingSession(reusableSession);
+  }
+}
+
+async function releaseReusableLocalEmbeddingSession(
+  reusableSession: ReusableLocalEmbeddingSession
+): Promise<void> {
+  if (!reusableSession.releasePromise) {
+    reusableSession.releasePromise = (async () => {
+      await reusableSession.session.release().catch(() => undefined);
+      await reusableSession.resourceLease.release().catch(() => undefined);
+    })();
+  }
+  return reusableSession.releasePromise;
 }
 
 export function createCoreHostLocalEmbeddingComposition(
@@ -158,6 +291,14 @@ export function createCoreHostLocalEmbeddingComposition(
       createRuntimeSessionFactoryOptions(options)
     );
 
+  const embeddingProvider = new CoreHostLocalEmbeddingProvider({
+    resourceScheduler: options.resourceScheduler,
+    sessionFactory,
+    sessionReuseEnabled: isLocalEmbeddingSessionReuseOptInEnabled(
+      options.env
+    )
+  });
+
   return {
     enabled: true,
     providerDescriptor: createRuntimeBackedLocalEmbeddingProviderDescriptor(
@@ -171,10 +312,8 @@ export function createCoreHostLocalEmbeddingComposition(
     modelRuntimeRegistry: new CoreHostLocalEmbeddingRuntimeRegistry([
       new DisabledTransformersLocalEmbeddingRuntimeAdapter()
     ]),
-    embeddingProvider: new CoreHostLocalEmbeddingProvider({
-      resourceScheduler: options.resourceScheduler,
-      sessionFactory
-    })
+    embeddingProvider,
+    close: () => embeddingProvider.close()
   };
 }
 
@@ -182,6 +321,12 @@ export function isLocalEmbeddingProviderOptInEnabled(
   env: Readonly<Record<string, string | undefined>> = process.env
 ): boolean {
   return env[LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]?.trim() === "1";
+}
+
+export function isLocalEmbeddingSessionReuseOptInEnabled(
+  env: Readonly<Record<string, string | undefined>> = process.env
+): boolean {
+  return env[LOCAL_EMBEDDING_SESSION_REUSE_OPT_IN_ENV]?.trim() === "1";
 }
 
 export function createRuntimeBackedLocalEmbeddingProviderDescriptor(

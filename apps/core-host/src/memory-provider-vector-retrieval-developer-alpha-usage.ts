@@ -1,5 +1,6 @@
 import { fork, type ChildProcess } from "node:child_process";
 import path from "node:path";
+import type { CoreMemoryRecallFailureClass } from "@jarvis-k/core";
 import {
   CommandResultSchema,
   CoreOutboundMessageSchema,
@@ -25,6 +26,9 @@ import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "./memory-provider-vecto
 import { MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV } from "./core-memory-retrieval-env-wiring-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "./memory-retrieval-provider-query-vector-approval-gate";
 import { LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV } from "./local-embedding-composition";
+import {
+  isCoreHostMemoryRetrievalFailureClass
+} from "./memory-retrieval-failure-classification";
 
 export const MEMORY_PROVIDER_VECTOR_DEVELOPER_ALPHA_USAGE_MAX_MESSAGES = 5;
 export const MEMORY_PROVIDER_VECTOR_DEVELOPER_ALPHA_USAGE_DEFAULT_TIMEOUT_MS =
@@ -65,6 +69,7 @@ export interface MemoryProviderVectorDeveloperAlphaUsageRecall {
   mode?: "provider_vector";
   matchCount?: number;
   queryDimensions?: number;
+  failureClass?: CoreMemoryRecallFailureClass;
 }
 
 export interface MemoryProviderVectorDeveloperAlphaUsageProductPathInput {
@@ -137,6 +142,7 @@ export interface MemoryProviderVectorDeveloperAlphaUsageReport {
   providerVectorDimensionCount: number;
   recallStatus: "unknown" | "ok" | "degraded";
   recallMode: "unknown" | "provider_vector";
+  recallFailureClasses: CoreMemoryRecallFailureClass[];
   recallMatchCount: number;
   queryDimensionCount: number;
   rollbackStatus: "not_started" | "passed" | "degraded";
@@ -409,6 +415,7 @@ function createInitialReport(): MemoryProviderVectorDeveloperAlphaUsageReport {
     providerVectorDimensionCount: 0,
     recallStatus: "unknown",
     recallMode: "unknown",
+    recallFailureClasses: [],
     recallMatchCount: 0,
     queryDimensionCount: 0,
     rollbackStatus: "not_started",
@@ -659,13 +666,19 @@ function sanitizeRecall(value: unknown): MemoryProviderVectorDeveloperAlphaUsage
     value.queryDimensions <= 8192
       ? value.queryDimensions
       : undefined;
+  const failureClass = isCoreHostMemoryRetrievalFailureClass(
+    value.failureClass
+  )
+    ? value.failureClass
+    : undefined;
   return {
     status,
     ...(value.mode === "provider_vector"
       ? { mode: value.mode }
       : {}),
     ...(matchCount === undefined ? {} : { matchCount }),
-    ...(queryDimensions === undefined ? {} : { queryDimensions })
+    ...(queryDimensions === undefined ? {} : { queryDimensions }),
+    ...(failureClass === undefined ? {} : { failureClass })
   };
 }
 
@@ -673,14 +686,21 @@ function addRecallObservations(
   report: MemoryProviderVectorDeveloperAlphaUsageReport,
   recalls: readonly MemoryProviderVectorDeveloperAlphaUsageRecall[]
 ): void {
-  for (const recall of recalls) {
+  for (const rawRecall of recalls) {
+    const recall = sanitizeRecall(rawRecall);
     if (recall.mode === "provider_vector") {
       report.recallMode = "provider_vector";
     }
-    if (recall.status === "ok") {
-      report.recallStatus = "ok";
-    } else if (report.recallStatus === "unknown") {
+    if (
+      recall.failureClass !== undefined &&
+      !report.recallFailureClasses.includes(recall.failureClass)
+    ) {
+      report.recallFailureClasses.push(recall.failureClass);
+    }
+    if (recall.status === "degraded") {
       report.recallStatus = "degraded";
+    } else if (report.recallStatus === "unknown") {
+      report.recallStatus = "ok";
     }
     if (recall.matchCount !== undefined) {
       report.recallMatchCount = Math.max(

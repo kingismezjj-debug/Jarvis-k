@@ -130,6 +130,87 @@ as designed. The temporary artifact directory and Memory DB were deleted after
 the run; no persistent cache, raw vector, raw text, private path, credential,
 signed URL, or raw helper diagnostic was retained.
 
+## Degraded Recall Review and Disposition
+
+Reviewed on 2026-08-05 after the real run. The rerun is **not reapproved**.
+
+The sanitized evidence shows that the failure was inside the provider-vector
+recall path rather than artifact access or rollback:
+
+- `providerVectorWriteCount=3` with dimension `1024` confirms that all three
+  accepted source messages produced provider-vector writes.
+- `queryDimensionCount=1024` confirms that the degraded tester reached valid
+  provider query-vector generation.
+- `rollbackStatus=passed` and `rollbackDeletedCount=3`, plus
+  `cleanupStatus=passed`, confirm that the safety cleanup boundary held.
+- A no-match SQLite query is represented as an `ok` result with an empty
+  match list, so `status=degraded` is consistent with query execution failure
+  or a Core Host retrieval exception, not merely zero matches.
+
+The exact lower-level failure was intentionally not retained because raw helper
+diagnostics are outside the Phase 8.37 evidence boundary. Repeated cold-start
+and release of the Python helper for each provider embed remains a plausible
+runtime contributor, but it is not proven. The existing fixture SQLite
+write/query/reopen/rollback tests pass, so a basic file-backed lifecycle defect
+is not currently supported by local evidence.
+
+During this review, aggregate recall reporting was corrected so a later
+`degraded` observation cannot be overwritten by an earlier or later `ok`
+observation. The correction is report-only and does not make the failed run
+acceptable.
+
+Before any future exact rerun window, require a new sanitized diagnosis of the
+provider-vector query failure class, passing local verification and CI for this
+report correction, and fresh product, security, and release approval. Do not
+materialize artifacts or broaden tester scope on the basis of this review.
+
+## Retrieval Stabilization Evidence
+
+Completed on 2026-08-05 as a local stabilization wave. This work did not
+materialize model artifacts, start a real helper, enable warm reuse for a real
+run, or change the existing approval disposition.
+
+The retrieval path now retains a fixed sanitized `failureClass` in Core
+recall observations while preserving the existing bounded `reasonCode`
+contract. The only exposed classes are:
+
+- `QUERY_EMBEDDING_TIMEOUT`;
+- `QUERY_EMBEDDING_FAILED`;
+- `VECTOR_QUERY_EXECUTION_FAILED`;
+- `VECTOR_QUERY_RESULT_INVALID`;
+- `HELPER_LIFECYCLE_FAILED`;
+- `MEMORY_RETRIEVAL_ROUTING_FAILED`.
+
+Unknown errors map to the routing-failed class. Raw error messages, helper
+diagnostics, paths, vectors, and source text are never copied into the
+observation or alpha reports. Alpha and bounded tester reports retain only
+deduplicated fixed `recallFailureClasses`.
+
+A file-backed 1024-dimensional regression now covers the full local lifecycle:
+write one approved provider vector, close SQLite, reopen the same file, query
+with the same model and dimension, delete the exact source, reopen again, and
+confirm an `ok` zero-match result after rollback. A second regression runs the
+same 1024-dimensional query through the Core Host env wiring with a real
+`SqliteMemoryRepository` and a deterministic injected embedding provider.
+
+Helper session warm reuse was implemented as an explicit opt-in under
+`JARVIS_K_ENABLE_LOCAL_EMBEDDING_SESSION_REUSE`. The default remains disabled
+and therefore preserves the existing per-request cold lifecycle. When
+explicitly enabled, one in-process helper session and resource lease can serve
+sequential embeds; helper failure invalidates and releases both, and `close()`
+is idempotent. No cross-process or persistent cache reuse is introduced.
+
+Current local evidence after this wave:
+
+- `npm.cmd run verify`: PASS, 134 test files and 712 tests;
+- `npm.cmd run check:boundaries`: PASS;
+- `npm.cmd run check:sensitive-artifacts`: PASS;
+- Core Host/Desktop retrieval and local embedding smoke tests: PASS.
+
+The real provider-vector rerun remains paused. Before enabling warm reuse or
+running the minimum real retrieval window, obtain fresh product, security, and
+release approval for that exact scope.
+
 Push and GitHub Actions CI must pass before the implementation wave can be
 marked complete.
 

@@ -11,7 +11,9 @@ import type {
 import {
   CoreHostLocalEmbeddingProvider,
   LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV,
-  createCoreHostLocalEmbeddingComposition
+  LOCAL_EMBEDDING_SESSION_REUSE_OPT_IN_ENV,
+  createCoreHostLocalEmbeddingComposition,
+  isLocalEmbeddingSessionReuseOptInEnabled
 } from "../src/local-embedding-composition";
 import { LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV } from "../src/local-embedding-runtime-session-factory";
 
@@ -153,6 +155,155 @@ describe("Core Host local embedding composition", () => {
     expect(scheduler.releaseCount).toBe(1);
     expect(sessionReleased).toBe(true);
     expect(scheduler.activeLeaseCount).toBe(0);
+  });
+
+  it("reuses one helper session and lease only when explicitly enabled", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    let sessionCreateCount = 0;
+    let sessionReleaseCount = 0;
+    const provider = new CoreHostLocalEmbeddingProvider({
+      resourceScheduler: scheduler,
+      sessionReuseEnabled: true,
+      sessionFactory: async ({ resourceLease }) => {
+        sessionCreateCount += 1;
+        return {
+          embed: async (request): Promise<EmbeddingGenerationResult> => ({
+            modelId: request.modelId,
+            dimensions: 2,
+            vectors: request.inputs.map((input) => ({
+              ...(input.id ? { inputId: input.id } : {}),
+              values: [0.5, -0.5]
+            })),
+            generatedAt: "2026-08-02T00:00:00.000Z"
+          }),
+          release: async () => {
+            sessionReleaseCount += 1;
+            expect(resourceLease.leaseId).toBe("lease-1");
+          }
+        };
+      }
+    });
+
+    await provider.embed(validRequest());
+    await provider.embed({
+      ...validRequest(),
+      inputs: [{ id: "input-2", text: "Second warm request" }]
+    });
+
+    expect(sessionCreateCount).toBe(1);
+    expect(sessionReleaseCount).toBe(0);
+    expect(scheduler.acquireCount).toBe(1);
+    expect(scheduler.releaseCount).toBe(0);
+    await provider.close();
+    await provider.close();
+    expect(sessionReleaseCount).toBe(1);
+    expect(scheduler.releaseCount).toBe(1);
+    expect(scheduler.activeLeaseCount).toBe(0);
+  });
+
+  it("keeps the per-request cold lifecycle as the default", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    let sessionCreateCount = 0;
+    let sessionReleaseCount = 0;
+    const provider = new CoreHostLocalEmbeddingProvider({
+      resourceScheduler: scheduler,
+      sessionFactory: async () => {
+        sessionCreateCount += 1;
+        return {
+          embed: async (request): Promise<EmbeddingGenerationResult> => ({
+            modelId: request.modelId,
+            dimensions: 2,
+            vectors: request.inputs.map((input) => ({
+              ...(input.id ? { inputId: input.id } : {}),
+              values: [0.5, -0.5]
+            })),
+            generatedAt: "2026-08-02T00:00:00.000Z"
+          }),
+          release: async () => {
+            sessionReleaseCount += 1;
+          }
+        };
+      }
+    });
+
+    await provider.embed(validRequest());
+    await provider.embed(validRequest());
+
+    expect(sessionCreateCount).toBe(2);
+    expect(sessionReleaseCount).toBe(2);
+    expect(scheduler.acquireCount).toBe(2);
+    expect(scheduler.releaseCount).toBe(2);
+    expect(scheduler.activeLeaseCount).toBe(0);
+  });
+
+  it("invalidates and releases a warm session after a helper failure", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    let sessionCreateCount = 0;
+    let sessionReleaseCount = 0;
+    const provider = new CoreHostLocalEmbeddingProvider({
+      resourceScheduler: scheduler,
+      sessionReuseEnabled: true,
+      sessionFactory: async () => {
+        sessionCreateCount += 1;
+        const currentSession = sessionCreateCount;
+        return {
+          embed: async (request): Promise<EmbeddingGenerationResult> => {
+            if (currentSession === 1) {
+              throw new Error(
+                "C:\\Users\\Administrator\\private-helper-diagnostic"
+              );
+            }
+            return {
+              modelId: request.modelId,
+              dimensions: 2,
+              vectors: request.inputs.map((input) => ({
+                ...(input.id ? { inputId: input.id } : {}),
+                values: [0.5, -0.5]
+              })),
+              generatedAt: "2026-08-02T00:00:00.000Z"
+            };
+          },
+          release: async () => {
+            sessionReleaseCount += 1;
+          }
+        };
+      }
+    });
+
+    await expect(provider.embed(validRequest())).rejects.toThrow(
+      "Transformers local runtime scaffold is not configured."
+    );
+    await expect(provider.embed(validRequest())).resolves.toMatchObject({
+      dimensions: 2
+    });
+    expect(sessionCreateCount).toBe(2);
+    expect(sessionReleaseCount).toBe(1);
+    expect(scheduler.acquireCount).toBe(2);
+    expect(scheduler.releaseCount).toBe(1);
+    await provider.close();
+    expect(sessionReleaseCount).toBe(2);
+    expect(scheduler.releaseCount).toBe(2);
+    expect(scheduler.activeLeaseCount).toBe(0);
+  });
+
+  it("reports warm reuse as an explicit optional configuration", () => {
+    const composition = createCoreHostLocalEmbeddingComposition({
+      env: {
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_SESSION_REUSE_OPT_IN_ENV]: "1"
+      },
+      resourceScheduler: new RecordingResourceScheduler()
+    });
+
+    expect(
+      isLocalEmbeddingSessionReuseOptInEnabled({
+        [LOCAL_EMBEDDING_SESSION_REUSE_OPT_IN_ENV]: "1"
+      })
+    ).toBe(true);
+    expect(JSON.stringify(composition)).not.toMatch(/[A-Za-z]:\\/u);
+    expect(JSON.stringify(composition)).not.toMatch(
+      /\b(api[_-]?key|signed[_-]?url|access[_-]?token|secret)\b/i
+    );
   });
 
   it("sanitizes runtime failures and releases the resource lease", async () => {

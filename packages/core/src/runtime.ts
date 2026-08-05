@@ -76,6 +76,25 @@ export type CoreMemoryRetrievalRoutingMode =
   | "fixture_only"
   | typeof MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE;
 
+export type CoreMemoryRecallFailureClass =
+  | "QUERY_EMBEDDING_TIMEOUT"
+  | "QUERY_EMBEDDING_FAILED"
+  | "VECTOR_QUERY_EXECUTION_FAILED"
+  | "VECTOR_QUERY_RESULT_INVALID"
+  | "HELPER_LIFECYCLE_FAILED"
+  | "MEMORY_RETRIEVAL_ROUTING_FAILED";
+
+export type CoreMemoryRetrievalFailureStage =
+  | "query_embedding"
+  | "vector_query"
+  | "vector_query_result";
+
+export interface CoreMemoryRetrievalFailureClassificationInput {
+  stage: CoreMemoryRetrievalFailureStage;
+  reasonCode?: string;
+  error?: unknown;
+}
+
 export interface CoreMemoryRetrievalRoutingQueryContext {
   messageId: string;
   conversationId: string;
@@ -90,6 +109,9 @@ export interface CoreMemoryRetrievalRoutingOptions {
   allowedModelId?: string;
   limit?: number;
   minScore?: number;
+  classifyFailure?: (
+    input: CoreMemoryRetrievalFailureClassificationInput
+  ) => CoreMemoryRecallFailureClass;
   resolveQueryVector(
     context: CoreMemoryRetrievalRoutingQueryContext
   ): readonly number[] | Promise<readonly number[]>;
@@ -115,6 +137,20 @@ export interface CoreMemoryRecallObservation {
   matches: CoreMemoryRecallMatch[];
   generatedAt: string;
   reasonCode?: string;
+  failureClass?: CoreMemoryRecallFailureClass;
+}
+
+function isCoreMemoryRecallFailureClass(
+  value: string
+): value is CoreMemoryRecallFailureClass {
+  return (
+    value === "QUERY_EMBEDDING_TIMEOUT" ||
+    value === "QUERY_EMBEDDING_FAILED" ||
+    value === "VECTOR_QUERY_EXECUTION_FAILED" ||
+    value === "VECTOR_QUERY_RESULT_INVALID" ||
+    value === "HELPER_LIFECYCLE_FAILED" ||
+    value === "MEMORY_RETRIEVAL_ROUTING_FAILED"
+  );
 }
 
 export class CoreRuntime {
@@ -961,41 +997,103 @@ export class CoreRuntime {
       return this.degradedMemoryRecall("MEMORY_RETRIEVAL_PORT_UNAVAILABLE");
     }
 
+    let vector: readonly number[];
     try {
       const queryText = this.sanitizeMemoryRetrievalQueryText(message.text);
-      const vector = await this.memoryRetrievalRouting.resolveQueryVector({
+      vector = await this.memoryRetrievalRouting.resolveQueryVector({
         messageId: message.id,
         conversationId: message.conversationId,
         createdAt: message.createdAt,
         ...(queryText === undefined ? {} : { queryText })
       });
-      if (!this.isValidMemoryRetrievalQueryVector(vector)) {
-        return this.degradedMemoryRecall("MEMORY_RETRIEVAL_QUERY_INVALID");
-      }
-
-      const result = EmbeddingMemoryRetrievalResultSchema.parse(
-        await this.embeddingMemoryRetrievalPort.retrieve({
-          modelId,
-          vector: [...vector],
-          limit: this.memoryRetrievalLimit(),
-          ...(this.memoryRetrievalRouting.minScore === undefined
-            ? {}
-            : { minScore: this.memoryRetrievalRouting.minScore }),
-          conversationId: message.conversationId
+    } catch (error) {
+      return this.degradedMemoryRecall(
+        "MEMORY_RETRIEVAL_ROUTING_FAILED",
+        "blocked",
+        0,
+        this.now().toISOString(),
+        this.classifyMemoryRecallFailure({
+          stage: "query_embedding",
+          error
         })
       );
+    }
+    if (!this.isValidMemoryRetrievalQueryVector(vector)) {
+      return this.degradedMemoryRecall(
+        "MEMORY_RETRIEVAL_QUERY_INVALID",
+        "blocked",
+        0,
+        this.now().toISOString(),
+        "QUERY_EMBEDDING_FAILED"
+      );
+    }
+
+    let rawResult: unknown;
+    try {
+      rawResult = await this.embeddingMemoryRetrievalPort.retrieve({
+        modelId,
+        vector: [...vector],
+        limit: this.memoryRetrievalLimit(),
+        ...(this.memoryRetrievalRouting.minScore === undefined
+          ? {}
+          : { minScore: this.memoryRetrievalRouting.minScore }),
+        conversationId: message.conversationId
+      });
+    } catch (error) {
+      return this.degradedMemoryRecall(
+        "MEMORY_RETRIEVAL_ROUTING_FAILED",
+        "blocked",
+        0,
+        this.now().toISOString(),
+        this.classifyMemoryRecallFailure({
+          stage: "vector_query",
+          error
+        })
+      );
+    }
+
+    let result: Awaited<
+      ReturnType<EmbeddingMemoryRetrievalPort["retrieve"]>
+    >;
+    try {
+      result = EmbeddingMemoryRetrievalResultSchema.parse(rawResult);
+    } catch (error) {
+      return this.degradedMemoryRecall(
+        "MEMORY_RETRIEVAL_RESULT_INVALID",
+        modelId,
+        vector.length,
+        this.now().toISOString(),
+        this.classifyMemoryRecallFailure({
+          stage: "vector_query_result",
+          error
+        })
+      );
+    }
+
+    try {
       if (!this.isAllowedMemoryRetrievalModelId(result.modelId)) {
         return this.degradedMemoryRecall(
-          "MEMORY_RETRIEVAL_RESULT_MODEL_BLOCKED"
+          "MEMORY_RETRIEVAL_RESULT_MODEL_BLOCKED",
+          "blocked",
+          0,
+          result.generatedAt,
+          "VECTOR_QUERY_RESULT_INVALID"
         );
       }
 
       if (result.status === "degraded") {
+        const reasonCode = this.sanitizeMemoryRecallReasonCode(
+          result.reasonCode
+        );
         return this.degradedMemoryRecall(
-          this.sanitizeMemoryRecallReasonCode(result.reasonCode),
+          reasonCode,
           this.sanitizeMemoryRecallModelId(result.modelId),
           result.queryDimensions,
-          result.generatedAt
+          result.generatedAt,
+          this.classifyMemoryRecallFailure({
+            stage: "vector_query_result",
+            ...(reasonCode === undefined ? {} : { reasonCode })
+          })
         );
       }
 
@@ -1013,7 +1111,13 @@ export class CoreRuntime {
         generatedAt: result.generatedAt
       };
     } catch {
-      return this.degradedMemoryRecall("MEMORY_RETRIEVAL_ROUTING_FAILED");
+      return this.degradedMemoryRecall(
+        "MEMORY_RETRIEVAL_ROUTING_FAILED",
+        modelId,
+        vector.length,
+        this.now().toISOString(),
+        "MEMORY_RETRIEVAL_ROUTING_FAILED"
+      );
     }
   }
 
@@ -1040,7 +1144,9 @@ export class CoreRuntime {
     reasonCode: string | undefined,
     modelId = "blocked",
     queryDimensions = 0,
-    generatedAt = this.now().toISOString()
+    generatedAt = this.now().toISOString(),
+    failureClass: CoreMemoryRecallFailureClass =
+      "MEMORY_RETRIEVAL_ROUTING_FAILED"
   ): CoreMemoryRecallObservation {
     return {
       status: "degraded",
@@ -1053,8 +1159,35 @@ export class CoreRuntime {
       generatedAt,
       reasonCode:
         this.sanitizeMemoryRecallReasonCode(reasonCode) ??
-        "MEMORY_RETRIEVAL_ROUTING_DEGRADED"
+        "MEMORY_RETRIEVAL_ROUTING_DEGRADED",
+      failureClass
     };
+  }
+
+  private classifyMemoryRecallFailure(
+    input: CoreMemoryRetrievalFailureClassificationInput
+  ): CoreMemoryRecallFailureClass {
+    const candidate = this.memoryRetrievalRouting?.classifyFailure?.(input);
+    if (candidate && isCoreMemoryRecallFailureClass(candidate)) {
+      return candidate;
+    }
+    if (input.stage === "query_embedding") {
+      return "QUERY_EMBEDDING_FAILED";
+    }
+    if (input.stage === "vector_query") {
+      return "VECTOR_QUERY_EXECUTION_FAILED";
+    }
+    if (
+      input.reasonCode === "VECTOR_QUERY_INVALID" ||
+      input.reasonCode === "VECTOR_SCHEMA_UNAVAILABLE" ||
+      input.reasonCode === "VECTOR_NON_FIXTURE_QUERY_BLOCKED"
+    ) {
+      return "VECTOR_QUERY_RESULT_INVALID";
+    }
+    if (input.reasonCode === "VECTOR_QUERY_EXECUTION_FAILED") {
+      return "VECTOR_QUERY_EXECUTION_FAILED";
+    }
+    return "MEMORY_RETRIEVAL_ROUTING_FAILED";
   }
 
   private sanitizeMemoryRecallReasonCode(

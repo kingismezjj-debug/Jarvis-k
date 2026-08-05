@@ -173,6 +173,7 @@ describe("Memory provider-vector retrieval bounded tester expansion execution ru
               observationCount: 1,
               recallStatus: "degraded",
               recallMode: "unknown",
+              recallFailureClasses: ["VECTOR_QUERY_EXECUTION_FAILED"],
               providerVectorWriteCount: 1,
               rollbackDeletedCount: 1,
               reasonCodes: ["provider_vector_retrieval_degraded"]
@@ -189,6 +190,8 @@ describe("Memory provider-vector retrieval bounded tester expansion execution ru
       messageCount: 2,
       acceptedMessageCount: 2,
       rollbackDeletedCount: 2,
+      recallStatus: "degraded",
+      recallFailureClasses: ["VECTOR_QUERY_EXECUTION_FAILED"],
       cleanupStatus: "passed",
       reasonCodes: ["tester_session_degraded"]
     });
@@ -332,6 +335,7 @@ function createSessionReport(
     providerVectorDimensionCount: 1024,
     recallStatus: "ok",
     recallMode: "provider_vector",
+    recallFailureClasses: [],
     recallMatchCount: 1,
     queryDimensionCount: 1024,
     stopReason: "completed",

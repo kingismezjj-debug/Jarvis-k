@@ -381,6 +381,10 @@ process.on("message", (rawMessage: unknown) => {
     });
 });
 
+process.once("disconnect", () => {
+  void localEmbeddingComposition.close?.();
+});
+
 process.on("uncaughtException", (error) => {
   console.error("[core-host] Uncaught exception:", error.message);
   process.exit(1);

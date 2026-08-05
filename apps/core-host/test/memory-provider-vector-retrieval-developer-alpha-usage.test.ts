@@ -98,6 +98,47 @@ describe("Memory provider-vector retrieval developer-alpha usage", () => {
     });
   });
 
+  it("keeps recall failure classes fixed and drops raw failure text", async () => {
+    const result = await runMemoryProviderVectorDeveloperAlphaUsage({
+      ...approvedInput(),
+      verifyModelArtifacts: async () => undefined,
+      executeProductPath: async () => ({
+        ok: true,
+        acceptedMessageIds: ["private-message-id"],
+        recalls: [
+          {
+            status: "degraded",
+            mode: "provider_vector",
+            queryDimensions: 1024,
+            failureClass: "VECTOR_QUERY_EXECUTION_FAILED"
+          },
+          {
+            status: "degraded",
+            mode: "provider_vector",
+            failureClass:
+              "C:\\Users\\Administrator\\private-helper-diagnostic" as never
+          }
+        ],
+        cleanupStatus: "passed"
+      }),
+      rollbackProviderVectors: async () => ({
+        vectorWriteCount: 1,
+        dimensionCount: 1024,
+        deletedCount: 1,
+        cleanupStatus: "passed"
+      })
+    });
+    const serialized = JSON.stringify(result);
+
+    expect(result).toMatchObject({
+      status: "degraded",
+      recallFailureClasses: ["VECTOR_QUERY_EXECUTION_FAILED"],
+      reasonCodes: ["provider_vector_retrieval_degraded"]
+    });
+    expect(serialized).not.toContain("private-helper-diagnostic");
+    expect(serialized).not.toContain("private-message-id");
+  });
+
   it("degrades before artifact access when an environment gate is missing", async () => {
     const result = await runMemoryProviderVectorDeveloperAlphaUsage({
       ...approvedInput(),

@@ -231,6 +231,63 @@ describe("Memory provider-vector retrieval developer-alpha continuous usage", ()
     });
   });
 
+  it("keeps aggregate recall degraded after a later observation degrades", async () => {
+    let callCount = 0;
+    const result = await runMemoryProviderVectorDeveloperAlphaContinuousUsage({
+      ...approvedInput(),
+      stopOnDegraded: false,
+      messageTexts: [
+        "Synthetic mixed recall topic one.",
+        "Synthetic mixed recall topic two."
+      ],
+      verifyModelArtifacts: async () => undefined,
+      createTransport: async () =>
+        createFakeTransport({
+          sendMessage: async () => {
+            callCount += 1;
+            return {
+              accepted: true,
+              messageId: `private-source-mixed-${callCount}`,
+              recall:
+                callCount === 1
+                  ? {
+                      status: "ok",
+                      mode: "provider_vector",
+                      matchCount: 1,
+                      queryDimensions: 1024
+                    }
+                  : {
+                      status: "degraded",
+                      mode: "provider_vector",
+                      queryDimensions: 1024,
+                      failureClass: "QUERY_EMBEDDING_TIMEOUT"
+                    }
+            };
+          }
+        }),
+      rollbackProviderVectors: async ({ sourceIds }) => ({
+        vectorWriteCount: sourceIds.length,
+        dimensionCount: 1024,
+        deletedCount: sourceIds.length,
+        cleanupStatus: "passed"
+      })
+    });
+
+    expect(result).toMatchObject({
+      status: "degraded",
+      accepted: false,
+      messageCount: 2,
+      acceptedMessageCount: 2,
+      observationCount: 2,
+      recallStatus: "degraded",
+      recallMode: "provider_vector",
+      recallFailureClasses: ["QUERY_EMBEDDING_TIMEOUT"],
+      queryDimensionCount: 1024,
+      rollbackStatus: "passed",
+      cleanupStatus: "passed"
+    });
+  });
+
   it("fails closed before artifact access when a required gate is missing", async () => {
     let verificationCalled = false;
     let transportCalled = false;

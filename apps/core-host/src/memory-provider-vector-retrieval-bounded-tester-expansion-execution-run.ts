@@ -1,3 +1,4 @@
+import type { CoreMemoryRecallFailureClass } from "@jarvis-k/core";
 import {
   runMemoryProviderVectorDeveloperAlphaContinuousUsage,
   type MemoryProviderVectorDeveloperAlphaContinuousReport,
@@ -68,6 +69,7 @@ export interface MemoryProviderVectorBoundedTesterExpansionTesterReport {
   observationCount: number;
   recallStatus: "unknown" | "ok" | "degraded";
   recallMode: "unknown" | "provider_vector";
+  recallFailureClasses: CoreMemoryRecallFailureClass[];
   recallMatchCount: number;
   queryDimensionCount: number;
   providerVectorWriteCount: number;
@@ -95,6 +97,7 @@ export interface MemoryProviderVectorBoundedTesterExpansionExecutionReport {
   providerVectorDimensionCount: number;
   recallStatus: "unknown" | "ok" | "degraded";
   recallMode: "unknown" | "provider_vector";
+  recallFailureClasses: CoreMemoryRecallFailureClass[];
   recallMatchCount: number;
   queryDimensionCount: number;
   rollbackStatus: "not_started" | "passed" | "degraded";
@@ -217,6 +220,7 @@ function createTesterReport(
     observationCount: session.observationCount,
     recallStatus: session.recallStatus,
     recallMode: session.recallMode,
+    recallFailureClasses: [...session.recallFailureClasses],
     recallMatchCount: session.recallMatchCount,
     queryDimensionCount: session.queryDimensionCount,
     providerVectorWriteCount: session.providerVectorWriteCount,
@@ -278,13 +282,15 @@ function addTesterReport(
   if (tester.recallMode === "provider_vector") {
     report.recallMode = "provider_vector";
   }
-  if (tester.recallStatus === "ok") {
-    report.recallStatus = "ok";
-  } else if (
-    tester.recallStatus === "degraded" &&
-    report.recallStatus === "unknown"
-  ) {
+  for (const failureClass of tester.recallFailureClasses) {
+    if (!report.recallFailureClasses.includes(failureClass)) {
+      report.recallFailureClasses.push(failureClass);
+    }
+  }
+  if (tester.recallStatus === "degraded") {
     report.recallStatus = "degraded";
+  } else if (report.recallStatus === "unknown") {
+    report.recallStatus = "ok";
   }
 }
 
@@ -402,6 +408,7 @@ function createInitialReport(): MemoryProviderVectorBoundedTesterExpansionExecut
     providerVectorDimensionCount: 0,
     recallStatus: "unknown",
     recallMode: "unknown",
+    recallFailureClasses: [],
     recallMatchCount: 0,
     queryDimensionCount: 0,
     rollbackStatus: "not_started",

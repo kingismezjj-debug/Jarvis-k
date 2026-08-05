@@ -417,6 +417,86 @@ describe("SqliteMemoryRepository", () => {
     ]);
   });
 
+  it("persists, reopens, queries, and rolls back a file-backed 1024-dimensional provider vector", async () => {
+    const filePath = createTempDatabasePath();
+    const modelId = "Qwen/Qwen3-Embedding-0.6B";
+    const vector = deterministicVector(1024);
+    const first = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: [modelId]
+    });
+    await first.initialize();
+
+    await expect(
+      first.writeEmbeddingRecord(
+        embeddingRecord("embedding-1024", "msg-1024", {
+          modelId,
+          vector
+        })
+      )
+    ).resolves.toEqual({
+      status: "accepted",
+      recordId: "embedding-1024"
+    });
+    await first.close();
+
+    const reopened = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: [modelId]
+    });
+    await reopened.initialize();
+    const queried = await reopened.querySimilar({
+      modelId,
+      vector,
+      limit: 5,
+      conversationId: "primary"
+    });
+
+    expect(queried).toMatchObject({
+      status: "ok",
+      modelId,
+      queryDimensions: 1024
+    });
+    expect(queried.matches).toHaveLength(1);
+    expect(queried.matches[0]).toMatchObject({
+      id: "embedding-1024",
+      sourceId: "msg-1024",
+      modelId
+    });
+
+    await expect(
+      reopened.deleteEmbeddingRecordsForSource({
+        modelId,
+        sourceType: "message",
+        sourceId: "msg-1024"
+      })
+    ).resolves.toEqual({
+      status: "accepted",
+      deletedCount: 1
+    });
+    await reopened.close();
+
+    const afterRollback = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: [modelId]
+    });
+    await afterRollback.initialize();
+    const empty = await afterRollback.querySimilar({
+      modelId,
+      vector,
+      limit: 5,
+      conversationId: "primary"
+    });
+    await afterRollback.close();
+
+    expect(empty).toMatchObject({
+      status: "ok",
+      modelId,
+      queryDimensions: 1024,
+      matches: []
+    });
+  });
+
   it("inspects provider vector metadata without reading payloads or source text", async () => {
     const filePath = createTempDatabasePath();
     const repository = new SqliteMemoryRepository({
@@ -1199,6 +1279,12 @@ function embeddingRecord(
     vector,
     createdAt: options.createdAt ?? "2026-08-03T00:00:00.000Z"
   };
+}
+
+function deterministicVector(dimensions: number): number[] {
+  return Array.from({ length: dimensions }, (_, index) =>
+    index === 0 ? 1 : (index % 17) / 17
+  );
 }
 
 function createTempDatabasePath(): string {

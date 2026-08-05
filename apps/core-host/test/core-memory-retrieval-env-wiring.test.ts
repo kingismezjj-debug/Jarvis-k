@@ -1,15 +1,21 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { EmbeddingInferenceProvider } from "@jarvis-k/capabilities";
 import type {
   EmbeddingGenerationRequest,
   EmbeddingGenerationResult
 } from "@jarvis-k/contracts";
 import { LOCAL_EMBEDDING_MODEL_ID } from "@jarvis-k/inference-adapter-embedding-local";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type {
   EmbeddingMemoryQuery,
   EmbeddingMemoryRetrievalResult
 } from "@jarvis-k/memory";
-import type { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
+import {
+  SqliteMemoryRepository,
+  type SqliteMemoryRepository as SqliteMemoryRepositoryType
+} from "@jarvis-k/memory-sqlite";
 import { MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV } from "../src/core-memory-retrieval-env-wiring-approval-gate";
 import {
   CORE_HOST_MEMORY_RETRIEVAL_FIXTURE_MODEL_ID,
@@ -24,6 +30,14 @@ import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV } from "../src/mem
 import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV } from "../src/memory-provider-vector-retrieval-preflight";
 import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "../src/memory-provider-vector-write-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "../src/memory-retrieval-provider-query-vector-approval-gate";
+
+const tempDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of tempDirectories.splice(0)) {
+    fs.rmSync(directory, { force: true, recursive: true });
+  }
+});
 
 describe("Core Host memory retrieval env wiring", () => {
   it("keeps Memory retrieval wiring disabled by default", () => {
@@ -220,6 +234,76 @@ describe("Core Host memory retrieval env wiring", () => {
     expect(JSON.stringify(wiring)).not.toMatch(/[A-Za-z]:\\/u);
   });
 
+  it("runs file-backed provider-vector retrieval with a 1024-dimensional query", async () => {
+    const filePath = createTempDatabasePath();
+    const repository = new SqliteMemoryRepository({
+      filePath,
+      allowedEmbeddingModelIds: [LOCAL_EMBEDDING_MODEL_ID]
+    });
+    const vector = deterministicVector(1024);
+    await repository.initialize();
+    await repository.writeEmbeddingRecord({
+      id: "embedding-core-host-1024",
+      conversationId: "primary",
+      sourceType: "message",
+      sourceId: "msg-core-host-1024",
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      dimensions: vector.length,
+      vector,
+      createdAt: "2026-08-03T00:00:00.000Z"
+    });
+
+    const embeddingProvider = new FakeEmbeddingInferenceProvider();
+    embeddingProvider.vector = vector;
+    const wiring = createCoreHostMemoryRetrievalEnvWiring({
+      env: {
+        [MEMORY_RETRIEVAL_ROUTING_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_DEVELOPER_ALPHA_ENV]: "1",
+        [MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV]: "1",
+        [MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_OPT_IN_ENV]: "1",
+        [LOCAL_EMBEDDING_PROVIDER_EXECUTION_OPT_IN_ENV]: "1"
+      },
+      memoryRepository: repository,
+      embeddingProvider
+    });
+
+    const queryVector = await wiring.routingOptions?.resolveQueryVector({
+      messageId: "msg-query-1024",
+      conversationId: "primary",
+      createdAt: "2026-08-03T00:00:01.000Z",
+      queryText: "File-backed provider retrieval regression."
+    });
+    const result = await wiring.retrievalPort?.retrieve({
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      vector: queryVector ?? [],
+      limit: 5,
+      conversationId: "primary"
+    });
+    await repository.close();
+
+    expect(wiring.routingOptions).toMatchObject({
+      mode: "provider_vector",
+      modelId: LOCAL_EMBEDDING_MODEL_ID
+    });
+    expect(queryVector).toHaveLength(1024);
+    expect(embeddingProvider.calls).toBe(1);
+    expect(result).toMatchObject({
+      status: "ok",
+      modelId: LOCAL_EMBEDDING_MODEL_ID,
+      queryDimensions: 1024
+    });
+    expect(result?.matches).toHaveLength(1);
+    expect(result?.matches[0]).toMatchObject({
+      id: "embedding-core-host-1024",
+      sourceId: "msg-core-host-1024",
+      modelId: LOCAL_EMBEDDING_MODEL_ID
+    });
+    expect(JSON.stringify(result)).not.toContain("File-backed provider");
+    expect(JSON.stringify(result)).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
   it("falls back to fixture reads when provider vector read gates are incomplete", () => {
     const repository = new FakeSqliteMemoryRepository();
     const embeddingProvider = new FakeEmbeddingInferenceProvider();
@@ -326,8 +410,8 @@ class FakeSqliteMemoryRepository {
   public calls = 0;
   public lastQuery: EmbeddingMemoryQuery | undefined;
 
-  public asRepository(): SqliteMemoryRepository {
-    return this as unknown as SqliteMemoryRepository;
+  public asRepository(): SqliteMemoryRepositoryType {
+    return this as unknown as SqliteMemoryRepositoryType;
   }
 
   public async querySimilar(
@@ -370,4 +454,18 @@ class FakeEmbeddingInferenceProvider implements EmbeddingInferenceProvider {
       generatedAt: "2026-08-03T00:00:00.000Z"
     };
   }
+}
+
+function deterministicVector(dimensions: number): number[] {
+  return Array.from({ length: dimensions }, (_, index) =>
+    index === 0 ? 1 : (index % 17) / 17
+  );
+}
+
+function createTempDatabasePath(): string {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "jarvis-k-core-host-memory-")
+  );
+  tempDirectories.push(directory);
+  return path.join(directory, "memory.sqlite");
 }

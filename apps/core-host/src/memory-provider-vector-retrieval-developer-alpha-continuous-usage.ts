@@ -1,5 +1,6 @@
 import { fork, type ChildProcess } from "node:child_process";
 import path from "node:path";
+import type { CoreMemoryRecallFailureClass } from "@jarvis-k/core";
 import {
   CommandResultSchema,
   CoreOutboundMessageSchema,
@@ -29,6 +30,9 @@ import { MEMORY_PROVIDER_VECTOR_RETRIEVAL_OPT_IN_ENV } from "./memory-provider-v
 import { MEMORY_PROVIDER_VECTOR_WRITE_OPT_IN_ENV } from "./memory-provider-vector-write-approval-gate";
 import { MEMORY_RETRIEVAL_PROVIDER_QUERY_VECTOR_OPT_IN_ENV } from "./memory-retrieval-provider-query-vector-approval-gate";
 import { rollbackProviderVectorRecords } from "./memory-provider-vector-retrieval-developer-alpha-usage";
+import {
+  isCoreHostMemoryRetrievalFailureClass
+} from "./memory-retrieval-failure-classification";
 
 export const MEMORY_PROVIDER_VECTOR_DEVELOPER_ALPHA_CONTINUOUS_MAX_MESSAGES = 5;
 export const MEMORY_PROVIDER_VECTOR_DEVELOPER_ALPHA_CONTINUOUS_DEFAULT_TIMEOUT_MS =
@@ -84,6 +88,7 @@ export interface MemoryProviderVectorDeveloperAlphaContinuousRecall {
   mode?: "provider_vector";
   matchCount?: number;
   queryDimensions?: number;
+  failureClass?: CoreMemoryRecallFailureClass;
 }
 
 export interface MemoryProviderVectorDeveloperAlphaContinuousObservation {
@@ -91,6 +96,7 @@ export interface MemoryProviderVectorDeveloperAlphaContinuousObservation {
   mode: "unknown" | "provider_vector";
   matchCount: number;
   queryDimensions: number;
+  failureClass?: CoreMemoryRecallFailureClass;
   reasonCodes: MemoryProviderVectorDeveloperAlphaContinuousReasonCode[];
 }
 
@@ -189,6 +195,7 @@ export interface MemoryProviderVectorDeveloperAlphaContinuousReport {
   providerVectorDimensionCount: number;
   recallStatus: "unknown" | "ok" | "degraded";
   recallMode: "unknown" | "provider_vector";
+  recallFailureClasses: CoreMemoryRecallFailureClass[];
   recallMatchCount: number;
   queryDimensionCount: number;
   stopReason: MemoryProviderVectorDeveloperAlphaContinuousStopReason;
@@ -566,6 +573,7 @@ function createInitialReport(): MemoryProviderVectorDeveloperAlphaContinuousRepo
     providerVectorDimensionCount: 0,
     recallStatus: "unknown",
     recallMode: "unknown",
+    recallFailureClasses: [],
     recallMatchCount: 0,
     queryDimensionCount: 0,
     stopReason: "not_started",
@@ -854,26 +862,36 @@ function sanitizeRecall(
     value.queryDimensions <= 8192
       ? value.queryDimensions
       : undefined;
+  const failureClass = isCoreHostMemoryRetrievalFailureClass(
+    value.failureClass
+  )
+    ? value.failureClass
+    : undefined;
   return {
     status,
     ...(value.mode === "provider_vector"
       ? { mode: value.mode }
       : {}),
     ...(matchCount === undefined ? {} : { matchCount }),
-    ...(queryDimensions === undefined ? {} : { queryDimensions })
+    ...(queryDimensions === undefined ? {} : { queryDimensions }),
+    ...(failureClass === undefined ? {} : { failureClass })
   };
 }
 
 function createObservation(
   recall: MemoryProviderVectorDeveloperAlphaContinuousRecall
 ): MemoryProviderVectorDeveloperAlphaContinuousObservation {
+  const sanitizedRecall = sanitizeRecall(recall);
   return {
-    status: recall.status,
-    mode: recall.mode ?? "unknown",
-    matchCount: recall.matchCount ?? 0,
-    queryDimensions: recall.queryDimensions ?? 0,
+    status: sanitizedRecall.status,
+    mode: sanitizedRecall.mode ?? "unknown",
+    matchCount: sanitizedRecall.matchCount ?? 0,
+    queryDimensions: sanitizedRecall.queryDimensions ?? 0,
+    ...(sanitizedRecall.failureClass === undefined
+      ? {}
+      : { failureClass: sanitizedRecall.failureClass }),
     reasonCodes:
-      recall.status === "ok"
+      sanitizedRecall.status === "ok"
         ? []
         : ["provider_vector_retrieval_degraded"]
   };
@@ -891,6 +909,9 @@ function createSessionStateObservation(
     mode: report.recallMode,
     matchCount: 0,
     queryDimensions: 0,
+    ...(report.recallFailureClasses[0] === undefined
+      ? {}
+      : { failureClass: report.recallFailureClasses[0] }),
     reasonCodes: [reasonCode]
   };
 }
@@ -902,10 +923,16 @@ function addRecallObservation(
   if (observation.mode === "provider_vector") {
     report.recallMode = "provider_vector";
   }
-  if (observation.status === "ok") {
-    report.recallStatus = "ok";
-  } else if (report.recallStatus === "unknown") {
+  if (
+    observation.failureClass !== undefined &&
+    !report.recallFailureClasses.includes(observation.failureClass)
+  ) {
+    report.recallFailureClasses.push(observation.failureClass);
+  }
+  if (observation.status === "degraded") {
     report.recallStatus = "degraded";
+  } else if (report.recallStatus === "unknown") {
+    report.recallStatus = "ok";
   }
   report.recallMatchCount = Math.max(
     report.recallMatchCount,

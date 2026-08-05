@@ -1454,6 +1454,96 @@ describe("CoreRuntime", () => {
     });
   });
 
+  it("preserves only the fixed query embedding failure class", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "fixture/core-memory-retrieval",
+      resolveQueryVector: () => {
+        throw new Error(
+          "C:\\Users\\Administrator\\private-helper-path\\diagnostic"
+        );
+      },
+      classifyFailure: ({ stage }) =>
+        stage === "query_embedding"
+          ? "HELPER_LIFECYCLE_FAILED"
+          : "MEMORY_RETRIEVAL_ROUTING_FAILED"
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Failure class must stay sanitized"
+        }
+      })
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        failureClass: "HELPER_LIFECYCLE_FAILED",
+        reasonCode: "MEMORY_RETRIEVAL_ROUTING_FAILED"
+      }
+    });
+    expect(serialized).not.toContain("private-helper-path");
+    expect(serialized).not.toContain("diagnostic");
+  });
+
+  it("classifies invalid vector query results without exposing parser details", async () => {
+    const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
+    const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
+      enabled: true,
+      modelId: "fixture/core-memory-retrieval",
+      resolveQueryVector: () => [1, 0, 0],
+      classifyFailure: ({ stage }) =>
+        stage === "vector_query_result"
+          ? "VECTOR_QUERY_RESULT_INVALID"
+          : "MEMORY_RETRIEVAL_ROUTING_FAILED"
+    });
+    retrievalPort.result = {
+      status: "ok",
+      modelId: "fixture/core-memory-retrieval",
+      queryDimensions: 3,
+      matches: [
+        {
+          id: "invalid-match",
+          conversationId: "primary",
+          sourceType: "message",
+          sourceId: "source",
+          modelId: "other/model",
+          score: 0.9,
+          createdAt: "2026-08-03T00:00:00.000Z"
+        }
+      ],
+      generatedAt: "2026-08-03T00:00:00.000Z"
+    } as EmbeddingMemoryRetrievalResult;
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.sendMessage",
+        payload: {
+          conversationId: "primary",
+          text: "Invalid result must degrade"
+        }
+      })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      accepted: true,
+      memoryRecall: {
+        status: "degraded",
+        failureClass: "VECTOR_QUERY_RESULT_INVALID",
+        reasonCode: "MEMORY_RETRIEVAL_RESULT_INVALID"
+      }
+    });
+  });
+
   it("blocks non-fixture Memory retrieval models before querying the port", async () => {
     const retrievalPort = new FakeEmbeddingMemoryRetrievalPort();
     const { runtime } = createRuntimeWithMemoryRetrieval(retrievalPort, {
