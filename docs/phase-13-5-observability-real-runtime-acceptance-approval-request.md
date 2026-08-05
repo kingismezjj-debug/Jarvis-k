@@ -6,7 +6,7 @@ pre-runtime blocked/degraded paths and CI passed.
 
 ## Status
 
-`PENDING_THREE_PARTY_APPROVAL`
+`APPROVED_RUNTIME_WINDOW_PASSED`
 
 This document requests one exact developer-alpha real-runtime acceptance
 window for Observability evidence. It does not approve implementation work
@@ -249,21 +249,169 @@ production readiness.
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | Exactly one Observability real-runtime helper diagnostic window |
-| Security | PENDING | Exactly this temporary artifact/cache/runtime/helper and in-memory Observability scope |
-| Release | PENDING | Developer-alpha evidence only; no installer, update, default, UI/IPC, telemetry, or release changes |
+| Product | APPROVED | Exactly one Observability real-runtime helper diagnostic window |
+| Security | APPROVED | Exactly this temporary artifact/cache/runtime/helper and in-memory Observability scope |
+| Release | APPROVED | Developer-alpha evidence only; no installer, update, default, UI/IPC, telemetry, or release changes |
 
-No runtime action may begin until all three rows are explicitly approved for
-this exact Phase 13.5 scope.
+Approval text recorded from the 2026-08-05 implementation window:
+
+- Product: APPROVE exactly this Phase 13.5 one-window Observability
+  real-runtime helper diagnostic acceptance scope
+- Security: APPROVE exactly this temporary artifact/cache/runtime/helper and
+  in-memory Observability scope
+- Release: APPROVE developer-alpha runtime evidence only; no
+  installer/update/default/UI/IPC/telemetry/release changes
+
+These approvals clear the approval gate for this exact Phase 13.5 scope only.
+They do not authorize a second runtime/cache/helper window, persistent
+telemetry, UI/IPC exposure, Memory integration, tester expansion, defaults, or
+release behavior.
+
+## Implementation Progress
+
+The implementation wave is limited to:
+
+- extending the provider-neutral Observability contract with fixed helper
+  `embed` phase/reason/failure classification and fixed artifact/embed stop
+  reasons;
+- extending the Core Host Observability helper adapter to accept only fixed
+  `preflight`, `artifact_verification`, `health`, `load`, `embed`, and
+  `release` helper operation reports;
+- creating an in-memory Observability session inside
+  `runCoreHostLocalEmbeddingHelperEmbedDiagnostic` only when the Phase 13.5
+  runtime acceptance request is explicit and all three runtime acceptance
+  approval booleans are true;
+- blocking before artifact verification or helper access when Phase 13.5
+  runtime Observability is requested without exact approvals;
+- attaching the Phase 13.3 sanitized subreport after helper/resource cleanup;
+  and
+- keeping the existing diagnostic command unchanged unless
+  `JARVIS_K_ENABLE_PHASE_13_5_OBSERVABILITY_RUNTIME_ACCEPTANCE=1` is supplied
+  for the one approved process.
+
+No persistent telemetry, UI/IPC, Memory, SQLite migration, provider default,
+release behavior, or broad runtime instrumentation is introduced.
+
+## Pre-Run Verification Evidence
+
+Completed before any Phase 13.5 runtime action:
+
+```powershell
+npm.cmd run build -w @jarvis-k/contracts
+npm.cmd run build -w @jarvis-k/capabilities
+npm.cmd run build -w @jarvis-k/core-host
+npx.cmd vitest run apps/core-host/test/local-embedding-helper-embed-diagnostic-runner.test.ts apps/core-host/test/observability-core-host-integration.test.ts apps/core-host/test/observability-diagnostic-surface.test.ts packages/contracts/test/observability-protocol.test.ts
+```
+
+Results:
+
+- Contracts build: passed.
+- Capabilities build: passed.
+- Core Host build: passed.
+- Focused Observability/helper diagnostic tests: passed, 4 files / 26 tests.
+
+The remaining pre-run checks also passed:
+
+```powershell
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+git diff --check
+```
+
+Results:
+
+- Dependency boundaries: passed.
+- Sensitive artifact guard: passed.
+- Diff whitespace check: passed.
+
+The default diagnostic command path was also checked without the Phase 13.5
+env gate. It remained fail-closed before helper/artifact access with
+`diagnostic_opt_in_missing` and no Observability attachment.
+
+## Runtime Acceptance Evidence
+
+Executed on 2026-08-05 after all three approvals and the pre-run verification.
+The single approved window set only
+`JARVIS_K_ENABLE_PHASE_13_5_OBSERVABILITY_RUNTIME_ACCEPTANCE=1` for the
+diagnostic process.
+
+The existing command was used:
+
+```powershell
+npm.cmd run diagnostic:local-embedding:helper-embed
+```
+
+The Phase 13.5 path created a unique system-temporary root, materialized only
+the fixed-digest local embedding artifact plan, verified artifact bytes and
+digests before helper load, injected runtime/model values only into the
+diagnostic process, ran the existing helper diagnostic, attached the
+in-memory Observability subreport, and deleted the temporary root.
+
+Sanitized result:
+
+- status: `passed`;
+- accepted: `true`;
+- artifact digest verification: `passed`;
+- helper `health`: `passed`;
+- helper `load`: `passed`;
+- helper `embed`: `passed`;
+- helper `shutdown`/resource cleanup: `passed`;
+- diagnostic cases: `2`;
+- passed cases: `2`;
+- degraded cases: `0`;
+- failed cases: `0`;
+- runner reason codes: none;
+- Observability attached: `true`;
+- Observability status: `passed`;
+- Observability current phase: `release`;
+- Observability health/load/release states: `passed`;
+- Observability reason codes:
+  `OBSERVATION_COMPLETED`, `HELPER_HEALTH_PASSED`,
+  `HELPER_LOAD_PASSED`, `HELPER_EMBED_PASSED`,
+  `HELPER_RELEASE_PASSED`;
+- Observability failure classes: none;
+- Observability counters: `observationCount=6`,
+  `rejectedObservationCount=0`, `passedCount=6`,
+  `degradedCount=0`, `blockedCount=0`, `failedCount=0`,
+  `stoppedCount=0`, `timeoutCount=0`, `reasonCodeCount=5`,
+  `failureClassCount=0`;
+- `persisted=false`;
+- `rawDiagnosticsExposed=false`;
+- temporary artifact cleanup: `passed`; and
+- independent Phase 13.5 temporary-root leftover count: `0`.
+
+No Memory route, SQLite migration, provider registration, provider default,
+Desktop IPC, UI, persistent telemetry, installer/update/release behavior,
+tester expansion, raw vector, raw text, raw helper diagnostic, private path,
+credential, signed URL, digest value, correlation ID, env value, command,
+script, process ID, hostname, username, tester ID, or raw payload was exposed
+in the report.
+
+This evidence consumes the one approved Phase 13.5 runtime window. It does
+not authorize a rerun, persistent telemetry, UI/IPC exposure, Memory
+integration, product default change, tester expansion, release behavior, or
+production-readiness claim.
+
+## Post-Run Verification Evidence
+
+Completed after the approved runtime window:
+
+```powershell
+npm.cmd run verify
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+```
+
+Results:
+
+- Full `npm.cmd run verify`: passed, including 140 test files / 754 tests,
+  dependency boundary check, sensitive artifact guard, and full build.
+- Standalone `check:boundaries`: passed.
+- Standalone `check:sensitive-artifacts`: passed.
 
 ## Next Gate
 
-After all three approvals are recorded, implement only the minimum attachment
-needed to create, observe, summarize, attach, and release an in-memory
-Observability session around the existing helper diagnostic window. Then run
-the required local verification, execute exactly one approved runtime window,
-record sanitized evidence and cleanup results in this document, commit and
-push, and wait for CI.
+Commit and push the implementation and evidence, then wait for CI.
 
 Any failure, degraded result, blocked result, uncertain cleanup, sensitive
 output, or need for broader instrumentation stops the phase and requires a

@@ -116,8 +116,14 @@ export function classifyObservabilityFailure(
   if (input.stopReason === "load_failed") {
     return "HELPER_LOAD_FAILED";
   }
+  if (input.stopReason === "embed_failed") {
+    return "HELPER_EMBED_FAILED";
+  }
   if (input.stopReason === "release_failed") {
     return "HELPER_RELEASE_FAILED";
+  }
+  if (input.stopReason === "artifact_verification_failed") {
+    return "INPUT_VERIFICATION_FAILED";
   }
   if (input.stopReason === "activation_failed") {
     return "ACTIVATION_FAILED";

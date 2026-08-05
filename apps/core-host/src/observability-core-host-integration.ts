@@ -35,14 +35,18 @@ export interface CoreHostObservabilityLifecycleReport {
 }
 
 export type CoreHostObservabilityHelperOperation =
+  | "preflight"
+  | "artifact_verification"
   | "health"
   | "load"
+  | "embed"
   | "release";
 
 export type CoreHostObservabilityHelperStatus =
   | "not_started"
   | "passed"
   | "degraded"
+  | "blocked"
   | "failed"
   | "timeout"
   | "cancelled";
@@ -451,6 +455,12 @@ function lifecycleStopReason(
 function helperPhase(
   operation: CoreHostObservabilityHelperOperation
 ): ObservabilityPhase {
+  if (operation === "preflight") {
+    return "preflight";
+  }
+  if (operation === "artifact_verification") {
+    return "artifact_verification";
+  }
   if (operation === "health") {
     return "health_check";
   }
@@ -465,6 +475,9 @@ function mapHelperStatus(
   }
   if (report.status === "not_started") {
     return "started";
+  }
+  if (report.status === "blocked") {
+    return "blocked";
   }
   if (report.status === "timeout" || report.status === "cancelled") {
     return "stopped";
@@ -497,7 +510,13 @@ function helperReasonCodes(
     return ["OBSERVATION_DEGRADED"];
   }
   if (report.status === "failed") {
+    if (report.operation === "embed") {
+      return ["HELPER_EMBED_FAILED"];
+    }
     return ["OBSERVATION_FAILED"];
+  }
+  if (report.status === "blocked") {
+    return ["OBSERVATION_BLOCKED"];
   }
   if (report.operation === "health" && report.status === "passed") {
     return ["HELPER_HEALTH_PASSED"];
@@ -505,8 +524,18 @@ function helperReasonCodes(
   if (report.operation === "load" && report.status === "passed") {
     return ["HELPER_LOAD_PASSED"];
   }
+  if (report.operation === "embed" && report.status === "passed") {
+    return ["HELPER_EMBED_PASSED"];
+  }
   if (report.operation === "release" && report.status === "passed") {
     return ["HELPER_RELEASE_PASSED"];
+  }
+  if (
+    (report.operation === "preflight" ||
+      report.operation === "artifact_verification") &&
+    report.status === "passed"
+  ) {
+    return ["OBSERVATION_COMPLETED"];
   }
   return ["OBSERVATION_STARTED"];
 }
@@ -524,11 +553,20 @@ function helperFailureClasses(
   if (report.status === "passed" || report.status === "not_started") {
     return [];
   }
+  if (report.status === "blocked" || report.operation === "preflight") {
+    return ["APPROVAL_OR_SCOPE_BLOCKED"];
+  }
+  if (report.operation === "artifact_verification") {
+    return ["INPUT_VERIFICATION_FAILED"];
+  }
   if (report.operation === "health") {
     return ["HELPER_HEALTH_FAILED"];
   }
   if (report.operation === "load") {
     return ["HELPER_LOAD_FAILED"];
+  }
+  if (report.operation === "embed") {
+    return ["HELPER_EMBED_FAILED"];
   }
   return ["HELPER_RELEASE_FAILED"];
 }
@@ -542,14 +580,27 @@ function helperStopReason(
   if (report.status === "cancelled" || report.cancelled === true) {
     return "cancellation";
   }
-  if (report.status !== "failed" && report.status !== "degraded") {
+  if (
+    report.status !== "failed" &&
+    report.status !== "degraded" &&
+    report.status !== "blocked"
+  ) {
     return undefined;
+  }
+  if (report.operation === "preflight") {
+    return "scope_violation";
+  }
+  if (report.operation === "artifact_verification") {
+    return "artifact_verification_failed";
   }
   if (report.operation === "health") {
     return "health_failed";
   }
   if (report.operation === "load") {
     return "load_failed";
+  }
+  if (report.operation === "embed") {
+    return "embed_failed";
   }
   return "release_failed";
 }
@@ -706,7 +757,14 @@ function isModelLifecycleReasonCode(
 function isHelperOperation(
   value: unknown
 ): value is CoreHostObservabilityHelperOperation {
-  return value === "health" || value === "load" || value === "release";
+  return (
+    value === "preflight" ||
+    value === "artifact_verification" ||
+    value === "health" ||
+    value === "load" ||
+    value === "embed" ||
+    value === "release"
+  );
 }
 
 function isHelperStatus(
@@ -716,6 +774,7 @@ function isHelperStatus(
     value === "not_started" ||
     value === "passed" ||
     value === "degraded" ||
+    value === "blocked" ||
     value === "failed" ||
     value === "timeout" ||
     value === "cancelled"

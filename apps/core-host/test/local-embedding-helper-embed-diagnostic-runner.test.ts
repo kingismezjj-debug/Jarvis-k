@@ -127,6 +127,103 @@ describe("Core Host local embedding helper embed diagnostic runner", () => {
     expect(transport.operations).toEqual([]);
   });
 
+  it("blocks Phase 13.5 Observability runtime attachment before helper access without exact approvals", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new DiagnosticRuntimeTransport();
+
+    const report = await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+      ...approvedInput(),
+      resourceScheduler: scheduler,
+      verifyModelArtifacts: async () => {
+        throw new Error("artifact verification must not run");
+      },
+      createTransport: () => transport,
+      observabilityRuntimeAcceptanceRequested: true,
+      observabilityRuntimeProductApprovalGranted: true,
+      observabilityRuntimeSecurityApprovalGranted: true,
+      observabilityRuntimeReleaseApprovalGranted: false
+    });
+
+    expect(report).toMatchObject({
+      status: "blocked",
+      accepted: false,
+      helperEmbedCalled: false,
+      artifactDigestVerification: "not_run",
+      cleanupStatus: "not_started",
+      failedCount: 2,
+      reasonCodes: ["observability_runtime_not_approved"]
+    });
+    expect(report).not.toHaveProperty("observability");
+    expect(transport.operations).toEqual([]);
+    expect(scheduler.acquireCount).toBe(0);
+  });
+
+  it("attaches Phase 13.5 in-memory Observability summary around the helper runtime diagnostic", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new DiagnosticRuntimeTransport();
+
+    const report = await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+      ...approvedInput(),
+      resourceScheduler: scheduler,
+      verifyModelArtifacts: async () => undefined,
+      createTransport: () => transport,
+      observabilityRuntimeAcceptanceRequested: true,
+      observabilityRuntimeProductApprovalGranted: true,
+      observabilityRuntimeSecurityApprovalGranted: true,
+      observabilityRuntimeReleaseApprovalGranted: true,
+      observabilityCorrelationId: "obs-helper-runtime-1"
+    });
+    const serialized = JSON.stringify(report);
+
+    expect(report).toMatchObject({
+      status: "passed",
+      accepted: true,
+      helperEmbedCalled: true,
+      artifactDigestVerification: "passed",
+      helperLoad: "passed",
+      helperEmbed: "passed",
+      cleanupStatus: "passed",
+      reasonCodes: [],
+      observability: {
+        observabilityAttached: true,
+        diagnosticReason: "observability_summary_attached",
+        status: "passed",
+        currentPhase: "release",
+        healthState: "passed",
+        loadState: "passed",
+        releaseState: "passed",
+        reasonCodes: [
+          "OBSERVATION_COMPLETED",
+          "HELPER_HEALTH_PASSED",
+          "HELPER_LOAD_PASSED",
+          "HELPER_EMBED_PASSED",
+          "HELPER_RELEASE_PASSED"
+        ],
+        failureClasses: [],
+        counters: {
+          observationCount: 6,
+          passedCount: 6,
+          reasonCodeCount: 5,
+          failureClassCount: 0
+        },
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(report.observability).not.toHaveProperty("correlationId");
+    expect(transport.operations).toEqual([
+      "health",
+      "load",
+      "embed",
+      "shutdown"
+    ]);
+    expect(scheduler.acquireCount).toBe(1);
+    expect(scheduler.releaseCount).toBe(1);
+    expect(serialized).not.toMatch(
+      /obs-helper-runtime-1|Jarvis-K local embedding diagnostic|0\.11|https?:\/\/|[A-Za-z]:\\|\b[a-f0-9]{64}\b/iu
+    );
+  });
+
   it("attaches an in-memory Observability summary only on requested pre-runtime degraded reports", async () => {
     const scheduler = new RecordingResourceScheduler();
     const transport = new DiagnosticRuntimeTransport();

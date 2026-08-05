@@ -41,6 +41,12 @@ describe("Core Host Observability integration", () => {
     ).toMatchObject({ accepted: true });
     expect(
       session.observeHelperReport({
+        operation: "embed",
+        status: "passed"
+      })
+    ).toMatchObject({ accepted: true });
+    expect(
+      session.observeHelperReport({
         operation: "release",
         status: "passed"
       })
@@ -66,6 +72,7 @@ describe("Core Host Observability integration", () => {
       "MODEL_ACTIVATION_COMMITTED",
       "HELPER_HEALTH_PASSED",
       "HELPER_LOAD_PASSED",
+      "HELPER_EMBED_PASSED",
       "HELPER_RELEASE_PASSED"
     ]);
     expect(JSON.stringify(summary)).not.toMatch(
@@ -182,6 +189,43 @@ describe("Core Host Observability integration", () => {
       "HELPER_TIMEOUT",
       "OBSERVATION_STOPPED",
       "HELPER_CANCELLED"
+    ]);
+  });
+
+  it("maps helper preflight, artifact verification, and embed failures", () => {
+    const session = createCoreHostObservabilitySession(
+      "obs-core-host-helper-runtime-1"
+    );
+
+    session.observeHelperReport({
+      operation: "preflight",
+      status: "passed"
+    });
+    session.observeHelperReport({
+      operation: "artifact_verification",
+      status: "failed"
+    });
+    session.observeHelperReport({
+      operation: "embed",
+      status: "failed"
+    });
+
+    const summary = session.summarize();
+    expect(summary).toMatchObject({
+      currentPhase: "embed",
+      status: "failed",
+      stopReason: "embed_failed",
+      persisted: false,
+      rawDiagnosticsExposed: false
+    });
+    expect(summary.reasonCodes).toEqual([
+      "OBSERVATION_COMPLETED",
+      "OBSERVATION_FAILED",
+      "HELPER_EMBED_FAILED"
+    ]);
+    expect(summary.failureClasses).toEqual([
+      "INPUT_VERIFICATION_FAILED",
+      "HELPER_EMBED_FAILED"
     ]);
   });
 

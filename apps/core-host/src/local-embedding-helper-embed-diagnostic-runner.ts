@@ -1,4 +1,5 @@
 import {
+  createObservabilityCorrelationId,
   type ResourceLease,
   type ResourceScheduler
 } from "@jarvis-k/capabilities";
@@ -31,9 +32,18 @@ import {
   createCoreHostObservabilityDiagnosticSurface,
   type CoreHostObservabilityDiagnosticSubreport
 } from "./observability-diagnostic-surface";
+import {
+  createCoreHostObservabilitySession,
+  type CoreHostObservabilityHelperOperation,
+  type CoreHostObservabilityHelperStatus,
+  type CoreHostObservabilitySession
+} from "./observability-core-host-integration";
 
 export const LOCAL_EMBEDDING_HELPER_EMBED_DIAGNOSTIC_OPT_IN_ENV =
   "JARVIS_K_ENABLE_LOCAL_EMBEDDING_EMBED_DIAGNOSTIC";
+
+export const PHASE_13_5_OBSERVABILITY_RUNTIME_ACCEPTANCE_ENV =
+  "JARVIS_K_ENABLE_PHASE_13_5_OBSERVABILITY_RUNTIME_ACCEPTANCE";
 
 export type CoreHostLocalEmbeddingHelperEmbedDiagnosticStatus =
   | "blocked"
@@ -48,6 +58,7 @@ export type CoreHostLocalEmbeddingHelperEmbedDiagnosticReasonCode =
   | "runtime_python_missing"
   | "model_directory_missing"
   | "unsafe_side_effect_requested"
+  | "observability_runtime_not_approved"
   | "artifact_verification_failed"
   | "helper_health_unavailable"
   | "helper_load_failed"
@@ -88,6 +99,10 @@ export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticInput {
   observabilityAttachmentRequested?: boolean;
   observabilitySummary?: unknown;
   observabilityCorrelationId?: string;
+  observabilityRuntimeAcceptanceRequested?: boolean;
+  observabilityRuntimeProductApprovalGranted?: boolean;
+  observabilityRuntimeSecurityApprovalGranted?: boolean;
+  observabilityRuntimeReleaseApprovalGranted?: boolean;
 }
 
 export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
@@ -133,6 +148,21 @@ type CoreHostLocalEmbeddingHelperEmbedDiagnosticStage =
   | "load"
   | "embed";
 
+type CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime =
+  | {
+      requested: false;
+    }
+  | {
+      requested: true;
+      accepted: false;
+    }
+  | {
+      requested: true;
+      accepted: true;
+      correlationId: string;
+      session: CoreHostObservabilitySession;
+    };
+
 const DEFAULT_DIAGNOSTIC_CASES: EmbeddingGenerationRequest["inputs"] = [
   { id: "diagnostic-1", text: "Jarvis-K local embedding diagnostic" },
   { id: "diagnostic-2", text: "Runtime helper supervised embed check" }
@@ -142,12 +172,23 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
   input: CoreHostLocalEmbeddingHelperEmbedDiagnosticInput
 ): Promise<CoreHostLocalEmbeddingHelperEmbedDiagnosticReport> {
   const report = createInitialReport(input);
+  const observabilityRuntime = createObservabilityRuntime(input);
+  if (
+    observabilityRuntime.requested === true &&
+    observabilityRuntime.accepted === false
+  ) {
+    report.status = "blocked";
+    report.failedCount = report.caseCount;
+    report.reasonCodes.push("observability_runtime_not_approved");
+    return finalizeObservabilityReport(report, input, observabilityRuntime);
+  }
   const unsafeReason = findUnsafeSideEffect(input);
   if (unsafeReason !== undefined) {
     report.status = "blocked";
     report.failedCount = report.caseCount;
     report.reasonCodes.push(unsafeReason);
-    return attachObservabilityIfRequested(report, input);
+    observePreflightStatus(observabilityRuntime, "blocked");
+    return finalizeObservabilityReport(report, input, observabilityRuntime);
   }
 
   const env = input.env ?? process.env;
@@ -156,22 +197,29 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     report.status = "degraded";
     report.degradedCount = report.caseCount;
     report.reasonCodes.push(preflightReason);
-    return attachObservabilityIfRequested(report, input);
+    observePreflightStatus(
+      observabilityRuntime,
+      preflightReason === "diagnostic_not_approved" ? "blocked" : "degraded"
+    );
+    return finalizeObservabilityReport(report, input, observabilityRuntime);
   }
+  observePreflightStatus(observabilityRuntime, "passed");
 
   const pythonExecutable = readRuntimePythonExecutable(env);
   if (pythonExecutable === undefined) {
     report.status = "degraded";
     report.degradedCount = report.caseCount;
     report.reasonCodes.push("runtime_python_missing");
-    return attachObservabilityIfRequested(report, input);
+    observePreflightStatus(observabilityRuntime, "degraded");
+    return finalizeObservabilityReport(report, input, observabilityRuntime);
   }
   const modelDirectory = readLocalEmbeddingModelDirectory(env);
   if (modelDirectory === undefined) {
     report.status = "degraded";
     report.degradedCount = report.caseCount;
     report.reasonCodes.push("model_directory_missing");
-    return attachObservabilityIfRequested(report, input);
+    observePreflightStatus(observabilityRuntime, "degraded");
+    return finalizeObservabilityReport(report, input, observabilityRuntime);
   }
 
   let resourceLease: ResourceLease | undefined;
@@ -187,6 +235,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
       throw new DiagnosticFailure("artifact_verification_failed");
     }
     report.artifactDigestVerification = "passed";
+    observeHelperStatus(observabilityRuntime, "artifact_verification", "passed");
 
     resourceLease = await input.resourceScheduler.acquire({
       capability: "embedding",
@@ -223,6 +272,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     ) {
       throw new DiagnosticFailure("helper_health_unavailable");
     }
+    observeHelperStatus(observabilityRuntime, "health", "passed");
 
     stage = "load";
     const loaded = await client.load({
@@ -232,6 +282,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
       modelDirectory
     });
     report.helperLoad = "passed";
+    observeHelperStatus(observabilityRuntime, "load", "passed");
 
     stage = "embed";
     const embedded = await client.embed({
@@ -244,6 +295,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     if (!isEmbeddingShapeValid(embedded, report.caseCount)) {
       throw new DiagnosticFailure("embedding_shape_invalid");
     }
+    observeHelperStatus(observabilityRuntime, "embed", "passed");
 
     report.status = "passed";
     report.accepted = true;
@@ -262,6 +314,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
       report.helperEmbed = "failed";
     }
     report.reasonCodes.push(reasonCode);
+    observeDiagnosticFailure(observabilityRuntime, stage);
     return report;
   } finally {
     let cleanupFailed = false;
@@ -278,6 +331,11 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
     }
     if (client !== undefined || resourceLease !== undefined) {
       report.cleanupStatus = cleanupFailed ? "degraded" : "passed";
+      observeHelperStatus(
+        observabilityRuntime,
+        "release",
+        cleanupFailed ? "degraded" : "passed"
+      );
       if (cleanupFailed) {
         report.reasonCodes.push("helper_cleanup_failed");
         if (report.status === "passed") {
@@ -288,6 +346,7 @@ export async function runCoreHostLocalEmbeddingHelperEmbedDiagnostic(
         }
       }
     }
+    finalizeObservabilityReport(report, input, observabilityRuntime);
   }
 }
 
@@ -405,6 +464,94 @@ function attachObservabilityIfRequested(
         : { expectedCorrelationId: input.observabilityCorrelationId })
     })
   };
+}
+
+function createObservabilityRuntime(
+  input: CoreHostLocalEmbeddingHelperEmbedDiagnosticInput
+): CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime {
+  if (input.observabilityRuntimeAcceptanceRequested !== true) {
+    return { requested: false };
+  }
+  if (
+    input.observabilityRuntimeProductApprovalGranted !== true ||
+    input.observabilityRuntimeSecurityApprovalGranted !== true ||
+    input.observabilityRuntimeReleaseApprovalGranted !== true
+  ) {
+    return {
+      requested: true,
+      accepted: false
+    };
+  }
+
+  try {
+    const correlationId =
+      input.observabilityCorrelationId ?? createObservabilityCorrelationId();
+    return {
+      requested: true,
+      accepted: true,
+      correlationId,
+      session: createCoreHostObservabilitySession(correlationId)
+    };
+  } catch {
+    return {
+      requested: true,
+      accepted: false
+    };
+  }
+}
+
+function observePreflightStatus(
+  runtime: CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime,
+  status: Extract<
+    CoreHostObservabilityHelperStatus,
+    "passed" | "degraded" | "blocked"
+  >
+): void {
+  observeHelperStatus(runtime, "preflight", status);
+}
+
+function observeDiagnosticFailure(
+  runtime: CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime,
+  stage: CoreHostLocalEmbeddingHelperEmbedDiagnosticStage
+): void {
+  observeHelperStatus(
+    runtime,
+    stage === "artifact" ? "artifact_verification" : stage,
+    "failed"
+  );
+}
+
+function observeHelperStatus(
+  runtime: CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime,
+  operation: CoreHostObservabilityHelperOperation,
+  status: CoreHostObservabilityHelperStatus
+): void {
+  if (runtime.requested !== true || runtime.accepted !== true) {
+    return;
+  }
+  runtime.session.observeHelperReport({
+    operation,
+    status
+  });
+}
+
+function finalizeObservabilityReport(
+  report: CoreHostLocalEmbeddingHelperEmbedDiagnosticReport,
+  input: CoreHostLocalEmbeddingHelperEmbedDiagnosticInput,
+  runtime: CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime
+): CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
+  if (runtime.requested !== true || runtime.accepted !== true) {
+    return attachObservabilityIfRequested(report, input);
+  }
+
+  const summary = runtime.session.summarize();
+  report.observability = createCoreHostObservabilityDiagnosticSurface({
+    requested: true,
+    expectedCorrelationId: runtime.correlationId,
+    summary
+  });
+  runtime.session.release();
+  return report;
 }
 
 function isEmbeddingShapeValid(
