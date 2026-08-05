@@ -18,6 +18,8 @@ export interface CoreHostProviderVectorWriteOptions {
   memoryRepository: SqliteMemoryRepository;
   embeddingProvider?: EmbeddingInferenceProvider;
   timeoutMs?: number;
+  isEnabled?: () => boolean;
+  onProviderVectorWrite?: (sourceId: string) => void;
 }
 
 export interface CoreHostProviderVectorWriteWiring {
@@ -84,7 +86,9 @@ export function createCoreHostProviderVectorWriteWiring(
       options.memoryRepository,
       options.embeddingProvider,
       env,
-      options.timeoutMs ?? PROVIDER_VECTOR_WRITE_TIMEOUT_MS
+      options.timeoutMs ?? PROVIDER_VECTOR_WRITE_TIMEOUT_MS,
+      options.isEnabled,
+      options.onProviderVectorWrite
     )
   };
 }
@@ -114,7 +118,11 @@ class ProviderVectorWriteMemoryRepository implements CoreHostMemoryRepository {
     private readonly inner: SqliteMemoryRepository,
     private readonly embeddingProvider: EmbeddingInferenceProvider | undefined,
     private readonly env: Readonly<Record<string, string | undefined>>,
-    private readonly timeoutMs: number
+    private readonly timeoutMs: number,
+    private readonly isEnabledCallback: (() => boolean) | undefined,
+    private readonly onProviderVectorWrite:
+      | ((sourceId: string) => void)
+      | undefined
   ) {}
 
   public initialize(): ReturnType<SqliteMemoryRepository["initialize"]> {
@@ -210,7 +218,13 @@ class ProviderVectorWriteMemoryRepository implements CoreHostMemoryRepository {
   }
 
   private async writeProviderVectorForMessage(message: Message): Promise<void> {
-    if (!isProviderVectorWriteReady(this.env, this.embeddingProvider)) {
+    if (
+      !isProviderVectorWriteReady(
+        this.env,
+        this.embeddingProvider,
+        this.isEnabledCallback
+      )
+    ) {
       return;
     }
     if (!isProviderVectorWriteSourceMessage(message)) {
@@ -244,7 +258,7 @@ class ProviderVectorWriteMemoryRepository implements CoreHostMemoryRepository {
       return;
     }
 
-    await this.inner.writeEmbeddingRecord({
+    const writeResult = await this.inner.writeEmbeddingRecord({
       id: createProviderVectorRecordId(message.id),
       conversationId: message.conversationId,
       sourceType: "message",
@@ -254,14 +268,21 @@ class ProviderVectorWriteMemoryRepository implements CoreHostMemoryRepository {
       vector: [...vector],
       createdAt: message.createdAt
     });
+    if (writeResult.status === "accepted") {
+      this.onProviderVectorWrite?.(message.id);
+    }
   }
 }
 
 function isProviderVectorWriteReady(
   env: Readonly<Record<string, string | undefined>>,
-  embeddingProvider: EmbeddingInferenceProvider | undefined
+  embeddingProvider: EmbeddingInferenceProvider | undefined,
+  isEnabledCallback?: () => boolean
 ): boolean {
-  return areMemoryProviderVectorWriteGatesEnabled(env, embeddingProvider);
+  return (
+    (isEnabledCallback?.() ?? true) &&
+    areMemoryProviderVectorWriteGatesEnabled(env, embeddingProvider)
+  );
 }
 
 function isProviderVectorWriteSourceMessage(message: Message): boolean {

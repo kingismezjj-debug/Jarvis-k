@@ -8,7 +8,7 @@ Recorded on 2026-08-05 after the Phase 8.37 minimum diagnostic run passed.
 | --- | --- |
 | Phase 8 technical status | `CLOSED` for the bounded developer-alpha retrieval scope |
 | Phase 8.37 evidence | Passed one tester window with one minimized synthetic message |
-| Memory alpha product status | `PROPOSED`, pending separate implementation approval |
+| Memory alpha product status | `APPROVED FOR DEVELOPER-ALPHA IMPLEMENTATION` |
 | Release status | Developer-alpha only; no release or default opt-in |
 
 Phase 8 is technically stable enough to stop adding preflight material. The
@@ -56,9 +56,10 @@ This decision does not approve:
 - new Desktop IPC, UI behavior, provider registration, or default opt-in;
 - tool execution, local voice, OCR, vision, or release packaging.
 
-## Approval Needed
+## Implementation Approval
 
-Before implementing the Memory alpha product slice, obtain separate:
+The following three approvals were received on 2026-08-05 for the Memory
+alpha implementation:
 
 - **Product approval** for the single-user opt-in closed loop, retention and
   disable behavior, and the absence of a product SLO;
@@ -104,21 +105,27 @@ This implementation approval does not authorize:
 - shell/Windows actions, tool execution, local voice, OCR, vision, or release
   packaging.
 
-### Required Role Confirmations
+### Role Confirmations
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | Single-user opt-in closed loop, retention/disable behavior, no product SLO |
-| Security | PENDING | Local data handling, source minimization, Core Host boundary, sanitized diagnostics, rollback and cleanup |
-| Release | PENDING | Developer-alpha implementation/evidence only; no default, lifecycle, cache, installer, update, or release-channel changes |
+| Product | APPROVED | Single-user opt-in closed loop, retention/disable behavior, no product SLO |
+| Security | APPROVED | Local data handling, source minimization, Core Host boundary, sanitized diagnostics, rollback and cleanup |
+| Release | APPROVED | Developer-alpha implementation/evidence only; no default, lifecycle, cache, installer, update, or release-channel changes |
 
-No implementation work may begin until all three rows are explicitly
-`APPROVED`. Approval of this request will still require a separate approval
-before any real runtime or local Memory alpha acceptance session.
+The approvals authorize code, fixture-backed behavior, and focused regression
+tests within the scope above. They do not authorize real model artifact
+materialization, helper startup, real provider inference, a new tester window,
+or a local Memory alpha acceptance session. Any such runtime activity still
+requires a separate approval.
 
 ## Next Implementation Wave
 
-1. Finalize the Memory alpha contract and retention/disable policy.
-2. Implement the closed loop behind the existing explicit opt-in gates.
-3. Add focused Core Host and file-backed acceptance coverage.
-4. Run one approved local acceptance window, then review promotion separately.
+The approved implementation wave is recorded in
+`docs/phase-8-38-memory-alpha-implementation.md`. It completed the
+Core Host-only closed loop and focused regression coverage without starting a
+real runtime or acceptance session.
+
+The next step is a separate runtime decision: review the implementation
+evidence, then obtain approval for one bounded local Memory alpha acceptance
+window if real provider execution is desired.

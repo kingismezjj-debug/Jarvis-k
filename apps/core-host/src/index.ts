@@ -40,11 +40,10 @@ import {
 } from "@jarvis-k/voice";
 import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
 import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
-import { createCoreHostMemoryRetrievalEnvWiring } from "./core-memory-retrieval-env-wiring";
 import {
   areMemoryProviderVectorWriteGatesEnabled,
-  createCoreHostProviderVectorWriteWiring,
 } from "./memory-provider-vector-write-wiring";
+import { createCoreHostMemoryAlphaImplementation } from "./memory-alpha-implementation";
 import { createCoreHostLocalEmbeddingComposition } from "./local-embedding-composition";
 import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider";
 import { NodeWebSocketFactory } from "./node-websocket-factory";
@@ -266,14 +265,7 @@ const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
   inferenceProviderRegistry,
   resourceScheduler
 });
-const memoryRetrievalEnvWiring = createCoreHostMemoryRetrievalEnvWiring({
-  env: process.env,
-  memoryRepository: sqliteMemoryRepository,
-  ...(localEmbeddingComposition.embeddingProvider === undefined
-    ? {}
-    : { embeddingProvider: localEmbeddingComposition.embeddingProvider })
-});
-const providerVectorWriteWiring = createCoreHostProviderVectorWriteWiring({
+const memoryAlphaImplementation = createCoreHostMemoryAlphaImplementation({
   env: process.env,
   memoryRepository: sqliteMemoryRepository,
   ...(localEmbeddingComposition.embeddingProvider === undefined
@@ -306,7 +298,7 @@ runtime = new CoreRuntime(
   },
   voiceEngine,
   () => new Date(),
-  providerVectorWriteWiring.memoryRepository,
+  memoryAlphaImplementation.memoryRepository,
   capabilityProvider,
   modelRegistry,
   modelLifecycleManager,
@@ -322,8 +314,8 @@ runtime = new CoreRuntime(
   intentRoutingProvider,
   ocrRecognitionProvider,
   rerankingProvider,
-  memoryRetrievalEnvWiring.retrievalPort,
-  memoryRetrievalEnvWiring.routingOptions
+  memoryAlphaImplementation.retrievalPort,
+  memoryAlphaImplementation.routingOptions
 );
 
 let inboundQueue = Promise.resolve();
