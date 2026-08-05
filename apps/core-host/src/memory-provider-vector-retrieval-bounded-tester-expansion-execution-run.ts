@@ -246,11 +246,7 @@ function mapSessionReasonCodes(
   if (session.status === "blocked") {
     return ["tester_session_blocked"];
   }
-  if (
-    session.messageCount < 1 ||
-    session.messageCount >
-      MEMORY_PROVIDER_VECTOR_BOUNDED_TESTER_EXPANSION_MAX_MESSAGES_PER_TESTER
-  ) {
+  if (session.reasonCodes.includes("usage_messages_invalid")) {
     return ["tester_messages_invalid"];
   }
   return session.reasonCodes.length > 0

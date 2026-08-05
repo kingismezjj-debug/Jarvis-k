@@ -201,6 +201,43 @@ describe("Memory provider-vector retrieval bounded tester expansion execution ru
     expect(serialized).not.toContain("provider_vector_retrieval_degraded");
   });
 
+  it("keeps missing session gates as a sanitized session degradation", async () => {
+    const result = await runMemoryProviderVectorBoundedTesterExpansionExecution({
+      ...approvedInput(),
+      runTesterSession: async () =>
+        createSessionReport({
+          status: "degraded",
+          accepted: false,
+          messageCount: 0,
+          acceptedMessageCount: 0,
+          observationCount: 0,
+          recallStatus: "unknown",
+          recallMode: "unknown",
+          providerVectorWriteCount: 0,
+          providerVectorDimensionCount: 0,
+          rollbackStatus: "not_started",
+          rollbackDeletedCount: 0,
+          cleanupStatus: "not_started",
+          reasonCodes: ["continuous_alpha_opt_in_missing"]
+        })
+    });
+
+    expect(result).toMatchObject({
+      status: "degraded",
+      accepted: false,
+      testerCount: 1,
+      reasonCodes: ["tester_session_degraded"]
+    });
+    expect(result.testerReports[0]).toMatchObject({
+      status: "degraded",
+      reasonCodes: ["tester_session_degraded"]
+    });
+    expect(JSON.stringify(result)).not.toContain(
+      "continuous_alpha_opt_in_missing"
+    );
+    expect(JSON.stringify(result)).not.toContain("tester_messages_invalid");
+  });
+
   it("blocks unsafe output, persistence, migration, UI/default, shell, release, and SLO side effects", async () => {
     const result = await runMemoryProviderVectorBoundedTesterExpansionExecution({
       ...approvedInput(),

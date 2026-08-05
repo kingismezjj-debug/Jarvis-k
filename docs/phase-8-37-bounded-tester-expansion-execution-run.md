@@ -68,9 +68,9 @@ npx vitest run apps/core-host/test/memory-provider-vector-retrieval-bounded-test
 ```
 
 - Core Host build: PASS.
-- Bounded tester expansion execution normal, blocked, degraded, rollback, and
-  sensitive-output tests: PASS, 5 tests.
-- `npm.cmd run verify`: PASS, including 133 test files and 699 tests.
+- Bounded tester expansion execution normal, blocked, degraded, rollback,
+  missing-session-gate, and sensitive-output tests: PASS, 6 tests.
+- `npm.cmd run verify`: PASS, including 133 test files and 700 tests.
 - `npm.cmd run check:boundaries`: PASS.
 - `npm.cmd run check:sensitive-artifacts`: PASS.
 - `npm.cmd run smoke:desktop`: PASS.
@@ -80,17 +80,36 @@ npx vitest run apps/core-host/test/memory-provider-vector-retrieval-bounded-test
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
 
-Current shell env diagnostic on 2026-08-05 found the approved gate chain,
-approved Python runtime, approved local model artifact directory, and explicit
-Memory DB path were not configured. Therefore the real Phase 8.37 product-path
-execution run was not started in this turn.
+## Approved Operator Attempt
+
+On 2026-08-05, after explicit approval for the execution window, the command
+was invoked twice. The local process environment still had no configured gate
+chain, approved Python runtime, approved local model artifact directory, or
+explicit Memory DB path. The runner therefore degraded before Core Host/helper
+startup and returned only sanitized aggregate evidence:
+
+- `status=degraded`;
+- `accepted=false`;
+- `tester_session_degraded`;
+- `messageCount=0`;
+- `providerVectorWriteCount=0`;
+- no Memory database file was created;
+- no helper process was started;
+- no raw vectors, raw text, private paths, credentials, or diagnostics were
+  exposed.
+
+The first attempt also exposed a wrapper reason-mapping defect: a session that
+had not started was reported as `tester_messages_invalid`. The mapping was
+corrected to retain the sanitized `tester_session_degraded` result, and the
+regression test passed. This was a failed-closed configuration attempt, not a
+real bounded tester expansion session.
 
 Push and GitHub Actions CI must pass before the implementation wave can be
 marked complete.
 
 ## Next Hard Pause
 
-Do not run the real bounded tester expansion command until an operator
+Do not retry the real bounded tester expansion command until an operator
 configures the full approved gate chain, approved Python runtime, approved
 local model artifact directory, and explicit Memory DB path for the approved
 window. Do not use temporary artifact materialization or downloads without a
