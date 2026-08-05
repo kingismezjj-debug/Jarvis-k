@@ -80,13 +80,14 @@ npx vitest run apps/core-host/test/memory-provider-vector-retrieval-bounded-test
 - `npm.cmd run smoke:desktop:fixture-inference`: PASS.
 - `npm.cmd run smoke:desktop:local-embedding-composition`: PASS.
 
-## Approved Operator Attempt
+## Approved Operator Attempts
+
+### Configuration Attempts
 
 On 2026-08-05, after explicit approval for the execution window, the command
-was invoked twice. The local process environment still had no configured gate
-chain, approved Python runtime, approved local model artifact directory, or
-explicit Memory DB path. The runner therefore degraded before Core Host/helper
-startup and returned only sanitized aggregate evidence:
+was invoked twice before local runtime/model/database configuration was
+available. The runner degraded before Core Host/helper startup and returned
+only sanitized aggregate evidence:
 
 - `status=degraded`;
 - `accepted=false`;
@@ -101,17 +102,40 @@ startup and returned only sanitized aggregate evidence:
 The first attempt also exposed a wrapper reason-mapping defect: a session that
 had not started was reported as `tester_messages_invalid`. The mapping was
 corrected to retain the sanitized `tester_session_degraded` result, and the
-regression test passed. This was a failed-closed configuration attempt, not a
-real bounded tester expansion session.
+regression test passed. These were failed-closed configuration attempts, not
+real bounded tester expansion sessions.
+
+### Real Bounded Tester Run
+
+After separate approval to temporarily materialize the already pinned
+artifacts, the approved runtime and all required gates were injected only into
+one execution process. All 10 artifacts passed digest verification and the
+temporary artifact manifest size check. The real Phase 8.37 command then
+started the provider-backed path and returned:
+
+- `status=degraded`;
+- `accepted=false`;
+- `testerCount=2` and `acceptedTesterCount=1`;
+- `messageCount=3`, `acceptedMessageCount=3`, and `observationCount=3`;
+- `providerVectorWriteCount=3` with dimension `1024`;
+- `recallMode=provider_vector`;
+- `rollbackStatus=passed`, `rollbackDeletedCount=3`;
+- `cleanupStatus=passed`;
+- `tester_session_degraded`;
+- the third tester window was not invoked after the second window degraded.
+
+The first tester window passed its two bounded messages. The second window
+degraded after its first message, so the runner stopped before later windows
+as designed. The temporary artifact directory and Memory DB were deleted after
+the run; no persistent cache, raw vector, raw text, private path, credential,
+signed URL, or raw helper diagnostic was retained.
 
 Push and GitHub Actions CI must pass before the implementation wave can be
 marked complete.
 
 ## Next Hard Pause
 
-Do not retry the real bounded tester expansion command until an operator
-configures the full approved gate chain, approved Python runtime, approved
-local model artifact directory, and explicit Memory DB path for the approved
-window. Do not use temporary artifact materialization or downloads without a
-separate approval. Do not expand beyond 3 testers, 5 messages per tester, or
-2 hours without separate product, security, and release approval.
+Do not retry or broaden the bounded tester expansion until the degraded recall
+from the second tester window has a reviewed disposition and a fresh approval
+for the exact rerun window. Do not expand beyond 3 testers, 5 messages per
+tester, or 2 hours without separate product, security, and release approval.
