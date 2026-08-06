@@ -5,7 +5,7 @@ Execution integration landed and CI passed.
 
 ## Status
 
-`PENDING_THREE_PARTY_APPROVAL`
+`APPROVED_IMPLEMENTED_AND_VERIFIED`
 
 This request is for a narrow developer-alpha Tool Execution diagnostic surface
 implementation wave. It does not authorize real shell, PowerShell, Windows,
@@ -300,18 +300,93 @@ readiness, or real execution changes.
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | Exact Phase 14.3 developer-alpha Tool Execution diagnostic surface scope |
-| Security | PENDING | Exact bounded, fail-closed, in-memory, no-runtime Tool Execution diagnostic surface boundary |
-| Release | PENDING | Implementation and fixture evidence only; no diagnostic runner, default, UI/IPC, telemetry, or release behavior |
+| Product | APPROVED | Exact Phase 14.3 developer-alpha Tool Execution diagnostic surface scope |
+| Security | APPROVED | Exact bounded, fail-closed, in-memory, no-runtime Tool Execution diagnostic surface boundary |
+| Release | APPROVED | Implementation and fixture evidence only; no diagnostic runner, default, UI/IPC, telemetry, or release behavior |
 
-No implementation may begin until all three rows are explicitly approved for
-this exact Phase 14.3 scope.
+Approval text recorded from the 2026-08-06 UTC / 2026-08-05 local
+implementation window:
+
+- Product: APPROVE exactly this Phase 14.3 developer-alpha Tool Execution
+  diagnostic surface scope
+- Security: APPROVE exactly this bounded, fail-closed, in-memory, no-runtime
+  Tool Execution diagnostic surface boundary
+- Release: APPROVE implementation and fixture evidence only; no diagnostic
+  runner, default, UI/IPC, telemetry, or release behavior
+
+These approvals authorize only the implementation and fixture evidence listed
+here. They do not authorize policy evaluation, tool execution, diagnostic
+runner attachment/execution, runtime route exposure, Desktop IPC, UI, dynamic
+host tool discovery, model-driven invocation, Memory integration,
+model/helper integration, persistent telemetry, default behavior, or release
+changes.
+
+## Implementation Evidence
+
+Phase 14.3 implemented the approved developer-alpha Tool Execution diagnostic
+surface within the authorized surface:
+
+- `apps/core-host/src/tool-execution-diagnostic-surface.ts` adds an
+  explicitly invoked helper that converts already-created sanitized Phase
+  14.1 `ToolExecutionResult`, Phase 14.1 `ToolPolicyDecision`, Phase 14.2
+  wrapper report, or Phase 14.2 session-summary-shaped values into a bounded
+  diagnostic subreport.
+- The diagnostic subreport omits `requestId`, raw audit payload, raw tool
+  input/output, stdout/stderr, paths, URLs, credentials, tokens, env values,
+  commands, scripts, exception/stack details, process/host/user/tester data,
+  model IDs, digests, vectors, source text, Memory records, helper
+  diagnostics, descriptors, policy, and raw payloads.
+- The helper returns fixed reasons for attached, missing, not-requested, and
+  rejected summaries; rejects sensitive fields, unsafe strings, malformed
+  shapes, unknown enum values, duplicate arrays, counter overflow,
+  `persisted=true`, and `rawDiagnosticsExposed=true`; and keeps
+  `persisted=false` and `rawDiagnosticsExposed=false` in all outputs.
+- `attachCoreHostToolExecutionDiagnosticSurface` attaches the sanitized
+  subreport only to an already-created safe in-memory report-shaped object and
+  rejects unsafe attachment targets without copying raw values.
+- `apps/core-host/test/tool-execution-diagnostic-surface.test.ts` covers
+  completed, denied, needs-confirmation, degraded, blocked, timed-out,
+  cancelled, rollback-failed, cleanup-failed, fixture-unavailable, and
+  sensitive-output results; policy decisions; wrapper reports; session
+  summaries; missing/not-requested paths; malformed/unknown/bounds failures;
+  sensitive-field rejection; sanitized attachment; and unsafe attachment
+  rejection.
+
+No `FixtureToolExecutor`, `decideToolInvocation`, Phase 14.2 session
+construction, diagnostic runner, Core Host route, WebSocket behavior, provider
+registration, default composition, Desktop IPC, preload, UI, settings, Memory,
+SQLite, provider-vector path, model lifecycle runtime/cache/artifact/helper/
+session code, voice, OCR/vision, browser, clipboard, screen, filesystem tool,
+process spawning, shell/PowerShell/Windows execution, network client,
+persistent telemetry, installer, updater, release metadata, default behavior,
+or release behavior was introduced or changed by this implementation.
+
+## Verification Evidence
+
+Commands run on 2026-08-06 UTC / 2026-08-05 local:
+
+```powershell
+npm.cmd run build -w @jarvis-k/core-host
+npx.cmd vitest run apps/core-host/test/tool-execution-diagnostic-surface.test.ts
+npm.cmd run verify
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+```
+
+Results:
+
+- Core Host build: passed.
+- Focused Core Host Tool Execution diagnostic surface tests: passed, 1 file
+  / 7 tests.
+- Full `npm.cmd run verify`: passed, including 142 test files / 773 tests,
+  typecheck, dependency boundary check, sensitive artifact guard, and full
+  build.
+- Standalone `check:boundaries`: passed.
+- Standalone `check:sensitive-artifacts`: passed.
 
 ## Next Gate
 
-After all three approvals are recorded, implement only the listed Core Host
-Tool Execution diagnostic surface, run the required verification, record
-implementation evidence in this document, commit and push, and wait for CI.
+After commit and push, wait for CI on `main`.
 
 Any diagnostic runner attachment, real execution runner, runtime route,
 Desktop IPC, UI, dynamic tool registry, network/filesystem/process capability,
