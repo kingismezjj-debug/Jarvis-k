@@ -3,10 +3,15 @@ import {
   ToolArgumentsSchema,
   ToolAuditRecordSchema,
   ToolDescriptorSchema,
+  ToolExecutionCountersSchema,
+  ToolExecutionLifecycleStatusSchema,
+  ToolFailureClassSchema,
   ToolExecutionResultSchema,
   ToolInvocationRequestSchema,
   ToolPolicyDecisionSchema,
-  ToolPolicySchema
+  ToolPolicySchema,
+  ToolRollbackStateSchema,
+  ToolCleanupStateSchema
 } from "../src";
 
 describe("tool governance protocol", () => {
@@ -64,6 +69,21 @@ describe("tool governance protocol", () => {
       })
     ).toThrow();
     expect(() =>
+      ToolArgumentsSchema.parse({
+        privatePath: "C:\\Users\\Administrator\\private"
+      })
+    ).toThrow();
+    expect(() =>
+      ToolArgumentsSchema.parse({
+        target: "https://example.invalid/private"
+      })
+    ).toThrow();
+    expect(() =>
+      ToolArgumentsSchema.parse({
+        stdout: "redacted"
+      })
+    ).toThrow();
+    expect(() =>
       ToolArgumentsSchema.parse(
         Object.fromEntries(
           Array.from({ length: 33 }, (_, index) => [`field${index}`, index])
@@ -97,6 +117,30 @@ describe("tool governance protocol", () => {
       toolId: "fixture.memory.inspect",
       status: "completed",
       resultCode: "FIXTURE_DRY_RUN",
+      reasonCodes: [
+        "FIXTURE_DRY_RUN",
+        "TOOL_ROLLBACK_NOT_REQUIRED",
+        "TOOL_CLEANUP_PASSED"
+      ],
+      failureClasses: [],
+      timeoutOccurred: false,
+      cancelled: false,
+      rollbackState: "not_required",
+      cleanupState: "passed",
+      counters: {
+        invocationCount: 1,
+        startedCount: 0,
+        completedCount: 1,
+        deniedCount: 0,
+        degradedCount: 0,
+        blockedCount: 0,
+        timedOutCount: 0,
+        cancelledCount: 0,
+        rollbackCount: 1,
+        cleanupCount: 1,
+        reasonCodeCount: 3,
+        failureClassCount: 0
+      },
       startedAt: "2026-08-01T00:00:00.000Z",
       completedAt: "2026-08-01T00:00:00.000Z",
       audit
@@ -106,6 +150,76 @@ describe("tool governance protocol", () => {
     expect(result).not.toHaveProperty("output");
     expect(result).not.toHaveProperty("command");
     expect(JSON.stringify(result)).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
+  it("validates lifecycle, failure, rollback, cleanup, and counter contracts", () => {
+    expect(ToolExecutionLifecycleStatusSchema.parse("timed_out")).toBe(
+      "timed_out"
+    );
+    expect(ToolFailureClassSchema.parse("TIMEOUT_OR_CANCELLATION")).toBe(
+      "TIMEOUT_OR_CANCELLATION"
+    );
+    expect(ToolRollbackStateSchema.parse("not_required")).toBe("not_required");
+    expect(ToolCleanupStateSchema.parse("failed")).toBe("failed");
+    expect(
+      ToolExecutionCountersSchema.parse({
+        invocationCount: 1,
+        startedCount: 0,
+        completedCount: 0,
+        deniedCount: 0,
+        degradedCount: 0,
+        blockedCount: 0,
+        timedOutCount: 1,
+        cancelledCount: 0,
+        rollbackCount: 1,
+        cleanupCount: 1,
+        reasonCodeCount: 2,
+        failureClassCount: 1
+      })
+    ).toMatchObject({
+      timedOutCount: 1,
+      failureClassCount: 1
+    });
+    expect(() =>
+      ToolExecutionResultSchema.parse({
+        requestId: "request-1",
+        toolId: "fixture.memory.inspect",
+        status: "completed",
+        resultCode: "FIXTURE_DRY_RUN",
+        reasonCodes: ["FIXTURE_DRY_RUN", "FIXTURE_DRY_RUN"],
+        failureClasses: [],
+        timeoutOccurred: false,
+        cancelled: false,
+        rollbackState: "not_required",
+        cleanupState: "passed",
+        counters: {
+          invocationCount: 1,
+          startedCount: 0,
+          completedCount: 1,
+          deniedCount: 0,
+          degradedCount: 0,
+          blockedCount: 0,
+          timedOutCount: 0,
+          cancelledCount: 0,
+          rollbackCount: 1,
+          cleanupCount: 1,
+          reasonCodeCount: 2,
+          failureClassCount: 0
+        },
+        startedAt: "2026-08-01T00:00:00.000Z",
+        completedAt: "2026-08-01T00:00:00.000Z",
+        audit: {
+          policyVersion: "1.0.0",
+          requestId: "request-1",
+          toolId: "fixture.memory.inspect",
+          decision: "allowed",
+          reasonCode: "ALLOWED",
+          confirmationRequired: false,
+          confirmationGranted: false,
+          evaluatedAt: "2026-08-01T00:00:00.000Z"
+        }
+      })
+    ).toThrow();
   });
 
   it("keeps real Windows, network, and shell execution disabled", () => {

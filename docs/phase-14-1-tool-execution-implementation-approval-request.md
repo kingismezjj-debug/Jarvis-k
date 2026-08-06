@@ -4,7 +4,7 @@ Recorded on 2026-08-05 after Phase 13 Observability alpha closeout and freeze.
 
 ## Status
 
-`PENDING_THREE_PARTY_APPROVAL`
+`APPROVED_IMPLEMENTED_AND_VERIFIED`
 
 This document requests approval for the first Tool Execution alpha
 implementation wave after Observability. It is an implementation and fixture
@@ -229,19 +229,85 @@ tester workflow, product SLO, or production-readiness changes.
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | Exact Phase 14.1 provider-neutral fixture-only Tool Execution implementation scope |
-| Security | PENDING | Exact bounded, fail-closed, no-runtime/no-OS/no-network Tool Execution boundary |
-| Release | PENDING | Implementation and fixture evidence only; no default, UI/IPC, telemetry, or release behavior |
+| Product | APPROVED | Exact Phase 14.1 provider-neutral fixture-only Tool Execution implementation scope |
+| Security | APPROVED | Exact bounded, fail-closed, no-runtime/no-OS/no-network Tool Execution boundary |
+| Release | APPROVED | Implementation and fixture evidence only; no default, UI/IPC, telemetry, or release behavior |
 
-No implementation may begin until all three rows are explicitly approved for
-this exact Phase 14.1 scope.
+Approval text recorded from the 2026-08-05 implementation window:
+
+- Product: APPROVE exactly this Phase 14.1 Tool Execution alpha
+  implementation scope
+- Security: APPROVE exactly this bounded, fail-closed, fixture-only,
+  no-runtime/no-OS/no-network Tool Execution boundary
+- Release: APPROVE implementation and fixture evidence only; no
+  installer/update/default/UI/IPC/telemetry/release changes
+
+These approvals authorize only the implementation and fixture evidence listed
+here. They do not authorize real tool execution, model-driven invocation,
+Core/Core Host runtime wiring, Desktop IPC, UI, Memory integration, filesystem
+or network tools, persistent telemetry, default behavior, or release changes.
+
+## Implementation Evidence
+
+Phase 14.1 implemented the approved provider-neutral, fixture-only Tool
+Execution alpha foundation within the authorized surface:
+
+- `packages/contracts/src/tool-protocol.ts` now defines bounded lifecycle
+  statuses, fixed reason codes, fixed failure classes, rollback and cleanup
+  states, bounded counters, timeout/cancellation flags, and sanitized
+  execution result envelopes.
+- Tool arguments now reject restricted execution, secret, path, process, env,
+  raw output, stdout/stderr, exception, stack, URL, Windows path, UNC path,
+  bearer token, and key-like values.
+- `packages/capabilities/src/tool-governance.ts` keeps fixture execution as
+  the only executable mode, adds explicit fail-closed policy gates for
+  filesystem, screen, clipboard, network-like, Windows, shell/process,
+  confirmation, allowlist, blocklist, permissions, and disabled fixture
+  execution, and returns sanitized execution envelopes only.
+- The fixture executor adds deterministic simulation options for timeout,
+  cancellation, sandbox/scope violation, rollback failure, cleanup failure,
+  and sensitive-output detection without timers, OS calls, filesystem calls,
+  process spawning, network access, browser access, Memory, model runtime,
+  helper runtime, IPC, UI, telemetry persistence, or side effects.
+- Focused contract and capability tests cover schema validation, sensitive
+  input rejection, fixture execution, degraded fixture availability,
+  confirmation-missing classification, disabled execution gates, timeout,
+  cancellation, sandbox/scope violation, rollback, cleanup, sensitive-output
+  classification, bounded counters, and serialized report sanitization.
+
+No Core runtime route, Core Host composition, Desktop IPC, preload, UI,
+settings, provider registry, Memory repository, SQLite migration, model
+runtime, helper runtime, browser control, network client, filesystem tool,
+process spawning, installer, updater, release metadata, persistent telemetry,
+default behavior, or release behavior was changed by this implementation.
+
+## Verification Evidence
+
+Commands run on 2026-08-05:
+
+```powershell
+npm.cmd run build -w @jarvis-k/contracts
+npm.cmd run build -w @jarvis-k/capabilities
+npx.cmd vitest run packages/contracts/test/tool-protocol.test.ts packages/capabilities/test/tool-governance.test.ts
+npm.cmd run verify
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+```
+
+Results:
+
+- Contracts build: passed.
+- Capabilities build: passed.
+- Focused contract and capability tests: passed, 2 files / 14 tests.
+- Full `npm.cmd run verify`: passed, including 140 test files / 759 tests,
+  typecheck, dependency boundary check, sensitive artifact guard, and full
+  build.
+- Standalone `check:boundaries`: passed.
+- Standalone `check:sensitive-artifacts`: passed.
 
 ## Next Gate
 
-After all three approvals are recorded, implement only the listed
-provider-neutral and fixture-only Tool Execution foundation, run the required
-verification, record implementation evidence in this document, commit and
-push, and wait for CI.
+After commit and push, wait for CI on `main`.
 
 Any real execution runner, Core/Core Host integration, Desktop IPC, UI,
 network/filesystem/process capability, persistent telemetry, model-driven

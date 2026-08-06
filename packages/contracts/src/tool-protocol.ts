@@ -21,7 +21,25 @@ const ToolArgumentValueSchema = z.union([
 ]);
 
 const unsafeToolArgumentKeyPattern =
-  /(?:command|script|powershell|shell|cmd|token|credential|secret|apikey|signed.?url|download|network)/iu;
+  /(?:command|script|powershell|shell|cmd|token|credential|secret|apikey|signed.?url|download|network|path|process|env|stdout|stderr|output|exception|stack|raw)/iu;
+
+const unsafeToolArgumentStringPattern =
+  /(?:https?:\/\/|[A-Za-z]:\\|\\\\|\bBearer\b|BEGIN [A-Z ]+KEY)/iu;
+
+const uniqueEnumArray = <T extends z.ZodTypeAny>(
+  itemSchema: T,
+  maximum: number,
+  label: string
+) =>
+  z
+    .array(itemSchema)
+    .max(maximum)
+    .refine(
+      (items) => new Set(items).size === items.length,
+      `${label} must be unique.`
+    );
+
+const BoundedToolCounterSchema = z.number().int().min(0).max(1_024);
 
 export const ToolRiskSchema = z.enum([
   "read_only",
@@ -92,6 +110,19 @@ export const ToolArgumentsSchema = z
         });
       }
     }
+    for (const [key, value] of Object.entries(input)) {
+      if (
+        typeof value === "string" &&
+        unsafeToolArgumentStringPattern.test(value)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message:
+            "Tool input contains a restricted path, network, or secret value."
+        });
+      }
+    }
   });
 export type ToolArguments = z.infer<typeof ToolArgumentsSchema>;
 
@@ -116,12 +147,102 @@ export const ToolReasonCodeSchema = z.enum([
   "EXECUTION_DISABLED",
   "WINDOWS_EXECUTION_DISABLED",
   "SHELL_EXECUTION_DISABLED",
+  "NETWORK_EXECUTION_DISABLED",
   "INVALID_TOOL_REQUEST",
   "FIXTURE_EXECUTOR_UNAVAILABLE",
   "FIXTURE_EXECUTED",
-  "FIXTURE_DRY_RUN"
+  "FIXTURE_DRY_RUN",
+  "TOOL_EXECUTION_STARTED",
+  "TOOL_EXECUTION_TIMED_OUT",
+  "TOOL_EXECUTION_CANCELLED",
+  "TOOL_SANDBOX_SCOPE_VIOLATION",
+  "TOOL_ROLLBACK_NOT_REQUIRED",
+  "TOOL_ROLLBACK_PASSED",
+  "TOOL_ROLLBACK_FAILED",
+  "TOOL_CLEANUP_PASSED",
+  "TOOL_CLEANUP_FAILED",
+  "SENSITIVE_OUTPUT_DETECTED",
+  "UNKNOWN_SANITIZED_FAILURE"
 ]);
 export type ToolReasonCode = z.infer<typeof ToolReasonCodeSchema>;
+
+export const ToolFailureClassSchema = z.enum([
+  "POLICY_DENIED",
+  "CONFIRMATION_MISSING",
+  "EXECUTION_DISABLED",
+  "FIXTURE_UNAVAILABLE",
+  "TIMEOUT_OR_CANCELLATION",
+  "SANDBOX_SCOPE_VIOLATION",
+  "ROLLBACK_FAILED",
+  "CLEANUP_FAILED",
+  "SENSITIVE_OUTPUT_DETECTED",
+  "UNKNOWN_SANITIZED_FAILURE"
+]);
+export type ToolFailureClass = z.infer<typeof ToolFailureClassSchema>;
+
+export const ToolExecutionLifecycleStatusSchema = z.enum([
+  "started",
+  "completed",
+  "needs_confirmation",
+  "denied",
+  "degraded",
+  "blocked",
+  "timed_out",
+  "cancelled"
+]);
+export type ToolExecutionLifecycleStatus = z.infer<
+  typeof ToolExecutionLifecycleStatusSchema
+>;
+
+export const ToolRollbackStateSchema = z.enum([
+  "not_started",
+  "not_required",
+  "passed",
+  "degraded",
+  "failed"
+]);
+export type ToolRollbackState = z.infer<typeof ToolRollbackStateSchema>;
+
+export const ToolCleanupStateSchema = z.enum([
+  "not_started",
+  "not_required",
+  "passed",
+  "degraded",
+  "failed"
+]);
+export type ToolCleanupState = z.infer<typeof ToolCleanupStateSchema>;
+
+const ToolReasonCodesSchema = uniqueEnumArray(
+  ToolReasonCodeSchema,
+  16,
+  "Tool reason codes"
+);
+
+const ToolFailureClassesSchema = uniqueEnumArray(
+  ToolFailureClassSchema,
+  16,
+  "Tool failure classes"
+);
+
+export const ToolExecutionCountersSchema = z
+  .object({
+    invocationCount: BoundedToolCounterSchema,
+    startedCount: BoundedToolCounterSchema,
+    completedCount: BoundedToolCounterSchema,
+    deniedCount: BoundedToolCounterSchema,
+    degradedCount: BoundedToolCounterSchema,
+    blockedCount: BoundedToolCounterSchema,
+    timedOutCount: BoundedToolCounterSchema,
+    cancelledCount: BoundedToolCounterSchema,
+    rollbackCount: BoundedToolCounterSchema,
+    cleanupCount: BoundedToolCounterSchema,
+    reasonCodeCount: BoundedToolCounterSchema,
+    failureClassCount: BoundedToolCounterSchema
+  })
+  .strict();
+export type ToolExecutionCounters = z.infer<
+  typeof ToolExecutionCountersSchema
+>;
 
 export const ToolPolicySchema = z
   .object({
@@ -206,13 +327,15 @@ export const ToolExecutionResultSchema = z
   .object({
     requestId: z.string().min(1).max(128),
     toolId: ToolIdSchema,
-    status: z.enum([
-      "completed",
-      "needs_confirmation",
-      "denied",
-      "degraded"
-    ]),
+    status: ToolExecutionLifecycleStatusSchema,
     resultCode: ToolReasonCodeSchema,
+    reasonCodes: ToolReasonCodesSchema,
+    failureClasses: ToolFailureClassesSchema,
+    timeoutOccurred: z.boolean(),
+    cancelled: z.boolean(),
+    rollbackState: ToolRollbackStateSchema,
+    cleanupState: ToolCleanupStateSchema,
+    counters: ToolExecutionCountersSchema,
     startedAt: z.string().datetime(),
     completedAt: z.string().datetime(),
     audit: ToolAuditRecordSchema
