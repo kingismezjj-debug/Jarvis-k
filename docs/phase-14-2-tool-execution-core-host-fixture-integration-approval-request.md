@@ -5,7 +5,7 @@ foundation landed and CI passed.
 
 ## Status
 
-`PENDING_THREE_PARTY_APPROVAL`
+`APPROVED_IMPLEMENTED_AND_VERIFIED`
 
 This request is for a narrow Core Host fixture-only Tool Execution integration
 implementation wave. It does not authorize real shell, PowerShell, Windows,
@@ -94,7 +94,9 @@ The implementation must not modify:
 
 The adapter may accept only these bounded in-memory inputs:
 
-- Phase 14.1 `ToolDescriptor` objects with `execution="fixture"`;
+- Phase 14.1 static `ToolDescriptor` objects; `execution="fixture"` is the
+  only executable mode, while valid non-fixture descriptors may be supplied
+  only to prove fail-closed policy decisions in tests;
 - Phase 14.1 `ToolPolicy` objects with `windowsExecutionEnabled=false`,
   `networkAccessAllowed=false`, and `shellExecutionAllowed=false`;
 - Phase 14.1 `ToolInvocationRequest` objects whose input values pass the
@@ -266,18 +268,86 @@ changes.
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | Exact Phase 14.2 Core Host fixture-only Tool Execution adapter/session scope |
-| Security | PENDING | Exact bounded, fail-closed, in-memory, no-runtime/no-OS/no-network Core Host Tool Execution boundary |
-| Release | PENDING | Implementation and fixture evidence only; no default, UI/IPC, telemetry, or release behavior |
+| Product | APPROVED | Exact Phase 14.2 Core Host fixture-only Tool Execution adapter/session scope |
+| Security | APPROVED | Exact bounded, fail-closed, in-memory, no-runtime/no-OS/no-network Core Host Tool Execution boundary |
+| Release | APPROVED | Implementation and fixture evidence only; no default, UI/IPC, telemetry, or release behavior |
 
-No implementation may begin until all three rows are explicitly approved for
-this exact Phase 14.2 scope.
+Approval text recorded from the 2026-08-06 UTC / 2026-08-05 local
+implementation window:
+
+- Product: APPROVE exactly this Phase 14.2 Core Host fixture-only Tool
+  Execution adapter/session scope
+- Security: APPROVE exactly this bounded, fail-closed, in-memory,
+  no-runtime/no-OS/no-network Core Host Tool Execution boundary
+- Release: APPROVE implementation and fixture evidence only; no default,
+  UI/IPC, telemetry, or release behavior
+
+These approvals authorize only the implementation and fixture evidence listed
+here. They do not authorize real tool execution, runtime route exposure,
+Desktop IPC, UI, dynamic host tool discovery, model-driven invocation, Memory
+integration, model/helper integration, persistent telemetry, default behavior,
+or release changes.
+
+## Implementation Evidence
+
+Phase 14.2 implemented the approved Core Host fixture-only Tool Execution
+integration within the authorized surface:
+
+- `apps/core-host/src/tool-execution-fixture-integration.ts` adds an
+  explicitly constructed fixture-only Core Host adapter/session around the
+  Phase 14.1 `FixtureToolExecutor` and `decideToolInvocation` APIs.
+- The adapter consumes only caller-supplied in-memory descriptors, policies,
+  bounded invocation requests, deterministic fixture options, confirmation
+  booleans, and timestamps.
+- The adapter returns only sanitized wrapper fields plus Phase 14.1
+  `ToolPolicyDecision` or `ToolExecutionResult` envelopes. Malformed policy,
+  malformed request, unknown tool, released session, and invalid descriptor
+  paths fail closed without echoing raw input.
+- The session release path resets in-memory decision/execution counts,
+  reports `persisted=false`, and exposes no raw diagnostics.
+- `apps/core-host/test/tool-execution-fixture-integration.test.ts` covers
+  allowlisted fixture evaluation/execution, confirmation-required mutating
+  execution, blocked/unallowlisted/unpermissioned/disabled gates, Windows,
+  shell/process, filesystem, screen, clipboard, network-like denials,
+  fixture-unavailable, timeout, cancellation, sandbox/scope violation,
+  rollback failure, cleanup failure, sensitive-output classification,
+  malformed policy/descriptor/request handling, sanitization, and
+  release/reset behavior.
+
+No Core Host server route, WebSocket behavior, provider registration, default
+composition, diagnostic runner execution, Desktop IPC, preload, UI, settings,
+Memory, SQLite, provider-vector path, model lifecycle runtime/cache/artifact/
+helper/session code, voice, OCR/vision, browser, clipboard, screen,
+filesystem tool, process spawning, shell/PowerShell/Windows execution,
+network client, persistent telemetry, installer, updater, release metadata,
+default behavior, or release behavior was changed by this implementation.
+
+## Verification Evidence
+
+Commands run on 2026-08-06 UTC / 2026-08-05 local:
+
+```powershell
+npm.cmd run build -w @jarvis-k/core-host
+npx.cmd vitest run apps/core-host/test/tool-execution-fixture-integration.test.ts
+npm.cmd run verify
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+```
+
+Results:
+
+- Core Host build: passed.
+- Focused Core Host Tool Execution fixture integration tests: passed, 1 file
+  / 7 tests.
+- Full `npm.cmd run verify`: passed, including 141 test files / 766 tests,
+  typecheck, dependency boundary check, sensitive artifact guard, and full
+  build.
+- Standalone `check:boundaries`: passed.
+- Standalone `check:sensitive-artifacts`: passed.
 
 ## Next Gate
 
-After all three approvals are recorded, implement only the listed Core Host
-fixture-only Tool Execution integration, run the required verification, record
-implementation evidence in this document, commit and push, and wait for CI.
+After commit and push, wait for CI on `main`.
 
 Any real execution runner, runtime route, Desktop IPC, UI, dynamic tool
 registry, network/filesystem/process capability, persistent telemetry,
