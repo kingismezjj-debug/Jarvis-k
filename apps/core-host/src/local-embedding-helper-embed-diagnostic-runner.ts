@@ -33,6 +33,10 @@ import {
   type CoreHostObservabilityDiagnosticSubreport
 } from "./observability-diagnostic-surface";
 import {
+  createCoreHostToolExecutionDiagnosticSurface,
+  type CoreHostToolExecutionDiagnosticSubreport
+} from "./tool-execution-diagnostic-surface";
+import {
   createCoreHostObservabilitySession,
   type CoreHostObservabilityHelperOperation,
   type CoreHostObservabilityHelperStatus,
@@ -103,6 +107,8 @@ export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticInput {
   observabilityRuntimeProductApprovalGranted?: boolean;
   observabilityRuntimeSecurityApprovalGranted?: boolean;
   observabilityRuntimeReleaseApprovalGranted?: boolean;
+  toolExecutionAttachmentRequested?: boolean;
+  toolExecutionSummary?: unknown;
 }
 
 export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
@@ -140,6 +146,7 @@ export interface CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
   failedCount: number;
   reasonCodes: CoreHostLocalEmbeddingHelperEmbedDiagnosticReasonCode[];
   observability?: CoreHostObservabilityDiagnosticSubreport;
+  toolExecution?: CoreHostToolExecutionDiagnosticSubreport;
 }
 
 type CoreHostLocalEmbeddingHelperEmbedDiagnosticStage =
@@ -466,6 +473,25 @@ function attachObservabilityIfRequested(
   };
 }
 
+function attachToolExecutionIfRequested(
+  report: CoreHostLocalEmbeddingHelperEmbedDiagnosticReport,
+  input: CoreHostLocalEmbeddingHelperEmbedDiagnosticInput
+): CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
+  if (
+    input.toolExecutionAttachmentRequested !== true ||
+    !isPreRuntimeDiagnosticReport(report)
+  ) {
+    return report;
+  }
+  return {
+    ...report,
+    toolExecution: createCoreHostToolExecutionDiagnosticSurface({
+      requested: true,
+      summary: input.toolExecutionSummary
+    })
+  };
+}
+
 function createObservabilityRuntime(
   input: CoreHostLocalEmbeddingHelperEmbedDiagnosticInput
 ): CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime {
@@ -541,7 +567,10 @@ function finalizeObservabilityReport(
   runtime: CoreHostLocalEmbeddingHelperEmbedDiagnosticObservabilityRuntime
 ): CoreHostLocalEmbeddingHelperEmbedDiagnosticReport {
   if (runtime.requested !== true || runtime.accepted !== true) {
-    return attachObservabilityIfRequested(report, input);
+    return attachToolExecutionIfRequested(
+      attachObservabilityIfRequested(report, input),
+      input
+    );
   }
 
   const summary = runtime.session.summarize();
@@ -551,7 +580,19 @@ function finalizeObservabilityReport(
     summary
   });
   runtime.session.release();
-  return report;
+  return attachToolExecutionIfRequested(report, input);
+}
+
+function isPreRuntimeDiagnosticReport(
+  report: CoreHostLocalEmbeddingHelperEmbedDiagnosticReport
+): boolean {
+  return (
+    report.helperEmbedCalled === false &&
+    report.artifactDigestVerification === "not_run" &&
+    report.helperLoad === "not_run" &&
+    report.helperEmbed === "not_run" &&
+    report.cleanupStatus === "not_started"
+  );
 }
 
 function isEmbeddingShapeValid(

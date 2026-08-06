@@ -4,7 +4,10 @@ import type {
   ResourceRequest,
   ResourceScheduler
 } from "@jarvis-k/capabilities";
-import type { ObservabilitySummary } from "@jarvis-k/contracts";
+import type {
+  ObservabilitySummary,
+  ToolExecutionResult
+} from "@jarvis-k/contracts";
 import type {
   RuntimeHelperRequest,
   RuntimeHelperTransport
@@ -395,6 +398,178 @@ describe("Core Host local embedding helper embed diagnostic runner", () => {
     expect(scheduler.acquireCount).toBe(0);
   });
 
+  it("attaches Tool Execution diagnostics only on requested pre-runtime degraded reports", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new DiagnosticRuntimeTransport();
+
+    const report = await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+      ...approvedInput(),
+      productApprovalGranted: false,
+      resourceScheduler: scheduler,
+      verifyModelArtifacts: async () => {
+        throw new Error("artifact verification must not run");
+      },
+      createTransport: () => transport,
+      toolExecutionAttachmentRequested: true,
+      toolExecutionSummary: toolExecutionResult({})
+    });
+
+    expect(report).toMatchObject({
+      status: "degraded",
+      accepted: false,
+      helperEmbedCalled: false,
+      artifactDigestVerification: "not_run",
+      cleanupStatus: "not_started",
+      reasonCodes: ["diagnostic_not_approved"],
+      toolExecution: {
+        toolExecutionAttached: true,
+        diagnosticReason: "tool_execution_summary_attached",
+        toolId: "fixture.memory.inspect",
+        status: "completed",
+        resultCode: "FIXTURE_DRY_RUN",
+        reasonCodes: [
+          "FIXTURE_DRY_RUN",
+          "TOOL_ROLLBACK_NOT_REQUIRED",
+          "TOOL_CLEANUP_PASSED"
+        ],
+        failureClasses: [],
+        timeoutOccurred: false,
+        cancelled: false,
+        rollbackState: "not_required",
+        cleanupState: "passed",
+        confirmationRequired: false,
+        confirmationGranted: false,
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(report.toolExecution).not.toHaveProperty("requestId");
+    expect(report.toolExecution).not.toHaveProperty("audit");
+    expect(transport.operations).toEqual([]);
+    expect(scheduler.acquireCount).toBe(0);
+    expect(JSON.stringify(report)).not.toMatch(
+      /request-1|Jarvis-K local embedding diagnostic|0\.11|https?:\/\/|[A-Za-z]:\\|\b[a-f0-9]{64}\b|rawToolInput|rawToolOutput|stdout|stderr|descriptor|allowedToolIds/iu
+    );
+  });
+
+  it("returns fixed Tool Execution attachment reasons for missing and sensitive summaries", async () => {
+    const missingSummary =
+      await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+        ...approvedInput(),
+        productApprovalGranted: false,
+        resourceScheduler: new RecordingResourceScheduler(),
+        toolExecutionAttachmentRequested: true
+      });
+    const sensitiveSummary =
+      await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+        ...approvedInput(),
+        productApprovalGranted: false,
+        resourceScheduler: new RecordingResourceScheduler(),
+        toolExecutionAttachmentRequested: true,
+        toolExecutionSummary: {
+          ...toolExecutionResult({}),
+          rawToolInput: "private input",
+          privatePath: "C:\\Users\\Administrator\\private"
+        }
+      });
+    const optInMissing =
+      await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+        ...approvedInput(),
+        env: {
+          [LOCAL_EMBEDDING_RUNTIME_PYTHON_ENV]: "fixture-python",
+          [LOCAL_EMBEDDING_MODEL_DIR_ENV]: "approved-model-dir"
+        },
+        resourceScheduler: new RecordingResourceScheduler(),
+        toolExecutionAttachmentRequested: true,
+        toolExecutionSummary: toolExecutionResult({
+          status: "needs_confirmation",
+          resultCode: "CONFIRMATION_REQUIRED",
+          reasonCodes: [
+            "CONFIRMATION_REQUIRED",
+            "TOOL_ROLLBACK_NOT_REQUIRED"
+          ],
+          failureClasses: ["CONFIRMATION_MISSING"],
+          cleanupState: "not_required",
+          audit: {
+            ...toolExecutionAudit(),
+            decision: "needs_confirmation",
+            reasonCode: "CONFIRMATION_REQUIRED",
+            confirmationRequired: true
+          }
+        })
+      });
+
+    expect(missingSummary).toMatchObject({
+      reasonCodes: ["diagnostic_not_approved"],
+      toolExecution: {
+        toolExecutionAttached: false,
+        diagnosticReason: "tool_execution_summary_missing",
+        reasonCodes: [],
+        failureClasses: [],
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(sensitiveSummary).toMatchObject({
+      reasonCodes: ["diagnostic_not_approved"],
+      toolExecution: {
+        toolExecutionAttached: false,
+        diagnosticReason: "tool_execution_summary_rejected",
+        status: "blocked",
+        resultCode: "SENSITIVE_OUTPUT_DETECTED",
+        reasonCodes: ["SENSITIVE_OUTPUT_DETECTED"],
+        failureClasses: ["SENSITIVE_OUTPUT_DETECTED"],
+        persisted: false,
+        rawDiagnosticsExposed: false
+      }
+    });
+    expect(optInMissing).toMatchObject({
+      reasonCodes: ["diagnostic_opt_in_missing"],
+      toolExecution: {
+        toolExecutionAttached: true,
+        diagnosticReason: "tool_execution_summary_attached",
+        status: "needs_confirmation",
+        resultCode: "CONFIRMATION_REQUIRED",
+        failureClasses: ["CONFIRMATION_MISSING"],
+        confirmationRequired: true
+      }
+    });
+    expect(JSON.stringify(sensitiveSummary)).not.toMatch(
+      /private input|Administrator/iu
+    );
+  });
+
+  it("does not attach Tool Execution diagnostics on runtime-bearing reports", async () => {
+    const scheduler = new RecordingResourceScheduler();
+    const transport = new DiagnosticRuntimeTransport();
+
+    const report = await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
+      ...approvedInput(),
+      resourceScheduler: scheduler,
+      verifyModelArtifacts: async () => undefined,
+      createTransport: () => transport,
+      toolExecutionAttachmentRequested: true,
+      toolExecutionSummary: toolExecutionResult({})
+    });
+
+    expect(report).toMatchObject({
+      status: "passed",
+      helperEmbedCalled: true,
+      artifactDigestVerification: "passed",
+      helperLoad: "passed",
+      helperEmbed: "passed",
+      cleanupStatus: "passed"
+    });
+    expect(report).not.toHaveProperty("toolExecution");
+    expect(transport.operations).toEqual([
+      "health",
+      "load",
+      "embed",
+      "shutdown"
+    ]);
+    expect(scheduler.acquireCount).toBe(1);
+  });
+
   it("degrades with fixed reason codes when runtime env, artifacts, or helper embed fail", async () => {
     const missingEnv =
       await runCoreHostLocalEmbeddingHelperEmbedDiagnostic({
@@ -705,5 +880,57 @@ function baseCounters() {
     timeoutCount: 0,
     reasonCodeCount: 1,
     failureClassCount: 0
+  };
+}
+
+function toolExecutionResult(
+  overrides: Partial<ToolExecutionResult>
+): ToolExecutionResult {
+  return {
+    requestId: "request-1",
+    toolId: "fixture.memory.inspect",
+    status: "completed",
+    resultCode: "FIXTURE_DRY_RUN",
+    reasonCodes: [
+      "FIXTURE_DRY_RUN",
+      "TOOL_ROLLBACK_NOT_REQUIRED",
+      "TOOL_CLEANUP_PASSED"
+    ],
+    failureClasses: [],
+    timeoutOccurred: false,
+    cancelled: false,
+    rollbackState: "not_required",
+    cleanupState: "passed",
+    counters: {
+      invocationCount: 1,
+      startedCount: 0,
+      completedCount: 1,
+      deniedCount: 0,
+      degradedCount: 0,
+      blockedCount: 0,
+      timedOutCount: 0,
+      cancelledCount: 0,
+      rollbackCount: 1,
+      cleanupCount: 1,
+      reasonCodeCount: 3,
+      failureClassCount: 0
+    },
+    startedAt: "2026-08-01T00:00:00.000Z",
+    completedAt: "2026-08-01T00:00:00.000Z",
+    audit: toolExecutionAudit(),
+    ...overrides
+  };
+}
+
+function toolExecutionAudit(): ToolExecutionResult["audit"] {
+  return {
+    policyVersion: "1.0.0",
+    requestId: "request-1",
+    toolId: "fixture.memory.inspect",
+    decision: "allowed",
+    reasonCode: "FIXTURE_DRY_RUN",
+    confirmationRequired: false,
+    confirmationGranted: false,
+    evaluatedAt: "2026-08-01T00:00:00.000Z"
   };
 }

@@ -5,7 +5,7 @@ surface landed and CI passed.
 
 ## Status
 
-`PENDING_THREE_PARTY_APPROVAL`
+`APPROVED_IMPLEMENTED_AND_VERIFIED`
 
 This request is for a narrow pre-runtime developer-alpha diagnostic runner
 attachment implementation wave. It does not authorize real shell, PowerShell,
@@ -236,19 +236,92 @@ exposure, or production readiness.
 
 | Role | Status | Approval target |
 | --- | --- | --- |
-| Product | PENDING | Exact Phase 14.4 pre-runtime Tool Execution diagnostic runner attachment scope |
-| Security | PENDING | Exact bounded, fail-closed, in-memory, no-runtime Tool Execution runner attachment boundary |
-| Release | PENDING | Implementation/fixture evidence only; no tool execution, diagnostic runner execution, default, UI/IPC, telemetry, or release behavior |
+| Product | APPROVED | Exact Phase 14.4 pre-runtime Tool Execution diagnostic runner attachment scope |
+| Security | APPROVED | Exact bounded, fail-closed, in-memory, no-runtime Tool Execution runner attachment boundary |
+| Release | APPROVED | Implementation/fixture evidence only; no tool execution, diagnostic runner execution, default, UI/IPC, telemetry, or release behavior |
 
-No implementation may begin until all three rows are explicitly approved for
-this exact Phase 14.4 scope.
+Approval text recorded from the 2026-08-06 UTC / 2026-08-05 local
+implementation window:
+
+- Product: APPROVE exactly this Phase 14.4 pre-runtime Tool Execution
+  diagnostic runner attachment scope
+- Security: APPROVE exactly this bounded, fail-closed, in-memory, no-runtime
+  Tool Execution runner attachment boundary
+- Release: APPROVE implementation and fixture evidence only; no tool
+  execution, diagnostic runner execution, default, UI/IPC, telemetry, or
+  release behavior
+
+These approvals authorize only the implementation and fixture evidence listed
+here. They do not authorize policy evaluation, tool execution, diagnostic
+runner execution on a runtime-bearing path, Core Host route exposure, Desktop
+IPC, UI, dynamic host tool discovery, model-driven invocation, Memory
+integration, model/helper integration, persistent telemetry, default
+behavior, or release changes.
+
+## Implementation Evidence
+
+Phase 14.4 implemented the approved pre-runtime Tool Execution diagnostic
+runner attachment within the authorized surface:
+
+- `apps/core-host/src/local-embedding-helper-embed-diagnostic-runner.ts` now
+  accepts optional `toolExecutionAttachmentRequested` and
+  `toolExecutionSummary` inputs.
+- The runner attaches the Phase 14.3 sanitized `toolExecution` diagnostic
+  subreport only through `createCoreHostToolExecutionDiagnosticSurface` and
+  only on pre-runtime reports where artifact verification, helper load/embed,
+  cleanup, resource lease acquisition, and helper runtime execution have not
+  started.
+- The attachment preserves default behavior when not requested and returns
+  fixed missing/rejected/attached reasons without copying raw request IDs,
+  raw tool input/output, stdout/stderr, paths, URLs, credentials, tokens,
+  env values, commands, scripts, descriptors, policy, helper diagnostics, or
+  raw payloads.
+- `apps/core-host/test/local-embedding-helper-embed-diagnostic-runner.test.ts`
+  now covers pre-runtime Tool Execution attachment, missing summary,
+  sensitive summary rejection, opt-in-missing attachment, runtime-bearing
+  report non-attachment, and proof that attachment does not trigger artifact
+  verification, resource lease acquisition, helper startup, helper `health`,
+  helper `load`, helper `embed`, helper shutdown, Tool Execution policy
+  evaluation, Tool Execution session construction, Tool Execution executor
+  construction, Memory access, SQLite access, filesystem writes, network
+  access, IPC, UI, or telemetry persistence.
+
+No Tool Execution executor/session construction, policy evaluation, tool
+execution, helper runtime execution, artifact verification expansion, Core
+Host route, WebSocket behavior, provider registration, default composition,
+Desktop IPC, preload, UI, settings, Memory, SQLite, provider-vector path,
+model lifecycle runtime/cache/artifact/helper/session code, voice, OCR/vision,
+browser, clipboard, screen, filesystem tool, process spawning,
+shell/PowerShell/Windows execution, network client, persistent telemetry,
+installer, updater, release metadata, default behavior, or release behavior
+was introduced or changed by this implementation.
+
+## Verification Evidence
+
+Commands run on 2026-08-06 UTC / 2026-08-05 local:
+
+```powershell
+npm.cmd run build -w @jarvis-k/core-host
+npx.cmd vitest run apps/core-host/test/local-embedding-helper-embed-diagnostic-runner.test.ts
+npm.cmd run verify
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+```
+
+Results:
+
+- Core Host build: passed.
+- Focused Core Host helper embed diagnostic runner tests: passed, 1 file /
+  12 tests.
+- Full `npm.cmd run verify`: passed, including 142 test files / 776 tests,
+  typecheck, dependency boundary check, sensitive artifact guard, and full
+  build.
+- Standalone `check:boundaries`: passed.
+- Standalone `check:sensitive-artifacts`: passed.
 
 ## Next Gate
 
-After all three approvals are recorded, implement only the listed pre-runtime
-Tool Execution diagnostic runner attachment, run the required verification,
-record implementation evidence in this document, commit and push, and wait
-for CI.
+After commit and push, wait for CI on `main`.
 
 Any real diagnostic runner execution, real Tool Execution runner, runtime
 route, Desktop IPC, UI, dynamic tool registry, network/filesystem/process
