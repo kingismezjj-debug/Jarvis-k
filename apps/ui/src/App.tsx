@@ -1520,8 +1520,8 @@ export default function App() {
         commandRouterQwenActivation.gates.commandRouterSafetyGatesPreserved
           ? "safety gates"
           : null,
-        commandRouterQwenActivation.gates.deterministicFixtureActive
-          ? "fixture active"
+        commandRouterQwenActivation.gates.deterministicRulesActive
+          ? "rules active"
           : null,
       ].filter((label): label is string => Boolean(label))
     : ["policy reviewed", "readiness passed", "no-runtime binding"];
@@ -1531,7 +1531,7 @@ export default function App() {
     qwenRuntimeControlStatus?.helperLifecycle.replaceAll("_", " ") ?? "stopped";
   const qwenRuntimeControlRoute =
     qwenRuntimeControlStatus?.activeRouteSource ??
-    "intent-router.deterministic.fixture";
+    "intent-router.deterministic.rules";
   const qwenRuntimeControlSession =
     qwenRuntimeControlStatus?.retainedSessionAvailable === true
       ? "retained"
@@ -6261,7 +6261,7 @@ export default function App() {
                       label="Provider"
                       value={
                         commandRouterProductModeStatus?.providerId ??
-                        "intent-router.deterministic.fixture"
+                        "intent-router.deterministic.rules"
                       }
                       tone="accent"
                     />
@@ -6555,7 +6555,7 @@ export default function App() {
                           label="Fallback"
                           value={
                             qwenRuntimeControlStatus?.fallbackRouteSource ??
-                            "intent-router.deterministic.fixture"
+                            "intent-router.deterministic.rules"
                           }
                           tone="success"
                         />

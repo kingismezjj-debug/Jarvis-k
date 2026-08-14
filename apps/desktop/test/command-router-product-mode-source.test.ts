@@ -43,7 +43,7 @@ const extendedBoundedLocalUsageSmokeSource = readFileSync(
 );
 
 describe("Command Router product mode desktop wiring", () => {
-  it("exposes a default-off fixture-only product mode bridge", () => {
+  it("exposes a default-off rules-only product mode bridge", () => {
     expect(preloadSource).toContain("getCommandRouterProductModeStatus");
     expect(preloadSource).toContain("setCommandRouterProductModeEnabled");
     expect(preloadSource).toContain("getQwenRuntimeControlStatus");
@@ -64,9 +64,10 @@ describe("Command Router product mode desktop wiring", () => {
     expect(mainSource).toContain("setQwenRuntimeControlAction");
   });
 
-  it("keeps command routing fixture-only with no direct runtime expansion", () => {
-    expect(mainSource).toContain('providerId: "intent-router.deterministic.fixture"');
-    expect(mainSource).toContain('mode: "fixture_only"');
+  it("keeps command routing rules-only with no direct runtime expansion", () => {
+    expect(mainSource).toContain('providerId: "intent-router.deterministic.rules"');
+    expect(mainSource).toContain('mode: "production_rules"');
+    expect(mainSource).not.toContain('mode: "fixture_only"');
     expect(mainSource).toContain("directActionEnabled: false");
     expect(mainSource).toContain("realQwenRuntimeEnabled: false");
     expect(mainSource).toContain("networkAccessApproved: false");
@@ -105,11 +106,14 @@ describe("Command Router product mode desktop wiring", () => {
     );
     expect(mainSource).toContain("preparedPolicyReviewed: true");
     expect(mainSource).toContain("readinessEvidencePassed: true");
-    expect(mainSource).toContain("deterministicFixtureActive: true");
+    expect(mainSource).toContain("deterministicRulesActive: true");
     expect(mainSource).toContain("normalCoreHostStartupInstantiatesQwen: false");
     expect(supervisorSource).toContain(
       'kind: "command-router-product-mode.configure"'
     );
+    expect(supervisorSource).toContain('providerId: "intent-router.deterministic.rules"');
+    expect(supervisorSource).toContain('mode: "production_rules"');
+    expect(supervisorSource).not.toContain('mode: "fixture_only"');
     expect(supervisorSource).toContain("configureCommandRouterProductMode");
   });
 
@@ -142,7 +146,7 @@ describe("Command Router product mode desktop wiring", () => {
     );
     expect(mainSource).toContain('activeRouteSource: active');
     expect(mainSource).toContain('"intent-router.qwen3-0.6b"');
-    expect(mainSource).toContain('fallbackRouteSource: "intent-router.deterministic.fixture"');
+    expect(mainSource).toContain('fallbackRouteSource: "intent-router.deterministic.rules"');
     expect(mainSource).toContain("qwenConversationSurfaceRouteLimit");
     expect(mainSource).toContain("routeRequestLimit: qwenConversationSurfaceRouteLimit()");
     expect(mainSource).toContain("directActionEnabled: false");

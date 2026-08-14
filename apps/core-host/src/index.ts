@@ -225,8 +225,8 @@ function parseCommandRouterProductModeConfigurationMessage(
   if (
     !isRecord(message) ||
     message.kind !== "command-router-product-mode.configure" ||
-    message.providerId !== "intent-router.deterministic.fixture" ||
-    message.mode !== "fixture_only" ||
+    message.providerId !== "intent-router.deterministic.rules" ||
+    message.mode !== "production_rules" ||
     message.directActionEnabled !== false ||
     message.realQwenRuntimeEnabled !== false ||
     message.networkAccessApproved !== false
@@ -759,7 +759,7 @@ process.on("message", (rawMessage: unknown) => {
       .then(() => {
         runtime.configureCommandRouterProductMode({
           enabled: commandRouterProductModeConfiguration.enabled,
-          providerId: "intent-router.deterministic.fixture",
+          providerId: "intent-router.deterministic.rules",
         });
       })
       .catch(() => {

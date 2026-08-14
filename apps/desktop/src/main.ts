@@ -414,12 +414,12 @@ function getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
     : "disabled";
   return {
     enabled: commandRouterProductModeEnabled,
-    providerId: "intent-router.deterministic.fixture",
-    mode: "fixture_only",
+    providerId: "intent-router.deterministic.rules",
+    mode: "production_rules",
     status: commandRouterProductModeEnabled
-      ? "control_enabled_fixture_only"
+      ? "control_enabled_rules_only"
       : "disabled",
-    fixtureOnly: true,
+    fixtureOnly: false,
     directActionEnabled: false,
     realQwenRuntimeEnabled: false,
     networkAccessApproved: false,
@@ -443,15 +443,15 @@ function getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
         noRuntimeProductBindingPresent: true,
         coreSelectionFallbackPreserved: true,
         commandRouterSafetyGatesPreserved: true,
-        deterministicFixtureActive: true
+        deterministicRulesActive: true
       }),
       conversationSurfaceProductRoute: {
         policyId: "qwen-conversation-surface.product-route.default-off.v1",
         status: commandRouterProductModeEnabled ? "ready" : "disabled",
         explicitOptInRequired: true,
         explicitOptInEnabled: false,
-        activeRouteSource: "intent-router.deterministic.fixture",
-        fallbackRouteSource: "intent-router.deterministic.fixture",
+        activeRouteSource: "intent-router.deterministic.rules",
+        fallbackRouteSource: "intent-router.deterministic.rules",
         qwenRouteSelectable: false,
         productRouteExecutionEnabled: false,
         directActionEnabled: false,
@@ -471,15 +471,15 @@ function getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
           retainedSessionRequired: true,
           helperStartupAllowedByPolicyState: false,
           generationPortInvocationAllowedByPolicyState: false,
-          activeRouteSource: "intent-router.deterministic.fixture",
-          fallbackRouteSource: "intent-router.deterministic.fixture",
-          rollbackRouteSource: "intent-router.deterministic.fixture",
+          activeRouteSource: "intent-router.deterministic.rules",
+          fallbackRouteSource: "intent-router.deterministic.rules",
+          rollbackRouteSource: "intent-router.deterministic.rules",
           defaultBehaviorChanged: false,
           releaseBehaviorChanged: false,
           reasonCodes: commandRouterProductModeEnabled
             ? [
-                "QWEN_CONVERSATION_PERSISTENT_OPT_IN_PREPARED_DEFAULT_OFF",
-                "QWEN_CONVERSATION_PERSISTENT_OPT_IN_LIMITED_SESSION_ONLY"
+              "QWEN_CONVERSATION_PERSISTENT_OPT_IN_PREPARED_DEFAULT_OFF",
+              "QWEN_CONVERSATION_PERSISTENT_OPT_IN_LIMITED_SESSION_ONLY"
               ]
             : ["QWEN_CONVERSATION_PERSISTENT_OPT_IN_DISABLED"]
         },
@@ -490,7 +490,7 @@ function getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
         reasonCodes: commandRouterProductModeEnabled
           ? [
               "QWEN_CONVERSATION_PRODUCT_ROUTE_READY_DEFAULT_OFF",
-              "QWEN_CONVERSATION_PRODUCT_ROUTE_FIXTURE_ACTIVE"
+              "QWEN_CONVERSATION_PRODUCT_ROUTE_RULES_ACTIVE"
             ]
           : ["QWEN_CONVERSATION_PRODUCT_ROUTE_DISABLED"]
       },
@@ -598,7 +598,7 @@ function getQwenRuntimeControlStatus(): QwenRuntimeControlStatus {
     noRuntimeProductBindingPresent: true,
     coreSelectionFallbackPreserved: true,
     commandRouterSafetyGatesPreserved: true,
-    deterministicFixtureActive: true,
+    deterministicRulesActive: true,
     armingWindowApproved: active,
     runtimeRetentionApproved: active,
     manualAcceptanceApproved: active,
@@ -614,7 +614,7 @@ function getQwenRuntimeControlStatus(): QwenRuntimeControlStatus {
     artifactAccessed: active,
     helperStarted: active,
     generationPortInvoked: active,
-      deterministicFixtureRollbackReady: true,
+      deterministicRulesRollbackReady: true,
       rollbackRequested: fallback,
       blocked
   });
@@ -655,8 +655,8 @@ function getQwenRuntimeControlStatus(): QwenRuntimeControlStatus {
     explicitOptInEnabled: prepared || active,
     activeRouteSource: active
       ? "intent-router.qwen3-0.6b"
-      : "intent-router.deterministic.fixture",
-    fallbackRouteSource: "intent-router.deterministic.fixture",
+      : "intent-router.deterministic.rules",
+    fallbackRouteSource: "intent-router.deterministic.rules",
     helperLifecycle,
     helperStartCount: qwenRuntimeControlHelperStartCount,
     generationPortReadinessProbeCount:

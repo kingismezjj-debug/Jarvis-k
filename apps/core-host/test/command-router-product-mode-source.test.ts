@@ -8,11 +8,11 @@ const source = readFileSync(
 );
 
 describe("Core Host Command Router product mode wiring", () => {
-  it("accepts only the deterministic fixture product mode configuration", () => {
+  it("accepts only the deterministic rules product mode configuration", () => {
     expect(source).toContain("parseCommandRouterProductModeConfigurationMessage");
     expect(source).toContain('kind !== "command-router-product-mode.configure"');
-    expect(source).toContain('message.providerId !== "intent-router.deterministic.fixture"');
-    expect(source).toContain('message.mode !== "fixture_only"');
+    expect(source).toContain('message.providerId !== "intent-router.deterministic.rules"');
+    expect(source).toContain('message.mode !== "production_rules"');
     expect(source).toContain("message.directActionEnabled !== false");
     expect(source).toContain("message.realQwenRuntimeEnabled !== false");
     expect(source).toContain("message.networkAccessApproved !== false");
@@ -20,9 +20,10 @@ describe("Core Host Command Router product mode wiring", () => {
 
   it("configures Core runtime without enabling Qwen or execution providers", () => {
     expect(source).toContain("runtime.configureCommandRouterProductMode");
-    expect(source).toContain('providerId: "intent-router.deterministic.fixture"');
+    expect(source).toContain('providerId: "intent-router.deterministic.rules"');
     expect(source).not.toContain(
       'kind: "command-router-product-mode.configure", configuration'
     );
+    expect(source).not.toContain('message.mode === "fixture_only"');
   });
 });

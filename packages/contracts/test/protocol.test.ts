@@ -372,10 +372,10 @@ describe("protocol contracts", () => {
   it("accepts default-off Command Router product mode status", () => {
     const status = CommandRouterProductModeStatusSchema.parse({
       enabled: false,
-      providerId: "intent-router.deterministic.fixture",
-      mode: "fixture_only",
+      providerId: "intent-router.deterministic.rules",
+      mode: "production_rules",
       status: "disabled",
-      fixtureOnly: true,
+      fixtureOnly: false,
       directActionEnabled: false,
       realQwenRuntimeEnabled: false,
       networkAccessApproved: false,
@@ -399,15 +399,15 @@ describe("protocol contracts", () => {
           noRuntimeProductBindingPresent: true,
           coreSelectionFallbackPreserved: true,
           commandRouterSafetyGatesPreserved: true,
-          deterministicFixtureActive: true
+          deterministicRulesActive: true
         }),
         conversationSurfaceProductRoute: {
           policyId: "qwen-conversation-surface.product-route.default-off.v1",
           status: "disabled",
           explicitOptInRequired: true,
           explicitOptInEnabled: false,
-          activeRouteSource: "intent-router.deterministic.fixture",
-          fallbackRouteSource: "intent-router.deterministic.fixture",
+          activeRouteSource: "intent-router.deterministic.rules",
+          fallbackRouteSource: "intent-router.deterministic.rules",
           qwenRouteSelectable: false,
           productRouteExecutionEnabled: false,
           directActionEnabled: false,
@@ -427,9 +427,9 @@ describe("protocol contracts", () => {
             retainedSessionRequired: true,
             helperStartupAllowedByPolicyState: false,
             generationPortInvocationAllowedByPolicyState: false,
-            activeRouteSource: "intent-router.deterministic.fixture",
-            fallbackRouteSource: "intent-router.deterministic.fixture",
-            rollbackRouteSource: "intent-router.deterministic.fixture",
+            activeRouteSource: "intent-router.deterministic.rules",
+            fallbackRouteSource: "intent-router.deterministic.rules",
+            rollbackRouteSource: "intent-router.deterministic.rules",
             defaultBehaviorChanged: false,
             releaseBehaviorChanged: false,
             reasonCodes: ["QWEN_CONVERSATION_PERSISTENT_OPT_IN_DISABLED"]
@@ -459,7 +459,7 @@ describe("protocol contracts", () => {
       reasonCodes: ["COMMAND_ROUTER_PRODUCT_MODE_DISABLED"]
     });
 
-    expect(status.fixtureOnly).toBe(true);
+    expect(status.fixtureOnly).toBe(false);
     expect(status.directActionEnabled).toBe(false);
     expect(status.realQwenRuntimeEnabled).toBe(false);
     expect(status.qwenFastRouterBinding.productRoutingEnabled).toBe(false);
@@ -470,7 +470,7 @@ describe("protocol contracts", () => {
     expect(
       status.qwenFastRouterBinding.conversationSurfaceProductRoute
         .activeRouteSource
-    ).toBe("intent-router.deterministic.fixture");
+    ).toBe("intent-router.deterministic.rules");
     expect(
       status.qwenFastRouterBinding.conversationSurfaceProductRoute
         .qwenRouteSelectable
@@ -494,7 +494,25 @@ describe("protocol contracts", () => {
     expect(
       status.qwenFastRouterBinding.conversationSurfaceProductRoute
         .persistentOptIn.activeRouteSource
-    ).toBe("intent-router.deterministic.fixture");
+    ).toBe("intent-router.deterministic.rules");
+    expect(() =>
+      CommandRouterProductModeStatusSchema.parse({
+        ...status,
+        providerId: "intent-router.deterministic.fixture"
+      })
+    ).toThrow();
+    expect(() =>
+      CommandRouterProductModeStatusSchema.parse({
+        ...status,
+        mode: "fixture_only"
+      })
+    ).toThrow();
+    expect(() =>
+      CommandRouterProductModeStatusSchema.parse({
+        ...status,
+        fixtureOnly: true
+      })
+    ).toThrow();
     expect(() =>
       CommandRouterProductModeStatusSchema.parse({
         ...status,
@@ -565,7 +583,7 @@ describe("protocol contracts", () => {
       noRuntimeProductBindingPresent: true,
       coreSelectionFallbackPreserved: true,
       commandRouterSafetyGatesPreserved: true,
-      deterministicFixtureActive: true
+      deterministicRulesActive: true
     });
     const fallback = createCommandRouterQwenProductRoutingActivationStatus({
       ...ready.gates,
@@ -589,7 +607,7 @@ describe("protocol contracts", () => {
       noRuntimeProductBindingPresent: true,
       coreSelectionFallbackPreserved: true,
       commandRouterSafetyGatesPreserved: true,
-      deterministicFixtureActive: true,
+      deterministicRulesActive: true,
       armingWindowApproved: true,
       runtimeRetentionApproved: true,
       manualAcceptanceApproved: true,
@@ -605,7 +623,7 @@ describe("protocol contracts", () => {
       noRuntimeProductBindingPresent: true,
       coreSelectionFallbackPreserved: true,
       commandRouterSafetyGatesPreserved: true,
-      deterministicFixtureActive: true,
+      deterministicRulesActive: true,
       armingWindowApproved: true,
       runtimeRetentionApproved: true,
       manualAcceptanceApproved: true,
@@ -621,7 +639,7 @@ describe("protocol contracts", () => {
       artifactAccessed: true,
       helperStarted: true,
       generationPortInvoked: true,
-      deterministicFixtureRollbackReady: true
+      deterministicRulesRollbackReady: true
     });
 
     expect(ready.status).toBe("ready");
@@ -639,13 +657,13 @@ describe("protocol contracts", () => {
     expect(fallback.productRoutingEnabled).toBe(false);
     expect(fallback.realRuntimeEnabled).toBe(false);
     expect(fallback.activeRouteSource).toBe(
-      "intent-router.deterministic.fixture"
+      "intent-router.deterministic.rules"
     );
     expect(degraded.status).toBe("degraded");
     expect(blocked.status).toBe("blocked");
     expect(armed.status).toBe("armed");
     expect(armed.productRoutingEnabled).toBe(false);
-    expect(armed.activeRouteSource).toBe("intent-router.deterministic.fixture");
+    expect(armed.activeRouteSource).toBe("intent-router.deterministic.rules");
     expect(armed.gates.productRoutingArmed).toBe(true);
     expect(armed.gates.uiIpcRuntimeControlAllowed).toBe(false);
     expect(active.status).toBe("active");
@@ -653,10 +671,10 @@ describe("protocol contracts", () => {
     expect(active.realRuntimeEnabled).toBe(true);
     expect(active.activeRouteSource).toBe("intent-router.qwen3-0.6b");
     expect(active.fallbackRouteSource).toBe(
-      "intent-router.deterministic.fixture"
+      "intent-router.deterministic.rules"
     );
     expect(active.gates.explicitOptInEnabled).toBe(true);
-    expect(active.gates.deterministicFixtureRollbackReady).toBe(true);
+    expect(active.gates.deterministicRulesRollbackReady).toBe(true);
     expect(active.gates.uiIpcRuntimeControlAllowed).toBe(false);
     for (const status of [ready, fallback, degraded, blocked]) {
       expect(status.productRoutingEnabled).toBe(false);
@@ -677,8 +695,8 @@ describe("protocol contracts", () => {
       retainedSessionAvailable: true,
       explicitOptInRequired: true,
       explicitOptInEnabled: false,
-      activeRouteSource: "intent-router.deterministic.fixture",
-      fallbackRouteSource: "intent-router.deterministic.fixture",
+      activeRouteSource: "intent-router.deterministic.rules",
+      fallbackRouteSource: "intent-router.deterministic.rules",
       helperLifecycle: "stopped",
       helperStartCount: 0,
       generationPortReadinessProbeCount: 0,
@@ -704,9 +722,9 @@ describe("protocol contracts", () => {
         noRuntimeProductBindingPresent: true,
         coreSelectionFallbackPreserved: true,
         commandRouterSafetyGatesPreserved: true,
-        deterministicFixtureActive: true,
+        deterministicRulesActive: true,
         persistentEnablementApproved: true,
-        deterministicFixtureRollbackReady: true
+        deterministicRulesRollbackReady: true
       }),
       reasonCodes: ["QWEN_RUNTIME_CONTROL_DEFAULT_OFF"]
     });
@@ -733,7 +751,7 @@ describe("protocol contracts", () => {
     });
 
     expect(result.status.activeRouteSource).toBe(
-      "intent-router.deterministic.fixture"
+      "intent-router.deterministic.rules"
     );
     expect(result.status.directActionEnabled).toBe(false);
     expect(result.status.browserUrlOpeningEnabled).toBe(false);
@@ -750,7 +768,7 @@ describe("protocol contracts", () => {
       explicitOptInRequired: true,
       explicitOptInEnabled: true,
       activeRouteSource: "intent-router.qwen3-0.6b",
-      fallbackRouteSource: "intent-router.deterministic.fixture",
+      fallbackRouteSource: "intent-router.deterministic.rules",
       helperLifecycle: "running",
       helperStartCount: 1,
       generationPortReadinessProbeCount: 1,
@@ -776,9 +794,9 @@ describe("protocol contracts", () => {
         noRuntimeProductBindingPresent: true,
         coreSelectionFallbackPreserved: true,
         commandRouterSafetyGatesPreserved: true,
-        deterministicFixtureActive: false,
+        deterministicRulesActive: false,
         persistentEnablementApproved: true,
-        deterministicFixtureRollbackReady: true
+        deterministicRulesRollbackReady: true
       }),
       reasonCodes: ["QWEN_RUNTIME_CONTROL_ACCEPTANCE_ACTIVE"]
     });
@@ -800,7 +818,7 @@ describe("protocol contracts", () => {
         explicitOptInRequired: true,
         explicitOptInEnabled: true,
         activeRouteSource: "intent-router.qwen3-0.6b",
-        fallbackRouteSource: "intent-router.deterministic.fixture",
+        fallbackRouteSource: "intent-router.deterministic.rules",
         helperLifecycle: "running",
         helperStartCount: 1,
         generationPortReadinessProbeCount: 1,
@@ -826,9 +844,9 @@ describe("protocol contracts", () => {
           noRuntimeProductBindingPresent: true,
           coreSelectionFallbackPreserved: true,
           commandRouterSafetyGatesPreserved: true,
-          deterministicFixtureActive: false,
+          deterministicRulesActive: false,
           persistentEnablementApproved: true,
-          deterministicFixtureRollbackReady: true
+          deterministicRulesRollbackReady: true
         }),
         reasonCodes: ["QWEN_RUNTIME_CONTROL_ACCEPTANCE_ACTIVE"]
       })

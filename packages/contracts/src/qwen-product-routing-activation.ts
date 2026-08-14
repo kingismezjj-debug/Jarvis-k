@@ -27,10 +27,10 @@ export const CommandRouterQwenProductRoutingActivationStatusSchema = z
       .array(CommandRouterQwenProductRoutingActivationStateSchema)
       .length(7),
     activeRouteSource: z.enum([
-      "intent-router.deterministic.fixture",
+      "intent-router.deterministic.rules",
       "intent-router.qwen3-0.6b"
     ]),
-    fallbackRouteSource: z.literal("intent-router.deterministic.fixture"),
+    fallbackRouteSource: z.literal("intent-router.deterministic.rules"),
     productRoutingEnabled: z.boolean(),
     realRuntimeEnabled: z.boolean(),
     runtimeAccessed: z.boolean(),
@@ -48,7 +48,7 @@ export const CommandRouterQwenProductRoutingActivationStatusSchema = z
         noRuntimeProductBindingPresent: z.boolean(),
         coreSelectionFallbackPreserved: z.boolean(),
         commandRouterSafetyGatesPreserved: z.boolean(),
-        deterministicFixtureActive: z.boolean(),
+        deterministicRulesActive: z.boolean(),
         runtimeRetentionApproved: z.boolean(),
         manualAcceptanceApproved: z.boolean(),
         persistentEnablementApproved: z.boolean(),
@@ -60,7 +60,7 @@ export const CommandRouterQwenProductRoutingActivationStatusSchema = z
         artifactMaterializationAllowed: z.boolean(),
         dependencyEnvironmentRetentionAllowed: z.boolean(),
         generationPortInvocationAllowed: z.boolean(),
-        deterministicFixtureRollbackReady: z.boolean(),
+        deterministicRulesRollbackReady: z.boolean(),
         uiIpcRuntimeControlAllowed: z.literal(false)
       })
       .strict(),
@@ -78,7 +78,7 @@ export interface CreateCommandRouterQwenProductRoutingActivationStatusInput {
   noRuntimeProductBindingPresent?: boolean;
   coreSelectionFallbackPreserved?: boolean;
   commandRouterSafetyGatesPreserved?: boolean;
-  deterministicFixtureActive?: boolean;
+  deterministicRulesActive?: boolean;
   armingWindowApproved?: boolean;
   runtimeRetentionApproved?: boolean;
   manualAcceptanceApproved?: boolean;
@@ -95,7 +95,7 @@ export interface CreateCommandRouterQwenProductRoutingActivationStatusInput {
   artifactAccessed?: boolean;
   helperStarted?: boolean;
   generationPortInvoked?: boolean;
-  deterministicFixtureRollbackReady?: boolean;
+  deterministicRulesRollbackReady?: boolean;
   rollbackRequested?: boolean;
   degraded?: boolean;
   blocked?: boolean;
@@ -119,7 +119,7 @@ export function createCommandRouterQwenProductRoutingActivationStatus(
       input.coreSelectionFallbackPreserved !== false,
     commandRouterSafetyGatesPreserved:
       input.commandRouterSafetyGatesPreserved !== false,
-    deterministicFixtureActive: input.deterministicFixtureActive !== false,
+    deterministicRulesActive: input.deterministicRulesActive !== false,
     runtimeRetentionApproved:
       (armingGateRequested || persistentEnablementRequested) &&
       input.runtimeRetentionApproved === true,
@@ -148,8 +148,8 @@ export function createCommandRouterQwenProductRoutingActivationStatus(
     generationPortInvocationAllowed:
       (armingGateRequested || persistentEnablementRequested) &&
       input.generationPortInvocationAllowed === true,
-    deterministicFixtureRollbackReady:
-      input.deterministicFixtureRollbackReady !== false,
+    deterministicRulesRollbackReady:
+      input.deterministicRulesRollbackReady !== false,
     uiIpcRuntimeControlAllowed: false as const
   };
   const ready =
@@ -159,7 +159,7 @@ export function createCommandRouterQwenProductRoutingActivationStatus(
     gates.noRuntimeProductBindingPresent &&
     gates.coreSelectionFallbackPreserved &&
     gates.commandRouterSafetyGatesPreserved &&
-    gates.deterministicFixtureActive;
+    gates.deterministicRulesActive;
 
   const armed =
     ready &&
@@ -175,7 +175,7 @@ export function createCommandRouterQwenProductRoutingActivationStatus(
     gates.explicitOptInEnabled &&
     gates.realQwenRuntimeEnabled &&
     gates.productRoutingEnabled &&
-    gates.deterministicFixtureRollbackReady &&
+    gates.deterministicRulesRollbackReady &&
     input.runtimeAccessed === true &&
     input.artifactAccessed === true &&
     input.helperStarted === true &&
@@ -200,8 +200,8 @@ export function createCommandRouterQwenProductRoutingActivationStatus(
       COMMAND_ROUTER_QWEN_PRODUCT_ROUTING_ACTIVATION_SUPPORTED_STATES,
     activeRouteSource: routeActive
       ? "intent-router.qwen3-0.6b"
-      : "intent-router.deterministic.fixture",
-    fallbackRouteSource: "intent-router.deterministic.fixture",
+      : "intent-router.deterministic.rules",
+    fallbackRouteSource: "intent-router.deterministic.rules",
     productRoutingEnabled: routeActive,
     realRuntimeEnabled: routeActive,
     runtimeAccessed: routeActive && input.runtimeAccessed === true,
@@ -254,7 +254,7 @@ function qwenActivationReasonCodes(
     reasonCodes.push("QWEN_PRODUCT_ROUTING_ACTIVATION_BLOCKED");
   }
   if (status === "fallback") {
-    reasonCodes.push("QWEN_PRODUCT_ROUTING_ROLLBACK_TO_FIXTURE");
+    reasonCodes.push("QWEN_PRODUCT_ROUTING_ROLLBACK_TO_RULES");
   }
   if (status === "degraded") {
     reasonCodes.push("QWEN_PRODUCT_ROUTING_ACTIVATION_DEGRADED");
@@ -283,8 +283,8 @@ function qwenActivationReasonCodes(
   if (input.commandRouterSafetyGatesPreserved === false) {
     reasonCodes.push("QWEN_PRODUCT_ROUTING_SAFETY_GATES_NOT_PRESERVED");
   }
-  if (input.deterministicFixtureActive === false) {
-    reasonCodes.push("QWEN_PRODUCT_ROUTING_FIXTURE_NOT_ACTIVE");
+  if (input.deterministicRulesActive === false) {
+    reasonCodes.push("QWEN_PRODUCT_ROUTING_RULES_NOT_ACTIVE");
   }
   if (ready) {
     reasonCodes.push("QWEN_PRODUCT_ROUTING_ACTIVATION_READY");

@@ -150,6 +150,8 @@ const DEFAULT_BRAIN_ROUTER_MIN_CONFIDENCE = 0.7;
 const DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID =
   "planner.deterministic.rules";
 const COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID =
+  "intent-router.deterministic.rules";
+const COMMAND_ROUTER_FIXTURE_PROVIDER_ID =
   "intent-router.deterministic.fixture";
 const COMMAND_ROUTER_LOCAL_APP_FIXTURE_ALLOWLIST = new Set([
   "notepad",
@@ -460,6 +462,8 @@ export interface CoreBrainRouterOptions {
 export interface CoreCommandRouterProductModeOptions {
   enabled: boolean;
   providerId?: string;
+  mode?: "production_rules" | "fixture_only";
+  fixtureExecutionEnabled?: boolean;
 }
 
 export interface CoreBrainPlannerOptions {
@@ -1800,9 +1804,16 @@ export class CoreRuntime {
   public configureCommandRouterProductMode(
     input: CoreCommandRouterProductModeOptions,
   ): void {
+    const providerId = input.providerId ?? COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID;
+    const mode = input.mode ?? "production_rules";
     this.commandRouterProductMode = {
       enabled: input.enabled,
-      providerId: input.providerId ?? COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
+      providerId,
+      mode,
+      fixtureExecutionEnabled:
+        mode === "fixture_only" &&
+        providerId === COMMAND_ROUTER_FIXTURE_PROVIDER_ID &&
+        input.fixtureExecutionEnabled === true,
     };
   }
 
@@ -2912,7 +2923,9 @@ export class CoreRuntime {
     }
     if (this.commandRouterProductMode?.enabled === true) {
       const commandRouterProviderId = this.commandRouterProductMode.providerId;
+      const fixtureReplayEnabled = this.isCommandRouterFixtureReplayEnabled();
       if (
+        !fixtureReplayEnabled &&
         commandRouterProviderId !== undefined &&
         commandRouterProviderId !== COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID
       ) {
@@ -2950,8 +2963,10 @@ export class CoreRuntime {
         decision,
         selection: this.brainRouterSelection({
           selectedProviderId:
-            this.commandRouterProductMode.providerId ??
-            COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
+            fixtureReplayEnabled
+              ? COMMAND_ROUTER_FIXTURE_PROVIDER_ID
+              : (this.commandRouterProductMode.providerId ??
+                COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID),
           status: decision.intent === "blocked" ? "blocked" : "accepted",
           reasonCode:
             decision.intent === "blocked"
@@ -4274,6 +4289,13 @@ export class CoreRuntime {
         }
         if (this.commandRouterProductMode?.enabled === true) {
           if (input.decision.intent === "localApp.open") {
+            if (!this.isCommandRouterFixtureReplayEnabled()) {
+              return {
+                dispatchStatus: "blocked",
+                plan: this.blockFinalBrainPlan(basePlan),
+                summary: `Command Router product mode identified localApp.open for "${target || "unknown"}", but Task Runtime execution is unavailable and fixture replay is disabled.`,
+              };
+            }
             if (!this.isCommandRouterLocalAppFixtureAllowlisted(target)) {
               return {
                 dispatchStatus: "blocked",
@@ -6380,7 +6402,7 @@ export class CoreRuntime {
       return undefined;
     }
     if (
-      this.commandRouterProductMode?.enabled === true &&
+      this.isCommandRouterFixtureReplayEnabled() &&
       input.decision.intent === "localApp.open" &&
       !this.isCommandRouterLocalAppFixtureAllowlisted(
         String(input.decision.slots.target ?? ""),
@@ -6412,6 +6434,16 @@ export class CoreRuntime {
   private isCommandRouterLocalAppFixtureAllowlisted(target: string): boolean {
     return COMMAND_ROUTER_LOCAL_APP_FIXTURE_ALLOWLIST.has(
       this.normalizeCommandRouterLocalAppTarget(target),
+    );
+  }
+
+  private isCommandRouterFixtureReplayEnabled(): boolean {
+    return (
+      this.commandRouterProductMode?.enabled === true &&
+      this.commandRouterProductMode.mode === "fixture_only" &&
+      this.commandRouterProductMode.providerId ===
+        COMMAND_ROUTER_FIXTURE_PROVIDER_ID &&
+      this.commandRouterProductMode.fixtureExecutionEnabled === true
     );
   }
 
@@ -6715,7 +6747,7 @@ export class CoreRuntime {
     decision: BrainRouterDecision,
   ): ToolDescriptor[] {
     if (
-      this.commandRouterProductMode?.enabled !== true ||
+      !this.isCommandRouterFixtureReplayEnabled() ||
       decision.intent !== "localApp.open" ||
       !this.isCommandRouterLocalAppFixtureAllowlisted(
         String(decision.slots.target ?? ""),

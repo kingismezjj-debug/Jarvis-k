@@ -4582,7 +4582,12 @@ describe("CoreRuntime", () => {
         };
       },
     });
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const result = await runtime.handle(
       createCommandEnvelope({
@@ -4641,6 +4646,110 @@ describe("CoreRuntime", () => {
       requiresConfirmation: false,
     });
     expect(brain.alphaHardening?.tts.status).toBe("eligible");
+  });
+
+  it("keeps default product mode on deterministic rules without fixture replay", async () => {
+    let actionCalls = 0;
+    const { runtime } = createRuntimeWithBrainActionExecutor({
+      async openBrowser() {
+        actionCalls += 1;
+        return {
+          status: "completed",
+          reasonCode: "ALLOWLISTED_TARGET_OPENED",
+          label: "browser",
+        };
+      },
+      async openLocalApp() {
+        actionCalls += 1;
+        return {
+          status: "completed",
+          reasonCode: "ALLOWLISTED_TARGET_OPENED",
+          label: "notepad",
+        };
+      },
+    });
+    runtime.configureCommandRouterProductMode({ enabled: true });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "open notepad",
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    const brain = BrainCommandResultSchema.parse(
+      result.ok
+        ? (result.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+    expect(actionCalls).toBe(0);
+    expect(brain.routerSelection).toMatchObject({
+      selectedProviderId: "intent-router.deterministic.rules",
+      usedRulesFallback: true,
+      directActionAttempted: false,
+    });
+    expect(brain.dispatchStatus).toBe("blocked");
+    expect(brain.summary).toContain("fixture replay is disabled");
+    expect(brain.toolProductLoop).toMatchObject({
+      selectedToolId: "localApp.open",
+      directActionAttempted: false,
+      safety: {
+        status: "needs_confirmation",
+        reasonCode: "CONFIRMATION_REQUIRED",
+        allowed: false,
+      },
+      execution: {
+        status: "needs_confirmation",
+        resultCode: "CONFIRMATION_REQUIRED",
+      },
+    });
+    expect(runtime.getSnapshot().tasks).toHaveLength(0);
+  });
+
+  it("does not mark fixture dry-runs as verified Windows Task Runtime execution", async () => {
+    const { runtime } = createRuntimeWithBrainActionExecutor({
+      async openBrowser() {
+        throw new Error("browser should not be opened");
+      },
+      async openLocalApp() {
+        throw new Error("local app should not be opened");
+      },
+    });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "open notepad",
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    const brain = BrainCommandResultSchema.parse(
+      result.ok
+        ? (result.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+    expect(brain.dispatchStatus).toBe("completed");
+    expect(brain.toolProductLoop).toMatchObject({
+      execution: {
+        status: "completed",
+        resultCode: "FIXTURE_DRY_RUN",
+      },
+    });
+    expect(runtime.getSnapshot().tasks).toHaveLength(0);
   });
 
   it("runs explicit Notepad opens through Task Runtime with verified results", async () => {
@@ -4728,7 +4837,12 @@ describe("CoreRuntime", () => {
       taskRepository,
     );
     await runtime.hydrateTasks();
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const result = await runtime.handle(
       createCommandEnvelope({
@@ -5733,7 +5847,12 @@ describe("CoreRuntime", () => {
       taskRepository,
     );
     await runtime.hydrateTasks();
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const result = await runtime.handle(
       createCommandEnvelope({
@@ -5861,7 +5980,12 @@ describe("CoreRuntime", () => {
       taskRepository,
     );
     await runtime.hydrateTasks();
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const result = await runtime.handle(
       createCommandEnvelope({
@@ -5931,7 +6055,12 @@ describe("CoreRuntime", () => {
       taskRepository,
     );
     await runtime.hydrateTasks();
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const transcript =
       "\u90a3\u4e2a\u6253\u5f00\u8bb0\u4e8b\u7c3f\uff0c\u8f93\u5165 Jarvis K voice smoke text\u3002";
@@ -6002,7 +6131,12 @@ describe("CoreRuntime", () => {
       taskRepository,
     );
     await runtime.hydrateTasks();
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const transcript =
       "\u6253\u5f00\u8bb0\u4e8b\u672c\uff0c\u8f93\u5165 javac voice smoke test\u3002";
@@ -6406,14 +6540,19 @@ describe("CoreRuntime", () => {
       usedRulesFallback: false,
       directActionAttempted: false,
     });
-    expect(brain.dispatchStatus).toBe("completed");
-    expect(brain.summary).toContain("fixture accepted localApp.open");
+    expect(brain.dispatchStatus).toBe("blocked");
+    expect(brain.summary).toContain("fixture replay is disabled");
     expect(brain.toolProductLoop).toMatchObject({
       selectedToolId: "localApp.open",
       directActionAttempted: false,
+      safety: {
+        status: "needs_confirmation",
+        reasonCode: "CONFIRMATION_REQUIRED",
+        allowed: false,
+      },
       execution: {
-        status: "completed",
-        resultCode: "FIXTURE_DRY_RUN",
+        status: "needs_confirmation",
+        resultCode: "CONFIRMATION_REQUIRED",
       },
     });
   });
@@ -6438,7 +6577,12 @@ describe("CoreRuntime", () => {
         };
       },
     });
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const result = await runtime.handle(
       createCommandEnvelope({
@@ -6496,7 +6640,12 @@ describe("CoreRuntime", () => {
         };
       },
     });
-    runtime.configureCommandRouterProductMode({ enabled: true });
+    runtime.configureCommandRouterProductMode({
+      enabled: true,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      fixtureExecutionEnabled: true,
+    });
 
     const result = await runtime.handle(
       createCommandEnvelope({

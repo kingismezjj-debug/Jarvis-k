@@ -210,8 +210,8 @@ export class CoreSupervisor {
     child.send(
       {
         kind: "command-router-product-mode.configure",
-        providerId: "intent-router.deterministic.fixture",
-        mode: "fixture_only",
+        providerId: "intent-router.deterministic.rules",
+        mode: "production_rules",
         enabled: input.enabled,
         directActionEnabled: false,
         realQwenRuntimeEnabled: false,

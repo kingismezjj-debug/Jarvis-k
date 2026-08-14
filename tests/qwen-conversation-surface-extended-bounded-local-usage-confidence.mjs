@@ -236,7 +236,7 @@ try {
       directActionDisabled: routeResults.every(Boolean),
       routeLimitVisible: /Route limit\s+10/i.test(routedPanel),
       routeCountVisible: /Route count\s+10/i.test(routedPanel),
-      deterministicFixtureRollback: rollbackPanel.includes(
+      deterministicRulesRollback: rollbackPanel.includes(
         "fallback / retained / shutdown after verification"
       ),
       helperShutdownVerified: stoppedPanel.toLowerCase().includes("verified"),

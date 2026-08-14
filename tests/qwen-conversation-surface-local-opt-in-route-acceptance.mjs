@@ -151,7 +151,7 @@ try {
       qwenSelectedForConversationRoutes: routeResults.every(Boolean),
       directActionDisabled: routeResults.every(Boolean),
       routeCountVisible: /Route count\s+3/i.test(routedPanel),
-      deterministicFixtureRollback: rollbackPanel.includes(
+      deterministicRulesRollback: rollbackPanel.includes(
         "fallback / retained / shutdown after verification"
       ),
       helperShutdownVerified: stoppedPanel.toLowerCase().includes("verified"),
