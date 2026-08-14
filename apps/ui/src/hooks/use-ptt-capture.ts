@@ -7,23 +7,35 @@ import {
 
 import {
   PttCaptureCoordinator,
+  type PttCommandError,
+  type PttCommandResult,
+  type PttStartFailureReason,
   type PttCaptureState,
   type PttStopReason,
 } from "@/voice/ptt-capture-coordinator"
 
-type SendCommand = (command: AppCommand) => Promise<boolean>
+type SendCommand = (command: AppCommand) => Promise<PttCommandResult>
+export type PttCaptureNotice =
+  | "capture-unavailable"
+  | "core-offline"
+  | "permission-denied"
+  | PttStartFailureReason
 
 export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
   const coordinatorRef = useRef<PttCaptureCoordinator | null>(null)
   const enabledRef = useRef(enabled)
+  const sendCommandRef = useRef(sendCommand)
   const [state, setState] = useState<PttCaptureState>("idle")
   const [audioDiagnostics, setAudioDiagnostics] = useState({
     framesSent: 0,
     peak: 0,
     rms: 0,
   })
+  const [captureNotice, setCaptureNotice] = useState<PttCaptureNotice | null>(null)
+  const [commandError, setCommandError] = useState<PttCommandError | null>(null)
 
   enabledRef.current = enabled
+  sendCommandRef.current = sendCommand
 
   useEffect(() => {
     const backend = new WebAudioCaptureBackend({
@@ -31,6 +43,7 @@ export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
         "./voice-capture-worklet.js",
         window.location.href
       ).href,
+      allowScriptProcessorFallback: true,
     })
     const capture = new BrowserCaptureController({
       backend,
@@ -54,25 +67,31 @@ export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
     })
     const permissionAwareCapture = {
       start: async (options: { captureId: string }) => {
-        await sendCommand({
+        await sendCommandRef.current({
           type: "voice.reportPermission",
           payload: { permission: "prompt" },
         })
         try {
           const started = await capture.start(options)
           if (started) {
-            await sendCommand({
+            await sendCommandRef.current({
               type: "voice.reportPermission",
               payload: { permission: "granted" },
             })
+            setCaptureNotice(null)
+            setCommandError(null)
           }
           return started
         } catch (error) {
+          setCommandError(createCaptureCommandError(error))
           if (isPermissionDenied(error)) {
-            await sendCommand({
+            await sendCommandRef.current({
               type: "voice.reportPermission",
               payload: { permission: "denied" },
             })
+            setCaptureNotice("permission-denied")
+          } else {
+            setCaptureNotice("capture-unavailable")
           }
           throw error
         }
@@ -86,6 +105,8 @@ export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
       onStateChange: (nextState) => {
         setState(nextState)
         if (nextState === "starting") {
+          setCaptureNotice(null)
+          setCommandError(null)
           setAudioDiagnostics({
             framesSent: 0,
             peak: 0,
@@ -93,9 +114,17 @@ export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
           })
         }
       },
-      sendCommand,
+      onStartFailure: (reason, error) => {
+        setCaptureNotice(reason)
+        setCommandError(error ?? null)
+      },
+      onCommandFailure: (error) => {
+        setCommandError(error ?? null)
+      },
+      sendCommand: (command) => sendCommandRef.current(command),
     })
     coordinatorRef.current = coordinator
+    setState("idle")
 
     const handleBlur = () => {
       void coordinator.stop("window-blur")
@@ -137,11 +166,18 @@ export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
       coordinatorRef.current = null
       void coordinator.dispose()
     }
-  }, [sendCommand])
+  }, [])
 
   const start = useCallback(async () => {
-    if (!enabledRef.current) return false
-    return coordinatorRef.current?.start() ?? false
+    if (!enabledRef.current) {
+      setCaptureNotice("core-offline")
+      return false
+    }
+    const started = (await coordinatorRef.current?.start()) ?? false
+    if (!started) {
+      setCaptureNotice((current) => current ?? "voice-session-unavailable")
+    }
+    return started
   }, [])
 
   const stop = useCallback(async (reason: PttStopReason) => {
@@ -151,6 +187,8 @@ export function usePttCapture(sendCommand: SendCommand, enabled: boolean) {
   return {
     active: state === "starting" || state === "recording",
     audioDiagnostics,
+    captureNotice,
+    commandError,
     start,
     state,
     stop,
@@ -164,6 +202,25 @@ function isPermissionDenied(error: unknown) {
     "name" in error &&
     (error as { name?: unknown }).name === "NotAllowedError"
   )
+}
+
+function createCaptureCommandError(error: unknown): PttCommandError {
+  const name =
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    typeof (error as { name?: unknown }).name === "string"
+      ? (error as { name: string }).name
+      : "Error"
+  const message =
+    error instanceof Error && error.message.trim().length > 0
+      ? error.message
+      : "Browser microphone capture failed before audio frames were available."
+  return {
+    code: "BROWSER_CAPTURE_START_FAILED",
+    message: `${name}: ${message}`,
+    retryable: true,
+  }
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

@@ -1,5 +1,9 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/main.ts", "src/supervisor.ts"],
+  "include": [
+    "src/main.ts",
+    "src/supervisor.ts",
+    "src/secure-chat-answer-provider-store.ts"
+  ],
   "exclude": ["src/preload.ts"]
 }

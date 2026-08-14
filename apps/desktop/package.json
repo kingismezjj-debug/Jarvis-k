@@ -8,6 +8,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@jarvis-k/contracts": "*"
+    "@jarvis-k/contracts": "*",
+    "@jarvis-k/core": "*",
+    "@jarvis-k/inference-adapter-qwen-router": "*",
+    "@jarvis-k/inference-runtime-transformers-local": "*"
   }
 }

@@ -24,6 +24,10 @@ class FakeSocket implements XunfeiSocketPort {
   public message(data: unknown): void {
     this.handlers.onMessage(data);
   }
+
+  public disconnect(code?: number, reason?: string): void {
+    this.handlers.onClose({ code, reason });
+  }
 }
 
 class FakeSocketFactory implements XunfeiSocketFactory {
@@ -59,7 +63,10 @@ class FakeScheduler implements XunfeiConnectionScheduler {
   }
 }
 
-function createHarness(maxBufferedFrames = 2) {
+function createHarness(
+  maxBufferedFrames = 2,
+  maxUnexpectedCloseRetries?: number
+) {
   const factory = new FakeSocketFactory();
   const scheduler = new FakeScheduler();
   const transcripts = vi.fn();
@@ -76,7 +83,10 @@ function createHarness(maxBufferedFrames = 2) {
       onClose: closed
     },
     onDiagnostic: diagnostics,
-    maxBufferedFrames
+    maxBufferedFrames,
+    ...(maxUnexpectedCloseRetries !== undefined
+      ? { maxUnexpectedCloseRetries }
+      : {})
   });
   return {
     closed,
@@ -170,5 +180,54 @@ describe("XunfeiRtasrConnection", () => {
     expect(harness.factory.sockets).toHaveLength(1);
     expect(harness.connection.getBufferedFrameCount()).toBe(0);
     expect(harness.connection.getState()).toBe("closed");
+  });
+
+  it("surfaces provider error details without credential-like values", () => {
+    const harness = createHarness();
+    harness.connection.connect();
+    harness.factory.sockets[0]!.message({
+      action: "error",
+      code: "10105",
+      desc: "auth failed apiKey=secret-value sk-12345678901234567890"
+    });
+
+    expect(harness.errors).toHaveBeenCalledWith({
+      code: "XUNFEI_PROVIDER_ERROR",
+      message:
+        "Xunfei RTASR provider error 10105: auth failed apiKey=[redacted] [redacted]",
+      retryable: false,
+      details: {
+        providerAction: "error",
+        providerCode: "10105",
+        providerMessage: "auth failed apiKey=[redacted] [redacted]"
+      }
+    });
+  });
+
+  it("surfaces socket close details when recovery is exhausted", () => {
+    const harness = createHarness(2, 1);
+    harness.connection.connect();
+
+    harness.factory.sockets[0]!.disconnect(
+      1006,
+      "closed apiKey=secret-value"
+    );
+    harness.scheduler.run();
+    harness.factory.sockets[1]!.disconnect(1006, "closed again");
+
+    expect(harness.errors).toHaveBeenCalledWith({
+      code: "XUNFEI_SOCKET_RECOVERY_EXHAUSTED",
+      message:
+        "Xunfei RTASR socket recovery retries were exhausted. Last socket close 1006: closed again.",
+      retryable: false,
+      details: {
+        socketCloseCode: 1006,
+        socketFailureKind: "close",
+        socketFailureMessage: "closed again"
+      }
+    });
+    expect(JSON.stringify(harness.errors.mock.calls)).not.toContain(
+      "secret-value"
+    );
   });
 });

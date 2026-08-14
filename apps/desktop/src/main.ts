@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   BrowserWindow,
@@ -7,21 +10,66 @@ import {
   shell
 } from "electron";
 import {
+  ChatAnswerProductModeStatus,
+  BrainCommandResultSchema,
+  CommandRouterProductModeStatus,
   CommandEnvelopeSchema,
   CommandResult,
+  IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_CHANNEL,
+  IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_EVENT_CHANNEL,
+  IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
+  IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
+  IPC_TTS_SETTINGS_CLEAR_CHANNEL,
+  IPC_TTS_SETTINGS_OPEN_CHANNEL,
+  IPC_TTS_SETTINGS_SAVE_CHANNEL,
+  IPC_TTS_SETTINGS_STATUS_CHANNEL,
+  IPC_TTS_SYNTHESIZE_CHANNEL,
   IPC_VOICE_SETTINGS_OPEN_CHANNEL,
   IPC_VOICE_SETTINGS_STATUS_CHANNEL,
   IPC_VOICE_AUDIO_CHANNEL,
   PROTOCOL_VERSION,
+  createCommandRouterQwenProductRoutingActivationStatus,
+  createCommandEnvelope,
+  QwenRuntimeControlActionSchema,
+  QwenRuntimeControlSetResult,
+  QwenRuntimeControlStatus,
+  type TtsServiceStatus,
+  type TtsSynthesisResult,
   type VoiceServiceStatus,
   createId
 } from "@jarvis-k/contracts";
+import { CoreRuntime } from "@jarvis-k/core";
+import {
+  createPinnedQwenFastRouterArtifactPlan,
+  QwenFastRouterProvider,
+  QWEN_FAST_ROUTER_MODEL_ID
+} from "@jarvis-k/inference-adapter-qwen-router";
+import {
+  RuntimeHelperClient,
+  RuntimeHelperClientError,
+  RuntimeHelperProcessTransport
+} from "@jarvis-k/inference-runtime-transformers-local";
 import {
   SecureVoiceProviderStore,
   type VoiceProviderConfiguration
 } from "./secure-voice-provider-store";
+import {
+  SecureTtsProviderStore,
+  type TtsProviderConfiguration
+} from "./secure-tts-provider-store";
+import {
+  SecureHeavyPlannerProviderStore,
+  type HeavyPlannerProviderConfiguration,
+  type HeavyPlannerProviderName
+} from "./secure-heavy-planner-provider-store";
+import {
+  SecureChatAnswerProviderStore,
+  type ChatAnswerProviderConfiguration
+} from "./secure-chat-answer-provider-store";
 import { CoreSupervisor } from "./supervisor";
 import { handleVoiceAudioIpc } from "./voice-audio-ipc";
 import {
@@ -38,6 +86,49 @@ let mainWindow: BrowserWindow | null = null;
 let voiceSettingsWindow: BrowserWindow | null = null;
 let supervisor: CoreSupervisor | null = null;
 let voiceProviderStore: SecureVoiceProviderStore | null = null;
+let ttsProviderStore: SecureTtsProviderStore | null = null;
+let openAiHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
+  null;
+let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
+  null;
+let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
+  null;
+let commandRouterProductModeEnabled = false;
+let chatAnswerProductModeEnabled = false;
+let chatAnswerProductModeRuntimeArmed = false;
+let qwenRuntimeControlState:
+  | "disabled"
+  | "prepared"
+  | "active"
+  | "fallback"
+  | "blocked" = "disabled";
+let qwenRuntimeControlExplicitOptIn = false;
+let qwenRuntimeControlHelperClient: RuntimeHelperClient | null = null;
+let qwenRuntimeControlSessionId: string | null = null;
+let qwenRuntimeControlHelperStartCount = 0;
+let qwenRuntimeControlGenerationPortReadinessProbeCount = 0;
+let qwenRuntimeControlRouteRequestCount = 0;
+let qwenRuntimeControlHelperShutdownVerified = true;
+
+const QWEN_RETAINED_SESSION_ID =
+  "qwen-retained-product-session-2026-08-10" as const;
+const QWEN_RUNTIME_CONTROL_RESOURCE_LEASE_ID =
+  "lease-qwen-ui-ipc-retained-helper-route-acceptance-1";
+const QWEN_RUNTIME_CONTROL_ROUTE_REQUESTS = [
+  { utterance: "open GitHub", expected: "browser.open" },
+  { utterance: "open notepad", expected: "localApp.open" },
+  { utterance: "check current status", expected: "observability.status" }
+] as const;
+
+if (process.env.JARVIS_K_ENABLE_ELECTRON_GPU !== "1") {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+}
+
+function isStage5LocalAcceptanceNoSecureStore(): boolean {
+  return process.env.JARVIS_K_STAGE5_LOCAL_ACCEPTANCE_NO_SECURE_STORE === "1";
+}
 
 function invalidCommandResult(rawValue: unknown): CommandResult {
   const raw =
@@ -78,11 +169,29 @@ function createMainWindow(): BrowserWindow {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      autoplayPolicy: "no-user-gesture-required"
     }
   });
 
   window.setMenuBarVisibility(false);
+  window.webContents.session.setPermissionCheckHandler(
+    (webContents, permission) =>
+      webContents?.id === window.webContents.id &&
+      permission === "media"
+  );
+  window.webContents.session.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      callback(
+        webContents.id === window.webContents.id &&
+          permission === "media" &&
+          "mediaTypes" in details &&
+          Array.isArray(details.mediaTypes) &&
+          details.mediaTypes.includes("audio") &&
+          !details.mediaTypes.includes("video")
+      );
+    }
+  );
   window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: "deny" };
@@ -113,7 +222,56 @@ function getVoiceProviderStore(): SecureVoiceProviderStore {
   return voiceProviderStore;
 }
 
+function getTtsProviderStore(): SecureTtsProviderStore {
+  if (!ttsProviderStore) {
+    ttsProviderStore = new SecureTtsProviderStore(
+      path.join(app.getPath("userData"), "jarvis-k-tts-provider.json"),
+      {
+        isAvailable: () => safeStorage.isEncryptionAvailable(),
+        encrypt: (value) => safeStorage.encryptString(value),
+        decrypt: (value) => safeStorage.decryptString(value)
+      }
+    );
+  }
+  return ttsProviderStore;
+}
+
+function getHeavyPlannerProviderStore(
+  provider: HeavyPlannerProviderName
+): SecureHeavyPlannerProviderStore {
+  const existingStore =
+    provider === "glm"
+      ? glmHeavyPlannerProviderStore
+      : openAiHeavyPlannerProviderStore;
+  if (existingStore) {
+    return existingStore;
+  }
+  const store = new SecureHeavyPlannerProviderStore(
+    path.join(
+      app.getPath("userData"),
+      provider === "glm"
+        ? "jarvis-k-heavy-planner-glm-provider.json"
+        : "jarvis-k-heavy-planner-provider.json"
+    ),
+    {
+      isAvailable: () => safeStorage.isEncryptionAvailable(),
+      encrypt: (value) => safeStorage.encryptString(value),
+      decrypt: (value) => safeStorage.decryptString(value)
+    },
+    provider
+  );
+  if (provider === "glm") {
+    glmHeavyPlannerProviderStore = store;
+  } else {
+    openAiHeavyPlannerProviderStore = store;
+  }
+  return store;
+}
+
 async function getVoiceProviderConfiguration(): Promise<VoiceProviderConfiguration | null> {
+  if (isStage5LocalAcceptanceNoSecureStore()) {
+    return null;
+  }
   try {
     return await getVoiceProviderStore().load();
   } catch (error) {
@@ -126,7 +284,1226 @@ async function getVoiceProviderConfiguration(): Promise<VoiceProviderConfigurati
   }
 }
 
+async function getTtsProviderConfiguration(): Promise<TtsProviderConfiguration | null> {
+  try {
+    return await getTtsProviderStore().load();
+  } catch (error) {
+    process.stderr.write(
+      `[desktop] TTS provider configuration unavailable: ${
+        error instanceof Error ? error.message : "unknown error"
+      }\n`
+    );
+    return null;
+  }
+}
+
+async function getHeavyPlannerProviderConfiguration(): Promise<HeavyPlannerProviderConfiguration | null> {
+  const provider = selectedHeavyPlannerProvider();
+  if (!provider) {
+    return null;
+  }
+  try {
+    return await getHeavyPlannerProviderStore(provider).load();
+  } catch (error) {
+    process.stderr.write(
+      `[desktop] Heavy Planner configuration unavailable: ${
+        error instanceof Error ? error.message : "unknown error"
+      }\n`
+    );
+    return null;
+  }
+}
+
+function selectedChatAnswerProvider():
+  | "chat-answer.openai-compatible.deepseek"
+  | null {
+  const deepseekEnabled =
+    process.env.JARVIS_K_ENABLE_CHAT_ANSWER_DEEPSEEK === "1";
+  const productManualAcceptanceEnabled =
+    process.env.JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_PRODUCT_MANUAL_ACCEPTANCE ===
+    "1";
+  const expandedProductLoopEnabled =
+    process.env.JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_EXPANDED_PRODUCT_LOOP ===
+    "1";
+  return deepseekEnabled &&
+    (productManualAcceptanceEnabled || expandedProductLoopEnabled)
+    ? "chat-answer.openai-compatible.deepseek"
+    : null;
+}
+
+function getChatAnswerProviderStore(
+  provider: ChatAnswerProviderConfiguration["provider"]
+): SecureChatAnswerProviderStore {
+  if (
+    provider === "chat-answer.openai-compatible.deepseek" &&
+    deepseekChatAnswerProviderStore
+  ) {
+    return deepseekChatAnswerProviderStore;
+  }
+  const store = new SecureChatAnswerProviderStore(
+    path.join(
+      app.getPath("userData"),
+      provider === "chat-answer.openai-compatible.deepseek"
+        ? "jarvis-k-chat-answer-deepseek-provider.json"
+        : "jarvis-k-chat-answer-glm-provider.json"
+    ),
+    {
+      isAvailable: () => safeStorage.isEncryptionAvailable(),
+      encrypt: (value) => safeStorage.encryptString(value),
+      decrypt: (value) => safeStorage.decryptString(value)
+    },
+    provider
+  );
+  if (provider === "chat-answer.openai-compatible.deepseek") {
+    deepseekChatAnswerProviderStore = store;
+  }
+  return store;
+}
+
+async function getChatAnswerProviderConfiguration(): Promise<ChatAnswerProviderConfiguration | null> {
+  const provider = selectedChatAnswerProvider();
+  if (!provider) {
+    return null;
+  }
+  try {
+    return await getChatAnswerProviderStore(provider).load();
+  } catch (error) {
+    process.stderr.write(
+      `[desktop] Chat Answer provider configuration unavailable: ${
+        error instanceof Error ? error.message : "unknown error"
+      }\n`
+    );
+    return null;
+  }
+}
+
+async function getChatAnswerProductModeStatus(): Promise<ChatAnswerProductModeStatus> {
+  const providerId = "chat-answer.openai-compatible.deepseek" as const;
+  let secureStorageAvailable = safeStorage.isEncryptionAvailable();
+  let credentialConfigured = false;
+  try {
+    const status = await getChatAnswerProviderStore(providerId).status();
+    secureStorageAvailable = status.status !== "unavailable";
+    credentialConfigured = status.credentialConfigured;
+  } catch {
+    secureStorageAvailable = false;
+    credentialConfigured = false;
+  }
+
+  const status = !secureStorageAvailable
+    ? "secure_store_unavailable"
+    : !credentialConfigured
+      ? "credential_missing"
+      : chatAnswerProductModeEnabled
+        ? chatAnswerProductModeRuntimeArmed
+          ? "control_enabled_runtime_armed"
+          : "control_enabled_runtime_locked"
+        : "disabled";
+  const reasonCodes =
+    status === "secure_store_unavailable"
+      ? ["CHAT_ANSWER_PRODUCT_MODE_SECURE_STORE_UNAVAILABLE"]
+      : status === "credential_missing"
+        ? ["CHAT_ANSWER_PRODUCT_MODE_CREDENTIAL_MISSING"]
+        : status === "control_enabled_runtime_armed"
+          ? [
+              "CHAT_ANSWER_PRODUCT_MODE_CONTROL_ENABLED",
+              "CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_ARMED"
+            ]
+          : status === "control_enabled_runtime_locked"
+          ? [
+              "CHAT_ANSWER_PRODUCT_MODE_CONTROL_ENABLED",
+              "CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_LOCKED"
+            ]
+          : ["CHAT_ANSWER_PRODUCT_MODE_DISABLED"];
+
+  return {
+    enabled: chatAnswerProductModeEnabled,
+    providerId,
+    profileId: "deepseek.v4-flash.compact_json_object_256",
+    status,
+    secureStorageAvailable,
+    credentialConfigured,
+    credentialExposed: false,
+    realProviderRuntimeEnabled: status === "control_enabled_runtime_armed",
+    networkAccessApproved: status === "control_enabled_runtime_armed",
+    defaultBehaviorChanged: false,
+    fallbackPreserved: true,
+    reasonCodes
+  };
+}
+
+function getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
+  const qwenBindingStatus = commandRouterProductModeEnabled
+    ? "unconfigured"
+    : "disabled";
+  return {
+    enabled: commandRouterProductModeEnabled,
+    providerId: "intent-router.deterministic.fixture",
+    mode: "fixture_only",
+    status: commandRouterProductModeEnabled
+      ? "control_enabled_fixture_only"
+      : "disabled",
+    fixtureOnly: true,
+    directActionEnabled: false,
+    realQwenRuntimeEnabled: false,
+    networkAccessApproved: false,
+    defaultBehaviorChanged: false,
+    chatAnswerFallbackPreserved: true,
+    qwenFastRouterBinding: {
+      providerId: "intent-router.qwen3-0.6b",
+      modelId: "Qwen/Qwen3-0.6B",
+      status: qwenBindingStatus,
+      mode: "no_runtime_status_only",
+      productRoutingEnabled: false,
+      realRuntimeEnabled: false,
+      runtimeAccessed: false,
+      artifactAccessed: false,
+      persistentCacheChanged: false,
+      directActionAttempted: false,
+      activation: createCommandRouterQwenProductRoutingActivationStatus({
+        commandRouterProductModeEnabled,
+        preparedPolicyReviewed: true,
+        readinessEvidencePassed: true,
+        noRuntimeProductBindingPresent: true,
+        coreSelectionFallbackPreserved: true,
+        commandRouterSafetyGatesPreserved: true,
+        deterministicFixtureActive: true
+      }),
+      conversationSurfaceProductRoute: {
+        policyId: "qwen-conversation-surface.product-route.default-off.v1",
+        status: commandRouterProductModeEnabled ? "ready" : "disabled",
+        explicitOptInRequired: true,
+        explicitOptInEnabled: false,
+        activeRouteSource: "intent-router.deterministic.fixture",
+        fallbackRouteSource: "intent-router.deterministic.fixture",
+        qwenRouteSelectable: false,
+        productRouteExecutionEnabled: false,
+        directActionEnabled: false,
+        browserUrlOpeningEnabled: false,
+        vsCodeBlocked: true,
+        allowlistTargets: ["notepad", "calculator"] as const,
+        persistentOptIn: {
+          policyId:
+            "qwen-conversation-surface.persistent-opt-in.default-off.v1",
+          status: commandRouterProductModeEnabled ? "prepared" : "disabled",
+          localDeveloperOptInRequired: true,
+          localDeveloperOptInEnabled: false,
+          qwenRouteSelectableByDefault: false,
+          productRouteExecutionEnabledByDefault: false,
+          limitedProductSessionOnly: true,
+          routeRequestLimit: 3,
+          retainedSessionRequired: true,
+          helperStartupAllowedByPolicyState: false,
+          generationPortInvocationAllowedByPolicyState: false,
+          activeRouteSource: "intent-router.deterministic.fixture",
+          fallbackRouteSource: "intent-router.deterministic.fixture",
+          rollbackRouteSource: "intent-router.deterministic.fixture",
+          defaultBehaviorChanged: false,
+          releaseBehaviorChanged: false,
+          reasonCodes: commandRouterProductModeEnabled
+            ? [
+                "QWEN_CONVERSATION_PERSISTENT_OPT_IN_PREPARED_DEFAULT_OFF",
+                "QWEN_CONVERSATION_PERSISTENT_OPT_IN_LIMITED_SESSION_ONLY"
+              ]
+            : ["QWEN_CONVERSATION_PERSISTENT_OPT_IN_DISABLED"]
+        },
+        rollbackState: commandRouterProductModeEnabled ? "ready" : "not_needed",
+        implementationPrepared: true,
+        defaultBehaviorChanged: false,
+        releaseBehaviorChanged: false,
+        reasonCodes: commandRouterProductModeEnabled
+          ? [
+              "QWEN_CONVERSATION_PRODUCT_ROUTE_READY_DEFAULT_OFF",
+              "QWEN_CONVERSATION_PRODUCT_ROUTE_FIXTURE_ACTIVE"
+            ]
+          : ["QWEN_CONVERSATION_PRODUCT_ROUTE_DISABLED"]
+      },
+      gates: {
+        explicitEnablementRequired: true,
+        artifactDigestApprovalRequired: true,
+        modelLifecycleReadinessRequired: true,
+        runtimeGenerationPortReadinessRequired: true,
+        selectionPolicyReadinessRequired: true,
+        defaultOffPreserved: true,
+        deterministicFallbackPreserved: true,
+        singleEnvVarSufficient: false,
+        normalCoreHostStartupInstantiatesQwen: false
+      },
+      reasonCodes: [
+        "QWEN_FAST_ROUTER_PRODUCT_BINDING_DISABLED",
+        "QWEN_FAST_ROUTER_NO_RUNTIME_STATUS_ONLY",
+        "QWEN_FAST_ROUTER_PRODUCT_ROUTING_UNAVAILABLE"
+      ]
+    },
+    reasonCodes: commandRouterProductModeEnabled
+      ? [
+          "COMMAND_ROUTER_PRODUCT_MODE_CONTROL_ENABLED",
+          "COMMAND_ROUTER_PRODUCT_MODE_FIXTURE_ONLY",
+          "COMMAND_ROUTER_PRODUCT_MODE_DIRECT_ACTION_DISABLED"
+        ]
+      : ["COMMAND_ROUTER_PRODUCT_MODE_DISABLED"]
+  };
+}
+
+function retainedQwenSessionMarkerPath(): string {
+  return path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "models",
+    QWEN_RETAINED_SESSION_ID,
+    "session-marker.sanitized.json"
+  );
+}
+
+function retainedQwenSessionAvailable(): boolean {
+  try {
+    const raw = JSON.parse(
+      readFileSync(retainedQwenSessionMarkerPath(), "utf8")
+    ) as Record<string, unknown>;
+    return (
+      existsSync(retainedQwenSessionMarkerPath()) &&
+      raw.sessionId === QWEN_RETAINED_SESSION_ID &&
+      raw.status === "retained_bounded_developer_alpha_session" &&
+      raw.dependencyEnv === "retained" &&
+      raw.artifactCache === "retained" &&
+      raw.helperLifecycle === "shutdown_after_verification" &&
+      raw.approvedArtifactCount === 7 &&
+      raw.digestBeforeLoad === "passed" &&
+      raw.defaultOn === false &&
+      raw.releaseExposure === false
+    );
+  } catch {
+    return false;
+  }
+}
+
+function repositoryRootPath(): string {
+  return path.resolve(__dirname, "..", "..", "..");
+}
+
+function retainedQwenSessionRootPath(): string {
+  return path.join(
+    repositoryRootPath(),
+    "models",
+    QWEN_RETAINED_SESSION_ID
+  );
+}
+
+function retainedQwenArtifactRootPath(): string {
+  return path.join(retainedQwenSessionRootPath(), "artifacts");
+}
+
+function retainedQwenPythonExecutablePath(): string {
+  return path.join(
+    retainedQwenSessionRootPath(),
+    "venv",
+    "Scripts",
+    "python.exe"
+  );
+}
+
+function retainedQwenHelperScriptPath(): string {
+  return path.join(
+    repositoryRootPath(),
+    "packages",
+    "inference-runtime-transformers-local",
+    "runtime",
+    "transformers_helper.py"
+  );
+}
+
+function assertRetainedSessionPath(candidatePath: string): string {
+  const root = path.resolve(retainedQwenSessionRootPath());
+  const resolved = path.resolve(candidatePath);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error("QWEN_RETAINED_SESSION_PATH_INVALID");
+  }
+  return resolved;
+}
+
+function assertRepositoryPath(candidatePath: string): string {
+  const root = path.resolve(repositoryRootPath());
+  const resolved = path.resolve(candidatePath);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error("QWEN_REPOSITORY_PATH_INVALID");
+  }
+  return resolved;
+}
+
+async function verifyRetainedQwenArtifacts(): Promise<number> {
+  const artifactRoot = assertRetainedSessionPath(
+    retainedQwenArtifactRootPath()
+  );
+  const plan = createPinnedQwenFastRouterArtifactPlan();
+  if (
+    plan.status !== "pinned" ||
+    plan.downloadEnabled !== false ||
+    plan.artifacts.length !== 7
+  ) {
+    throw new Error("QWEN_ARTIFACT_PLAN_INVALID");
+  }
+  for (const artifact of plan.artifacts) {
+    if (!artifact.pinned || typeof artifact.sha256 !== "string") {
+      throw new Error("QWEN_ARTIFACT_PLAN_INVALID");
+    }
+    const artifactPath = path.resolve(artifactRoot, artifact.key);
+    if (
+      artifactPath !== artifactRoot &&
+      !artifactPath.startsWith(`${artifactRoot}${path.sep}`)
+    ) {
+      throw new Error("QWEN_ARTIFACT_PATH_INVALID");
+    }
+    const digest = await hashFileSha256(artifactPath);
+    if (digest !== artifact.sha256) {
+      throw new Error("QWEN_ARTIFACT_DIGEST_MISMATCH");
+    }
+  }
+  return plan.artifacts.length;
+}
+
+async function hashFileSha256(filePath: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) {
+    hash.update(Buffer.from(chunk));
+  }
+  return hash.digest("hex");
+}
+
+function createQwenRuntimeControlGenerationPort(
+  client: RuntimeHelperClient,
+  sessionId: string
+): {
+  generate(input: {
+    modelId: string;
+    prompt: string;
+    maxOutputChars: number;
+    temperature: 0;
+  }): Promise<string>;
+} {
+  return {
+    async generate(input) {
+      const payload = await client.generate({
+        sessionId,
+        resourceLeaseId: QWEN_RUNTIME_CONTROL_RESOURCE_LEASE_ID,
+        modelId: input.modelId,
+        prompt: input.prompt,
+        maxOutputChars: Math.min(input.maxOutputChars, 2_000),
+        temperature: 0
+      });
+      if (
+        payload.modelId !== input.modelId ||
+        payload.text.length > input.maxOutputChars
+      ) {
+        throw new Error("GENERATION_OUTPUT_INVALID");
+      }
+      return payload.text;
+    }
+  };
+}
+
+function isQwenConversationSurfaceLocalOptInAcceptanceWindow(): boolean {
+  return process.env.JARVIS_K_QWEN_CONVERSATION_SURFACE_ACCEPTANCE === "1";
+}
+
+function qwenConversationSurfaceRouteLimit(): 3 | 5 | 10 {
+  if (process.env.JARVIS_K_QWEN_CONVERSATION_SURFACE_EXTENDED_USAGE === "1") {
+    return 10;
+  }
+  return process.env.JARVIS_K_QWEN_CONVERSATION_SURFACE_USAGE === "1" ? 5 : 3;
+}
+
+async function startQwenRuntimeControlAcceptance(): Promise<void> {
+  if (qwenRuntimeControlHelperClient) {
+    return;
+  }
+  if (!retainedQwenSessionAvailable()) {
+    throw new Error("QWEN_RETAINED_SESSION_UNAVAILABLE");
+  }
+
+  await verifyRetainedQwenArtifacts();
+  const pythonExecutable = assertRetainedSessionPath(
+    retainedQwenPythonExecutablePath()
+  );
+  const artifactRoot = assertRetainedSessionPath(
+    retainedQwenArtifactRootPath()
+  );
+  const helperScript = assertRepositoryPath(retainedQwenHelperScriptPath());
+  await fs.access(pythonExecutable);
+  await fs.access(helperScript);
+
+  const transport = new RuntimeHelperProcessTransport({
+    command: pythonExecutable,
+    args: ["-u", helperScript],
+    env: {
+      PYTHONIOENCODING: "utf-8",
+      PYTHONUNBUFFERED: "1",
+      HF_HUB_OFFLINE: "1",
+      TRANSFORMERS_OFFLINE: "1",
+      JARVIS_K_TRANSFORMERS_MODEL_DIR: artifactRoot,
+      JARVIS_K_QWEN_ROUTER_GENERATION_HELPER_READY: "1"
+    },
+    maxLineBytes: 8 * 1024 * 1024
+  });
+  const client = new RuntimeHelperClient({
+    transport,
+    timeoutPolicy: {
+      startupTimeoutMs: 120_000,
+      requestTimeoutMs: 120_000,
+      shutdownTimeoutMs: 10_000
+    }
+  });
+  qwenRuntimeControlHelperClient = client;
+  qwenRuntimeControlHelperStartCount = 1;
+  qwenRuntimeControlHelperShutdownVerified = false;
+
+  try {
+    await client.health();
+    const loaded = await client.load({
+      modelId: QWEN_FAST_ROUTER_MODEL_ID,
+      capability: "intent_router",
+      resourceLeaseId: QWEN_RUNTIME_CONTROL_RESOURCE_LEASE_ID,
+      modelDirectory: artifactRoot
+    });
+    qwenRuntimeControlSessionId = loaded.sessionId;
+
+    const generationPort = createQwenRuntimeControlGenerationPort(
+      client,
+      loaded.sessionId
+    );
+    await runQwenRuntimeControlGenerationPortReadiness(generationPort);
+    qwenRuntimeControlGenerationPortReadinessProbeCount = 1;
+    if (!isQwenConversationSurfaceLocalOptInAcceptanceWindow()) {
+      await runQwenRuntimeControlRoutes(generationPort);
+    }
+    qwenRuntimeControlState = "active";
+  } catch (error) {
+    await stopQwenRuntimeControlHelper();
+    throw error;
+  }
+}
+
+async function runQwenRuntimeControlGenerationPortReadiness(
+  generationPort: ReturnType<typeof createQwenRuntimeControlGenerationPort>
+): Promise<void> {
+  const output = await generationPort.generate({
+    modelId: QWEN_FAST_ROUTER_MODEL_ID,
+    prompt:
+      "Return one JSON intent candidate for observability.status with confidence 0.9.",
+    maxOutputChars: 512,
+    temperature: 0
+  });
+  if (output.length === 0 || output.length > 512) {
+    throw new Error("QWEN_GENERATION_PORT_READINESS_FAILED");
+  }
+}
+
+async function runQwenRuntimeControlRoutes(
+  generationPort: ReturnType<typeof createQwenRuntimeControlGenerationPort>
+): Promise<void> {
+  const provider = new QwenFastRouterProvider({
+    modelId: QWEN_FAST_ROUTER_MODEL_ID,
+    generator: generationPort,
+    now: () => new Date("2026-08-10T00:00:00.000Z")
+  });
+  const runtime = createQwenRuntimeControlAcceptanceRuntime(provider);
+  let passedCount = 0;
+  for (const request of QWEN_RUNTIME_CONTROL_ROUTE_REQUESTS) {
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: request.utterance
+        }
+      })
+    );
+    const brain = BrainCommandResultSchema.parse(
+      result.ok ? (result.data as { brain?: unknown }).brain : undefined
+    );
+    const selection = brain.routerSelection;
+    if (
+      brain.decision.intent !== request.expected ||
+      brain.decision.confidence < 0.7 ||
+      selection?.status !== "accepted" ||
+      selection.directActionAttempted !== false
+    ) {
+      throw new Error("QWEN_ROUTE_ACCEPTANCE_FAILED");
+    }
+    passedCount += 1;
+  }
+  qwenRuntimeControlRouteRequestCount = passedCount;
+}
+
+function createQwenRuntimeControlAcceptanceRuntime(
+  intentRoutingProvider: QwenFastRouterProvider
+): CoreRuntime {
+  const voiceSnapshot = {
+    state: "idle" as const,
+    mode: "disabled" as const,
+    permission: "unknown" as const
+  };
+  const voiceAction = () => ({
+    ok: true as const,
+    snapshot: voiceSnapshot
+  });
+  const voiceEngine: ConstructorParameters<typeof CoreRuntime>[1] = {
+    getSnapshot: () => voiceSnapshot,
+    setMode: async () => voiceAction(),
+    startPtt: () => voiceAction(),
+    acceptAudioFrame: async () => ({ accepted: true }),
+    stopPtt: async () => voiceAction(),
+    cancel: async () => voiceAction(),
+    suspendForTts: () => voiceAction(),
+    resumeAfterTts: async () => voiceAction(),
+    reportPermission: () => voiceAction()
+  };
+  const runtime = new CoreRuntime(
+    () => undefined,
+    voiceEngine,
+    () => new Date("2026-08-10T00:00:00.000Z"),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    intentRoutingProvider,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      enabled: true,
+      modelId: QWEN_FAST_ROUTER_MODEL_ID,
+      providerId: "intent-router.qwen3-0.6b",
+      minConfidence: 0.7,
+      locale: "en"
+    }
+  );
+  runtime.configureCommandRouterProductMode({
+    enabled: true,
+    providerId: "intent-router.qwen3-0.6b"
+  });
+  return runtime;
+}
+
+async function handleQwenConversationSurfaceBrainCommand(
+  envelope: Parameters<CoreSupervisor["request"]>[0]
+): Promise<CommandResult | undefined> {
+  const parsed = CommandEnvelopeSchema.safeParse(envelope);
+  if (
+    !parsed.success ||
+    !isQwenConversationSurfaceLocalOptInAcceptanceWindow() ||
+    parsed.data.command.type !== "agent.runBrainCommand" ||
+    qwenRuntimeControlState !== "active" ||
+    !qwenRuntimeControlExplicitOptIn ||
+    !qwenRuntimeControlHelperClient ||
+    !qwenRuntimeControlSessionId ||
+    qwenRuntimeControlRouteRequestCount >= qwenConversationSurfaceRouteLimit()
+  ) {
+    return undefined;
+  }
+
+  const generationPort = createQwenRuntimeControlGenerationPort(
+    qwenRuntimeControlHelperClient,
+    qwenRuntimeControlSessionId
+  );
+  const provider = new QwenFastRouterProvider({
+    modelId: QWEN_FAST_ROUTER_MODEL_ID,
+    generator: generationPort,
+    now: () => new Date("2026-08-10T00:00:00.000Z")
+  });
+  const runtime = createQwenRuntimeControlAcceptanceRuntime(provider);
+  const result = await runtime.handle(parsed.data);
+  const brain = BrainCommandResultSchema.parse(
+    result.ok ? (result.data as { brain?: unknown }).brain : undefined
+  );
+  const selection = brain.routerSelection;
+  if (
+    selection?.selectedProviderId !== "intent-router.qwen3-0.6b" ||
+    selection.status !== "accepted" ||
+    selection.directActionAttempted !== false
+  ) {
+    qwenRuntimeControlState = "fallback";
+    qwenRuntimeControlExplicitOptIn = false;
+    await stopQwenRuntimeControlHelper();
+    throw new Error("QWEN_CONVERSATION_ROUTE_ACCEPTANCE_FAILED");
+  }
+  qwenRuntimeControlRouteRequestCount += 1;
+  return result;
+}
+
+async function stopQwenRuntimeControlHelper(): Promise<boolean> {
+  const client = qwenRuntimeControlHelperClient;
+  qwenRuntimeControlHelperClient = null;
+  qwenRuntimeControlSessionId = null;
+  if (!client) {
+    qwenRuntimeControlHelperShutdownVerified = true;
+    return true;
+  }
+  try {
+    await client.shutdown({ reason: "test" });
+    qwenRuntimeControlHelperShutdownVerified = true;
+    return true;
+  } catch {
+    client.dispose();
+    qwenRuntimeControlHelperShutdownVerified = false;
+    return false;
+  }
+}
+
+function resetQwenRuntimeControlCounters(): void {
+  qwenRuntimeControlHelperStartCount = 0;
+  qwenRuntimeControlGenerationPortReadinessProbeCount = 0;
+  qwenRuntimeControlRouteRequestCount = 0;
+  qwenRuntimeControlHelperShutdownVerified = true;
+}
+
+function getQwenRuntimeControlStatus(): QwenRuntimeControlStatus {
+  const retainedSessionAvailable = retainedQwenSessionAvailable();
+  const prepared =
+    retainedSessionAvailable &&
+    qwenRuntimeControlExplicitOptIn &&
+    qwenRuntimeControlState === "prepared";
+  const active =
+    retainedSessionAvailable &&
+    qwenRuntimeControlExplicitOptIn &&
+    qwenRuntimeControlState === "active";
+  const fallback = qwenRuntimeControlState === "fallback";
+  const blocked =
+    !retainedSessionAvailable || qwenRuntimeControlState === "blocked";
+  const activation = createCommandRouterQwenProductRoutingActivationStatus({
+    commandRouterProductModeEnabled: true,
+    preparedPolicyReviewed: true,
+    readinessEvidencePassed: retainedSessionAvailable,
+    noRuntimeProductBindingPresent: true,
+    coreSelectionFallbackPreserved: true,
+    commandRouterSafetyGatesPreserved: true,
+    deterministicFixtureActive: true,
+    armingWindowApproved: active,
+    runtimeRetentionApproved: active,
+    manualAcceptanceApproved: active,
+    helperStartupAllowed: active,
+    artifactMaterializationAllowed: active,
+    generationPortInvocationAllowed: active,
+    productRoutingArmed: active,
+    persistentEnablementApproved: true,
+    explicitOptInEnabled: active,
+    productRoutingEnabled: active,
+    realQwenRuntimeEnabled: active,
+    runtimeAccessed: active,
+    artifactAccessed: active,
+    helperStarted: active,
+    generationPortInvoked: active,
+    deterministicFixtureRollbackReady: true,
+    rollbackRequested: fallback,
+    blocked
+  });
+  const status = blocked
+    ? "blocked"
+    : fallback
+      ? "fallback"
+      : active
+        ? "active"
+      : prepared
+        ? "prepared"
+        : "disabled";
+  const reasonCodes =
+    status === "blocked"
+      ? ["QWEN_RUNTIME_CONTROL_RETAINED_SESSION_MISSING"]
+      : status === "fallback"
+        ? ["QWEN_RUNTIME_CONTROL_ROLLBACK_READY"]
+        : status === "active"
+          ? ["QWEN_RUNTIME_CONTROL_ACCEPTANCE_ACTIVE"]
+        : status === "prepared"
+          ? ["QWEN_RUNTIME_CONTROL_START_PREPARED"]
+          : ["QWEN_RUNTIME_CONTROL_DEFAULT_OFF"];
+  const helperLifecycle = active
+    ? "running"
+    : qwenRuntimeControlHelperShutdownVerified &&
+        qwenRuntimeControlHelperStartCount === 1
+      ? "shutdown_after_verification"
+      : prepared
+        ? "start_prepared"
+        : "stopped";
+
+  return {
+    mode: "developer_alpha_local",
+    status,
+    retainedSessionId: QWEN_RETAINED_SESSION_ID,
+    retainedSessionAvailable,
+    explicitOptInRequired: true,
+    explicitOptInEnabled: prepared || active,
+    activeRouteSource: active
+      ? "intent-router.qwen3-0.6b"
+      : "intent-router.deterministic.fixture",
+    fallbackRouteSource: "intent-router.deterministic.fixture",
+    helperLifecycle,
+    helperStartCount: qwenRuntimeControlHelperStartCount,
+    generationPortReadinessProbeCount:
+      qwenRuntimeControlGenerationPortReadinessProbeCount,
+    routeRequestCount: qwenRuntimeControlRouteRequestCount,
+    helperShutdownVerified: qwenRuntimeControlHelperShutdownVerified,
+    routeRequestLimit: qwenConversationSurfaceRouteLimit(),
+    controls: {
+      start: retainedSessionAvailable && !active ? "available" : "blocked",
+      stop: prepared || active || fallback ? "available" : "blocked",
+      rollback: retainedSessionAvailable ? "available" : "blocked"
+    },
+    directActionEnabled: false,
+    browserUrlOpeningEnabled: false,
+    vsCodeBlocked: true,
+    allowlistTargets: ["notepad", "calculator"] as const,
+    defaultBehaviorChanged: false,
+    releaseBehaviorChanged: false,
+    telemetryChanged: false,
+    activation,
+    reasonCodes
+  };
+}
+
+async function setQwenRuntimeControlAction(
+  event: Electron.IpcMainInvokeEvent,
+  rawInput: unknown
+): Promise<QwenRuntimeControlSetResult> {
+  const parsedAction = QwenRuntimeControlActionSchema.safeParse(
+    typeof rawInput === "object" && rawInput !== null
+      ? (rawInput as Record<string, unknown>).action
+      : undefined
+  );
+  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+    return {
+      ok: false,
+      action: parsedAction.success ? parsedAction.data : "stop",
+      status: getQwenRuntimeControlStatus(),
+      message: "Qwen runtime control is unavailable."
+    };
+  }
+  if (!parsedAction.success) {
+    return {
+      ok: false,
+      action: "stop",
+      status: getQwenRuntimeControlStatus(),
+      message: "Qwen runtime control action is invalid."
+    };
+  }
+  if (!retainedQwenSessionAvailable()) {
+    qwenRuntimeControlState = "disabled";
+    qwenRuntimeControlExplicitOptIn = false;
+    resetQwenRuntimeControlCounters();
+    return {
+      ok: false,
+      action: parsedAction.data,
+      status: getQwenRuntimeControlStatus(),
+      message: "Retained Qwen product session is unavailable."
+    };
+  }
+  if (parsedAction.data === "start") {
+    qwenRuntimeControlState = "prepared";
+    qwenRuntimeControlExplicitOptIn = true;
+    resetQwenRuntimeControlCounters();
+    try {
+      await startQwenRuntimeControlAcceptance();
+    } catch (error) {
+      qwenRuntimeControlState = "fallback";
+      qwenRuntimeControlExplicitOptIn = false;
+      return {
+        ok: false,
+        action: parsedAction.data,
+        status: getQwenRuntimeControlStatus(),
+        message: qwenRuntimeControlSanitizedMessage(error)
+      };
+    }
+  }
+  if (parsedAction.data === "stop") {
+    const stopped = await stopQwenRuntimeControlHelper();
+    qwenRuntimeControlState = "disabled";
+    qwenRuntimeControlExplicitOptIn = false;
+    if (!stopped) {
+      return {
+        ok: false,
+        action: parsedAction.data,
+        status: getQwenRuntimeControlStatus(),
+        message: "Qwen runtime control helper shutdown was not verified."
+      };
+    }
+  }
+  if (parsedAction.data === "rollback") {
+    const stopped = await stopQwenRuntimeControlHelper();
+    qwenRuntimeControlState = "fallback";
+    qwenRuntimeControlExplicitOptIn = false;
+    if (!stopped) {
+      return {
+        ok: false,
+        action: parsedAction.data,
+        status: getQwenRuntimeControlStatus(),
+        message: "Qwen runtime control rollback shutdown was not verified."
+      };
+    }
+  }
+  return {
+    ok: true,
+    action: parsedAction.data,
+    status: getQwenRuntimeControlStatus()
+  };
+}
+
+function qwenRuntimeControlSanitizedMessage(error: unknown): string {
+  if (error instanceof RuntimeHelperClientError) {
+    return `Qwen runtime control failed closed: ${error.code}.`;
+  }
+  const message = error instanceof Error ? error.message : "";
+  if (message.startsWith("QWEN_") || message.startsWith("GENERATION_")) {
+    return `Qwen runtime control failed closed: ${message}.`;
+  }
+  return "Qwen runtime control failed closed.";
+}
+
+function setCommandRouterProductModeEnabled(
+  event: Electron.IpcMainInvokeEvent,
+  rawInput: unknown
+): {
+  ok: boolean;
+  status: CommandRouterProductModeStatus;
+  message?: string;
+} {
+  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+    return {
+      ok: false,
+      status: getCommandRouterProductModeStatus(),
+      message: "Command Router product mode settings are unavailable."
+    };
+  }
+  const raw =
+    typeof rawInput === "object" && rawInput !== null
+      ? (rawInput as Record<string, unknown>)
+      : {};
+  commandRouterProductModeEnabled = raw.enabled === true;
+  supervisor?.configureCommandRouterProductMode({
+    enabled: commandRouterProductModeEnabled
+  });
+  return {
+    ok: true,
+    status: getCommandRouterProductModeStatus()
+  };
+}
+
+async function setChatAnswerProductModeEnabled(
+  event: Electron.IpcMainInvokeEvent,
+  rawInput: unknown
+): Promise<{ ok: boolean; status: ChatAnswerProductModeStatus; message?: string }> {
+  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+    return {
+      ok: false,
+      status: await getChatAnswerProductModeStatus(),
+      message: "Chat Answer product mode settings are unavailable."
+    };
+  }
+  const raw =
+    typeof rawInput === "object" && rawInput !== null
+      ? (rawInput as Record<string, unknown>)
+      : {};
+  chatAnswerProductModeEnabled = raw.enabled === true;
+  let configuration: ChatAnswerProviderConfiguration | null = null;
+  if (chatAnswerProductModeEnabled) {
+    try {
+      configuration = await getChatAnswerProviderStore(
+        "chat-answer.openai-compatible.deepseek"
+      ).load();
+    } catch {
+      configuration = null;
+    }
+  }
+  chatAnswerProductModeRuntimeArmed =
+    chatAnswerProductModeEnabled && configuration !== null;
+  supervisor?.configureChatAnswerProductMode({
+    enabled: chatAnswerProductModeEnabled,
+    ...(configuration ? { configuration } : {})
+  });
+  return {
+    ok: true,
+    status: await getChatAnswerProductModeStatus()
+  };
+}
+
+function selectedHeavyPlannerProvider(): HeavyPlannerProviderName | null {
+  const openAiEnabled =
+    process.env.JARVIS_K_ENABLE_HEAVY_PLANNER_OPENAI === "1";
+  const glmEnabled = process.env.JARVIS_K_ENABLE_HEAVY_PLANNER_GLM === "1";
+  if (openAiEnabled === glmEnabled) {
+    return null;
+  }
+  return glmEnabled ? "glm" : "openai";
+}
+
+async function getTtsServiceStatus(): Promise<TtsServiceStatus> {
+  try {
+    return await getTtsProviderStore().status();
+  } catch {
+    return {
+      configured: false,
+      secureStorageAvailable: safeStorage.isEncryptionAvailable()
+    };
+  }
+}
+
+function parseTtsProviderSettingsInput(
+  value: unknown
+): TtsProviderConfiguration {
+  const raw =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  const provider = raw.provider === "doubao" ? "doubao" : "doubao";
+  const apiKey = typeof raw.apiKey === "string" ? raw.apiKey.trim() : "";
+  const voiceId =
+    typeof raw.voiceId === "string" && raw.voiceId.trim().length > 0
+      ? raw.voiceId.trim()
+      : "zh_female_xiaohe_uranus_bigtts";
+  const resourceId =
+    typeof raw.resourceId === "string" && raw.resourceId.trim().length > 0
+      ? raw.resourceId.trim()
+      : undefined;
+  if (apiKey.length === 0) {
+    throw new Error("API key is required.");
+  }
+  if (apiKey.length > 512 || voiceId.length > 128) {
+    throw new Error("Credential values are too long.");
+  }
+  if (resourceId && resourceId.length > 128) {
+    throw new Error("Resource ID is too long.");
+  }
+  return {
+    provider,
+    voiceId,
+    ...(resourceId ? { resourceId } : {}),
+    credentials: {
+      apiKey
+    }
+  };
+}
+
+async function saveTtsProviderSettings(
+  event: Electron.IpcMainInvokeEvent,
+  rawInput: unknown
+): Promise<{ ok: boolean; message?: string; status: TtsServiceStatus }> {
+  if (!isVoiceSettingsSender(event)) {
+    return {
+      ok: false,
+      message: "TTS settings are unavailable.",
+      status: await getTtsServiceStatus()
+    };
+  }
+  try {
+    const input = parseTtsProviderSettingsInput(rawInput);
+    await getTtsProviderStore().save(input);
+    return {
+      ok: true,
+      status: await getTtsServiceStatus()
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : "TTS settings could not be saved.",
+      status: await getTtsServiceStatus()
+    };
+  }
+}
+
+async function clearTtsProviderSettings(
+  event: Electron.IpcMainInvokeEvent
+): Promise<{ ok: boolean; message?: string; status: TtsServiceStatus }> {
+  if (!isVoiceSettingsSender(event)) {
+    return {
+      ok: false,
+      message: "TTS settings are unavailable.",
+      status: await getTtsServiceStatus()
+    };
+  }
+  try {
+    await getTtsProviderStore().clear();
+    return {
+      ok: true,
+      status: await getTtsServiceStatus()
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "TTS settings could not be cleared.",
+      status: await getTtsServiceStatus()
+    };
+  }
+}
+
+function resolveDoubaoResourceId(voiceId: string, resourceId?: string): string {
+  if (resourceId) {
+    return resourceId;
+  }
+  if (/_moon_bigtts$/u.test(voiceId) || /^BV\d+(_24k)?_streaming$/u.test(voiceId)) {
+    return "seed-tts-1.0";
+  }
+  return "seed-tts-2.0";
+}
+
+function decodeDoubaoTtsResponse(rawText: string): Buffer {
+  const chunks: Buffer[] = [];
+  let sawAudio = false;
+  for (const rawLine of rawText.split(/\r?\n/)) {
+    const line = rawLine.trim().replace(/^data:\s*/, "");
+    if (!line || line === "[DONE]") {
+      continue;
+    }
+    if (!line.startsWith("{")) {
+      continue;
+    }
+    const data = JSON.parse(line) as {
+      code?: unknown;
+      status_code?: unknown;
+      StatusCode?: unknown;
+      message?: unknown;
+      status_text?: unknown;
+      data?: unknown;
+    };
+    const providerStatusCode = Number(
+      data.code ?? data.status_code ?? data.StatusCode ?? 0
+    );
+    if (providerStatusCode > 0 && providerStatusCode !== 20000000) {
+      const message =
+        typeof data.message === "string"
+          ? data.message
+          : typeof data.status_text === "string"
+            ? data.status_text
+            : "TTS provider rejected the request.";
+      throw new Error(
+        `Doubao TTS failed (${providerStatusCode}): ${message}`
+      );
+    }
+    if (typeof data.data === "string" && data.data.length > 0) {
+      chunks.push(Buffer.from(data.data, "base64"));
+      sawAudio = true;
+    }
+  }
+  if (!sawAudio) {
+    throw new Error("Doubao TTS response did not contain audio.");
+  }
+  return Buffer.concat(chunks);
+}
+
+async function synthesizeDoubaoTts(
+  text: string,
+  voiceId?: string
+): Promise<TtsSynthesisResult> {
+  const configuration = await getTtsProviderConfiguration();
+  if (!configuration) {
+    return {
+      ok: false,
+      code: "TTS_NOT_CONFIGURED",
+      message: "TTS provider is not configured."
+    };
+  }
+
+  const speaker = voiceId?.trim() || configuration.voiceId;
+  const resourceId = resolveDoubaoResourceId(
+    speaker,
+    configuration.resourceId
+  );
+  const requestId = `jarvis_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(
+      "https://openspeech.bytedance.com/api/v3/tts/unidirectional",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": configuration.credentials.apiKey,
+          "X-Api-Resource-Id": resourceId,
+          "X-Api-Request-Id": requestId
+        },
+        body: JSON.stringify({
+          user: { uid: "jarvis-k" },
+          req_params: {
+            text: text.slice(0, 800),
+            speaker,
+            audio_params: {
+              format: "mp3",
+              sample_rate: 24_000
+            }
+          }
+        }),
+        signal: controller.signal
+      }
+    );
+
+    if (!response.ok) {
+      await response.text().catch(() => "");
+      return {
+        ok: false,
+        code: "TTS_PROVIDER_REJECTED",
+        message: `Doubao TTS provider rejected the request (HTTP ${response.status}).`
+      };
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("audio/")) {
+      return {
+        ok: true,
+        audio: new Uint8Array(await response.arrayBuffer()),
+        contentType: "audio/mpeg",
+        provider: "doubao"
+      };
+    }
+
+    const rawText = await response.text();
+    try {
+      const audio = decodeDoubaoTtsResponse(rawText);
+      return {
+        ok: true,
+        audio: new Uint8Array(audio),
+        contentType: "audio/mpeg",
+        provider: "doubao"
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        code: "TTS_RESPONSE_INVALID",
+        message: "Doubao TTS returned no playable audio."
+      };
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      code: "TTS_NETWORK_FAILED",
+      message:
+        error instanceof Error && error.name === "AbortError"
+          ? "Doubao TTS request timed out."
+          : "Doubao TTS network request failed."
+    };
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
 async function getVoiceServiceStatus(): Promise<VoiceServiceStatus> {
+  if (isStage5LocalAcceptanceNoSecureStore()) {
+    return {
+      configured: false,
+      secureStorageAvailable: false
+    };
+  }
   try {
     return await getVoiceProviderStore().status();
   } catch {
@@ -159,18 +1536,34 @@ function parseVoiceProviderSettingsInput(
     typeof value === "object" && value !== null
       ? (value as Record<string, unknown>)
       : {};
+  const provider = raw.provider === "volcengine" ? "volcengine" : "xunfei";
   const appId = typeof raw.appId === "string" ? raw.appId.trim() : "";
   const apiKey = typeof raw.apiKey === "string" ? raw.apiKey.trim() : "";
+  const resourceId =
+    typeof raw.resourceId === "string" && raw.resourceId.trim().length > 0
+      ? raw.resourceId.trim()
+      : "volc.seedasr.sauc.duration";
   const language = raw.language === "en" ? "en" : "zh";
-  if (appId.length === 0 || apiKey.length === 0) {
-    throw new Error("AppID and APIKey are required.");
+  if (provider === "xunfei" && appId.length === 0) {
+    throw new Error("AppID is required for Xunfei.");
+  }
+  if (apiKey.length === 0) {
+    throw new Error("APIKey is required.");
   }
   if (appId.length > 512 || apiKey.length > 512) {
     throw new Error("Credential values are too long.");
   }
+  if (
+    provider === "volcengine" &&
+    (resourceId.length > 128 || !/^volc\.[a-z0-9_.-]+$/i.test(resourceId))
+  ) {
+    throw new Error("Volcengine resource ID is invalid.");
+  }
   return {
+    provider,
     appId,
     apiKey,
+    ...(provider === "volcengine" ? { resourceId } : {}),
     language
   };
 }
@@ -187,14 +1580,26 @@ async function saveVoiceProviderSettings(
   }
   try {
     const input = parseVoiceProviderSettingsInput(rawInput);
-    await getVoiceProviderStore().save({
-      provider: "xunfei",
-      language: input.language,
-      credentials: {
-        appId: input.appId,
-        apiKey: input.apiKey
-      }
-    });
+    await getVoiceProviderStore().save(
+      input.provider === "volcengine"
+        ? {
+            provider: "volcengine",
+            language: input.language,
+            credentials: {
+              apiKey: input.apiKey,
+              resourceId:
+                input.resourceId ?? "volc.seedasr.sauc.duration"
+            }
+          }
+        : {
+            provider: "xunfei",
+            language: input.language,
+            credentials: {
+              appId: input.appId,
+              apiKey: input.apiKey
+            }
+          }
+    );
     supervisor?.restart("voice-provider-configuration-changed");
     return {
       ok: true,
@@ -262,7 +1667,11 @@ if (!hasSingleInstanceLock) {
     );
     supervisor = new CoreSupervisor({
       coreEntry,
-      loadVoiceProviderConfiguration: getVoiceProviderConfiguration
+      loadVoiceProviderConfiguration: getVoiceProviderConfiguration,
+      loadHeavyPlannerProviderConfiguration:
+        getHeavyPlannerProviderConfiguration,
+      loadChatAnswerProviderConfiguration:
+        getChatAnswerProviderConfiguration
     });
     supervisor.onEvent((event) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -271,10 +1680,15 @@ if (!hasSingleInstanceLock) {
     });
     supervisor.start();
 
-    ipcMain.handle(IPC_COMMAND_CHANNEL, (_event, rawEnvelope: unknown) => {
+    ipcMain.handle(IPC_COMMAND_CHANNEL, async (_event, rawEnvelope: unknown) => {
       const parsed = CommandEnvelopeSchema.safeParse(rawEnvelope);
       if (!parsed.success || !supervisor) {
         return invalidCommandResult(rawEnvelope);
+      }
+      const qwenConversationResult =
+        await handleQwenConversationSurfaceBrainCommand(parsed.data);
+      if (qwenConversationResult) {
+        return qwenConversationResult;
       }
       return supervisor.request(parsed.data);
     });
@@ -284,6 +1698,34 @@ if (!hasSingleInstanceLock) {
     ipcMain.handle(IPC_VOICE_SETTINGS_OPEN_CHANNEL, async () => {
       openVoiceSettingsWindow();
       return getVoiceServiceStatus();
+    });
+    ipcMain.handle(IPC_TTS_SETTINGS_STATUS_CHANNEL, () =>
+      getTtsServiceStatus()
+    );
+    ipcMain.handle(IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL, () =>
+      getChatAnswerProductModeStatus()
+    );
+    ipcMain.handle(
+      IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
+      setChatAnswerProductModeEnabled
+    );
+    ipcMain.handle(IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL, () =>
+      getCommandRouterProductModeStatus()
+    );
+    ipcMain.handle(
+      IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+      setCommandRouterProductModeEnabled
+    );
+    ipcMain.handle(IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL, () =>
+      getQwenRuntimeControlStatus()
+    );
+    ipcMain.handle(
+      IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
+      setQwenRuntimeControlAction
+    );
+    ipcMain.handle(IPC_TTS_SETTINGS_OPEN_CHANNEL, async () => {
+      openVoiceSettingsWindow();
+      return getTtsServiceStatus();
     });
     ipcMain.handle(VOICE_PROVIDER_SETTINGS_STATUS_CHANNEL, (event) => {
       if (!isVoiceSettingsSender(event)) {
@@ -302,6 +1744,32 @@ if (!hasSingleInstanceLock) {
       VOICE_PROVIDER_SETTINGS_CLEAR_CHANNEL,
       clearVoiceProviderSettings
     );
+    ipcMain.handle(IPC_TTS_SETTINGS_SAVE_CHANNEL, saveTtsProviderSettings);
+    ipcMain.handle(IPC_TTS_SETTINGS_CLEAR_CHANNEL, clearTtsProviderSettings);
+    ipcMain.handle(IPC_TTS_SYNTHESIZE_CHANNEL, async (event, rawInput) => {
+      if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+        return {
+          ok: false,
+          code: "TTS_REQUEST_REJECTED",
+          message: "TTS request rejected."
+        };
+      }
+      const raw =
+        typeof rawInput === "object" && rawInput !== null
+          ? (rawInput as Record<string, unknown>)
+          : {};
+      const text = typeof raw.text === "string" ? raw.text.trim() : "";
+      const voiceId =
+        typeof raw.voiceId === "string" ? raw.voiceId.trim() : undefined;
+      if (!text) {
+        return {
+          ok: false,
+          code: "TTS_REQUEST_REJECTED",
+          message: "TTS text is required."
+        };
+      }
+      return synthesizeDoubaoTts(text, voiceId);
+    });
     ipcMain.on(VOICE_PROVIDER_SETTINGS_CLOSE_CHANNEL, (event) => {
       if (voiceSettingsWindow?.webContents.id === event.sender.id) {
         voiceSettingsWindow.close();
@@ -340,6 +1808,8 @@ if (!hasSingleInstanceLock) {
 
 app.on("before-quit", () => {
   supervisor?.stop();
+  qwenRuntimeControlHelperClient?.dispose();
+  qwenRuntimeControlHelperClient = null;
 });
 
 app.on("window-all-closed", () => {

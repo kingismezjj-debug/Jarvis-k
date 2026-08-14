@@ -17,8 +17,13 @@ TRANSPORT_NAME = "private-child-process-ipc"
 MAX_LINE_BYTES = 8 * 1024 * 1024
 MAX_INPUTS = 128
 MAX_TEXT_LENGTH = 20_000
+MAX_GENERATED_TEXT_LENGTH = 2_000
 MAX_TOKEN_LENGTH = 8192
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+SENSITIVE_TEXT_PATTERN = re.compile(
+    r"(?:https?://|[A-Za-z]:\\|\\\\|(?:^|[\s\"'=])(?:token|api[_-]?key|secret|password)=)",
+    re.IGNORECASE,
+)
 ERROR_MESSAGES = {
     "HELPER_UNAVAILABLE": "Runtime helper is unavailable.",
     "HELPER_STARTUP_TIMEOUT": "Runtime helper startup timed out.",
@@ -38,6 +43,10 @@ ERROR_MESSAGES = {
     "EMBEDDING_EXECUTION_DISABLED": (
         "Embedding execution remains disabled by the runtime gate."
     ),
+    "GENERATION_EXECUTION_DISABLED": (
+        "Generation execution remains disabled by the runtime gate."
+    ),
+    "GENERATION_OUTPUT_INVALID": "Generation output failed validation.",
     "HELPER_PROCESS_EXITED": "Runtime helper process exited unexpectedly.",
     "HELPER_INTERNAL": "Runtime helper failed with a sanitized error.",
 }
@@ -53,18 +62,20 @@ RETRYABLE_CODES = {
 with redirect_stdout(StringIO()):
     try:
         import torch
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 
         DEPENDENCIES_AVAILABLE = True
     except Exception:
         torch = None
         AutoModel = None
+        AutoModelForCausalLM = None
         AutoTokenizer = None
         DEPENDENCIES_AVAILABLE = False
 
 model: Any = None
 tokenizer: Any = None
 loaded_model_id: str | None = None
+loaded_capability: str | None = None
 session_id: str | None = None
 embedding_dimensions: int | None = None
 
@@ -96,6 +107,19 @@ def is_safe_model_id(value: Any) -> bool:
         and "?" not in value
         and "#" not in value
         and not re.match(r"^[A-Za-z]:", value)
+    )
+
+
+def is_sanitized_text(value: Any, max_length: int) -> bool:
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= max_length
+        and not any(
+            (ord(character) < 32 and character not in {"\t", "\n", "\r"})
+            or ord(character) == 127
+            for character in value
+        )
+        and SENSITIVE_TEXT_PATTERN.search(value) is None
     )
 
 
@@ -131,7 +155,7 @@ def require_request_base(request: Any) -> tuple[str, str, str]:
     operation = request.get("operation")
     if not is_identifier(request_id) or not is_identifier(correlation_id):
         raise HelperFailure("HELPER_PROTOCOL_INVALID")
-    if operation not in {"health", "load", "embed", "shutdown"}:
+    if operation not in {"health", "load", "embed", "generate", "shutdown"}:
         raise HelperFailure("HELPER_PROTOCOL_INVALID")
     return request_id, correlation_id, operation
 
@@ -234,7 +258,7 @@ def handle_load(request: dict[str, Any]) -> dict[str, Any]:
     )
     if (
         not is_safe_model_id(model_id)
-        or capability != "embedding"
+        or capability not in {"embedding", "intent_router"}
         or not is_identifier(resource_lease_id)
         or not is_safe_model_directory(model_directory)
     ):
@@ -245,17 +269,17 @@ def handle_load(request: dict[str, Any]) -> dict[str, Any]:
     if not model_directory or not os.path.isdir(model_directory):
         raise HelperFailure("MODEL_ARTIFACT_UNAVAILABLE")
 
-    load_model(model_directory, model_id)
+    load_model(model_directory, model_id, capability)
     return {
         "sessionId": session_id,
         "modelId": model_id,
-        "capability": "embedding",
+        "capability": capability,
         "loadedAt": utc_now(),
     }
 
 
-def load_model(model_directory: str, model_id: str) -> None:
-    global model, tokenizer, loaded_model_id, session_id, embedding_dimensions
+def load_model(model_directory: str, model_id: str, capability: str) -> None:
+    global model, tokenizer, loaded_model_id, loaded_capability, session_id, embedding_dimensions
 
     try:
         tokenizer = AutoTokenizer.from_pretrained(
@@ -263,21 +287,35 @@ def load_model(model_directory: str, model_id: str) -> None:
             local_files_only=True,
             trust_remote_code=False,
         )
-        model = AutoModel.from_pretrained(
-            model_directory,
-            local_files_only=True,
-            trust_remote_code=False,
-        )
+        if capability == "intent_router":
+            model = AutoModelForCausalLM.from_pretrained(
+                model_directory,
+                local_files_only=True,
+                trust_remote_code=False,
+                torch_dtype=torch.float32,
+            )
+        else:
+            model = AutoModel.from_pretrained(
+                model_directory,
+                local_files_only=True,
+                trust_remote_code=False,
+            )
         model.to("cpu")
         model.eval()
-        config = getattr(model, "config", None)
-        dimensions = getattr(config, "hidden_size", None)
-        if not isinstance(dimensions, int) or dimensions <= 0:
-            dimensions = getattr(config, "d_model", None)
-        if not isinstance(dimensions, int) or dimensions <= 0:
-            raise ValueError("unsupported model dimensions")
-        embedding_dimensions = dimensions
+        if capability == "embedding":
+            config = getattr(model, "config", None)
+            dimensions = getattr(config, "hidden_size", None)
+            if not isinstance(dimensions, int) or dimensions <= 0:
+                dimensions = getattr(config, "d_model", None)
+            if not isinstance(dimensions, int) or dimensions <= 0:
+                raise ValueError("unsupported model dimensions")
+            embedding_dimensions = dimensions
+        else:
+            embedding_dimensions = None
+            if getattr(tokenizer, "pad_token_id", None) is None:
+                tokenizer.pad_token = tokenizer.eos_token
         loaded_model_id = model_id
+        loaded_capability = capability
         session_id = f"session-{uuid.uuid4().hex[:32]}"
     except HelperFailure:
         clear_model()
@@ -298,10 +336,11 @@ def is_safe_model_directory(value: Any) -> bool:
 
 
 def clear_model() -> None:
-    global model, tokenizer, loaded_model_id, session_id, embedding_dimensions
+    global model, tokenizer, loaded_model_id, loaded_capability, session_id, embedding_dimensions
     model = None
     tokenizer = None
     loaded_model_id = None
+    loaded_capability = None
     session_id = None
     embedding_dimensions = None
 
@@ -344,6 +383,7 @@ def handle_embed(request: dict[str, Any]) -> dict[str, Any]:
         model is None
         or tokenizer is None
         or loaded_model_id != model_id
+        or loaded_capability != "embedding"
         or session_id != request_session_id
         or embedding_dimensions is None
     ):
@@ -420,6 +460,124 @@ def handle_embed(request: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def handle_generate(request: dict[str, Any]) -> dict[str, Any]:
+    payload = request.get("payload")
+    if not is_record(payload):
+        raise HelperFailure("HELPER_PROTOCOL_INVALID")
+    require_exact_keys(
+        payload,
+        {
+            "sessionId",
+            "resourceLeaseId",
+            "modelId",
+            "prompt",
+            "maxOutputChars",
+            "temperature",
+        },
+    )
+    max_output_chars = payload.get("maxOutputChars")
+    if (
+        not is_identifier(payload.get("sessionId"))
+        or not is_identifier(payload.get("resourceLeaseId"))
+        or not is_safe_model_id(payload.get("modelId"))
+        or not is_sanitized_text(payload.get("prompt"), MAX_TEXT_LENGTH)
+        or not isinstance(max_output_chars, int)
+        or isinstance(max_output_chars, bool)
+        or max_output_chars < 1
+        or max_output_chars > MAX_GENERATED_TEXT_LENGTH
+        or payload.get("temperature") != 0
+    ):
+        raise HelperFailure("HELPER_PROTOCOL_INVALID")
+
+    if os.environ.get("JARVIS_K_QWEN_ROUTER_GENERATION_HELPER_READY") != "1":
+        raise HelperFailure("GENERATION_EXECUTION_DISABLED")
+    if (
+        model is None
+        or tokenizer is None
+        or loaded_model_id != payload.get("modelId")
+        or loaded_capability != "intent_router"
+        or session_id != payload.get("sessionId")
+    ):
+        raise HelperFailure("MODEL_LOAD_UNAVAILABLE")
+
+    try:
+        encoded = encode_generation_prompt(payload.get("prompt"))
+        input_length = encoded["input_ids"].shape[-1]
+        max_new_tokens = max(64, min(256, int(max_output_chars / 4)))
+        with torch.no_grad():
+            output_ids = model.generate(
+                **encoded,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                max_new_tokens=max_new_tokens,
+                pad_token_id=getattr(tokenizer, "pad_token_id", None),
+                eos_token_id=getattr(tokenizer, "eos_token_id", None),
+            )
+        generated_ids = output_ids[0][input_length:]
+        text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+        if not is_sanitized_text(text, MAX_GENERATED_TEXT_LENGTH):
+            raise HelperFailure("GENERATION_OUTPUT_INVALID")
+        return {
+            "modelId": payload.get("modelId"),
+            "text": text,
+            "generatedAt": utc_now(),
+        }
+    except HelperFailure:
+        raise
+    except Exception:
+        raise HelperFailure("MODEL_RUNTIME_INCOMPATIBLE")
+
+
+def encode_generation_prompt(prompt: str) -> Any:
+    max_length = min(
+        getattr(tokenizer, "model_max_length", MAX_TOKEN_LENGTH),
+        MAX_TOKEN_LENGTH,
+    )
+    if hasattr(tokenizer, "apply_chat_template"):
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are Jarvis-K Fast Router. Return exactly one compact "
+                    "JSON object. Do not output thinking, markdown, XML, or "
+                    "explanations."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                enable_thinking=False,
+                return_tensors="pt",
+                truncation=True,
+                max_length=max_length,
+                return_dict=True,
+            )
+        except TypeError:
+            try:
+                return tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=True,
+                    add_generation_prompt=True,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=max_length,
+                    return_dict=True,
+                )
+            except TypeError:
+                pass
+    return tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=max_length,
+    )
+
+
 def handle_shutdown(request: dict[str, Any]) -> dict[str, Any]:
     payload = request.get("payload")
     if not is_record(payload):
@@ -449,6 +607,8 @@ def handle_request(request: Any) -> dict[str, Any] | None:
             payload = handle_load(request)
         elif operation == "embed":
             payload = handle_embed(request)
+        elif operation == "generate":
+            payload = handle_generate(request)
         else:
             payload = handle_shutdown(request)
         return success_response(request_id, correlation_id, operation, payload)

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "cn.jarvis-k.stock-analysis",
+  "name": "Stock Analysis Sample",
+  "version": "0.1.0",
+  "apiVersion": "1",
+  "entry": "dist/main.js",
+  "runtime": "node-worker",
+  "capabilities": [
+    {
+      "name": "stock.quote",
+      "description": "Read-only stock quote and basic company facts sample.",
+      "inputSchema": "schemas/stock-quote-input.json",
+      "outputSchema": "schemas/stock-quote-output.json",
+      "risk": "read_only",
+      "readOnly": true
+    }
+  ],
+  "permissions": []
+}

@@ -20,6 +20,7 @@ export type RuntimeHelperOperation =
   | "health"
   | "load"
   | "embed"
+  | "generate"
   | "shutdown";
 
 export type RuntimeHelperShutdownReason =
@@ -57,6 +58,8 @@ export type RuntimeHelperErrorCode =
   | "MODEL_RUNTIME_INCOMPATIBLE"
   | "EMBEDDING_DIMENSIONS_UNSUPPORTED"
   | "EMBEDDING_EXECUTION_DISABLED"
+  | "GENERATION_EXECUTION_DISABLED"
+  | "GENERATION_OUTPUT_INVALID"
   | "HELPER_PROCESS_EXITED"
   | "HELPER_INTERNAL";
 
@@ -74,6 +77,7 @@ export interface RuntimeHelperProtocolPolicy {
   requestCorrelationRequired: true;
   resourceLeaseRequiredBeforeLoad: true;
   resourceLeaseRequiredBeforeEmbed: true;
+  resourceLeaseRequiredBeforeGenerate: true;
   directShellExecutionAllowed: false;
   modelOutputActionPolicy: "validated_intent_only";
   sanitizedErrorsRequired: true;
@@ -130,6 +134,19 @@ export interface RuntimeHelperEmbedRequest extends RuntimeHelperRequestBase {
   };
 }
 
+export interface RuntimeHelperGenerateRequest
+  extends RuntimeHelperRequestBase {
+  operation: "generate";
+  payload: {
+    sessionId: string;
+    resourceLeaseId: string;
+    modelId: string;
+    prompt: string;
+    maxOutputChars: number;
+    temperature: 0;
+  };
+}
+
 export interface RuntimeHelperShutdownRequest
   extends RuntimeHelperRequestBase {
   operation: "shutdown";
@@ -142,6 +159,7 @@ export type RuntimeHelperRequest =
   | RuntimeHelperHealthRequest
   | RuntimeHelperLoadRequest
   | RuntimeHelperEmbedRequest
+  | RuntimeHelperGenerateRequest
   | RuntimeHelperShutdownRequest;
 
 export interface RuntimeHelperHealthResponse {
@@ -179,6 +197,20 @@ export interface RuntimeHelperEmbedResponse {
   payload: EmbeddingGenerationResult;
 }
 
+export interface RuntimeHelperGenerateResponse {
+  protocolVersion: typeof RUNTIME_HELPER_PROTOCOL_VERSION;
+  requestId: string;
+  correlationId: string;
+  operation: "generate";
+  completedAt: string;
+  ok: true;
+  payload: {
+    modelId: string;
+    text: string;
+    generatedAt: string;
+  };
+}
+
 export interface RuntimeHelperShutdownResponse {
   protocolVersion: typeof RUNTIME_HELPER_PROTOCOL_VERSION;
   requestId: string;
@@ -205,6 +237,7 @@ export type RuntimeHelperResponse =
   | RuntimeHelperHealthResponse
   | RuntimeHelperLoadResponse
   | RuntimeHelperEmbedResponse
+  | RuntimeHelperGenerateResponse
   | RuntimeHelperShutdownResponse
   | RuntimeHelperErrorResponse;
 
@@ -233,6 +266,16 @@ export interface RuntimeHelperEmbedRequestInput
   sessionId: string;
   resourceLeaseId: string;
   request: EmbeddingGenerationRequest;
+}
+
+export interface RuntimeHelperGenerateRequestInput
+  extends RuntimeHelperRequestIdentity {
+  sessionId: string;
+  resourceLeaseId: string;
+  modelId: string;
+  prompt: string;
+  maxOutputChars: number;
+  temperature: 0;
 }
 
 export interface RuntimeHelperShutdownRequestInput
@@ -264,6 +307,9 @@ const ERROR_MESSAGES: Record<RuntimeHelperErrorCode, string> = {
     "Requested embedding dimensions are not supported by the loaded model.",
   EMBEDDING_EXECUTION_DISABLED:
     "Embedding execution remains disabled by the runtime gate.",
+  GENERATION_EXECUTION_DISABLED:
+    "Generation execution remains disabled by the runtime gate.",
+  GENERATION_OUTPUT_INVALID: "Generation output failed validation.",
   HELPER_PROCESS_EXITED: "Runtime helper process exited unexpectedly.",
   HELPER_INTERNAL: "Runtime helper failed with a sanitized error."
 };
@@ -325,6 +371,7 @@ export function createRuntimeHelperProtocolPolicy(): RuntimeHelperProtocolPolicy
     requestCorrelationRequired: true,
     resourceLeaseRequiredBeforeLoad: true,
     resourceLeaseRequiredBeforeEmbed: true,
+    resourceLeaseRequiredBeforeGenerate: true,
     directShellExecutionAllowed: false,
     modelOutputActionPolicy: "validated_intent_only",
     sanitizedErrorsRequired: true,
@@ -347,6 +394,7 @@ export function isRuntimeHelperProtocolPolicyApproved(
     policy.requestCorrelationRequired === true &&
     policy.resourceLeaseRequiredBeforeLoad === true &&
     policy.resourceLeaseRequiredBeforeEmbed === true &&
+    policy.resourceLeaseRequiredBeforeGenerate === true &&
     policy.directShellExecutionAllowed === false &&
     policy.modelOutputActionPolicy === "validated_intent_only" &&
     policy.sanitizedErrorsRequired === true &&
@@ -418,6 +466,23 @@ export function createRuntimeHelperEmbedRequest(
       request: input.request
     }
   }) as RuntimeHelperEmbedRequest;
+}
+
+export function createRuntimeHelperGenerateRequest(
+  input: RuntimeHelperGenerateRequestInput
+): RuntimeHelperGenerateRequest {
+  return parseRuntimeHelperRequest({
+    ...createRequestIdentity(input),
+    operation: "generate",
+    payload: {
+      sessionId: input.sessionId,
+      resourceLeaseId: input.resourceLeaseId,
+      modelId: input.modelId,
+      prompt: input.prompt,
+      maxOutputChars: input.maxOutputChars,
+      temperature: input.temperature
+    }
+  }) as RuntimeHelperGenerateRequest;
 }
 
 export function createRuntimeHelperShutdownRequest(
@@ -516,6 +581,31 @@ export function parseRuntimeHelperRequest(
         }
       };
     }
+    case "generate":
+      if (
+        !hasOnlyKeys(payload, [
+          "sessionId",
+          "resourceLeaseId",
+          "modelId",
+          "prompt",
+          "maxOutputChars",
+          "temperature"
+        ])
+      ) {
+        throwProtocolError();
+      }
+      return {
+        ...base,
+        operation,
+        payload: {
+          sessionId: parseIdentifier(payload.sessionId),
+          resourceLeaseId: parseIdentifier(payload.resourceLeaseId),
+          modelId: parseModelId(payload.modelId),
+          prompt: parsePrompt(payload.prompt),
+          maxOutputChars: parseMaxOutputChars(payload.maxOutputChars),
+          temperature: parseTemperature(payload.temperature)
+        }
+      };
     case "shutdown":
       if (!hasOnlyKeys(payload, ["reason"])) {
         throwProtocolError();
@@ -600,6 +690,13 @@ export function parseRuntimeHelperResponse(
         operation,
         ok: true,
         payload: parseEmbeddingResponse(record.payload)
+      };
+    case "generate":
+      return {
+        ...base,
+        operation,
+        ok: true,
+        payload: parseGenerateResponse(record.payload)
       };
     case "shutdown":
       return {
@@ -721,6 +818,7 @@ function parseOperation(value: unknown): RuntimeHelperOperation {
     value === "health" ||
     value === "load" ||
     value === "embed" ||
+    value === "generate" ||
     value === "shutdown"
   ) {
     return value;
@@ -825,6 +923,20 @@ function parseEmbeddingResponse(
   return parsed.data;
 }
 
+function parseGenerateResponse(
+  value: unknown
+): RuntimeHelperGenerateResponse["payload"] {
+  const record = expectRecord(value);
+  if (!hasOnlyKeys(record, ["modelId", "text", "generatedAt"])) {
+    throwProtocolError();
+  }
+  return {
+    modelId: parseModelId(record.modelId),
+    text: parseGeneratedText(record.text),
+    generatedAt: parseDateTime(record.generatedAt)
+  };
+}
+
 function parseShutdownResponse(
   value: unknown
 ): RuntimeHelperShutdownResponse["payload"] {
@@ -890,6 +1002,39 @@ function parseModelDirectory(value: unknown): string {
   return value;
 }
 
+function parsePrompt(value: unknown): string {
+  if (!isSanitizedText(value, 20_000)) {
+    throwProtocolError();
+  }
+  return value;
+}
+
+function parseGeneratedText(value: unknown): string {
+  if (!isSanitizedText(value, 2_000)) {
+    throwProtocolError();
+  }
+  return value;
+}
+
+function parseMaxOutputChars(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 2_000
+  ) {
+    throwProtocolError();
+  }
+  return value;
+}
+
+function parseTemperature(value: unknown): 0 {
+  if (value !== 0) {
+    throwProtocolError();
+  }
+  return 0;
+}
+
 function parseCapability(value: unknown): LocalModelCapability {
   const parsed = LocalModelCapabilitySchema.safeParse(value);
   if (!parsed.success) {
@@ -936,7 +1081,7 @@ function isSanitizedText(value: unknown, maxLength: number): value is string {
     typeof value === "string" &&
     value.length >= 1 &&
     value.length <= maxLength &&
-    !/[\u0000-\u001f\u007f]/u.test(value) &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value) &&
     !SENSITIVE_TEXT_PATTERN.test(value)
   );
 }
@@ -957,6 +1102,8 @@ function isRuntimeHelperErrorCode(
     value === "MODEL_RUNTIME_INCOMPATIBLE" ||
     value === "EMBEDDING_DIMENSIONS_UNSUPPORTED" ||
     value === "EMBEDDING_EXECUTION_DISABLED" ||
+    value === "GENERATION_EXECUTION_DISABLED" ||
+    value === "GENERATION_OUTPUT_INVALID" ||
     value === "HELPER_PROCESS_EXITED" ||
     value === "HELPER_INTERNAL"
   );

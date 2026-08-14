@@ -109,9 +109,124 @@ const packages = [
     ]
   },
   {
+    name: "inference-adapter-qwen-router",
+    root: path.join(root, "packages", "inference-adapter-qwen-router"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
+    name: "inference-adapter-openai-planner",
+    root: path.join(root, "packages", "inference-adapter-openai-planner"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
+    name: "inference-adapter-openai-chat-answer",
+    root: path.join(root, "packages", "inference-adapter-openai-chat-answer"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
+    name: "inference-adapter-glm-planner",
+    root: path.join(root, "packages", "inference-adapter-glm-planner"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
+    name: "inference-adapter-glm-runtime",
+    root: path.join(root, "packages", "inference-adapter-glm-runtime"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
+    name: "inference-adapter-glm-chat-answer-runtime",
+    root: path.join(
+      root,
+      "packages",
+      "inference-adapter-glm-chat-answer-runtime"
+    ),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts",
+      "@jarvis-k/inference-adapter-openai-chat-answer"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "react",
+      "ws",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
     name: "memory",
     root: path.join(root, "packages", "memory"),
     allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
+    name: "plugin-sdk",
+    root: path.join(root, "packages", "plugin-sdk"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
     forbiddenImportPrefixes: [
       "electron",
       "node:",
@@ -157,6 +272,16 @@ const packages = [
     ]
   },
   {
+    name: "voice-adapter-volcengine",
+    root: path.join(root, "packages", "voice-adapter-volcengine"),
+    allowedWorkspaceImports: new Set(["@jarvis-k/voice"]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "react",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
     name: "core",
     root: path.join(root, "packages", "core"),
     allowedWorkspaceImports: new Set([
@@ -182,10 +307,18 @@ const packages = [
       "@jarvis-k/core",
       "@jarvis-k/inference-adapter-embedding-local",
       "@jarvis-k/inference-adapter-fixture",
+      "@jarvis-k/inference-adapter-glm-chat-answer-runtime",
+      "@jarvis-k/inference-adapter-glm-planner",
+      "@jarvis-k/inference-adapter-glm-runtime",
+      "@jarvis-k/inference-adapter-openai-chat-answer",
+      "@jarvis-k/inference-adapter-openai-planner",
+      "@jarvis-k/inference-adapter-qwen-router",
       "@jarvis-k/inference-runtime-transformers-local",
       "@jarvis-k/memory-sqlite",
+      "@jarvis-k/plugin-sdk",
       "@jarvis-k/voice",
-      "@jarvis-k/voice-adapter-xunfei"
+      "@jarvis-k/voice-adapter-xunfei",
+      "@jarvis-k/voice-adapter-volcengine"
     ]),
     forbiddenImportPrefixes: [
       "electron",
@@ -302,6 +435,9 @@ for (const workspacePackage of packages) {
   }
 
   const sourceRoot = path.join(workspacePackage.root, "src");
+  if (!fs.existsSync(sourceRoot)) {
+    continue;
+  }
   for (const filePath of walk(sourceRoot)) {
     for (const specifier of collectImports(filePath)) {
       if (

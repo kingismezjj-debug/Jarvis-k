@@ -64,7 +64,38 @@ describe("SecureVoiceProviderStore", () => {
     await expect(store.status()).resolves.toEqual({
       configured: true,
       secureStorageAvailable: true,
+      provider: "xunfei",
       language: "zh"
+    });
+  });
+
+  it("stores Volcengine ASR configuration without exposing API keys", async () => {
+    const { filePath, store } = await createStore();
+    await store.save({
+      provider: "volcengine",
+      language: "zh",
+      credentials: {
+        apiKey: "local-api-key",
+        resourceId: "volc.seedasr.sauc.duration"
+      }
+    });
+
+    const onDisk = await readFile(filePath, "utf8");
+    expect(onDisk).not.toContain("local-api-key");
+    await expect(store.load()).resolves.toEqual({
+      provider: "volcengine",
+      language: "zh",
+      credentials: {
+        apiKey: "local-api-key",
+        resourceId: "volc.seedasr.sauc.duration"
+      }
+    });
+    await expect(store.status()).resolves.toEqual({
+      configured: true,
+      secureStorageAvailable: true,
+      provider: "volcengine",
+      language: "zh",
+      resourceId: "volc.seedasr.sauc.duration"
     });
   });
 
@@ -76,11 +107,11 @@ describe("SecureVoiceProviderStore", () => {
     });
     await expect(
       store.save({
-        provider: "xunfei",
+        provider: "volcengine",
         language: "en",
         credentials: {
-          appId: "unused-app",
-          apiKey: "unused-key"
+          apiKey: "unused-key",
+          resourceId: "volc.seedasr.sauc.duration"
         }
       })
     ).rejects.toThrow("Secure credential storage is unavailable.");

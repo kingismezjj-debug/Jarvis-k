@@ -2,12 +2,25 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { VoiceServiceStatus } from "@jarvis-k/contracts";
 
-export interface VoiceProviderConfiguration {
+export type VoiceProviderConfiguration =
+  | XunfeiVoiceProviderConfiguration
+  | VolcengineVoiceProviderConfiguration;
+
+export interface XunfeiVoiceProviderConfiguration {
   provider: "xunfei";
   language: "zh" | "en";
   credentials: {
     appId: string;
     apiKey: string;
+  };
+}
+
+export interface VolcengineVoiceProviderConfiguration {
+  provider: "volcengine";
+  language: "zh" | "en";
+  credentials: {
+    apiKey: string;
+    resourceId: string;
   };
 }
 
@@ -41,7 +54,15 @@ export class SecureVoiceProviderStore {
     return {
       configured: configuration !== null,
       secureStorageAvailable,
-      ...(configuration ? { language: configuration.language } : {})
+      ...(configuration
+        ? {
+            provider: configuration.provider,
+            language: configuration.language,
+            ...(configuration.provider === "volcengine"
+              ? { resourceId: configuration.credentials.resourceId }
+              : {})
+          }
+        : {})
     };
   }
 
@@ -125,23 +146,53 @@ function parseVoiceProviderConfiguration(
 ): VoiceProviderConfiguration {
   if (
     !isRecord(value) ||
-    value.provider !== "xunfei" ||
     (value.language !== "zh" && value.language !== "en") ||
     !isRecord(value.credentials)
   ) {
     throw new Error("Invalid voice provider configuration.");
   }
 
-  const appId = requireSecret(value.credentials.appId);
-  const apiKey = requireSecret(value.credentials.apiKey);
-  return {
-    provider: "xunfei",
-    language: value.language,
-    credentials: {
-      appId,
-      apiKey
-    }
-  };
+  if (value.provider === "xunfei") {
+    const appId = requireSecret(value.credentials.appId);
+    const apiKey = requireSecret(value.credentials.apiKey);
+    return {
+      provider: "xunfei",
+      language: value.language,
+      credentials: {
+        appId,
+        apiKey
+      }
+    };
+  }
+
+  if (value.provider === "volcengine") {
+    const apiKey = requireSecret(value.credentials.apiKey);
+    const resourceId = requireResourceId(value.credentials.resourceId);
+    return {
+      provider: "volcengine",
+      language: value.language,
+      credentials: {
+        apiKey,
+        resourceId
+      }
+    };
+  }
+
+  throw new Error("Invalid voice provider configuration.");
+}
+
+function requireResourceId(value: unknown): string {
+  const resourceId =
+    typeof value === "string" && value.trim().length > 0
+      ? value.trim()
+      : "volc.seedasr.sauc.duration";
+  if (
+    resourceId.length > 128 ||
+    !/^volc\.[a-z0-9_.-]+$/i.test(resourceId)
+  ) {
+    throw new Error("Invalid resource ID.");
+  }
+  return resourceId;
 }
 
 function requireSecret(value: unknown): string {

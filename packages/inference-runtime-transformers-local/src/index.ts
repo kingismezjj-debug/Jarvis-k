@@ -58,7 +58,7 @@ export interface TransformersLocalRuntimeAdapterSurface {
 export function createTransformersLocalRuntimeDescriptor(): ModelRuntimeAdapterDescriptor {
   return ModelRuntimeAdapterDescriptorSchema.parse({
     runtime: TRANSFORMERS_LOCAL_RUNTIME,
-    capabilities: ["embedding"],
+    capabilities: ["embedding", "intent_router"],
     accelerationBackends: [],
     notes: [
       "A concrete Python Transformers helper is implemented inside the dedicated runtime package.",

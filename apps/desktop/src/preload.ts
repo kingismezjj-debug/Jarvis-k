@@ -2,13 +2,31 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   AppCommand,
   AppCommandSchema,
+  ChatAnswerProductModeSetResultSchema,
+  ChatAnswerProductModeStatusSchema,
+  CommandRouterProductModeSetResultSchema,
+  CommandRouterProductModeStatusSchema,
   EventEnvelopeSchema,
+  IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_CHANNEL,
+  IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_EVENT_CHANNEL,
+  IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
+  IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
+  IPC_TTS_SETTINGS_OPEN_CHANNEL,
+  IPC_TTS_SETTINGS_STATUS_CHANNEL,
+  IPC_TTS_SYNTHESIZE_CHANNEL,
   IPC_VOICE_SETTINGS_OPEN_CHANNEL,
   IPC_VOICE_SETTINGS_STATUS_CHANNEL,
   IPC_VOICE_AUDIO_CHANNEL,
   JarvisBridge,
+  QwenRuntimeControlSetResultSchema,
+  QwenRuntimeControlStatusSchema,
+  type QwenRuntimeControlAction,
+  TtsServiceStatusSchema,
+  TtsSynthesisResultSchema,
   VoiceServiceStatusSchema,
   VoiceAudioFrame,
   VoiceAudioFrameSchema,
@@ -38,6 +56,36 @@ const bridge: JarvisBridge = {
       type: "agent.getSnapshot",
       payload: {}
     }),
+  getCommandRouterProductModeStatus: async () =>
+    CommandRouterProductModeStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL)
+    ),
+  setCommandRouterProductModeEnabled: async (enabled) =>
+    CommandRouterProductModeSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL, {
+        enabled
+      })
+    ),
+  getQwenRuntimeControlStatus: async () =>
+    QwenRuntimeControlStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL)
+    ),
+  setQwenRuntimeControlAction: async (action: QwenRuntimeControlAction) =>
+    QwenRuntimeControlSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL, {
+        action
+      })
+    ),
+  getChatAnswerProductModeStatus: async () =>
+    ChatAnswerProductModeStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL)
+    ),
+  setChatAnswerProductModeEnabled: async (enabled) =>
+    ChatAnswerProductModeSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL, {
+        enabled
+      })
+    ),
   getVoiceServiceStatus: async () =>
     VoiceServiceStatusSchema.parse(
       await ipcRenderer.invoke(IPC_VOICE_SETTINGS_STATUS_CHANNEL)
@@ -45,6 +93,21 @@ const bridge: JarvisBridge = {
   openVoiceSettings: async () =>
     VoiceServiceStatusSchema.parse(
       await ipcRenderer.invoke(IPC_VOICE_SETTINGS_OPEN_CHANNEL)
+    ),
+  getTtsServiceStatus: async () =>
+    TtsServiceStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_TTS_SETTINGS_STATUS_CHANNEL)
+    ),
+  openTtsSettings: async () =>
+    TtsServiceStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_TTS_SETTINGS_OPEN_CHANNEL)
+    ),
+  synthesizeTts: async (text, voiceId) =>
+    TtsSynthesisResultSchema.parse(
+      await ipcRenderer.invoke(IPC_TTS_SYNTHESIZE_CHANNEL, {
+        text,
+        ...(voiceId ? { voiceId } : {})
+      })
     ),
   onEvent: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, rawEvent: unknown) => {

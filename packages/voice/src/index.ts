@@ -1,4 +1,5 @@
 export * from "./continuous-listening-strategy";
+export * from "./bailongma-style-asr-provider";
 export * from "./engine";
 export * from "./local-voice-benchmark";
 export * from "./local-voice-contract";

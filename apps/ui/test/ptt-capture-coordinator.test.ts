@@ -2,17 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppCommand } from "@jarvis-k/contracts";
 import {
   PttCaptureCoordinator,
+  type PttCommandResult,
   type PttCapturePort
 } from "../src/voice/ptt-capture-coordinator";
 
 function createHarness(
-  sendCommand: (command: AppCommand) => Promise<boolean> = async () => true
+  sendCommand: (command: AppCommand) => Promise<boolean | PttCommandResult> = async () => true,
+  captureStart: () => Promise<boolean> = async () => true
 ) {
   const order: string[] = [];
+  const startFailures: string[] = [];
+  const commandFailures: unknown[] = [];
   const capture: PttCapturePort = {
     start: vi.fn(async () => {
       order.push("capture.start");
-      return true;
+      return captureStart();
     }),
     stop: vi.fn(async () => {
       order.push("capture.stop");
@@ -27,13 +31,19 @@ function createHarness(
   const coordinator = new PttCaptureCoordinator({
     capture,
     createCaptureId: () => "capture-1",
+    onStartFailure: (reason) => startFailures.push(reason),
+    onCommandFailure: (error) => commandFailures.push(error),
     sendCommand: async (command) => {
       commands.push(command);
       order.push(command.type);
-      return sendCommand(command);
+      const result = await sendCommand(command);
+      if (typeof result === "boolean") {
+        return result ? { ok: true } : { ok: false };
+      }
+      return result;
     }
   });
-  return { capture, commands, coordinator, order };
+  return { capture, commandFailures, commands, coordinator, order, startFailures };
 }
 
 describe("PttCaptureCoordinator", () => {
@@ -49,6 +59,17 @@ describe("PttCaptureCoordinator", () => {
     expect(
       harness.commands.filter((command) => command.type === "voice.startPtt")
     ).toHaveLength(1);
+  });
+
+  it("starts local microphone capture before remote PTT setup", async () => {
+    const harness = createHarness();
+
+    expect(await harness.coordinator.start()).toBe(true);
+    expect(harness.order.slice(0, 3)).toEqual([
+      "capture.start",
+      "voice.setMode",
+      "voice.startPtt"
+    ]);
   });
 
   it.each([
@@ -89,6 +110,79 @@ describe("PttCaptureCoordinator", () => {
     });
   });
 
+  it("reports command errors from the PTT release path", async () => {
+    const harness = createHarness(async (command) =>
+      command.type === "voice.stopPtt"
+        ? {
+            ok: false,
+            error: {
+              code: "VOICE_FINALIZE_FAILED",
+              message: "ASR finalize failed.",
+              retryable: true
+            }
+          }
+        : true
+    );
+    await harness.coordinator.start();
+
+    await harness.coordinator.stop("release");
+
+    expect(harness.commandFailures).toEqual([
+      {
+        code: "VOICE_FINALIZE_FAILED",
+        message: "ASR finalize failed.",
+        retryable: true
+      }
+    ]);
+  });
+
+  it("suppresses secondary stop errors after the voice engine is already errored", async () => {
+    const harness = createHarness(async (command) =>
+      command.type === "voice.stopPtt"
+        ? {
+            ok: false,
+            error: {
+              code: "VOICE_STATE_INVALID",
+              message: "PTT cannot stop while state is error.",
+              retryable: false
+            }
+          }
+        : true
+    );
+    await harness.coordinator.start();
+
+    await harness.coordinator.stop("release");
+
+    expect(harness.commandFailures).toEqual([]);
+    expect(harness.commands.slice(-2)).toEqual([
+      {
+        type: "voice.stopPtt",
+        payload: { captureId: "capture-1" }
+      },
+      {
+        type: "voice.cancel",
+        payload: { reason: "user" }
+      }
+    ]);
+  });
+
+  it("preserves capture-layer failures instead of overwriting their diagnosis", async () => {
+    const harness = createHarness(
+      async () => true,
+      async () => {
+        throw new DOMException("Permission denied.", "NotAllowedError");
+      }
+    );
+
+    expect(await harness.coordinator.start()).toBe(false);
+
+    expect(harness.startFailures).toEqual([]);
+    expect(harness.commands.at(-1)).toEqual({
+      type: "voice.cancel",
+      payload: { reason: "capture-error" }
+    });
+  });
+
   it("cancels a start that is still waiting for Core", async () => {
     let resolveMode: ((accepted: boolean) => void) | undefined;
     const modePending = new Promise<boolean>((resolve) => {
@@ -104,11 +198,34 @@ describe("PttCaptureCoordinator", () => {
     resolveMode?.(true);
 
     expect(await starting).toBe(false);
-    expect(harness.capture.start).not.toHaveBeenCalled();
+    expect(harness.capture.start).toHaveBeenCalledTimes(1);
+    expect(harness.capture.stop).toHaveBeenCalledTimes(1);
     expect(harness.commands.at(-1)).toEqual({
       type: "voice.cancel",
       payload: { reason: "window-blur" }
     });
+  });
+
+  it("reports when Core cannot enter PTT mode after local capture starts", async () => {
+    const harness = createHarness(async (command) =>
+      command.type === "voice.setMode" ? false : true
+    );
+
+    expect(await harness.coordinator.start()).toBe(false);
+    expect(harness.capture.start).toHaveBeenCalledTimes(1);
+    expect(harness.capture.stop).toHaveBeenCalledTimes(1);
+    expect(harness.startFailures).toEqual(["voice-mode-unavailable"]);
+  });
+
+  it("reports when Core cannot start a PTT session after local capture starts", async () => {
+    const harness = createHarness(async (command) =>
+      command.type === "voice.startPtt" ? false : true
+    );
+
+    expect(await harness.coordinator.start()).toBe(false);
+    expect(harness.capture.start).toHaveBeenCalledTimes(1);
+    expect(harness.capture.stop).toHaveBeenCalledTimes(1);
+    expect(harness.startFailures).toEqual(["voice-session-unavailable"]);
   });
 
   it("disposes the capture owner once during renderer teardown", async () => {

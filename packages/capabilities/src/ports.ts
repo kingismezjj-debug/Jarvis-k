@@ -1,6 +1,10 @@
 import type {
   CapabilitySnapshot,
   DeviceCapability,
+  BrainPlannerRequest,
+  BrainPlannerResult,
+  ChatAnswerRequest,
+  ChatAnswerResult,
   EmbeddingGenerationRequest,
   EmbeddingGenerationResult,
   InferenceProviderConfigurationReport,
@@ -20,6 +24,10 @@ import type {
   ModelRuntimeAdapterDescriptor,
   OcrRecognitionRequest,
   OcrRecognitionResult,
+  LocalPluginManifestDeveloperStatusResult,
+  PluginInvocationRequest,
+  PluginInvocationResult,
+  PluginManifest,
   RerankRequest,
   RerankResult,
   ResourceSchedulerDiagnostics,
@@ -27,7 +35,7 @@ import type {
   ScreenCaptureResult,
   StructuredError,
   VisionAnalysisRequest,
-  VisionAnalysisResult
+  VisionAnalysisResult,
 } from "@jarvis-k/contracts";
 
 export interface CapabilityProvider {
@@ -41,7 +49,7 @@ export interface ModelRegistry {
 
 export interface ModelCandidateRegistry {
   listCandidates(
-    options?: ModelCandidateRegistryListOptions
+    options?: ModelCandidateRegistryListOptions,
   ): Promise<ModelCandidate[]>;
   getCandidate(modelId: string): Promise<ModelCandidate | undefined>;
 }
@@ -59,7 +67,7 @@ export interface ModelCandidateRegistryListOptions {
 export interface ModelDownloadManager {
   download(
     manifest: ModelManifest,
-    options?: ModelDownloadOptions
+    options?: ModelDownloadOptions,
   ): Promise<ModelInventoryItem>;
   remove(modelId: string): Promise<void>;
   verify(modelId: string): Promise<boolean>;
@@ -81,7 +89,7 @@ export interface ModelDownloadProgress {
 
 export interface ModelInstallationPlanner {
   preview(
-    input: ModelInstallationPreviewInput
+    input: ModelInstallationPreviewInput,
   ): Promise<ModelInstallabilityReport>;
 }
 
@@ -106,10 +114,10 @@ export interface ModelRuntimeRegistry {
 
 export interface InferenceProviderRegistry {
   listProviders(
-    options?: InferenceProviderRegistryListOptions
+    options?: InferenceProviderRegistryListOptions,
   ): Promise<InferenceProviderDescriptor[]>;
   listConfigurationRequirements(
-    options?: InferenceProviderRegistryListOptions
+    options?: InferenceProviderRegistryListOptions,
   ): Promise<InferenceProviderConfigurationReport[]>;
 }
 
@@ -119,7 +127,7 @@ export interface InferenceProviderRegistryListOptions {
 
 export interface InferenceExecutionPlanner {
   preview(
-    input: InferenceExecutionPreviewInput
+    input: InferenceExecutionPreviewInput,
   ): Promise<InferencePreflightReport>;
 }
 
@@ -152,39 +160,56 @@ export interface LoadedModelSession {
 
 export interface EmbeddingInferenceProvider {
   embed(
-    request: EmbeddingGenerationRequest
+    request: EmbeddingGenerationRequest,
   ): Promise<EmbeddingGenerationResult>;
 }
 
 export interface OcrRecognitionProvider {
-  recognize(
-    request: OcrRecognitionRequest
-  ): Promise<OcrRecognitionResult>;
+  recognize(request: OcrRecognitionRequest): Promise<OcrRecognitionResult>;
 }
 
 export interface ScreenCaptureProvider {
-  capture(
-    request: ScreenCaptureRequest
-  ): Promise<ScreenCaptureResult>;
+  capture(request: ScreenCaptureRequest): Promise<ScreenCaptureResult>;
 }
 
 export interface VisionAnalysisProvider {
-  analyze(
-    request: VisionAnalysisRequest
-  ): Promise<VisionAnalysisResult>;
+  analyze(request: VisionAnalysisRequest): Promise<VisionAnalysisResult>;
 }
 
 export interface IntentRoutingProvider {
   route(request: IntentRoutingRequest): Promise<IntentRoutingResult>;
 }
 
+export interface HeavyPlannerProvider {
+  plan(request: BrainPlannerRequest): Promise<BrainPlannerResult>;
+}
+
+export interface ChatAnswerProvider {
+  answer(request: ChatAnswerRequest): Promise<ChatAnswerResult>;
+}
+
 export interface RerankingProvider {
   rerank(request: RerankRequest): Promise<RerankResult>;
 }
 
+export interface PluginRegistry {
+  listPlugins(): Promise<PluginManifest[]>;
+  getPlugin(pluginId: string): Promise<PluginManifest | undefined>;
+}
+
+export interface PluginRuntime {
+  listExecutablePluginIds?(): Promise<string[]>;
+  listLocalReadOnlyPluginIds?(): Promise<string[]>;
+  invoke(request: PluginInvocationRequest): Promise<PluginInvocationResult>;
+}
+
+export interface LocalPluginManifestDeveloperDiagnostics {
+  getStatus(): Promise<LocalPluginManifestDeveloperStatusResult>;
+}
+
 export interface ModelInstallWorkflowOrchestrator {
   prepare(
-    input: ModelInstallWorkflowPrepareInput
+    input: ModelInstallWorkflowPrepareInput,
   ): Promise<ModelOperationSnapshot>;
 }
 
@@ -199,10 +224,7 @@ export interface ModelInstallWorkflowPrepareInput {
 export interface ModelOperationSupervisor {
   start(input: ModelOperationStartInput): Promise<ModelOperationSnapshot>;
   update(input: ModelOperationUpdateInput): Promise<ModelOperationSnapshot>;
-  cancel(
-    operationId: string,
-    reason?: string
-  ): Promise<ModelOperationSnapshot>;
+  cancel(operationId: string, reason?: string): Promise<ModelOperationSnapshot>;
   get(operationId: string): Promise<ModelOperationSnapshot | undefined>;
   list(options?: ModelOperationListOptions): Promise<ModelOperationSnapshot[]>;
 }

@@ -6,13 +6,13 @@ export function createVoiceSettingsWindow(
 ): BrowserWindow {
   const window = new BrowserWindow({
     width: 520,
-    height: 520,
+    height: 820,
     minWidth: 520,
-    minHeight: 520,
+    minHeight: 760,
     maxWidth: 680,
-    maxHeight: 720,
+    maxHeight: 960,
     ...(parent ? { parent } : {}),
-    title: "Jarvis-K Voice Service",
+    title: "Jarvis-K Voice & TTS Service",
     show: false,
     resizable: true,
     backgroundColor: "#11110f",
@@ -65,6 +65,7 @@ const settingsHtml = String.raw`<!doctype html>
         margin: 0;
         min-width: 520px;
         min-height: 520px;
+        overflow-y: auto;
         background: var(--background);
         color: var(--text);
         font-family:
@@ -73,8 +74,8 @@ const settingsHtml = String.raw`<!doctype html>
       }
 
       main {
-        display: grid;
-        grid-template-rows: auto 1fr auto;
+        display: flex;
+        flex-direction: column;
         min-height: 100vh;
       }
 
@@ -113,6 +114,7 @@ const settingsHtml = String.raw`<!doctype html>
         display: grid;
         gap: 16px;
         padding: 20px;
+        flex: 0 0 auto;
       }
 
       .status {
@@ -244,8 +246,8 @@ const settingsHtml = String.raw`<!doctype html>
     <main>
       <header>
         <div>
-          <h1>Voice Service</h1>
-          <p class="subtle">Xunfei RTASR</p>
+          <h1>Voice & TTS Service</h1>
+          <p class="subtle" id="providerSubtitle">Xunfei RTASR</p>
         </div>
         <span class="pill" id="statusPill">CHECKING</span>
       </header>
@@ -259,6 +261,13 @@ const settingsHtml = String.raw`<!doctype html>
         </div>
         <form id="settingsForm">
           <div class="field">
+            <label for="provider">Provider</label>
+            <select id="provider" name="provider">
+              <option value="xunfei">Xunfei RTASR</option>
+              <option value="volcengine">Volcengine Bigmodel ASR</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="appId">AppID</label>
             <input
               id="appId"
@@ -269,7 +278,7 @@ const settingsHtml = String.raw`<!doctype html>
             />
           </div>
           <div class="field">
-            <label for="apiKey">APIKey</label>
+            <label for="apiKey" id="apiKeyLabel">APIKey</label>
             <input
               id="apiKey"
               name="apiKey"
@@ -278,6 +287,17 @@ const settingsHtml = String.raw`<!doctype html>
               required
               type="password"
             />
+          </div>
+          <div class="field" id="resourceIdField">
+            <label for="resourceId">Resource ID</label>
+            <input
+              id="resourceId"
+              name="resourceId"
+              autocomplete="off"
+              spellcheck="false"
+              value="volc.seedasr.sauc.duration"
+            />
+            <p class="subtle">Use volc.bigasr.sauc.duration if your account is opened on the older resource.</p>
           </div>
           <div class="field">
             <label for="language">Language</label>
@@ -296,10 +316,72 @@ const settingsHtml = String.raw`<!doctype html>
           Save
         </button>
       </footer>
+      <section class="content" style="border-top: 1px solid var(--border);">
+        <div class="status">
+          <div>
+            <strong>TTS Service</strong>
+            <p class="subtle" id="ttsProviderSubtitle">Doubao cloud TTS</p>
+          </div>
+          <span class="pill" id="ttsStatusPill">CHECKING</span>
+        </div>
+        <form id="ttsSettingsForm">
+          <div class="field">
+            <label for="ttsProvider">Provider</label>
+            <select id="ttsProvider" name="ttsProvider">
+              <option value="doubao">Doubao</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ttsApiKey">API Key</label>
+            <input
+              id="ttsApiKey"
+              name="ttsApiKey"
+              autocomplete="new-password"
+              spellcheck="false"
+              required
+              type="password"
+            />
+          </div>
+          <div class="field">
+            <label for="ttsVoiceId">Voice ID</label>
+            <input
+              id="ttsVoiceId"
+              name="ttsVoiceId"
+              autocomplete="off"
+              spellcheck="false"
+              value="zh_female_xiaohe_uranus_bigtts"
+            />
+          </div>
+          <div class="field">
+            <label for="ttsResourceId">Resource ID</label>
+            <input
+              id="ttsResourceId"
+              name="ttsResourceId"
+              autocomplete="off"
+              spellcheck="false"
+              value="seed-tts-2.0"
+            />
+            <p class="subtle">Leave empty to auto-select a Doubao resource ID from the voice id.</p>
+          </div>
+          <p class="message" id="ttsMessage"></p>
+        </form>
+      </section>
+      <footer>
+        <button class="danger" id="clearTtsButton" type="button">Clear TTS</button>
+        <button class="primary" form="ttsSettingsForm" id="saveTtsButton" type="submit">
+          Save TTS
+        </button>
+      </footer>
     </main>
     <script>
       const bridge = window.jarvisVoiceSettings;
       const form = document.getElementById("settingsForm");
+      const provider = document.getElementById("provider");
+      const providerSubtitle = document.getElementById("providerSubtitle");
+      const appIdField = document.getElementById("appId").closest(".field");
+      const apiKeyLabel = document.getElementById("apiKeyLabel");
+      const resourceId = document.getElementById("resourceId");
+      const resourceIdField = document.getElementById("resourceIdField");
       const statusPill = document.getElementById("statusPill");
       const storageStatus = document.getElementById("storageStatus");
       const languagePill = document.getElementById("languagePill");
@@ -307,6 +389,15 @@ const settingsHtml = String.raw`<!doctype html>
       const clearButton = document.getElementById("clearButton");
       const closeButton = document.getElementById("closeButton");
       const saveButton = document.getElementById("saveButton");
+      const ttsProvider = document.getElementById("ttsProvider");
+      const ttsProviderSubtitle = document.getElementById("ttsProviderSubtitle");
+      const ttsApiKey = document.getElementById("ttsApiKey");
+      const ttsVoiceId = document.getElementById("ttsVoiceId");
+      const ttsResourceId = document.getElementById("ttsResourceId");
+      const ttsStatusPill = document.getElementById("ttsStatusPill");
+      const ttsMessage = document.getElementById("ttsMessage");
+      const clearTtsButton = document.getElementById("clearTtsButton");
+      const saveTtsButton = document.getElementById("saveTtsButton");
 
       function setMessage(text, tone) {
         message.textContent = text;
@@ -320,13 +411,45 @@ const settingsHtml = String.raw`<!doctype html>
           ? "Local protection is available."
           : "Local protection is unavailable.";
         languagePill.textContent = (status.language || "zh").toUpperCase();
+        provider.value = status.provider || provider.value || "xunfei";
+        if (status.resourceId) resourceId.value = status.resourceId;
+        updateProviderUi();
         clearButton.disabled = !status.configured;
         saveButton.disabled = !status.secureStorageAvailable;
       }
 
+      function renderTtsStatus(status) {
+        ttsStatusPill.textContent = status.configured ? "CONFIGURED" : "MISSING";
+        ttsStatusPill.dataset.tone = status.configured ? "success" : "danger";
+        ttsProvider.value = status.provider || ttsProvider.value || "doubao";
+        ttsProviderSubtitle.textContent = status.configured
+          ? "Doubao cloud TTS / " +
+            (status.voiceId || "zh_female_xiaohe_uranus_bigtts")
+          : "Doubao cloud TTS";
+        if (status.voiceId) ttsVoiceId.value = status.voiceId;
+        if (status.resourceId) ttsResourceId.value = status.resourceId;
+        clearTtsButton.disabled = !status.configured;
+        saveTtsButton.disabled = !status.secureStorageAvailable;
+      }
+
+      function updateProviderUi() {
+        const selected = provider.value === "volcengine" ? "volcengine" : "xunfei";
+        providerSubtitle.textContent =
+          selected === "volcengine" ? "Volcengine Bigmodel ASR" : "Xunfei RTASR";
+        appIdField.style.display = selected === "volcengine" ? "none" : "";
+        document.getElementById("appId").required = selected !== "volcengine";
+        apiKeyLabel.textContent = selected === "volcengine" ? "API Key" : "APIKey";
+        resourceIdField.style.display = selected === "volcengine" ? "" : "none";
+      }
+
       async function refresh() {
         try {
-          renderStatus(await bridge.getStatus());
+          const [voiceStatus, ttsStatus] = await Promise.all([
+            bridge.getStatus(),
+            bridge.getTtsStatus()
+          ]);
+          renderStatus(voiceStatus);
+          renderTtsStatus(ttsStatus);
         } catch {
           setMessage("Unable to read voice service status.", "danger");
         }
@@ -338,8 +461,10 @@ const settingsHtml = String.raw`<!doctype html>
         saveButton.disabled = true;
         const formData = new FormData(form);
         const result = await bridge.save({
+          provider: String(formData.get("provider") || "xunfei") === "volcengine" ? "volcengine" : "xunfei",
           appId: String(formData.get("appId") || ""),
           apiKey: String(formData.get("apiKey") || ""),
+          resourceId: String(formData.get("resourceId") || ""),
           language: String(formData.get("language") || "zh") === "en" ? "en" : "zh"
         });
         if (result.ok) {
@@ -365,7 +490,45 @@ const settingsHtml = String.raw`<!doctype html>
         }
       });
 
+      document.getElementById("ttsSettingsForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        ttsMessage.textContent = "";
+        saveTtsButton.disabled = true;
+        const formData = new FormData(document.getElementById("ttsSettingsForm"));
+        const result = await bridge.saveTts({
+          provider: "doubao",
+          apiKey: String(formData.get("ttsApiKey") || ""),
+          voiceId: String(formData.get("ttsVoiceId") || ""),
+          resourceId: String(formData.get("ttsResourceId") || "")
+        });
+        if (result.ok) {
+          renderTtsStatus(result.status);
+          ttsMessage.textContent = "Saved. TTS playback will use the cloud chain.";
+          ttsMessage.dataset.tone = "success";
+        } else {
+          renderTtsStatus(result.status);
+          ttsMessage.textContent = result.message;
+          ttsMessage.dataset.tone = "danger";
+        }
+        saveTtsButton.disabled = false;
+      });
+
+      clearTtsButton.addEventListener("click", async () => {
+        const result = await bridge.clearTts();
+        if (result.ok) {
+          renderTtsStatus(result.status);
+          ttsMessage.textContent = "Cleared. Cloud TTS will be unavailable until reconfigured.";
+          ttsMessage.dataset.tone = "success";
+        } else {
+          renderTtsStatus(result.status);
+          ttsMessage.textContent = result.message;
+          ttsMessage.dataset.tone = "danger";
+        }
+      });
+
+      provider.addEventListener("change", updateProviderUi);
       closeButton.addEventListener("click", () => bridge.close());
+      updateProviderUi();
       void refresh();
     </script>
   </body>

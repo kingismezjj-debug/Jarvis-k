@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { ChildProcess, fork } from "node:child_process";
+import { ChildProcess, fork, spawn } from "node:child_process";
 import {
   CommandEnvelope,
   CommandEnvelopeSchema,
@@ -17,6 +17,8 @@ import {
   type VoiceAudioEnqueueResult
 } from "./audio-transport";
 import type { VoiceProviderConfiguration } from "./secure-voice-provider-store";
+import type { HeavyPlannerProviderConfiguration } from "./secure-heavy-planner-provider-store";
+import type { ChatAnswerProviderConfiguration } from "./secure-chat-answer-provider-store";
 
 interface PendingRequest {
   resolve: (result: CommandResult) => void;
@@ -27,18 +29,22 @@ interface PendingRequest {
 export interface CoreSupervisorOptions {
   coreEntry: string;
   requestTimeoutMs?: number;
+  brainCommandRequestTimeoutMs?: number;
   healthIntervalMs?: number;
   restartBaseDelayMs?: number;
   maxRestartAttempts?: number;
   maxAudioQueueFrames?: number;
   maxAudioQueueBytes?: number;
   loadVoiceProviderConfiguration?: () => Promise<VoiceProviderConfiguration | null>;
+  loadHeavyPlannerProviderConfiguration?: () => Promise<HeavyPlannerProviderConfiguration | null>;
+  loadChatAnswerProviderConfiguration?: () => Promise<ChatAnswerProviderConfiguration | null>;
 }
 
 export class CoreSupervisor {
   private readonly emitter = new EventEmitter();
   private readonly pending = new Map<string, PendingRequest>();
   private readonly requestTimeoutMs: number;
+  private readonly brainCommandRequestTimeoutMs: number;
   private readonly healthIntervalMs: number;
   private readonly restartBaseDelayMs: number;
   private readonly maxRestartAttempts: number;
@@ -51,9 +57,12 @@ export class CoreSupervisor {
   private restartAttempt = 0;
   private transportSequenceId = 0;
   private restartReason = "unexpected-exit";
+  private commandRouterProductMode = { enabled: false };
 
   public constructor(private readonly options: CoreSupervisorOptions) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 5_000;
+    this.brainCommandRequestTimeoutMs =
+      options.brainCommandRequestTimeoutMs ?? 60_000;
     this.healthIntervalMs = options.healthIntervalMs ?? 5_000;
     this.restartBaseDelayMs = options.restartBaseDelayMs ?? 250;
     this.maxRestartAttempts = options.maxRestartAttempts ?? 5;
@@ -101,8 +110,36 @@ export class CoreSupervisor {
       retryable: true
     });
     this.voiceAudioQueue.reset();
-    if (this.child) {
-      this.child.kill();
+    const child = this.child;
+    if (child) {
+      const childPid = child.pid;
+      let exited = false;
+      child.once("exit", () => {
+        exited = true;
+      });
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      if (child.connected) {
+        child.disconnect();
+      }
+      child.kill();
+      child.unref();
+      const forceTimer = setTimeout(() => {
+        if (exited || childPid === undefined) {
+          return;
+        }
+        const killer = spawn(
+          "taskkill.exe",
+          ["/PID", String(childPid), "/T", "/F"],
+          {
+            shell: false,
+            stdio: "ignore",
+            windowsHide: true
+          }
+        );
+        killer.unref();
+      }, 1500);
+      forceTimer.unref();
     } else {
       this.emitLifecycle("stopped", "supervisor-stop");
     }
@@ -130,6 +167,66 @@ export class CoreSupervisor {
     return this.voiceAudioQueue.enqueue(rawFrame);
   }
 
+  public configureChatAnswerProductMode(input: {
+    enabled: boolean;
+    configuration?: ChatAnswerProviderConfiguration;
+  }): void {
+    const child = this.child;
+    if (!child?.connected) {
+      return;
+    }
+    const credentialIncluded =
+      input.enabled === true && input.configuration !== undefined;
+    child.send(
+      {
+        kind: "chat-answer-product-mode.configure",
+        enabled: input.enabled,
+        providerId: "chat-answer.openai-compatible.deepseek",
+        profileId: "deepseek.v4-flash.compact_json_object_256",
+        runtimeLocked: !credentialIncluded,
+        credentialIncluded,
+        ...(credentialIncluded
+          ? { configuration: input.configuration }
+          : {})
+      },
+      (error) => {
+        if (error) {
+          process.stderr.write(
+            "[supervisor] Chat Answer product mode delivery failed.\n"
+          );
+        }
+      }
+    );
+  }
+
+  public configureCommandRouterProductMode(input: {
+    enabled: boolean;
+  }): void {
+    this.commandRouterProductMode = { enabled: input.enabled };
+    const child = this.child;
+    if (!child?.connected) {
+      return;
+    }
+    child.send(
+      {
+        kind: "command-router-product-mode.configure",
+        providerId: "intent-router.deterministic.fixture",
+        mode: "fixture_only",
+        enabled: input.enabled,
+        directActionEnabled: false,
+        realQwenRuntimeEnabled: false,
+        networkAccessApproved: false
+      },
+      (error) => {
+        if (error) {
+          process.stderr.write(
+            "[supervisor] Command Router product mode delivery failed.\n"
+          );
+        }
+      }
+    );
+  }
+
   public request(rawEnvelope: unknown): Promise<CommandResult> {
     const envelope = CommandEnvelopeSchema.parse(rawEnvelope);
 
@@ -144,16 +241,17 @@ export class CoreSupervisor {
     }
 
     return new Promise((resolve) => {
+      const requestTimeoutMs = this.timeoutForRequest(envelope);
       const timer = setTimeout(() => {
         this.pending.delete(envelope.commandId);
         resolve(
           this.failure(envelope, {
             code: "CORE_REQUEST_TIMEOUT",
-            message: `Agent Core did not respond within ${this.requestTimeoutMs} ms.`,
+            message: `Agent Core did not respond within ${requestTimeoutMs} ms.`,
             retryable: true
           })
         );
-      }, this.requestTimeoutMs);
+      }, requestTimeoutMs);
 
       this.pending.set(envelope.commandId, {
         resolve,
@@ -186,6 +284,22 @@ export class CoreSupervisor {
         }
       );
     });
+  }
+
+  private timeoutForRequest(envelope: CommandEnvelope): number {
+    if (envelope.command.type === "agent.runBrainCommand") {
+      return this.brainCommandRequestTimeoutMs;
+    }
+    return this.requestTimeoutMs;
+  }
+
+  private hasBrainCommandRequestInFlight(): boolean {
+    for (const pendingRequest of this.pending.values()) {
+      if (pendingRequest.envelope.command.type === "agent.runBrainCommand") {
+        return true;
+      }
+    }
+    return false;
   }
 
   private launch(reason: string): void {
@@ -232,7 +346,16 @@ export class CoreSupervisor {
       this.restartReason = "unexpected-exit";
       this.scheduleRestart(reasonForRestart);
     });
-    void this.configureVoiceProvider(child);
+    void this.configureProviders(child);
+    this.configureCommandRouterProductMode(this.commandRouterProductMode);
+  }
+
+  private async configureProviders(child: ChildProcess): Promise<void> {
+    await Promise.all([
+      this.configureVoiceProvider(child),
+      this.configureHeavyPlannerProvider(child),
+      this.configureChatAnswerProvider(child)
+    ]);
   }
 
   private async configureVoiceProvider(child: ChildProcess): Promise<void> {
@@ -255,6 +378,64 @@ export class CoreSupervisor {
         if (error) {
           process.stderr.write(
             "[supervisor] Voice provider configuration delivery failed.\n"
+          );
+        }
+      }
+    );
+  }
+
+  private async configureHeavyPlannerProvider(
+    child: ChildProcess
+  ): Promise<void> {
+    const loadConfiguration =
+      this.options.loadHeavyPlannerProviderConfiguration;
+    if (!loadConfiguration) {
+      return;
+    }
+
+    const configuration = await loadConfiguration();
+    if (!configuration || !child.connected || this.child !== child) {
+      return;
+    }
+
+    child.send(
+      {
+        kind: "heavy-planner-provider.configure",
+        configuration
+      },
+      (error) => {
+        if (error) {
+          process.stderr.write(
+            "[supervisor] Heavy Planner provider configuration delivery failed.\n"
+          );
+        }
+      }
+    );
+  }
+
+  private async configureChatAnswerProvider(
+    child: ChildProcess
+  ): Promise<void> {
+    const loadConfiguration =
+      this.options.loadChatAnswerProviderConfiguration;
+    if (!loadConfiguration) {
+      return;
+    }
+
+    const configuration = await loadConfiguration();
+    if (!configuration || !child.connected || this.child !== child) {
+      return;
+    }
+
+    child.send(
+      {
+        kind: "chat-answer-provider.configure",
+        configuration
+      },
+      (error) => {
+        if (error) {
+          process.stderr.write(
+            "[supervisor] Chat Answer provider configuration delivery failed.\n"
           );
         }
       }
@@ -329,6 +510,7 @@ export class CoreSupervisor {
       if (
         this.stopping ||
         this.healthRequestInFlight ||
+        this.hasBrainCommandRequestInFlight() ||
         !this.child?.connected
       ) {
         return;

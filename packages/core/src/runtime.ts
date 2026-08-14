@@ -1,5 +1,29 @@
 import {
   AppEvent,
+  BrainAlphaHardening,
+  BrainAlphaHardeningSchema,
+  BrainAlphaMemoryContext,
+  BrainCommandResult,
+  BrainCommandResultSchema,
+  BrainIntent,
+  BrainPlanStep,
+  BrainPlannerResult,
+  BrainPlannerResultSchema,
+  BrainPlannerSelectionReport,
+  BrainPlannerSelectionReportSchema,
+  BrainToolProductLoop,
+  BrainToolProductLoopSchema,
+  CommandRouterLocalAppLaunchResultSchema,
+  BrainRouterDecision,
+  BrainRouterDecisionSchema,
+  BrainRouterSelectionReport,
+  BrainRouterSelectionReportSchema,
+  BrainPlannerRequestSchema,
+  ChatAnswerRequestSchema,
+  ChatAnswerPreferenceProjection,
+  ChatAnswerPreferenceProjectionSchema,
+  ChatAnswerResult,
+  ChatAnswerResultSchema,
   CapabilitySnapshot,
   CapabilitySnapshotSchema,
   CommandEnvelope,
@@ -16,6 +40,10 @@ import {
   IntentRoutingRequestSchema,
   IntentRoutingResultSchema,
   Message,
+  MemoryAlphaRecallProbeResult,
+  MemoryAlphaRecallProbeResultSchema,
+  MemoryAlphaStatus,
+  MemoryAlphaStatusSchema,
   MemoryHealth,
   MemoryHealthSchema,
   ModelInstallabilityReportSchema,
@@ -28,23 +56,68 @@ import {
   MemorySnapshot,
   OcrRecognitionRequestSchema,
   OcrRecognitionResultSchema,
+  PluginInvocationRequestSchema,
+  PluginInvocationResult,
+  PluginInvocationResultSchema,
+  PluginListResultSchema,
+  LocalPluginEnabledStateSetRequestSchema,
+  LocalPluginEnabledStateSetResultSchema,
+  PluginManifest,
+  LocalPluginManifestDeveloperStatusResultSchema,
+  PluginManagementConfirmationPolicy,
+  PluginManagementRiskTier,
+  PluginManagementStatusResultSchema,
   PROTOCOL_VERSION,
   RerankRequestSchema,
   RerankResultSchema,
   ResourceSchedulerDiagnostics,
   ResourceSchedulerDiagnosticsSchema,
+  SessionHistoryEntry,
+  SessionHistoryEntrySchema,
   StructuredError,
+  Task,
+  TaskSchema,
+  TaskStep,
+  TaskStepVerificationStatus,
+  TextOnlyAcceptanceModeSchema,
+  ToolDescriptor,
+  ToolExecutionResult,
+  ToolInvocationRequest,
+  ToolPolicy,
+  ToolPolicyDecision,
+  UserControlledMemoryRecord,
+  UserControlledMemoryRecordSchema,
+  UserPreferenceMemoryRecord,
+  UserPreferenceMemoryRecordSchema,
+  UserRouteAliasLearningProposal,
+  UserRouteAliasLearningProposalSchema,
+  UserRouteAliasRecord,
+  UserRouteAliasRecordSchema,
   VoiceCommand,
+  VoiceCommandAliasRecord,
+  VoiceCommandAliasRecordSchema,
+  VoiceCommandCorrection,
+  VoiceCommandCorrectionSchema,
+  VoiceInputMode,
   VoiceEvent,
-  createId
+  createId,
 } from "@jarvis-k/contracts";
+import {
+  FixtureToolExecutor,
+  decideToolInvocation,
+} from "@jarvis-k/capabilities";
 import type {
   CapabilityProvider,
+  ChatAnswerProvider,
   EmbeddingInferenceProvider,
+  HeavyPlannerProvider,
   InferenceExecutionPlanner,
   InferenceProviderRegistry,
   IntentRoutingProvider,
+  LocalPluginManifestDeveloperDiagnostics,
   OcrRecognitionProvider,
+  PluginRegistry,
+  PluginRuntime,
   RerankingProvider,
   ModelCandidateRegistry,
   ModelInstallWorkflowOrchestrator,
@@ -53,28 +126,219 @@ import type {
   ModelOperationSupervisor,
   ModelRegistry,
   ModelRuntimeRegistry,
-  ResourceScheduler
+  ResourceScheduler,
 } from "@jarvis-k/capabilities";
 import {
   EmbeddingMemoryRetrievalResultSchema,
   type EmbeddingMemoryMatch,
   type EmbeddingMemoryRetrievalPort,
-  type MemoryRepository
+  type MemoryRepository,
 } from "@jarvis-k/memory";
-import type {
-  VoiceActionResult,
-  VoiceEnginePort
-} from "@jarvis-k/voice";
+import type { VoiceActionResult, VoiceEnginePort } from "@jarvis-k/voice";
+import type { TaskRepository } from "./task-runtime";
+import {
+  VoiceCommandResolver,
+  type VoiceCommandResolverPluginCapability,
+} from "./voice-command-resolver";
 
 type EventSink = (event: EventEnvelope) => void;
 
 const MEMORY_RETRIEVAL_ROUTING_LIMIT = 5;
 const MEMORY_RETRIEVAL_ROUTING_MODEL_PREFIX = "fixture/";
 const MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE = "provider_vector";
+const DEFAULT_BRAIN_ROUTER_MIN_CONFIDENCE = 0.7;
+const DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID =
+  "planner.deterministic.rules";
+const COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID =
+  "intent-router.deterministic.fixture";
+const COMMAND_ROUTER_LOCAL_APP_FIXTURE_ALLOWLIST = new Set([
+  "notepad",
+  "calculator",
+  "calc",
+]);
+type CommandRouterKnownLocalAppLabel = "notepad" | "calculator" | "vscode";
+type CoreKnownAppWindowAction = "focus" | "minimize" | "restore";
+const BRAIN_ROUTER_ALLOWED_INTENTS: readonly BrainIntent[] = [
+  "chat.answer",
+  "browser.open",
+  "coding.task",
+  "localApp.open",
+  "notepad.write_text",
+  "window.focus",
+  "window.minimize",
+  "window.restore",
+  "filesystem.search",
+  "plugin.invoke",
+  "memory.search",
+  "observability.status",
+  "model.status",
+  "clarify",
+  "blocked",
+];
+const BRAIN_PLANNER_ALLOWED_TOOL_IDS = [
+  "browser.open",
+  "localApp.open",
+  "notepad.writeText",
+  "window.focus",
+  "window.minimize",
+  "window.restore",
+  "chat.answer",
+  "filesystem.search",
+  "plugin.invoke",
+  "memory.search",
+  "memory.status",
+  "model.status",
+  "observability.status",
+  "system.settings",
+] as const;
+const BRAIN_TOOL_REGISTRY_VERSION = "1.0.0";
+const BRAIN_TOOL_REGISTRY_DESCRIPTORS = [
+  {
+    id: "browser.open",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Replay a browser-open route through fixture safety gates.",
+    risk: "mutating",
+    execution: "fixture",
+    requiredPermissions: [],
+    requiresConfirmation: true,
+    inputSchemaId: "tool.browser.open.input",
+  },
+  {
+    id: "localApp.open",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description:
+      "Replay a local-application route through fixture safety gates.",
+    risk: "mutating",
+    execution: "fixture",
+    requiredPermissions: [],
+    requiresConfirmation: true,
+    inputSchemaId: "tool.localapp.open.input",
+  },
+  {
+    id: "notepad.writeText",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Write bounded text into a supervised Notepad window.",
+    risk: "mutating",
+    execution: "windows",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.notepad.writeText.input",
+  },
+  {
+    id: "window.focus",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Focus a fixed known-app Windows window.",
+    risk: "mutating",
+    execution: "windows",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.window.focus.input",
+  },
+  {
+    id: "window.minimize",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Minimize a fixed known-app Windows window.",
+    risk: "mutating",
+    execution: "windows",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.window.minimize.input",
+  },
+  {
+    id: "window.restore",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Restore a fixed known-app Windows window.",
+    risk: "mutating",
+    execution: "windows",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.window.restore.input",
+  },
+  {
+    id: "chat.answer",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project a chat-answer route without model execution.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.chat.answer.input",
+  },
+  {
+    id: "filesystem.search",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project a bounded filesystem search route.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: ["filesystem.read"],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.filesystem.search.input",
+  },
+  {
+    id: "memory.search",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project a bounded Memory search route.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: ["memory.read"],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.memory.search.input",
+  },
+  {
+    id: "memory.status",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project a Memory status route.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: ["memory.read"],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.memory.status.input",
+  },
+  {
+    id: "model.status",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project a model lifecycle status route.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.model.status.input",
+  },
+  {
+    id: "observability.status",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project an Observability status route.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.observability.status.input",
+  },
+  {
+    id: "system.settings",
+    version: BRAIN_TOOL_REGISTRY_VERSION,
+    description: "Project a settings-surface route.",
+    risk: "read_only",
+    execution: "fixture",
+    requiredPermissions: [],
+    requiresConfirmation: false,
+    inputSchemaId: "tool.system.settings.input",
+  },
+] satisfies readonly ToolDescriptor[];
+const BRAIN_TOOL_REGISTRY_POLICY: ToolPolicy = {
+  policyVersion: BRAIN_TOOL_REGISTRY_VERSION,
+  allowedToolIds: [...BRAIN_PLANNER_ALLOWED_TOOL_IDS],
+  blockedToolIds: [],
+  allowedPermissionScopes: ["memory.read"],
+  confirmationRequiredFor: ["mutating", "destructive"],
+  fixtureExecutionEnabled: true,
+  windowsExecutionEnabled: false,
+  networkAccessAllowed: false,
+  shellExecutionAllowed: false,
+};
 
 export type CoreMemoryRetrievalRoutingMode =
-  | "fixture_only"
-  | typeof MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE;
+  "fixture_only" | typeof MEMORY_RETRIEVAL_ROUTING_PROVIDER_VECTOR_MODE;
 
 export type CoreMemoryRecallFailureClass =
   | "QUERY_EMBEDDING_TIMEOUT"
@@ -85,9 +349,7 @@ export type CoreMemoryRecallFailureClass =
   | "MEMORY_RETRIEVAL_ROUTING_FAILED";
 
 export type CoreMemoryRetrievalFailureStage =
-  | "query_embedding"
-  | "vector_query"
-  | "vector_query_result";
+  "query_embedding" | "vector_query" | "vector_query_result";
 
 export interface CoreMemoryRetrievalFailureClassificationInput {
   stage: CoreMemoryRetrievalFailureStage;
@@ -110,10 +372,10 @@ export interface CoreMemoryRetrievalRoutingOptions {
   limit?: number;
   minScore?: number;
   classifyFailure?: (
-    input: CoreMemoryRetrievalFailureClassificationInput
+    input: CoreMemoryRetrievalFailureClassificationInput,
   ) => CoreMemoryRecallFailureClass;
   resolveQueryVector(
-    context: CoreMemoryRetrievalRoutingQueryContext
+    context: CoreMemoryRetrievalRoutingQueryContext,
   ): readonly number[] | Promise<readonly number[]>;
 }
 
@@ -140,8 +402,138 @@ export interface CoreMemoryRecallObservation {
   failureClass?: CoreMemoryRecallFailureClass;
 }
 
+export interface CoreMemoryAlphaSessionPort {
+  getStatus(): MemoryAlphaStatus;
+  disable(): Promise<MemoryAlphaStatus>;
+}
+
+export interface CoreBrainActionRequest {
+  target: string;
+  text?: string;
+  action?: "focus" | "minimize" | "restore";
+}
+
+export interface CoreBrainActionResult {
+  status: "completed" | "blocked";
+  reasonCode:
+    | "ALLOWLISTED_TARGET_OPENED"
+    | "NOTEPAD_TEXT_WRITTEN"
+    | "WINDOW_CONTROL_COMPLETED"
+    | "FILESYSTEM_SEARCH_COMPLETED"
+    | "BRAIN_ACTIONS_DISABLED"
+    | "TARGET_INVALID"
+    | "TARGET_NOT_ALLOWLISTED"
+    | "TARGET_UNAVAILABLE"
+    | "OPEN_FAILED"
+    | "WRITE_FAILED"
+    | "WINDOW_CONTROL_FAILED"
+    | "SEARCH_FAILED";
+  label: string;
+  verificationStatus?: TaskStepVerificationStatus;
+  verificationSummary?: string;
+  matchCount?: number;
+}
+
+export interface CoreBrainActionExecutorPort {
+  openBrowser(request: CoreBrainActionRequest): Promise<CoreBrainActionResult>;
+  openLocalApp(request: CoreBrainActionRequest): Promise<CoreBrainActionResult>;
+  searchFilesystem?(
+    request: CoreBrainActionRequest,
+  ): Promise<CoreBrainActionResult>;
+  writeNotepadText?(
+    request: CoreBrainActionRequest,
+  ): Promise<CoreBrainActionResult>;
+  controlKnownAppWindow?(
+    request: CoreBrainActionRequest,
+  ): Promise<CoreBrainActionResult>;
+}
+
+export interface CoreBrainRouterOptions {
+  enabled: boolean;
+  modelId: string;
+  providerId?: string;
+  locale?: "zh" | "en";
+  minConfidence?: number;
+  allowedIntents?: readonly BrainIntent[];
+}
+
+export interface CoreCommandRouterProductModeOptions {
+  enabled: boolean;
+  providerId?: string;
+}
+
+export interface CoreBrainPlannerOptions {
+  enabled: boolean;
+  providerId?: string;
+  escalateIntents?: readonly BrainIntent[];
+}
+
+export interface CoreChatAnswerOptions {
+  enabled: boolean;
+  providerId?: string;
+  forcedChatAnswerUtterances?: readonly string[];
+}
+
+export interface CoreTextOnlyAcceptanceOptions {
+  enabled: boolean;
+}
+
+export interface LocalPluginEnabledStateRecord {
+  pluginId: string;
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export interface LocalPluginStateRepository {
+  initialize(): Promise<void>;
+  getState(
+    pluginId: string,
+  ): Promise<LocalPluginEnabledStateRecord | undefined>;
+  setState(
+    input: LocalPluginEnabledStateRecord,
+  ): Promise<LocalPluginEnabledStateRecord>;
+}
+
+export interface VoiceCommandAliasRepository {
+  initialize(): Promise<void>;
+  listAliases(): Promise<VoiceCommandAliasRecord[]>;
+  upsertAlias(input: VoiceCommandAliasRecord): Promise<VoiceCommandAliasRecord>;
+  deleteAlias(aliasId: string): Promise<boolean>;
+}
+
+export interface UserRouteAliasRepository {
+  initialize(): Promise<void>;
+  listAliases(): Promise<UserRouteAliasRecord[]>;
+  upsertAlias(input: UserRouteAliasRecord): Promise<UserRouteAliasRecord>;
+  deleteAlias(aliasId: string): Promise<boolean>;
+}
+
+export interface UserPreferenceMemoryRepository {
+  initialize(): Promise<void>;
+  listPreferences(): Promise<UserPreferenceMemoryRecord[]>;
+  upsertPreference(
+    input: UserPreferenceMemoryRecord,
+  ): Promise<UserPreferenceMemoryRecord>;
+  deletePreference(preferenceId: string): Promise<boolean>;
+}
+
+type ResolvedUserPreferenceMemoryRequest = Pick<
+  UserPreferenceMemoryRecord,
+  "key" | "label" | "value" | "summary"
+>;
+
+interface CoreBrainRoutingOutcome {
+  decision: BrainRouterDecision;
+  selection: BrainRouterSelectionReport;
+}
+
+interface CoreBrainPlanningOutcome {
+  selection: BrainPlannerSelectionReport;
+  result?: BrainPlannerResult;
+}
+
 function isCoreMemoryRecallFailureClass(
-  value: string
+  value: string,
 ): value is CoreMemoryRecallFailureClass {
   return (
     value === "QUERY_EMBEDDING_TIMEOUT" ||
@@ -157,6 +549,7 @@ export class CoreRuntime {
   private readonly coreInstanceId = createId("core");
   private readonly startedAt: string;
   private readonly messages: Message[] = [];
+  private readonly sessionHistory: SessionHistoryEntry[] = [];
   private readonly conversations: Conversation[] = [];
   private sequenceId = 0;
   private activeVoiceCorrelationId: string | undefined;
@@ -165,7 +558,15 @@ export class CoreRuntime {
   private memoryHealth: MemoryHealth | undefined;
   private capabilities: CapabilitySnapshot | undefined;
   private readonly modelOperations: ModelOperationSnapshot[] = [];
+  private tasks: Task[] = [];
   private resourceDiagnostics: ResourceSchedulerDiagnostics | undefined;
+  private commandRouterProductMode:
+    CoreCommandRouterProductModeOptions | undefined;
+  private localPluginStateRepositoryInitialized = false;
+  private readonly pendingUserRouteAliasProposals = new Map<
+    string,
+    UserRouteAliasLearningProposal
+  >();
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -188,7 +589,24 @@ export class CoreRuntime {
     private readonly ocrRecognitionProvider?: OcrRecognitionProvider,
     private readonly rerankingProvider?: RerankingProvider,
     private readonly embeddingMemoryRetrievalPort?: EmbeddingMemoryRetrievalPort,
-    private readonly memoryRetrievalRouting?: CoreMemoryRetrievalRoutingOptions
+    private readonly memoryRetrievalRouting?: CoreMemoryRetrievalRoutingOptions,
+    private readonly memoryAlphaSession?: CoreMemoryAlphaSessionPort,
+    private readonly brainActionExecutor?: CoreBrainActionExecutorPort,
+    private readonly brainRouter?: CoreBrainRouterOptions,
+    private readonly heavyPlannerProvider?: HeavyPlannerProvider,
+    private readonly brainPlanner?: CoreBrainPlannerOptions,
+    private chatAnswerProvider?: ChatAnswerProvider,
+    private chatAnswer?: CoreChatAnswerOptions,
+    private readonly textOnlyAcceptance?: CoreTextOnlyAcceptanceOptions,
+    private readonly taskRepository?: TaskRepository,
+    private readonly pluginRegistry?: PluginRegistry,
+    private readonly pluginRuntime?: PluginRuntime,
+    private readonly localPluginManifestDiagnostics?: LocalPluginManifestDeveloperDiagnostics,
+    private readonly localPluginStateRepository?: LocalPluginStateRepository,
+    private readonly voiceCommandAliasRepository?: VoiceCommandAliasRepository,
+    private readonly userRouteAliasRepository?: UserRouteAliasRepository,
+    private readonly voiceCommandResolver = new VoiceCommandResolver(),
+    private readonly userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
   ) {
     this.startedAt = this.now().toISOString();
   }
@@ -199,7 +617,7 @@ export class CoreRuntime {
     }
     try {
       this.capabilities = CapabilitySnapshotSchema.parse(
-        await this.capabilityProvider.inspect()
+        await this.capabilityProvider.inspect(),
       );
     } catch {
       this.health = "degraded";
@@ -227,16 +645,34 @@ export class CoreRuntime {
     }
   }
 
+  public async hydrateTasks(): Promise<void> {
+    if (!this.taskRepository) {
+      return;
+    }
+    try {
+      await this.taskRepository.initialize();
+      await this.taskRepository.recoverRunningTasksAsInterrupted(
+        this.now().toISOString(),
+      );
+      this.tasks = (await this.taskRepository.listTasks()).map((task) =>
+        TaskSchema.parse(task),
+      );
+    } catch {
+      this.health = "degraded";
+      this.tasks = [];
+    }
+  }
+
   public announceReady(): void {
     this.publish(
       {
         type: "system.core.ready",
         payload: {
           coreInstanceId: this.coreInstanceId,
-          startedAt: this.startedAt
-        }
+          startedAt: this.startedAt,
+        },
       },
-      undefined
+      undefined,
     );
     this.publishSnapshot();
   }
@@ -250,27 +686,42 @@ export class CoreRuntime {
       startedAt: this.startedAt,
       updatedAt: this.now().toISOString(),
       voice: this.voiceEngine.getSnapshot(),
+      ...(this.textOnlyAcceptance?.enabled
+        ? {
+            textOnlyAcceptance: TextOnlyAcceptanceModeSchema.parse({
+              enabled: true,
+              voiceInputEnabled: false,
+              reasonCode: "CHAT_ANSWER_TEXT_ONLY_ACCEPTANCE",
+            }),
+          }
+        : {}),
       messages: this.messages.map((message) => ({ ...message })),
       conversations: this.conversations.map((conversation) => ({
-        ...conversation
+        ...conversation,
       })),
       ...(this.activeConversationId
         ? { activeConversationId: this.activeConversationId }
         : {}),
       ...(this.memoryHealth ? { memoryHealth: this.memoryHealth } : {}),
+      memoryAlpha: this.getMemoryAlphaStatus(),
+      sessionHistory: this.sessionHistory.map((entry) => ({ ...entry })),
       ...(this.capabilities ? { capabilities: this.capabilities } : {}),
       modelOperations: this.modelOperations.map((operation) => ({
         ...operation,
-        ...(operation.progress
-          ? { progress: { ...operation.progress } }
-          : {}),
+        ...(operation.progress ? { progress: { ...operation.progress } } : {}),
         reasons: [...operation.reasons],
-        ...(operation.error ? { error: { ...operation.error } } : {})
+        ...(operation.error ? { error: { ...operation.error } } : {}),
       })),
       ...(this.resourceDiagnostics
         ? { resourceDiagnostics: this.resourceDiagnostics }
         : {}),
-      tasks: []
+      tasks: this.tasks.map((task) =>
+        TaskSchema.parse({
+          ...task,
+          steps: task.steps.map((step) => ({ ...step })),
+          events: task.events.map((event) => ({ ...event })),
+        }),
+      ),
     };
   }
 
@@ -286,20 +737,78 @@ export class CoreRuntime {
               status: this.health === "degraded" ? "degraded" : "ready",
               uptimeMs: Math.max(
                 0,
-                this.now().getTime() - new Date(this.startedAt).getTime()
-              )
-            }
+                this.now().getTime() - new Date(this.startedAt).getTime(),
+              ),
+            },
           },
-          envelope.correlationId
+          envelope.correlationId,
         );
         return this.success(envelope, {
           coreInstanceId: this.coreInstanceId,
-          status: this.health === "degraded" ? "degraded" : "ready"
+          status: this.health === "degraded" ? "degraded" : "ready",
         });
 
       case "agent.getSnapshot": {
         const snapshot = this.publishSnapshot(envelope.correlationId);
         return this.success(envelope, snapshot);
+      }
+
+      case "agent.runBrainCommand": {
+        return this.handleBrainCommand(envelope);
+      }
+
+      case "agent.confirmVoiceCommandCorrection": {
+        return this.confirmVoiceCommandCorrection(envelope);
+      }
+
+      case "agent.listVoiceCommandAliases": {
+        return this.listVoiceCommandAliases(envelope);
+      }
+
+      case "agent.deleteVoiceCommandAlias": {
+        return this.deleteVoiceCommandAlias(envelope);
+      }
+
+      case "agent.confirmUserRouteAlias": {
+        return this.confirmUserRouteAlias(envelope);
+      }
+
+      case "agent.listUserRouteAliases": {
+        return this.listUserRouteAliases(envelope);
+      }
+
+      case "agent.deleteUserRouteAlias": {
+        return this.deleteUserRouteAlias(envelope);
+      }
+
+      case "agent.listUserControlledMemories": {
+        return this.listUserControlledMemories(envelope);
+      }
+
+      case "agent.deleteUserControlledMemory": {
+        return this.deleteUserControlledMemory(envelope);
+      }
+
+      case "agent.cancelTask": {
+        return this.cancelTask(envelope);
+      }
+
+      case "agent.approveTask": {
+        return this.approveTask(envelope);
+      }
+
+      case "agent.confirmCommandRouterLocalAppLaunch": {
+        return this.confirmCommandRouterLocalAppLaunch(envelope);
+      }
+
+      case "agent.clearSessionHistory": {
+        this.sessionHistory.splice(0, this.sessionHistory.length);
+        this.publishSnapshot(envelope.correlationId);
+        return this.success(envelope, {
+          sessionHistory: [],
+          persisted: false,
+          rawContentExposed: false,
+        });
       }
 
       case "agent.getCapabilities": {
@@ -308,19 +817,19 @@ export class CoreRuntime {
         }
         try {
           this.capabilities = CapabilitySnapshotSchema.parse(
-            await this.capabilityProvider.inspect()
+            await this.capabilityProvider.inspect(),
           );
           const snapshot = this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
             capabilities: this.capabilities,
-            snapshot
+            snapshot,
           });
         } catch {
           this.health = "degraded";
           return this.failure(envelope, {
             code: "CAPABILITY_INSPECTION_FAILED",
             message: "Unable to inspect local device capabilities.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -336,18 +845,18 @@ export class CoreRuntime {
               : {}),
             ...(envelope.command.payload.includeRedRisk === undefined
               ? {}
-              : { includeRedRisk: envelope.command.payload.includeRedRisk })
+              : { includeRedRisk: envelope.command.payload.includeRedRisk }),
           });
           return this.success(envelope, {
             manifests: manifests.map((manifest) =>
-              ModelManifestSchema.parse(manifest)
-            )
+              ModelManifestSchema.parse(manifest),
+            ),
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_REGISTRY_FAILED",
             message: "Unable to list model manifests.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -357,28 +866,26 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         try {
-          const candidates =
-            await this.modelCandidateRegistry.listCandidates({
-              ...(envelope.command.payload.capability
-                ? { capability: envelope.command.payload.capability }
-                : {}),
-              ...(envelope.command.payload.includeRedRisk === undefined
-                ? {}
-                : {
-                    includeRedRisk:
-                      envelope.command.payload.includeRedRisk
-                  })
-            });
+          const candidates = await this.modelCandidateRegistry.listCandidates({
+            ...(envelope.command.payload.capability
+              ? { capability: envelope.command.payload.capability }
+              : {}),
+            ...(envelope.command.payload.includeRedRisk === undefined
+              ? {}
+              : {
+                  includeRedRisk: envelope.command.payload.includeRedRisk,
+                }),
+          });
           return this.success(envelope, {
             candidates: candidates.map((candidate) =>
-              ModelCandidateSchema.parse(candidate)
-            )
+              ModelCandidateSchema.parse(candidate),
+            ),
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_CANDIDATES_FAILED",
             message: "Unable to list model candidates.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -388,18 +895,17 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         try {
-          const inventory =
-            await this.modelLifecycleManager.listInventory();
+          const inventory = await this.modelLifecycleManager.listInventory();
           return this.success(envelope, {
             inventory: inventory.map((item) =>
-              ModelInventoryItemSchema.parse(item)
-            )
+              ModelInventoryItemSchema.parse(item),
+            ),
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_INVENTORY_FAILED",
             message: "Unable to list local model inventory.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -409,18 +915,17 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         try {
-          const descriptors =
-            await this.modelRuntimeRegistry.listDescriptors();
+          const descriptors = await this.modelRuntimeRegistry.listDescriptors();
           return this.success(envelope, {
             runtimeAdapters: descriptors.map((descriptor) =>
-              ModelRuntimeAdapterDescriptorSchema.parse(descriptor)
-            )
+              ModelRuntimeAdapterDescriptorSchema.parse(descriptor),
+            ),
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_RUNTIME_REGISTRY_FAILED",
             message: "Unable to list model runtime adapters.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -430,22 +935,21 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         try {
-          const providers =
-            await this.inferenceProviderRegistry.listProviders({
-              ...(envelope.command.payload.capability
-                ? { capability: envelope.command.payload.capability }
-                : {})
-            });
+          const providers = await this.inferenceProviderRegistry.listProviders({
+            ...(envelope.command.payload.capability
+              ? { capability: envelope.command.payload.capability }
+              : {}),
+          });
           return this.success(envelope, {
             providers: providers.map((provider) =>
-              InferenceProviderDescriptorSchema.parse(provider)
-            )
+              InferenceProviderDescriptorSchema.parse(provider),
+            ),
           });
         } catch {
           return this.failure(envelope, {
             code: "INFERENCE_PROVIDER_REGISTRY_FAILED",
             message: "Unable to list inference providers.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -456,23 +960,21 @@ export class CoreRuntime {
         }
         try {
           const reports =
-            await this.inferenceProviderRegistry.listConfigurationRequirements(
-              {
-                ...(envelope.command.payload.capability
-                  ? { capability: envelope.command.payload.capability }
-                  : {})
-              }
-            );
+            await this.inferenceProviderRegistry.listConfigurationRequirements({
+              ...(envelope.command.payload.capability
+                ? { capability: envelope.command.payload.capability }
+                : {}),
+            });
           return this.success(envelope, {
             reports: reports.map((report) =>
-              InferenceProviderConfigurationReportSchema.parse(report)
-            )
+              InferenceProviderConfigurationReportSchema.parse(report),
+            ),
           });
         } catch {
           return this.failure(envelope, {
             code: "INFERENCE_PROVIDER_REQUIREMENTS_FAILED",
             message: "Unable to list inference provider requirements.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -483,13 +985,13 @@ export class CoreRuntime {
         }
         try {
           const manifest = await this.modelRegistry.getManifest(
-            envelope.command.payload.modelId
+            envelope.command.payload.modelId,
           );
           if (!manifest) {
             return this.failure(envelope, {
               code: "MODEL_MANIFEST_NOT_FOUND",
               message: "Model manifest was not found.",
-              retryable: false
+              retryable: false,
             });
           }
           const report = await this.inferenceExecutionPlanner.preview({
@@ -497,16 +999,16 @@ export class CoreRuntime {
             manifest: ModelManifestSchema.parse(manifest),
             ...(envelope.command.payload.exclusiveGpu === undefined
               ? {}
-              : { exclusiveGpu: envelope.command.payload.exclusiveGpu })
+              : { exclusiveGpu: envelope.command.payload.exclusiveGpu }),
           });
           return this.success(envelope, {
-            report: InferencePreflightReportSchema.parse(report)
+            report: InferencePreflightReportSchema.parse(report),
           });
         } catch {
           return this.failure(envelope, {
             code: "INFERENCE_PREFLIGHT_FAILED",
             message: "Unable to preview inference execution.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -516,7 +1018,7 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         const request = EmbeddingGenerationRequestSchema.parse(
-          envelope.command.payload
+          envelope.command.payload,
         );
         return this.executeInferenceOperation(envelope, {
           capability: "embedding",
@@ -526,7 +1028,7 @@ export class CoreRuntime {
             EmbeddingGenerationResultSchema.parse(result),
           completedReason: "Embedding inference completed.",
           failureCode: "EMBEDDING_GENERATION_FAILED",
-          failureMessage: "Unable to generate embeddings."
+          failureMessage: "Unable to generate embeddings.",
         });
       }
 
@@ -535,7 +1037,7 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         const request = IntentRoutingRequestSchema.parse(
-          envelope.command.payload
+          envelope.command.payload,
         );
         return this.executeInferenceOperation(envelope, {
           capability: "intent_router",
@@ -544,7 +1046,7 @@ export class CoreRuntime {
           parseResult: (result) => IntentRoutingResultSchema.parse(result),
           completedReason: "Intent routing inference completed.",
           failureCode: "INTENT_ROUTING_FAILED",
-          failureMessage: "Unable to route intent."
+          failureMessage: "Unable to route intent.",
         });
       }
 
@@ -553,7 +1055,7 @@ export class CoreRuntime {
           return this.modelsUnavailable(envelope);
         }
         const request = OcrRecognitionRequestSchema.parse(
-          envelope.command.payload
+          envelope.command.payload,
         );
         return this.executeInferenceOperation(envelope, {
           capability: "ocr",
@@ -562,7 +1064,7 @@ export class CoreRuntime {
           parseResult: (result) => OcrRecognitionResultSchema.parse(result),
           completedReason: "OCR inference completed.",
           failureCode: "OCR_RECOGNITION_FAILED",
-          failureMessage: "Unable to recognize OCR input."
+          failureMessage: "Unable to recognize OCR input.",
         });
       }
 
@@ -578,7 +1080,7 @@ export class CoreRuntime {
           parseResult: (result) => RerankResultSchema.parse(result),
           completedReason: "Reranking inference completed.",
           failureCode: "RERANKING_FAILED",
-          failureMessage: "Unable to rerank documents."
+          failureMessage: "Unable to rerank documents.",
         });
       }
 
@@ -596,21 +1098,21 @@ export class CoreRuntime {
               : { activeOnly: envelope.command.payload.activeOnly }),
             ...(envelope.command.payload.limit === undefined
               ? {}
-              : { limit: envelope.command.payload.limit })
+              : { limit: envelope.command.payload.limit }),
           });
           this.replaceModelOperations(operations);
           const snapshot = this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
             operations: this.modelOperations.map((operation) =>
-              ModelOperationSnapshotSchema.parse(operation)
+              ModelOperationSnapshotSchema.parse(operation),
             ),
-            snapshot
+            snapshot,
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_OPERATIONS_FAILED",
             message: "Unable to list model operations.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -621,18 +1123,18 @@ export class CoreRuntime {
         }
         try {
           this.resourceDiagnostics = ResourceSchedulerDiagnosticsSchema.parse(
-            await this.resourceScheduler.diagnostics()
+            await this.resourceScheduler.diagnostics(),
           );
           const snapshot = this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
             resourceDiagnostics: this.resourceDiagnostics,
-            snapshot
+            snapshot,
           });
         } catch {
           return this.failure(envelope, {
             code: "RESOURCE_DIAGNOSTICS_FAILED",
             message: "Unable to inspect model resource diagnostics.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -646,17 +1148,17 @@ export class CoreRuntime {
         }
         try {
           const manifest = await this.modelRegistry.getManifest(
-            envelope.command.payload.modelId
+            envelope.command.payload.modelId,
           );
           if (!manifest) {
             return this.failure(envelope, {
               code: "MODEL_MANIFEST_NOT_FOUND",
               message: "Model manifest was not found.",
-              retryable: false
+              retryable: false,
             });
           }
           this.capabilities = CapabilitySnapshotSchema.parse(
-            await this.capabilityProvider.inspect()
+            await this.capabilityProvider.inspect(),
           );
           const report = await this.modelInstallationPlanner.preview({
             manifest: ModelManifestSchema.parse(manifest),
@@ -664,24 +1166,22 @@ export class CoreRuntime {
             ...(envelope.command.payload.allowYellowRisk === undefined
               ? {}
               : {
-                  allowYellowRisk:
-                    envelope.command.payload.allowYellowRisk
+                  allowYellowRisk: envelope.command.payload.allowYellowRisk,
                 }),
             ...(envelope.command.payload.allowUnknownRisk === undefined
               ? {}
               : {
-                  allowUnknownRisk:
-                    envelope.command.payload.allowUnknownRisk
-                })
+                  allowUnknownRisk: envelope.command.payload.allowUnknownRisk,
+                }),
           });
           return this.success(envelope, {
-            report: ModelInstallabilityReportSchema.parse(report)
+            report: ModelInstallabilityReportSchema.parse(report),
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_INSTALLABILITY_FAILED",
             message: "Unable to preview model installability.",
-            retryable: true
+            retryable: true,
           });
         }
       }
@@ -695,49 +1195,358 @@ export class CoreRuntime {
         }
         try {
           const manifest = await this.modelRegistry.getManifest(
-            envelope.command.payload.modelId
+            envelope.command.payload.modelId,
           );
           if (!manifest) {
             return this.failure(envelope, {
               code: "MODEL_MANIFEST_NOT_FOUND",
               message: "Model manifest was not found.",
-              retryable: false
+              retryable: false,
             });
           }
           this.capabilities = CapabilitySnapshotSchema.parse(
-            await this.capabilityProvider.inspect()
+            await this.capabilityProvider.inspect(),
           );
-          const operation =
-            await this.modelInstallWorkflowOrchestrator.prepare({
+          const operation = await this.modelInstallWorkflowOrchestrator.prepare(
+            {
               manifest: ModelManifestSchema.parse(manifest),
               device: this.capabilities.device,
               ...(envelope.command.payload.allowYellowRisk === undefined
                 ? {}
                 : {
-                    allowYellowRisk:
-                      envelope.command.payload.allowYellowRisk
+                    allowYellowRisk: envelope.command.payload.allowYellowRisk,
                   }),
               ...(envelope.command.payload.allowUnknownRisk === undefined
                 ? {}
                 : {
-                    allowUnknownRisk:
-                      envelope.command.payload.allowUnknownRisk
+                    allowUnknownRisk: envelope.command.payload.allowUnknownRisk,
                   }),
               ...(envelope.command.payload.exclusiveGpu === undefined
                 ? {}
-                : { exclusiveGpu: envelope.command.payload.exclusiveGpu })
-            });
+                : { exclusiveGpu: envelope.command.payload.exclusiveGpu }),
+            },
+          );
           const parsed = ModelOperationSnapshotSchema.parse(operation);
           this.handleModelOperationUpdated(parsed, envelope.correlationId);
           return this.success(envelope, {
             operation: parsed,
-            snapshot: this.getSnapshot()
+            snapshot: this.getSnapshot(),
           });
         } catch {
           return this.failure(envelope, {
             code: "MODEL_INSTALL_PREPARE_FAILED",
             message: "Unable to prepare model install workflow.",
-            retryable: true
+            retryable: true,
+          });
+        }
+      }
+
+      case "agent.listPlugins": {
+        if (!this.pluginRegistry) {
+          return this.pluginsUnavailable(envelope);
+        }
+        try {
+          return this.success(envelope, {
+            plugins: PluginListResultSchema.parse({
+              plugins: await this.pluginRegistry.listPlugins(),
+              listedAt: this.now().toISOString(),
+            }),
+          });
+        } catch {
+          return this.pluginsUnavailable(envelope);
+        }
+      }
+
+      case "agent.getPluginManagementStatus": {
+        if (!this.pluginRegistry) {
+          return this.pluginsUnavailable(envelope);
+        }
+        try {
+          const plugins = await this.pluginRegistry.listPlugins();
+          const executablePluginIds = new Set(
+            this.pluginRuntime?.listExecutablePluginIds
+              ? await this.pluginRuntime.listExecutablePluginIds()
+              : [],
+          );
+          const localReadOnlyPluginIds = new Set(
+            this.pluginRuntime?.listLocalReadOnlyPluginIds
+              ? await this.pluginRuntime.listLocalReadOnlyPluginIds()
+              : [],
+          );
+          const localPluginStates =
+            await this.getLocalPluginEnabledStateRecords(plugins);
+          return this.success(envelope, {
+            plugins: PluginManagementStatusResultSchema.parse({
+              plugins: plugins.map((manifest) => {
+                const runtimeExecutable = executablePluginIds.has(manifest.id);
+                const localReadOnlyRuntime =
+                  localReadOnlyPluginIds.has(manifest.id);
+                const bundledExecutable =
+                  runtimeExecutable && !localReadOnlyRuntime;
+                const localState = localPluginStates.get(manifest.id);
+                const riskAssessment = assessPluginManagementRisk(
+                  manifest,
+                  bundledExecutable ||
+                    (localReadOnlyRuntime &&
+                      localState?.enabled === true &&
+                      canEnableLocalPluginState(manifest)),
+                );
+                const localStateEnabled =
+                  !bundledExecutable &&
+                  localState?.enabled === true &&
+                  canEnableLocalPluginState(manifest);
+                const localReadOnlyExecutable =
+                  localReadOnlyRuntime && localStateEnabled;
+                const executable = bundledExecutable || localReadOnlyExecutable;
+                const state = bundledExecutable
+                  ? "enabled"
+                  : localStateEnabled
+                    ? "enabled"
+                    : "disabled";
+                return {
+                  manifest,
+                  source: bundledExecutable ? "bundled" : "local_manifest",
+                  state,
+                  stateSource: bundledExecutable
+                    ? "bundled_runtime"
+                    : localState
+                      ? "local_state_store"
+                      : "policy_default",
+                  statePersisted:
+                    !bundledExecutable && localState !== undefined,
+                  ...(localState
+                    ? { stateUpdatedAt: localState.updatedAt }
+                    : {}),
+                  stateToggleAvailable: !bundledExecutable,
+                  executionMode: bundledExecutable
+                    ? "bundled_runtime"
+                    : localReadOnlyExecutable
+                      ? "local_readonly_runtime"
+                      : "list_only",
+                  executable,
+                  routeSelectable: executable,
+                  riskAssessment,
+                  reasonCodes: bundledExecutable
+                    ? ["BUNDLED_READ_ONLY_RUNTIME"]
+                    : [
+                        ...(localReadOnlyExecutable
+                          ? ["LOCAL_READ_ONLY_RUNTIME"]
+                          : ["THIRD_PARTY_EXECUTION_DISABLED"]),
+                        ...(localState?.enabled === true
+                          ? ["LOCAL_PLUGIN_STATE_PERSISTED"]
+                          : []),
+                        ...(localReadOnlyExecutable
+                          ? ["LOCAL_PLUGIN_STATE_ENABLED_EXECUTABLE"]
+                          : localStateEnabled
+                            ? ["LOCAL_PLUGIN_STATE_ENABLED_LIST_ONLY"]
+                          : ["LOCAL_PLUGIN_STATE_DISABLED"]),
+                        ...(localState?.enabled === true && !localStateEnabled
+                          ? ["LOCAL_PLUGIN_STATE_BLOCKED_BY_POLICY"]
+                          : []),
+                      ],
+                };
+              }),
+              listedAt: this.now().toISOString(),
+              defaultThirdPartyExecutionState: "disabled",
+              thirdPartyCodeExecuted: false,
+              marketplaceAccessed: false,
+              mcpAdapter: {
+                status: "disabled",
+                mode: "compatibility_status_only",
+                defaultExecutionState: "disabled",
+                externalServerStartupAllowed: false,
+                externalToolExecutionAllowed: false,
+                toolCallForwardingAllowed: false,
+                permissionLayerRequired: true,
+                credentialExposed: false,
+                rawToolOutputPersisted: false,
+                marketplaceAccessed: false,
+                reasonCodes: [
+                  "MCP_ADAPTER_STATUS_ONLY",
+                  "MCP_EXTERNAL_EXECUTION_DISABLED",
+                  "JARVIS_PERMISSION_LAYER_REQUIRED",
+                ],
+              },
+            }),
+          });
+        } catch {
+          return this.pluginsUnavailable(envelope);
+        }
+      }
+
+      case "agent.setLocalPluginEnabledState": {
+        if (!this.pluginRegistry || !this.localPluginStateRepository) {
+          return this.failure(envelope, {
+            code: "PLUGIN_STATE_STORE_UNAVAILABLE",
+            message: "Local plugin state store is unavailable.",
+            retryable: true,
+          });
+        }
+        try {
+          const request = LocalPluginEnabledStateSetRequestSchema.parse(
+            envelope.command.payload,
+          );
+          const manifest = await this.pluginRegistry.getPlugin(
+            request.pluginId,
+          );
+          const executablePluginIds = new Set(
+            this.pluginRuntime?.listExecutablePluginIds
+              ? await this.pluginRuntime.listExecutablePluginIds()
+              : [],
+          );
+          const localReadOnlyPluginIds = new Set(
+            this.pluginRuntime?.listLocalReadOnlyPluginIds
+              ? await this.pluginRuntime.listLocalReadOnlyPluginIds()
+              : [],
+          );
+          const localReadOnlyRuntime =
+            manifest !== undefined && localReadOnlyPluginIds.has(manifest.id);
+          const bundledExecutable =
+            manifest !== undefined &&
+            executablePluginIds.has(manifest.id) &&
+            !localReadOnlyRuntime;
+          if (!manifest || bundledExecutable) {
+            return this.success(envelope, {
+              result: LocalPluginEnabledStateSetResultSchema.parse({
+                pluginId: request.pluginId,
+                requestedState: request.enabled ? "enabled" : "disabled",
+                appliedState: "disabled",
+                status: manifest ? "blocked" : "not_found",
+                persisted: false,
+                executionMode: "list_only",
+                executable: false,
+                routeSelectable: false,
+                thirdPartyCodeExecuted: false,
+                installOrEnableActionExposed: false,
+                stateToggleActionExposed: true,
+                reasonCodes: manifest
+                  ? bundledExecutable
+                    ? ["BUNDLED_PLUGIN_STATE_NOT_MUTABLE"]
+                    : ["LOCAL_READ_ONLY_PLUGIN_STATE_RUNTIME_CONFLICT"]
+                  : ["LOCAL_PLUGIN_NOT_FOUND"],
+              }),
+            });
+          }
+          if (request.enabled && !canEnableLocalPluginState(manifest)) {
+            return this.success(envelope, {
+              result: LocalPluginEnabledStateSetResultSchema.parse({
+                pluginId: request.pluginId,
+                requestedState: "enabled",
+                appliedState: "disabled",
+                status: "blocked",
+                persisted: false,
+                executionMode: "list_only",
+                executable: false,
+                routeSelectable: false,
+                thirdPartyCodeExecuted: false,
+                installOrEnableActionExposed: false,
+                stateToggleActionExposed: true,
+                reasonCodes: ["LOCAL_PLUGIN_STATE_BLOCKED_BY_POLICY"],
+              }),
+            });
+          }
+          await this.ensureLocalPluginStateRepositoryInitialized();
+          const record = await this.localPluginStateRepository.setState({
+            pluginId: request.pluginId,
+            enabled: request.enabled,
+            updatedAt: this.now().toISOString(),
+          });
+          return this.success(envelope, {
+            result: LocalPluginEnabledStateSetResultSchema.parse({
+              pluginId: request.pluginId,
+              requestedState: request.enabled ? "enabled" : "disabled",
+              appliedState: record.enabled ? "enabled" : "disabled",
+              status: "updated",
+              persisted: true,
+              executionMode:
+                record.enabled && localReadOnlyRuntime
+                  ? "local_readonly_runtime"
+                  : "list_only",
+              executable: record.enabled && localReadOnlyRuntime,
+              routeSelectable: record.enabled && localReadOnlyRuntime,
+              thirdPartyCodeExecuted: false,
+              installOrEnableActionExposed: false,
+              stateToggleActionExposed: true,
+              reasonCodes: record.enabled
+                ? [
+                    "LOCAL_PLUGIN_STATE_PERSISTED",
+                    ...(localReadOnlyRuntime
+                      ? [
+                          "LOCAL_READ_ONLY_RUNTIME",
+                          "LOCAL_PLUGIN_STATE_ENABLED_EXECUTABLE",
+                        ]
+                      : ["LOCAL_PLUGIN_STATE_ENABLED_LIST_ONLY"]),
+                  ]
+                : [
+                    "LOCAL_PLUGIN_STATE_PERSISTED",
+                    "LOCAL_PLUGIN_STATE_DISABLED",
+                  ],
+            }),
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "PLUGIN_STATE_STORE_FAILED",
+            message: "Local plugin state store failed closed.",
+            retryable: true,
+          });
+        }
+      }
+
+      case "agent.getLocalPluginManifestDeveloperStatus": {
+        if (!this.localPluginManifestDiagnostics) {
+          return this.pluginsUnavailable(envelope);
+        }
+        try {
+          return this.success(envelope, {
+            localPluginManifestDeveloperStatus:
+              LocalPluginManifestDeveloperStatusResultSchema.parse(
+                await this.localPluginManifestDiagnostics.getStatus(),
+              ),
+          });
+        } catch {
+          return this.pluginsUnavailable(envelope);
+        }
+      }
+
+      case "agent.invokePlugin": {
+        if (!this.pluginRuntime) {
+          return this.pluginsUnavailable(envelope);
+        }
+        try {
+          const request = PluginInvocationRequestSchema.parse(
+            envelope.command.payload,
+          );
+          const gate = await this.evaluatePluginInvocationGate({
+            pluginId: request.pluginId,
+            capability: request.capability,
+          });
+          if (!gate.allowed) {
+            const completedAt = this.now().toISOString();
+            return this.success(envelope, {
+              result: PluginInvocationResultSchema.parse({
+                requestId: request.requestId,
+                pluginId: request.pluginId,
+                capability: request.capability,
+                status: "denied",
+                resultCode: gate.resultCode,
+                invokedAt: completedAt,
+                completedAt,
+                directActionAttempted: false,
+                credentialExposed: false,
+                rawPluginOutputPersisted: false,
+              }),
+            });
+          }
+          return this.success(envelope, {
+            result: PluginInvocationResultSchema.parse(
+              await this.pluginRuntime.invoke(request),
+            ),
+          });
+        } catch {
+          return this.failure(envelope, {
+            code: "PLUGIN_RUNTIME_FAILED",
+            message: "Plugin runtime failed.",
+            retryable: true,
           });
         }
       }
@@ -745,7 +1554,7 @@ export class CoreRuntime {
       case "agent.getMemoryHealth": {
         const memoryHealth = await this.refreshMemoryHealth();
         return this.success(envelope, {
-          memoryHealth
+          memoryHealth,
         });
       }
 
@@ -757,7 +1566,7 @@ export class CoreRuntime {
           const snapshot = await this.memoryRepository.exportSnapshot();
           this.health = "ready";
           return this.success(envelope, {
-            snapshot
+            snapshot,
           });
         } catch {
           this.health = "degraded";
@@ -771,17 +1580,15 @@ export class CoreRuntime {
         }
         try {
           await this.memoryRepository.importSnapshot(
-            envelope.command.payload.snapshot
+            envelope.command.payload.snapshot,
           );
           const snapshot = await this.memoryRepository.getSnapshot();
           this.replaceMemorySnapshot(snapshot);
           await this.refreshMemoryHealth();
-          const coreSnapshot = this.publishSnapshot(
-            envelope.correlationId
-          );
+          const coreSnapshot = this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
             imported: true,
-            snapshot: coreSnapshot
+            snapshot: coreSnapshot,
           });
         } catch {
           this.health = "degraded";
@@ -789,17 +1596,52 @@ export class CoreRuntime {
         }
       }
 
+      case "agent.getMemoryAlphaStatus": {
+        return this.success(envelope, {
+          memoryAlpha: this.getMemoryAlphaStatus(),
+        });
+      }
+
+      case "agent.probeMemoryAlphaRecall": {
+        const memoryAlpha = this.getMemoryAlphaStatus();
+        const probe = await this.probeMemoryAlphaRecall({
+          text: envelope.command.payload.text,
+          ...(envelope.command.payload.conversationId === undefined
+            ? {}
+            : { conversationId: envelope.command.payload.conversationId }),
+        });
+        return this.success(envelope, {
+          memoryAlpha,
+          probe,
+        });
+      }
+
+      case "agent.disableMemoryAlpha": {
+        if (!this.memoryAlphaSession) {
+          return this.success(envelope, {
+            memoryAlpha: this.getMemoryAlphaStatus(),
+          });
+        }
+        const memoryAlpha = MemoryAlphaStatusSchema.parse(
+          await this.memoryAlphaSession.disable(),
+        );
+        const snapshot = this.publishSnapshot(envelope.correlationId);
+        return this.success(envelope, {
+          memoryAlpha,
+          snapshot,
+        });
+      }
+
       case "agent.listConversations": {
         if (!this.memoryRepository) {
           return this.memoryUnavailable(envelope);
         }
         try {
-          const conversations =
-            await this.memoryRepository.listConversations(
-              envelope.command.payload.limit === undefined
-                ? {}
-                : { limit: envelope.command.payload.limit }
-            );
+          const conversations = await this.memoryRepository.listConversations(
+            envelope.command.payload.limit === undefined
+              ? {}
+              : { limit: envelope.command.payload.limit },
+          );
           const activeConversationId =
             await this.memoryRepository.getActiveConversationId();
           this.replaceConversations(conversations);
@@ -809,7 +1651,7 @@ export class CoreRuntime {
           return this.success(envelope, {
             conversations,
             activeConversationId,
-            snapshot
+            snapshot,
           });
         } catch {
           this.health = "degraded";
@@ -823,22 +1665,19 @@ export class CoreRuntime {
         }
         const now = this.now().toISOString();
         try {
-          const conversation =
-            await this.memoryRepository.upsertConversation({
-              id: createId("conv"),
-              title: envelope.command.payload.title ?? "New conversation",
-              createdAt: now,
-              updatedAt: now
-            });
-          await this.memoryRepository.setActiveConversationId(
-            conversation.id
-          );
+          const conversation = await this.memoryRepository.upsertConversation({
+            id: createId("conv"),
+            title: envelope.command.payload.title ?? "New conversation",
+            createdAt: now,
+            updatedAt: now,
+          });
+          await this.memoryRepository.setActiveConversationId(conversation.id);
           await this.refreshConversationState();
           this.health = "ready";
           this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
             conversation,
-            activeConversationId: conversation.id
+            activeConversationId: conversation.id,
           });
         } catch {
           this.health = "degraded";
@@ -852,14 +1691,13 @@ export class CoreRuntime {
         }
         try {
           await this.memoryRepository.setActiveConversationId(
-            envelope.command.payload.conversationId
+            envelope.command.payload.conversationId,
           );
           await this.refreshConversationState();
           this.health = "ready";
           this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
-            activeConversationId:
-              envelope.command.payload.conversationId
+            activeConversationId: envelope.command.payload.conversationId,
           });
         } catch {
           this.health = "degraded";
@@ -872,17 +1710,16 @@ export class CoreRuntime {
           return this.memoryUnavailable(envelope);
         }
         try {
-          const conversation =
-            await this.memoryRepository.updateConversation({
-              id: envelope.command.payload.conversationId,
-              title: envelope.command.payload.title,
-              updatedAt: this.now().toISOString()
-            });
+          const conversation = await this.memoryRepository.updateConversation({
+            id: envelope.command.payload.conversationId,
+            title: envelope.command.payload.title,
+            updatedAt: this.now().toISOString(),
+          });
           await this.refreshConversationState();
           this.health = "ready";
           this.publishSnapshot(envelope.correlationId);
           return this.success(envelope, {
-            conversation
+            conversation,
           });
         } catch {
           this.health = "degraded";
@@ -891,52 +1728,25 @@ export class CoreRuntime {
       }
 
       case "agent.sendMessage": {
-        const conversationId = await this.resolveMessageConversationId(
-          envelope.command.payload.conversationId
-        );
-        const message: Message = {
-          id: createId("msg"),
-          conversationId,
+        const accepted = await this.acceptMessage({
+          envelope,
           role: "user",
           text: envelope.command.payload.text,
-          createdAt: this.now().toISOString()
-        };
-        if (this.memoryRepository) {
-          try {
-            await this.memoryRepository.appendMessage(message);
-            if (!this.activeConversationId) {
-              await this.memoryRepository.setActiveConversationId(
-                conversationId
-              );
-            }
-            await this.refreshConversationState();
-            this.health = "ready";
-          } catch {
-            this.health = "degraded";
-            return this.failure(envelope, {
-              code: "MEMORY_WRITE_FAILED",
-              message: "Unable to persist the accepted message.",
-              retryable: true
-            });
-          }
-        } else {
-          this.upsertLocalConversationForMessage(message);
+          recall: true,
+          ...(envelope.command.payload.conversationId === undefined
+            ? {}
+            : { conversationId: envelope.command.payload.conversationId }),
+        });
+        if (!accepted.ok) {
+          return accepted.result;
         }
-        this.messages.push(message);
-        this.publish(
-          {
-            type: "agent.message.accepted",
-            payload: message
-          },
-          envelope.correlationId
-        );
-        const memoryRecall =
-          await this.retrieveMemoryRecallForAcceptedMessage(message);
         this.publishSnapshot(envelope.correlationId);
         return this.success(envelope, {
           accepted: true,
-          messageId: message.id,
-          ...(memoryRecall ? { memoryRecall } : {})
+          messageId: accepted.message.id,
+          ...(accepted.memoryRecall
+            ? { memoryRecall: accepted.memoryRecall }
+            : {}),
         });
       }
 
@@ -958,11 +1768,11 @@ export class CoreRuntime {
 
   public handleModelOperationUpdated(
     operation: ModelOperationSnapshot,
-    correlationId?: string
+    correlationId?: string,
   ): void {
     const parsed = ModelOperationSnapshotSchema.parse(operation);
     const index = this.modelOperations.findIndex(
-      (item) => item.operationId === parsed.operationId
+      (item) => item.operationId === parsed.operationId,
     );
     if (index >= 0) {
       this.modelOperations[index] = parsed;
@@ -972,15 +1782,5870 @@ export class CoreRuntime {
     this.publish(
       {
         type: "model.operation.updated",
-        payload: parsed
+        payload: parsed,
       },
-      correlationId
+      correlationId,
     );
     this.publishSnapshot(correlationId);
   }
 
+  public configureChatAnswerProductMode(input: {
+    provider?: ChatAnswerProvider;
+    options?: CoreChatAnswerOptions;
+  }): void {
+    this.chatAnswerProvider = input.provider;
+    this.chatAnswer = input.options;
+  }
+
+  public configureCommandRouterProductMode(
+    input: CoreCommandRouterProductModeOptions,
+  ): void {
+    this.commandRouterProductMode = {
+      enabled: input.enabled,
+      providerId: input.providerId ?? COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
+    };
+  }
+
+  private async handleBrainCommand(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.runBrainCommand") {
+      return this.failure(envelope, {
+        code: "BRAIN_COMMAND_INVALID",
+        message: "Brain command handler received an unsupported command.",
+        retryable: false,
+      });
+    }
+
+    const payload = envelope.command.payload;
+    const voiceCorrection =
+      payload.source === "voice"
+        ? await this.resolveVoiceCommandCorrection({
+            rawTranscript: payload.text,
+            ...(payload.voiceInputMode === undefined
+              ? {}
+              : { requestedMode: payload.voiceInputMode }),
+          })
+        : undefined;
+    if (voiceCorrection?.requiresUserSelection === true) {
+      return this.handleVoiceCommandCorrectionSelectionRequired({
+        envelope,
+        voiceCorrection,
+        ...(payload.conversationId === undefined
+          ? {}
+          : { conversationId: payload.conversationId }),
+      });
+    }
+    const routingText = this.normalizeBrainCommandRoutingText({
+      source: payload.source,
+      text: voiceCorrection?.normalizedTranscript ?? payload.text,
+    });
+    const aliasLearning = await this.handleUserRouteAliasLearningRequest({
+      envelope,
+      text: routingText,
+      originalText: payload.text,
+      source: payload.source,
+      ...(payload.conversationId === undefined
+        ? {}
+        : { conversationId: payload.conversationId }),
+      ...(voiceCorrection
+        ? {
+            voiceCorrection,
+          }
+        : {}),
+    });
+    if (aliasLearning) {
+      return aliasLearning;
+    }
+    const preferenceMemory = await this.handleUserPreferenceMemoryRequest({
+      envelope,
+      text: routingText,
+      originalText: payload.text,
+      source: payload.source,
+      ...(payload.conversationId === undefined
+        ? {}
+        : { conversationId: payload.conversationId }),
+      ...(voiceCorrection
+        ? {
+            voiceCorrection,
+          }
+        : {}),
+    });
+    if (preferenceMemory) {
+      return preferenceMemory;
+    }
+    const voiceCorrectionRouting =
+      await this.createVoiceCorrectionRoutingOutcome(voiceCorrection);
+    const routing =
+      voiceCorrectionRouting ??
+      (await this.routeBrainIntent({
+        text: routingText,
+        correlationId: envelope.correlationId,
+        ...(payload.conversationId === undefined
+          ? {}
+          : { conversationId: payload.conversationId }),
+      }));
+    const planning = await this.planBrainFallback({
+      source: payload.source,
+      text: routingText,
+      routing,
+      ...(payload.conversationId === undefined
+        ? {}
+        : { conversationId: payload.conversationId }),
+    });
+    const accepted = await this.acceptMessage({
+      envelope,
+      role: "user",
+      text: payload.text,
+      recall:
+        routing.decision.intent === "chat.answer" ||
+        routing.decision.intent === "memory.search",
+      ...(payload.conversationId === undefined
+        ? {}
+        : { conversationId: payload.conversationId }),
+    });
+    if (!accepted.ok) {
+      return accepted.result;
+    }
+
+    const dispatched = await this.dispatchBrainIntent({
+      envelope,
+      text: routingText,
+      decision: routing.decision,
+      conversationId: accepted.message.conversationId,
+      planning,
+    });
+    const toolProductLoop = await this.createBrainToolProductLoop({
+      source: payload.source,
+      decision: routing.decision,
+      planning,
+      dispatchStatus: dispatched.dispatchStatus,
+    });
+    const alphaHardening = this.createBrainAlphaHardening({
+      source: payload.source,
+      decision: routing.decision,
+      toolProductLoop,
+      dispatchStatus: dispatched.dispatchStatus,
+      ...((dispatched.memoryRecall ?? accepted.memoryRecall)
+        ? {
+            memoryRecall: dispatched.memoryRecall ?? accepted.memoryRecall,
+          }
+        : {}),
+    });
+    const assistant = await this.acceptMessage({
+      envelope,
+      role: "assistant",
+      text: dispatched.summary,
+      conversationId: accepted.message.conversationId,
+      recall: false,
+    });
+    if (!assistant.ok) {
+      return assistant.result;
+    }
+
+    this.appendSessionHistory({
+      source: payload.source,
+      decision: routing.decision,
+      toolProductLoop,
+      dispatchStatus: dispatched.dispatchStatus,
+      alphaHardening,
+    });
+    const brainResult = BrainCommandResultSchema.parse({
+      source: payload.source,
+      text: payload.text,
+      ...(voiceCorrection
+        ? {
+            rawTranscript: voiceCorrection.rawTranscript,
+            normalizedTranscript: voiceCorrection.normalizedTranscript,
+            voiceInputMode: voiceCorrection.inputMode,
+            correctionSource: voiceCorrection.correctionSource,
+            correctionConfidence: voiceCorrection.correctionConfidence,
+            correctionCandidates: voiceCorrection.correctionCandidates,
+            voiceCorrection,
+          }
+        : {}),
+      routedAt: this.now().toISOString(),
+      decision: routing.decision,
+      routerSelection: routing.selection,
+      plannerSelection: planning.selection,
+      ...(planning.result ? { plannerResult: planning.result } : {}),
+      ...(dispatched.chatAnswer ? { chatAnswer: dispatched.chatAnswer } : {}),
+      ...(dispatched.pluginResult
+        ? { pluginResult: dispatched.pluginResult }
+        : {}),
+      plan: dispatched.plan,
+      dispatchStatus: dispatched.dispatchStatus,
+      summary: dispatched.summary,
+      messageId: accepted.message.id,
+      assistantMessageId: assistant.message.id,
+      toolProductLoop,
+      alphaHardening,
+      ...((dispatched.memoryRecall ?? accepted.memoryRecall)
+        ? { memoryRecall: dispatched.memoryRecall ?? accepted.memoryRecall }
+        : {}),
+    });
+    this.publishSnapshot(envelope.correlationId);
+    return this.success(envelope, { brain: brainResult });
+  }
+
+  private async handleVoiceCommandCorrectionSelectionRequired(input: {
+    envelope: CommandEnvelope;
+    voiceCorrection: VoiceCommandCorrection;
+    conversationId?: string;
+  }): Promise<CommandResult> {
+    const decision = this.brainDecision({
+      intent: "clarify",
+      confidence: input.voiceCorrection.correctionConfidence,
+      requiresApproval: false,
+      slots: {},
+      reason:
+        "Voice command correction found multiple or low-confidence structured candidates.",
+    });
+    const accepted = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "user",
+      text: input.voiceCorrection.rawTranscript,
+      recall: false,
+      ...(input.conversationId === undefined
+        ? {}
+        : { conversationId: input.conversationId }),
+    });
+    if (!accepted.ok) {
+      return accepted.result;
+    }
+    const candidateSummary =
+      input.voiceCorrection.correctionCandidates.length === 0
+        ? "No safe voice command candidate was confident enough."
+        : input.voiceCorrection.correctionCandidates
+            .map((candidate, index) => `${index + 1}. ${candidate.label}`)
+            .join(" / ");
+    const summary = `Voice command correction needs confirmation before execution: ${candidateSummary}`;
+    const assistant = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "assistant",
+      text: summary,
+      conversationId: accepted.message.conversationId,
+      recall: false,
+    });
+    if (!assistant.ok) {
+      return assistant.result;
+    }
+    const plan = this.blockFinalBrainPlan([
+      {
+        id: "voice-correction",
+        title: "Ask user to choose a voice command correction",
+        status: "blocked",
+      },
+    ]);
+    const brainResult = BrainCommandResultSchema.parse({
+      source: "voice",
+      text: input.voiceCorrection.rawTranscript,
+      rawTranscript: input.voiceCorrection.rawTranscript,
+      normalizedTranscript: input.voiceCorrection.normalizedTranscript,
+      voiceInputMode: input.voiceCorrection.inputMode,
+      correctionSource: input.voiceCorrection.correctionSource,
+      correctionConfidence: input.voiceCorrection.correctionConfidence,
+      correctionCandidates: input.voiceCorrection.correctionCandidates,
+      voiceCorrection: input.voiceCorrection,
+      routedAt: this.now().toISOString(),
+      decision,
+      routerSelection: this.brainRouterSelection({
+        selectedProviderId: "voice-command.resolver.phase1",
+        status: "blocked",
+        reasonCode: "CONFIDENCE_LOW",
+        failureClass: "CONFIDENCE_LOW",
+        confidenceBand: "low",
+        usedRulesFallback: false,
+      }),
+      plan,
+      dispatchStatus: "blocked",
+      summary,
+      messageId: accepted.message.id,
+      assistantMessageId: assistant.message.id,
+    });
+    this.publishSnapshot(input.envelope.correlationId);
+    return this.success(input.envelope, { brain: brainResult });
+  }
+
+  private async handleUserRouteAliasLearningRequest(input: {
+    envelope: CommandEnvelope;
+    text: string;
+    originalText: string;
+    source: "text" | "voice";
+    conversationId?: string;
+    voiceCorrection?: VoiceCommandCorrection;
+  }): Promise<CommandResult | undefined> {
+    if (!this.looksLikeUserRouteAliasLearningRequest(input.text)) {
+      return undefined;
+    }
+
+    const proposal = this.createUserRouteAliasLearningProposal(input.text);
+    const accepted = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "user",
+      text: input.originalText,
+      recall: false,
+      ...(input.conversationId === undefined
+        ? {}
+        : { conversationId: input.conversationId }),
+    });
+    if (!accepted.ok) {
+      return accepted.result;
+    }
+
+    const decision = this.brainDecision({
+      intent: proposal ? "clarify" : "blocked",
+      confidence: proposal ? 0.84 : 0.99,
+      requiresApproval: proposal !== undefined,
+      slots: proposal
+        ? {
+            label: proposal.label,
+            targetHostname: proposal.targetHostname,
+          }
+        : {},
+      reason: proposal
+        ? "Detected a user route alias learning request; explicit confirmation is required before persistence."
+        : "Detected a user route alias learning request, but the URL did not pass safe HTTPS alias policy.",
+    });
+    if (proposal) {
+      this.pendingUserRouteAliasProposals.set(proposal.id, proposal);
+    }
+    const summary = proposal
+      ? `Jarvis-K can remember route alias "${proposal.label}" for ${proposal.targetHostname} after confirmation. No browser action was attempted.`
+      : "Jarvis-K did not save this route alias because the URL policy requires HTTPS with no credentials, hash, or sensitive query parameters.";
+    const assistant = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "assistant",
+      text: summary,
+      conversationId: accepted.message.conversationId,
+      recall: false,
+    });
+    if (!assistant.ok) {
+      return assistant.result;
+    }
+    const plan: BrainPlanStep[] = [
+      {
+        id: "intake",
+        title: "Receive route alias learning request",
+        status: "completed",
+      },
+      {
+        id: "url-policy",
+        title: "Validate safe HTTPS URL policy",
+        status: proposal ? "completed" : "blocked",
+      },
+      {
+        id: "confirmation",
+        title: "Wait for explicit UI confirmation before saving",
+        status: proposal ? "pending" : "blocked",
+      },
+    ];
+    const brainResult = BrainCommandResultSchema.parse({
+      source: input.source,
+      text: input.originalText,
+      ...(input.voiceCorrection
+        ? {
+            rawTranscript: input.voiceCorrection.rawTranscript,
+            normalizedTranscript: input.voiceCorrection.normalizedTranscript,
+            voiceInputMode: input.voiceCorrection.inputMode,
+            correctionSource: input.voiceCorrection.correctionSource,
+            correctionConfidence: input.voiceCorrection.correctionConfidence,
+            correctionCandidates: input.voiceCorrection.correctionCandidates,
+            voiceCorrection: input.voiceCorrection,
+          }
+        : {}),
+      routedAt: this.now().toISOString(),
+      decision,
+      routerSelection: this.brainRouterSelection({
+        selectedProviderId: "user-route-alias.learning.rules",
+        status: proposal ? "accepted" : "blocked",
+        reasonCode: proposal ? "PROVIDER_ACCEPTED" : "UNSAFE_OR_BLOCKED",
+        failureClass: proposal ? "none" : "UNSAFE_OR_BLOCKED",
+        confidenceBand: proposal ? "accepted" : "none",
+        usedRulesFallback: true,
+      }),
+      plan,
+      dispatchStatus: proposal ? "needs_approval" : "blocked",
+      summary,
+      messageId: accepted.message.id,
+      assistantMessageId: assistant.message.id,
+      ...(proposal ? { userRouteAliasProposal: proposal } : {}),
+    });
+    this.publishSnapshot(input.envelope.correlationId);
+    return this.success(input.envelope, { brain: brainResult });
+  }
+
+  private async handleUserPreferenceMemoryRequest(input: {
+    envelope: CommandEnvelope;
+    text: string;
+    originalText: string;
+    source: "text" | "voice";
+    conversationId?: string;
+    voiceCorrection?: VoiceCommandCorrection;
+  }): Promise<CommandResult | undefined> {
+    const resolvedPreference = this.resolveUserPreferenceMemoryRequest(
+      input.text,
+    );
+    if (!resolvedPreference) {
+      return undefined;
+    }
+
+    const accepted = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "user",
+      text: input.originalText,
+      recall: false,
+      ...(input.conversationId === undefined
+        ? {}
+        : { conversationId: input.conversationId }),
+    });
+    if (!accepted.ok) {
+      return accepted.result;
+    }
+
+    const repository = this.userPreferenceMemoryRepository;
+    const canPersist = repository !== undefined;
+    let preference: UserPreferenceMemoryRecord | undefined;
+    if (repository) {
+      await repository.initialize();
+      const existing = (await repository.listPreferences()).find(
+        (record) => record.key === resolvedPreference.key,
+      );
+      const now = this.now().toISOString();
+      preference = await repository.upsertPreference(
+        UserPreferenceMemoryRecordSchema.parse({
+          id: existing?.id ?? `preference_${resolvedPreference.key}`,
+          key: resolvedPreference.key,
+          label: resolvedPreference.label,
+          value: resolvedPreference.value,
+          summary: resolvedPreference.summary,
+          source: "user_confirmed_preference",
+          risk: "low",
+          enabled: true,
+          appliesTo: "ui_projection_only",
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        }),
+      );
+    }
+
+    const decision = this.brainDecision({
+      intent: "memory.preference.set",
+      confidence: 0.94,
+      requiresApproval: false,
+      slots: {
+        key: resolvedPreference.key,
+        value: resolvedPreference.value,
+        appliesTo: "ui_projection_only",
+      },
+      reason:
+        "Detected an explicit user preference memory request through deterministic rules.",
+    });
+    const summary = canPersist
+      ? `Preference memory saved: ${resolvedPreference.summary}. This is visible and deletable in Memory, and is projected to Chat Answer as sanitized policy.`
+      : "Preference memory was recognized, but storage is unavailable. No automatic behavior change was made.";
+    const assistant = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "assistant",
+      text: summary,
+      conversationId: accepted.message.conversationId,
+      recall: false,
+    });
+    if (!assistant.ok) {
+      return assistant.result;
+    }
+    const plan: BrainPlanStep[] = [
+      {
+        id: "intake",
+        title: "Receive user preference memory request",
+        status: "completed",
+      },
+      {
+        id: "persist",
+        title: "Persist provider-neutral preference memory",
+        status: canPersist ? "completed" : "blocked",
+      },
+      {
+        id: "projection",
+        title: "Project memory for user-controlled viewing and deletion",
+        status: canPersist ? "completed" : "blocked",
+      },
+    ];
+    const brainResult = BrainCommandResultSchema.parse({
+      source: input.source,
+      text: input.originalText,
+      ...(input.voiceCorrection
+        ? {
+            rawTranscript: input.voiceCorrection.rawTranscript,
+            normalizedTranscript: input.voiceCorrection.normalizedTranscript,
+            voiceInputMode: input.voiceCorrection.inputMode,
+            correctionSource: input.voiceCorrection.correctionSource,
+            correctionConfidence: input.voiceCorrection.correctionConfidence,
+            correctionCandidates: input.voiceCorrection.correctionCandidates,
+            voiceCorrection: input.voiceCorrection,
+          }
+        : {}),
+      routedAt: this.now().toISOString(),
+      decision,
+      routerSelection: this.brainRouterSelection({
+        selectedProviderId: "user-preference-memory.rules",
+        status: canPersist ? "accepted" : "blocked",
+        reasonCode: canPersist ? "PROVIDER_ACCEPTED" : "PROVIDER_UNAVAILABLE",
+        failureClass: canPersist ? "none" : "PROVIDER_UNAVAILABLE",
+        confidenceBand: canPersist ? "accepted" : "none",
+        usedRulesFallback: true,
+      }),
+      plan,
+      dispatchStatus: canPersist ? "completed" : "blocked",
+      summary,
+      messageId: accepted.message.id,
+      assistantMessageId: assistant.message.id,
+    });
+    void preference;
+    this.publishSnapshot(input.envelope.correlationId);
+    return this.success(input.envelope, { brain: brainResult });
+  }
+
+  private async createVoiceCorrectionRoutingOutcome(
+    voiceCorrection: VoiceCommandCorrection | undefined,
+  ): Promise<CoreBrainRoutingOutcome | undefined> {
+    if (
+      !voiceCorrection ||
+      voiceCorrection.inputMode !== "command" ||
+      voiceCorrection.requiresUserSelection
+    ) {
+      return undefined;
+    }
+    const candidate = voiceCorrection.correctionCandidates[0];
+    if (!candidate) {
+      return undefined;
+    }
+    const candidateDecision =
+      this.voiceCommandResolver.decisionFromCandidate(candidate);
+    return {
+      decision:
+        (await this.resolveUserRouteAliasBrowserDecision(candidateDecision)) ??
+        candidateDecision,
+      selection: this.brainRouterSelection({
+        selectedProviderId: "voice-command.resolver.phase1",
+        fallbackProviderId: "brain.rules",
+        status: "accepted",
+        reasonCode: "PROVIDER_ACCEPTED",
+        failureClass: "none",
+        confidenceBand: this.brainRouterConfidenceBand(candidate.confidence),
+        usedRulesFallback: false,
+      }),
+    };
+  }
+
+  private async resolveUserRouteAliasBrowserDecision(
+    decision: BrainRouterDecision,
+  ): Promise<BrainRouterDecision | undefined> {
+    if (decision.intent !== "browser.open") {
+      return undefined;
+    }
+    const target = String(decision.slots.target ?? "").trim();
+    const alias = await this.resolveUserRouteAliasRecordByTarget(target);
+    if (!alias) {
+      return undefined;
+    }
+    const safeUrl = this.normalizeUserRouteAliasHttpsUrl(alias.targetUrl);
+    if (!safeUrl) {
+      return this.brainDecision({
+        intent: "blocked",
+        confidence: Math.max(decision.confidence, 0.99),
+        requiresApproval: false,
+        slots: {
+          routeAliasId: alias.id,
+          routeAliasLabel: alias.label,
+        },
+        reason:
+          "Matched a user-confirmed route alias through voice correction, but its persisted URL failed safe URL policy.",
+      });
+    }
+    return this.brainDecision({
+      intent: "browser.open",
+      confidence: Math.max(decision.confidence, 0.94),
+      requiresApproval: false,
+      slots: {
+        ...decision.slots,
+        target: safeUrl.href,
+        routeAliasId: alias.id,
+        routeAliasLabel: alias.label,
+        targetHostname: safeUrl.hostname,
+      },
+      reason:
+        "Voice command correction selected a user-confirmed route alias through deterministic rules.",
+    });
+  }
+
+  private async resolveUserRouteAliasRecordByTarget(
+    target: string,
+  ): Promise<UserRouteAliasRecord | undefined> {
+    if (!this.userRouteAliasRepository) {
+      return undefined;
+    }
+    const normalizedTarget = this.normalizeUserRouteAliasComparable(target);
+    if (!normalizedTarget) {
+      return undefined;
+    }
+    try {
+      await this.userRouteAliasRepository.initialize();
+      const aliases = await this.userRouteAliasRepository.listAliases();
+      return aliases.find((alias) =>
+        [alias.label, ...alias.aliases].some((candidate) => {
+          const normalizedAlias =
+            this.normalizeUserRouteAliasComparable(candidate);
+          return (
+            normalizedAlias.length > 0 &&
+            (normalizedTarget === normalizedAlias ||
+              normalizedTarget.includes(normalizedAlias) ||
+              normalizedAlias.includes(normalizedTarget))
+          );
+        }),
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async confirmVoiceCommandCorrection(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.confirmVoiceCommandCorrection") {
+      return this.failure(envelope, {
+        code: "VOICE_CORRECTION_INVALID",
+        message: "Voice correction confirmation received an invalid command.",
+        retryable: false,
+      });
+    }
+    if (!this.voiceCommandAliasRepository) {
+      return this.failure(envelope, {
+        code: "VOICE_ALIAS_STORE_UNAVAILABLE",
+        message: "Voice command alias storage is not configured.",
+        retryable: true,
+      });
+    }
+    await this.voiceCommandAliasRepository.initialize();
+    const now = this.now().toISOString();
+    const record = VoiceCommandAliasRecordSchema.parse({
+      id: createId("voice_alias"),
+      rawAlias: envelope.command.payload.rawAlias,
+      normalizedTranscript: envelope.command.payload.normalizedTranscript,
+      intent: envelope.command.payload.intent,
+      slots: envelope.command.payload.slots,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const alias = await this.voiceCommandAliasRepository.upsertAlias(record);
+    return this.success(envelope, {
+      alias,
+      persisted: true,
+      rawAudioPersisted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async listVoiceCommandAliases(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.listVoiceCommandAliases") {
+      return this.failure(envelope, {
+        code: "VOICE_ALIAS_COMMAND_INVALID",
+        message: "Voice alias listing received an invalid command.",
+        retryable: false,
+      });
+    }
+    if (!this.voiceCommandAliasRepository) {
+      return this.success(envelope, {
+        aliases: [],
+        persisted: false,
+        rawAudioPersisted: false,
+        directActionAttempted: false,
+      });
+    }
+    await this.voiceCommandAliasRepository.initialize();
+    return this.success(envelope, {
+      aliases: await this.voiceCommandAliasRepository.listAliases(),
+      persisted: true,
+      rawAudioPersisted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async deleteVoiceCommandAlias(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.deleteVoiceCommandAlias") {
+      return this.failure(envelope, {
+        code: "VOICE_ALIAS_COMMAND_INVALID",
+        message: "Voice alias deletion received an invalid command.",
+        retryable: false,
+      });
+    }
+    if (!this.voiceCommandAliasRepository) {
+      return this.success(envelope, {
+        deleted: false,
+        persisted: false,
+        rawAudioPersisted: false,
+        directActionAttempted: false,
+      });
+    }
+    await this.voiceCommandAliasRepository.initialize();
+    return this.success(envelope, {
+      deleted: await this.voiceCommandAliasRepository.deleteAlias(
+        envelope.command.payload.aliasId,
+      ),
+      persisted: true,
+      rawAudioPersisted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async confirmUserRouteAlias(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.confirmUserRouteAlias") {
+      return this.failure(envelope, {
+        code: "USER_ROUTE_ALIAS_COMMAND_INVALID",
+        message: "Route alias confirmation received an invalid command.",
+        retryable: false,
+      });
+    }
+    if (!this.userRouteAliasRepository) {
+      return this.failure(envelope, {
+        code: "USER_ROUTE_ALIAS_STORE_UNAVAILABLE",
+        message: "User route alias storage is not configured.",
+        retryable: true,
+      });
+    }
+    const proposal = this.pendingUserRouteAliasProposals.get(
+      envelope.command.payload.proposalId,
+    );
+    if (!proposal) {
+      return this.failure(envelope, {
+        code: "USER_ROUTE_ALIAS_PROPOSAL_EXPIRED",
+        message: "The route alias proposal is no longer pending.",
+        retryable: false,
+      });
+    }
+    const safeUrl = this.normalizeUserRouteAliasHttpsUrl(proposal.targetUrl);
+    if (!safeUrl) {
+      this.pendingUserRouteAliasProposals.delete(proposal.id);
+      return this.failure(envelope, {
+        code: "USER_ROUTE_ALIAS_URL_BLOCKED",
+        message: "The route alias URL no longer passes URL policy.",
+        retryable: false,
+      });
+    }
+    await this.userRouteAliasRepository.initialize();
+    const now = this.now().toISOString();
+    const record = UserRouteAliasRecordSchema.parse({
+      id: createId("route_alias"),
+      label: proposal.label,
+      aliases: proposal.aliases,
+      intent: "browser.open",
+      targetUrl: safeUrl.href,
+      targetHostname: safeUrl.hostname,
+      source: "user_confirmed",
+      risk: "medium",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const alias = await this.userRouteAliasRepository.upsertAlias(record);
+    this.pendingUserRouteAliasProposals.delete(proposal.id);
+    this.publishSnapshot(envelope.correlationId);
+    return this.success(envelope, {
+      alias,
+      persisted: true,
+      directActionAttempted: false,
+      rawCredentialPersisted: false,
+    });
+  }
+
+  private async listUserRouteAliases(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.listUserRouteAliases") {
+      return this.failure(envelope, {
+        code: "USER_ROUTE_ALIAS_COMMAND_INVALID",
+        message: "Route alias listing received an invalid command.",
+        retryable: false,
+      });
+    }
+    if (!this.userRouteAliasRepository) {
+      return this.success(envelope, {
+        aliases: [],
+        persisted: false,
+        directActionAttempted: false,
+      });
+    }
+    await this.userRouteAliasRepository.initialize();
+    return this.success(envelope, {
+      aliases: await this.userRouteAliasRepository.listAliases(),
+      persisted: true,
+      directActionAttempted: false,
+    });
+  }
+
+  private async deleteUserRouteAlias(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.deleteUserRouteAlias") {
+      return this.failure(envelope, {
+        code: "USER_ROUTE_ALIAS_COMMAND_INVALID",
+        message: "Route alias deletion received an invalid command.",
+        retryable: false,
+      });
+    }
+    if (!this.userRouteAliasRepository) {
+      return this.success(envelope, {
+        deleted: false,
+        persisted: false,
+        directActionAttempted: false,
+      });
+    }
+    await this.userRouteAliasRepository.initialize();
+    return this.success(envelope, {
+      deleted: await this.userRouteAliasRepository.deleteAlias(
+        envelope.command.payload.aliasId,
+      ),
+      persisted: true,
+      directActionAttempted: false,
+    });
+  }
+
+  private async listUserControlledMemories(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.listUserControlledMemories") {
+      return this.failure(envelope, {
+        code: "USER_CONTROLLED_MEMORY_COMMAND_INVALID",
+        message: "User-controlled memory listing received an invalid command.",
+        retryable: false,
+      });
+    }
+
+    const memories: UserControlledMemoryRecord[] = [];
+    let persisted = false;
+
+    if (this.voiceCommandAliasRepository) {
+      await this.voiceCommandAliasRepository.initialize();
+      persisted = true;
+      for (const alias of await this.voiceCommandAliasRepository.listAliases()) {
+        memories.push(
+          UserControlledMemoryRecordSchema.parse({
+            id: `voice_command_alias:${alias.id}`,
+            sourceId: alias.id,
+            kind: "voice_command_alias",
+            label: alias.rawAlias,
+            summary: `${alias.intent} / ${this.summarizeMemorySlots(alias.slots)}`,
+            source: "voice_correction_alias",
+            risk: "low",
+            deletable: true,
+            rawContentExposed: false,
+            createdAt: alias.createdAt,
+            updatedAt: alias.updatedAt,
+          }),
+        );
+      }
+    }
+
+    if (this.userRouteAliasRepository) {
+      await this.userRouteAliasRepository.initialize();
+      persisted = true;
+      for (const alias of await this.userRouteAliasRepository.listAliases()) {
+        memories.push(
+          UserControlledMemoryRecordSchema.parse({
+            id: `route_alias:${alias.id}`,
+            sourceId: alias.id,
+            kind: "route_alias",
+            label: alias.label,
+            summary: `${alias.intent} / ${alias.targetHostname}`,
+            source: "user_confirmed_route_alias",
+            risk: alias.risk,
+            deletable: true,
+            rawContentExposed: false,
+            createdAt: alias.createdAt,
+            updatedAt: alias.updatedAt,
+          }),
+        );
+      }
+    }
+
+    if (this.userPreferenceMemoryRepository) {
+      await this.userPreferenceMemoryRepository.initialize();
+      persisted = true;
+      for (const preference of await this.userPreferenceMemoryRepository.listPreferences()) {
+        memories.push(
+          UserControlledMemoryRecordSchema.parse({
+            id: `preference:${preference.id}`,
+            sourceId: preference.id,
+            kind: "preference",
+            label: preference.label,
+            summary: preference.summary,
+            preferenceKey: preference.key,
+            preferenceValue: preference.value,
+            source: preference.source,
+            risk: preference.risk,
+            deletable: true,
+            rawContentExposed: false,
+            createdAt: preference.createdAt,
+            updatedAt: preference.updatedAt,
+          }),
+        );
+      }
+    }
+
+    memories.sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
+
+    return this.success(envelope, {
+      memories,
+      persisted,
+      rawContentExposed: false,
+      directActionAttempted: false,
+      vectorRetrievalUsed: false,
+    });
+  }
+
+  private async deleteUserControlledMemory(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.deleteUserControlledMemory") {
+      return this.failure(envelope, {
+        code: "USER_CONTROLLED_MEMORY_COMMAND_INVALID",
+        message: "User-controlled memory deletion received an invalid command.",
+        retryable: false,
+      });
+    }
+
+    const { kind, sourceId } = envelope.command.payload;
+    if (kind === "voice_command_alias") {
+      if (!this.voiceCommandAliasRepository) {
+        return this.success(envelope, {
+          deleted: false,
+          persisted: false,
+          rawContentExposed: false,
+          directActionAttempted: false,
+          vectorRetrievalUsed: false,
+        });
+      }
+      await this.voiceCommandAliasRepository.initialize();
+      return this.success(envelope, {
+        deleted: await this.voiceCommandAliasRepository.deleteAlias(sourceId),
+        persisted: true,
+        rawContentExposed: false,
+        directActionAttempted: false,
+        vectorRetrievalUsed: false,
+      });
+    }
+
+    if (kind === "preference") {
+      if (!this.userPreferenceMemoryRepository) {
+        return this.success(envelope, {
+          deleted: false,
+          persisted: false,
+          rawContentExposed: false,
+          directActionAttempted: false,
+          vectorRetrievalUsed: false,
+        });
+      }
+      await this.userPreferenceMemoryRepository.initialize();
+      return this.success(envelope, {
+        deleted:
+          await this.userPreferenceMemoryRepository.deletePreference(sourceId),
+        persisted: true,
+        rawContentExposed: false,
+        directActionAttempted: false,
+        vectorRetrievalUsed: false,
+      });
+    }
+
+    if (!this.userRouteAliasRepository) {
+      return this.success(envelope, {
+        deleted: false,
+        persisted: false,
+        rawContentExposed: false,
+        directActionAttempted: false,
+        vectorRetrievalUsed: false,
+      });
+    }
+    await this.userRouteAliasRepository.initialize();
+    return this.success(envelope, {
+      deleted: await this.userRouteAliasRepository.deleteAlias(sourceId),
+      persisted: true,
+      rawContentExposed: false,
+      directActionAttempted: false,
+      vectorRetrievalUsed: false,
+    });
+  }
+
+  private summarizeMemorySlots(slots: Record<string, unknown>): string {
+    const entries = Object.entries(slots)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .slice(0, 3);
+    if (entries.length === 0) {
+      return "no slots";
+    }
+    return entries
+      .map(([key, value]) => {
+        const rendered =
+          typeof value === "string" || typeof value === "number"
+            ? String(value)
+            : Array.isArray(value)
+              ? `${value.length} items`
+              : typeof value === "boolean"
+                ? String(value)
+                : "structured";
+        return `${key}:${rendered}`.slice(0, 80);
+      })
+      .join(", ");
+  }
+
+  private async confirmCommandRouterLocalAppLaunch(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.confirmCommandRouterLocalAppLaunch") {
+      return this.failure(envelope, {
+        code: "BRAIN_COMMAND_INVALID",
+        message:
+          "Local app launch confirmation received an unsupported command.",
+        retryable: false,
+      });
+    }
+
+    const target = this.commandRouterRealLocalAppLaunchLabel(
+      envelope.command.payload.target,
+    );
+    if (this.commandRouterProductMode?.enabled !== true) {
+      return this.success(envelope, {
+        launch: CommandRouterLocalAppLaunchResultSchema.parse({
+          status: "blocked",
+          target,
+          label: target,
+          reasonCode: "COMMAND_ROUTER_PRODUCT_MODE_DISABLED",
+          confirmationRequired: true,
+          confirmationGranted: true,
+          directActionAttempted: false,
+          persisted: false,
+          rawDiagnosticsExposed: false,
+        }),
+      });
+    }
+
+    if (
+      !this.isCommandRouterRealLocalAppLaunchAllowlisted(
+        envelope.command.payload.target,
+      )
+    ) {
+      return this.success(envelope, {
+        launch: CommandRouterLocalAppLaunchResultSchema.parse({
+          status: "blocked",
+          target,
+          label: target,
+          reasonCode: "TARGET_NOT_ALLOWLISTED",
+          confirmationRequired: true,
+          confirmationGranted: true,
+          directActionAttempted: false,
+          persisted: false,
+          rawDiagnosticsExposed: false,
+        }),
+      });
+    }
+
+    if (!this.brainActionExecutor) {
+      return this.success(envelope, {
+        launch: CommandRouterLocalAppLaunchResultSchema.parse({
+          status: "blocked",
+          target,
+          label: target,
+          reasonCode: "BRAIN_ACTIONS_DISABLED",
+          confirmationRequired: true,
+          confirmationGranted: true,
+          directActionAttempted: false,
+          persisted: false,
+          rawDiagnosticsExposed: false,
+        }),
+      });
+    }
+
+    const actionResult = await this.brainActionExecutor.openLocalApp({
+      target,
+    });
+    const reasonCode =
+      actionResult.reasonCode === "TARGET_INVALID"
+        ? "TARGET_NOT_ALLOWLISTED"
+        : actionResult.reasonCode;
+    const launch = CommandRouterLocalAppLaunchResultSchema.parse({
+      status: actionResult.status,
+      target,
+      label: target,
+      reasonCode,
+      confirmationRequired: true,
+      confirmationGranted: true,
+      directActionAttempted: actionResult.status === "completed",
+      persisted: false,
+      rawDiagnosticsExposed: false,
+    });
+    this.publishSnapshot(envelope.correlationId);
+    return this.success(envelope, { launch });
+  }
+
+  private async routeBrainIntent(input: {
+    text: string;
+    conversationId?: string;
+    correlationId?: string;
+  }): Promise<CoreBrainRoutingOutcome> {
+    const userRouteAliasOutcome = await this.routeUserRouteAliasByRules(
+      input.text,
+    );
+    if (userRouteAliasOutcome) {
+      return userRouteAliasOutcome;
+    }
+    const voiceCommandAliasOutcome = await this.routeVoiceCommandAliasByRules(
+      input.text,
+    );
+    if (voiceCommandAliasOutcome) {
+      return voiceCommandAliasOutcome;
+    }
+    if (this.commandRouterProductMode?.enabled === true) {
+      const commandRouterProviderId = this.commandRouterProductMode.providerId;
+      if (
+        commandRouterProviderId !== undefined &&
+        commandRouterProviderId !== COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID
+      ) {
+        const providerOutcome = await this.routeBrainIntentWithProvider(input);
+        if (providerOutcome?.decision !== undefined) {
+          return {
+            decision: this.applyCommandRouterProductModeSafetyToDecision(
+              providerOutcome.decision,
+            ),
+            selection: providerOutcome.selection,
+          };
+        }
+        const decision = this.routeBrainIntentForCommandRouterProductMode(
+          input.text,
+        );
+        return {
+          decision,
+          selection:
+            providerOutcome?.selection ??
+            this.brainRouterSelection({
+              selectedProviderId: commandRouterProviderId,
+              fallbackProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
+              status: "fallback",
+              reasonCode: "PROVIDER_UNAVAILABLE",
+              failureClass: "PROVIDER_UNAVAILABLE",
+              confidenceBand: "none",
+              usedRulesFallback: true,
+            }),
+        };
+      }
+      const decision = this.routeBrainIntentForCommandRouterProductMode(
+        input.text,
+      );
+      return {
+        decision,
+        selection: this.brainRouterSelection({
+          selectedProviderId:
+            this.commandRouterProductMode.providerId ??
+            COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
+          status: decision.intent === "blocked" ? "blocked" : "accepted",
+          reasonCode:
+            decision.intent === "blocked"
+              ? "UNSAFE_OR_BLOCKED"
+              : "PROVIDER_ACCEPTED",
+          failureClass:
+            decision.intent === "blocked" ? "UNSAFE_OR_BLOCKED" : "none",
+          confidenceBand: this.brainRouterConfidenceBand(decision.confidence),
+          usedRulesFallback: true,
+        }),
+      };
+    }
+    const providerOutcome = await this.routeBrainIntentWithProvider(input);
+    if (providerOutcome?.decision !== undefined) {
+      return {
+        decision: providerOutcome.decision,
+        selection: providerOutcome.selection,
+      };
+    }
+    return {
+      decision: this.routeBrainIntentByRules(input.text),
+      selection:
+        providerOutcome?.selection ??
+        this.brainRouterSelection({
+          selectedProviderId: this.brainRouterProviderId(),
+          fallbackProviderId: "brain.rules",
+          status: "unavailable",
+          reasonCode: "PROVIDER_UNAVAILABLE",
+          failureClass: "PROVIDER_UNAVAILABLE",
+          confidenceBand: "none",
+          usedRulesFallback: true,
+        }),
+    };
+  }
+
+  private async routeUserRouteAliasByRules(
+    text: string,
+  ): Promise<CoreBrainRoutingOutcome | undefined> {
+    if (!this.userRouteAliasRepository) {
+      return undefined;
+    }
+    const openTarget = this.extractOpenTarget(text);
+    if (!openTarget) {
+      return undefined;
+    }
+    const normalizedTarget = this.normalizeUserRouteAliasComparable(openTarget);
+    if (!normalizedTarget) {
+      return undefined;
+    }
+    let aliases: UserRouteAliasRecord[];
+    try {
+      await this.userRouteAliasRepository.initialize();
+      aliases = await this.userRouteAliasRepository.listAliases();
+    } catch {
+      return undefined;
+    }
+    const match = aliases.find((alias) =>
+      [alias.label, ...alias.aliases].some((candidate) => {
+        const normalizedAlias =
+          this.normalizeUserRouteAliasComparable(candidate);
+        return (
+          normalizedAlias.length > 0 &&
+          (normalizedTarget.includes(normalizedAlias) ||
+            normalizedAlias.includes(normalizedTarget))
+        );
+      }),
+    );
+    if (!match) {
+      return undefined;
+    }
+    const safeUrl = this.normalizeUserRouteAliasHttpsUrl(match.targetUrl);
+    if (!safeUrl) {
+      return {
+        decision: this.brainDecision({
+          intent: "blocked",
+          confidence: 0.99,
+          requiresApproval: false,
+          slots: { routeAliasId: match.id, label: match.label },
+          reason:
+            "Matched a user route alias, but its persisted URL failed safe URL policy.",
+        }),
+        selection: this.brainRouterSelection({
+          selectedProviderId: "user-route-alias.rules",
+          status: "blocked",
+          reasonCode: "UNSAFE_OR_BLOCKED",
+          failureClass: "UNSAFE_OR_BLOCKED",
+          confidenceBand: "none",
+          usedRulesFallback: true,
+        }),
+      };
+    }
+    return {
+      decision: this.brainDecision({
+        intent: "browser.open",
+        confidence: 0.94,
+        requiresApproval: false,
+        slots: {
+          target: safeUrl.href,
+          routeAliasId: match.id,
+          routeAliasLabel: match.label,
+          targetHostname: safeUrl.hostname,
+        },
+        reason:
+          "Matched a user-confirmed route alias through deterministic rules.",
+      }),
+      selection: this.brainRouterSelection({
+        selectedProviderId: "user-route-alias.rules",
+        fallbackProviderId: "brain.rules",
+        status: "accepted",
+        reasonCode: "PROVIDER_ACCEPTED",
+        failureClass: "none",
+        confidenceBand: "accepted",
+        usedRulesFallback: true,
+      }),
+    };
+  }
+
+  private async routeVoiceCommandAliasByRules(
+    text: string,
+  ): Promise<CoreBrainRoutingOutcome | undefined> {
+    const alias = await this.resolveVoiceCommandAliasRecordByText(text);
+    if (!alias) {
+      return undefined;
+    }
+    const aliasDecision = this.brainDecision({
+      intent: alias.intent,
+      confidence: 0.96,
+      requiresApproval: false,
+      slots: alias.slots,
+      reason:
+        "Matched a user-confirmed voice command alias through deterministic rules.",
+    });
+    const decision =
+      (await this.resolveUserRouteAliasBrowserDecision(aliasDecision)) ??
+      aliasDecision;
+    return {
+      decision,
+      selection: this.brainRouterSelection({
+        selectedProviderId: "voice-command-alias.rules",
+        fallbackProviderId: "brain.rules",
+        status: decision.intent === "blocked" ? "blocked" : "accepted",
+        reasonCode:
+          decision.intent === "blocked"
+            ? "UNSAFE_OR_BLOCKED"
+            : "PROVIDER_ACCEPTED",
+        failureClass:
+          decision.intent === "blocked" ? "UNSAFE_OR_BLOCKED" : "none",
+        confidenceBand: this.brainRouterConfidenceBand(decision.confidence),
+        usedRulesFallback: true,
+      }),
+    };
+  }
+
+  private async resolveVoiceCommandAliasRecordByText(
+    text: string,
+  ): Promise<VoiceCommandAliasRecord | undefined> {
+    if (!this.voiceCommandAliasRepository) {
+      return undefined;
+    }
+    const normalizedText = this.normalizeUserRouteAliasComparable(text);
+    if (!normalizedText) {
+      return undefined;
+    }
+    try {
+      await this.voiceCommandAliasRepository.initialize();
+      const matches = (await this.voiceCommandAliasRepository.listAliases()).filter(
+        (alias) =>
+          [alias.rawAlias, alias.normalizedTranscript].some((candidate) => {
+            const normalizedCandidate =
+              this.normalizeUserRouteAliasComparable(candidate);
+            return (
+              normalizedCandidate.length > 0 &&
+              normalizedText === normalizedCandidate
+            );
+          }),
+      );
+      if (matches.length !== 1) {
+        return undefined;
+      }
+      return matches[0];
+    } catch {
+      return undefined;
+    }
+  }
+
+  private normalizeBrainCommandRoutingText(input: {
+    source: "text" | "voice";
+    text: string;
+  }): string {
+    if (input.source !== "voice") {
+      return input.text;
+    }
+    return this.normalizeVoiceCommandRoutingText(input.text);
+  }
+
+  private normalizeVoiceCommandRoutingText(text: string): string {
+    const normalized = text
+      .trim()
+      .replace(/\s+/gu, " ")
+      .replace(/^(?:(?:\u55ef|\u5443|\u554a|\u90a3\u4e2a|\u5c31\u662f)\s*)+/u, "")
+      .replace(/\u8bb0\u4e8b[\u7c3f\u677f\u95e8\u8584]/gu, "\u8bb0\u4e8b\u672c")
+      .replace(/\u8ba1\u7b97[\u6c14\u5176]/gu, "\u8ba1\u7b97\u5668")
+      .replace(/\b(?:v\s*[\.\s]*s\s*[\.\s]*code|vs\s*[\.\s]*code)\b/giu, "vscode")
+      .replace(/\bjava\s+script\b/giu, "Javascript")
+      .replace(/\bjarvis\s+k\b/giu, "Jarvis-K")
+      .trim();
+    if (!this.looksLikeVoiceNotepadWrite(normalized)) {
+      return normalized;
+    }
+    return normalized
+      .replace(/\b(?:javac|java\s*c|java\s*k)\s+voice\s+smoke\s+test\b/giu, "Jarvis-K voice smoke text")
+      .replace(/\bJarvis-K\s+voice\s+smoke\s+test\b/giu, "Jarvis-K voice smoke text")
+      .trim();
+  }
+
+  private async resolveVoiceCommandCorrection(input: {
+    rawTranscript: string;
+    requestedMode?: VoiceInputMode;
+  }): Promise<VoiceCommandCorrection> {
+    const existingVoiceRoutingText = this.normalizeVoiceCommandRoutingText(
+      input.rawTranscript,
+    );
+    if (this.looksLikeVoiceNotepadWrite(existingVoiceRoutingText)) {
+      return VoiceCommandCorrectionSchema.parse({
+        rawTranscript: input.rawTranscript.trim(),
+        normalizedTranscript: existingVoiceRoutingText,
+        inputMode: "command",
+        correctionSource: "raw",
+        correctionConfidence: 1,
+        correctionCandidates: [],
+        requiresUserSelection: false,
+        rawTranscriptPreserved: true,
+        directActionAttempted: false,
+      });
+    }
+    const aliases = await this.listVoiceCommandAliasesForResolution();
+    const pluginCapabilities =
+      await this.listVoiceCommandPluginCapabilitiesForResolution();
+    return this.voiceCommandResolver.resolve({
+      rawTranscript: input.rawTranscript,
+      ...(input.requestedMode === undefined
+        ? {}
+        : { requestedMode: input.requestedMode }),
+      aliases,
+      pluginCapabilities,
+    });
+  }
+
+  private async listVoiceCommandAliasesForResolution(): Promise<
+    VoiceCommandAliasRecord[]
+  > {
+    if (!this.voiceCommandAliasRepository) {
+      return [];
+    }
+    try {
+      await this.voiceCommandAliasRepository.initialize();
+      return await this.voiceCommandAliasRepository.listAliases();
+    } catch {
+      return [];
+    }
+  }
+
+  private async listVoiceCommandPluginCapabilitiesForResolution(): Promise<
+    VoiceCommandResolverPluginCapability[]
+  > {
+    if (!this.pluginRegistry) {
+      return [];
+    }
+    try {
+      const plugins = await this.pluginRegistry.listPlugins();
+      return plugins.flatMap((plugin) =>
+        plugin.capabilities.map((capability) => ({
+          pluginId: plugin.id,
+          capability: capability.name,
+          aliases: [plugin.name, capability.name],
+        })),
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  private looksLikeVoiceNotepadWrite(text: string): boolean {
+    return (
+      /\u8bb0\u4e8b\u672c/u.test(text) &&
+      /(?:\u8f93\u5165|\u5199\u5165|\u5199\u4e0a|\u6253\u5b57)/u.test(text)
+    );
+  }
+
+  private async routeBrainIntentWithProvider(input: {
+    text: string;
+    conversationId?: string;
+    correlationId?: string;
+  }): Promise<
+    | {
+        decision?: BrainRouterDecision;
+        selection: BrainRouterSelectionReport;
+      }
+    | undefined
+  > {
+    const options = this.brainRouter;
+    const modelId = options?.modelId.trim();
+    if (
+      options?.enabled !== true ||
+      modelId === undefined ||
+      modelId.length === 0 ||
+      !this.intentRoutingProvider
+    ) {
+      return undefined;
+    }
+
+    let operation: ModelOperationSnapshot | undefined;
+    try {
+      if (this.modelRegistry && this.inferenceExecutionPlanner) {
+        operation = await this.startModelOperation(
+          {
+            modelId,
+            capability: "intent_router",
+            phase: "prechecking",
+          },
+          input.correlationId,
+        );
+        const manifest = await this.modelRegistry.getManifest(modelId);
+        if (!manifest) {
+          await this.updateModelOperation(
+            operation,
+            {
+              phase: "blocked",
+              reasons: ["Brain fast router model manifest was not found."],
+            },
+            input.correlationId,
+          );
+          return {
+            selection: this.brainRouterSelection({
+              selectedProviderId: this.brainRouterProviderId(options),
+              fallbackProviderId: "brain.rules",
+              status: "fallback",
+              reasonCode: "PROVIDER_PREFLIGHT_BLOCKED",
+              failureClass: "PROVIDER_PREFLIGHT_BLOCKED",
+              confidenceBand: "none",
+              usedRulesFallback: true,
+            }),
+          };
+        }
+        const report = await this.inferenceExecutionPlanner.preview({
+          capability: "intent_router",
+          manifest: ModelManifestSchema.parse(manifest),
+        });
+        if (!report.allowed) {
+          await this.updateModelOperation(
+            operation,
+            {
+              phase: "blocked",
+              reasons: report.reasons,
+            },
+            input.correlationId,
+          );
+          return {
+            selection: this.brainRouterSelection({
+              selectedProviderId: this.brainRouterProviderId(options),
+              fallbackProviderId: "brain.rules",
+              status: "fallback",
+              reasonCode: "PROVIDER_PREFLIGHT_BLOCKED",
+              failureClass: "PROVIDER_PREFLIGHT_BLOCKED",
+              confidenceBand: "none",
+              usedRulesFallback: true,
+            }),
+          };
+        }
+      }
+
+      operation = await this.updateModelOperation(
+        operation,
+        {
+          phase: "executing",
+          reasons: ["Brain fast router preflight passed."],
+        },
+        input.correlationId,
+      );
+      const rawResult = await this.intentRoutingProvider.route({
+        modelId,
+        utterance: input.text,
+        context: {
+          ...(options.locale === undefined ? {} : { locale: options.locale }),
+          ...((input.conversationId ?? this.activeConversationId)
+            ? {
+                activeConversationId:
+                  input.conversationId ?? this.activeConversationId,
+              }
+            : {}),
+          allowedIntents: [
+            ...(options.allowedIntents ?? BRAIN_ROUTER_ALLOWED_INTENTS),
+          ],
+        },
+      });
+      const parsedResult = IntentRoutingResultSchema.safeParse(rawResult);
+      if (!parsedResult.success) {
+        await this.updateModelOperation(
+          operation,
+          {
+            phase: "failed",
+            reasons: ["Brain fast router returned an invalid result."],
+          },
+          input.correlationId,
+        );
+        return {
+          selection: this.brainRouterSelection({
+            selectedProviderId: this.brainRouterProviderId(options),
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "RESULT_INVALID",
+            failureClass: "PROVIDER_RESULT_INVALID",
+            confidenceBand: "none",
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      const result = parsedResult.data;
+      await this.updateModelOperation(
+        operation,
+        {
+          phase: "completed",
+          reasons: ["Brain fast router completed."],
+        },
+        input.correlationId,
+      );
+
+      const candidate = [...result.candidates].sort(
+        (left, right) => right.confidence - left.confidence,
+      )[0];
+      if (!candidate) {
+        return {
+          selection: this.brainRouterSelection({
+            selectedProviderId: this.brainRouterProviderId(options),
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "CANDIDATE_MISSING",
+            failureClass: "CANDIDATE_MISSING",
+            confidenceBand: "none",
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      const intent = this.mapBrainRouterIntent(candidate.intent);
+      if (intent === undefined) {
+        return {
+          selection: this.brainRouterSelection({
+            selectedProviderId: this.brainRouterProviderId(options),
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "INTENT_UNSUPPORTED",
+            failureClass: "INTENT_UNSUPPORTED",
+            confidenceBand: this.brainRouterConfidenceBand(
+              candidate.confidence,
+            ),
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      if (
+        !(options.allowedIntents ?? BRAIN_ROUTER_ALLOWED_INTENTS).includes(
+          intent,
+        )
+      ) {
+        return {
+          selection: this.brainRouterSelection({
+            selectedProviderId: this.brainRouterProviderId(options),
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "ALLOWLIST_MISMATCH",
+            failureClass: "ALLOWLIST_MISMATCH",
+            confidenceBand: this.brainRouterConfidenceBand(
+              candidate.confidence,
+            ),
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      const minConfidence =
+        options.minConfidence ?? DEFAULT_BRAIN_ROUTER_MIN_CONFIDENCE;
+      if (candidate.confidence < minConfidence) {
+        return {
+          selection: this.brainRouterSelection({
+            selectedProviderId: this.brainRouterProviderId(options),
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "CONFIDENCE_LOW",
+            failureClass: "CONFIDENCE_LOW",
+            confidenceBand: "low",
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      const decision = this.brainDecision({
+        intent,
+        confidence: candidate.confidence,
+        requiresApproval: false,
+        slots: this.normalizeBrainRouterSlots(
+          intent,
+          candidate.slots,
+          input.text,
+        ),
+        reason:
+          candidate.reasons[0] ??
+          `Fast router selected ${intent} with model ${result.modelId}.`,
+      });
+      return {
+        decision,
+        selection: this.brainRouterSelection({
+          selectedProviderId: this.brainRouterProviderId(options),
+          status: intent === "blocked" ? "blocked" : "accepted",
+          reasonCode:
+            intent === "blocked" ? "UNSAFE_OR_BLOCKED" : "PROVIDER_ACCEPTED",
+          failureClass: intent === "blocked" ? "UNSAFE_OR_BLOCKED" : "none",
+          confidenceBand: "accepted",
+          usedRulesFallback: false,
+        }),
+      };
+    } catch {
+      await this.updateModelOperation(
+        operation,
+        {
+          phase: "failed",
+          reasons: ["Brain fast router failed; falling back to rules."],
+          error: {
+            code: "BRAIN_FAST_ROUTER_FAILED",
+            message: "Brain fast router failed; falling back to rules.",
+            retryable: true,
+          },
+        },
+        input.correlationId,
+      );
+      return {
+        selection: this.brainRouterSelection({
+          selectedProviderId: this.brainRouterProviderId(options),
+          fallbackProviderId: "brain.rules",
+          status: "fallback",
+          reasonCode: "PROVIDER_FAILED",
+          failureClass: "PROVIDER_EXECUTION_FAILED",
+          confidenceBand: "none",
+          usedRulesFallback: true,
+        }),
+      };
+    }
+  }
+
+  private routeBrainIntentByRules(text: string): BrainRouterDecision {
+    const normalized = text.trim().toLowerCase();
+    const forcedChatAnswerUtterances =
+      this.chatAnswer?.forcedChatAnswerUtterances?.map((value) =>
+        value.trim().toLowerCase(),
+      ) ?? [];
+    if (forcedChatAnswerUtterances.includes(normalized)) {
+      return this.brainDecision({
+        intent: "chat.answer",
+        confidence: 0.99,
+        requiresApproval: false,
+        slots: {},
+        reason:
+          "Matched an explicitly approved Chat Answer acceptance utterance.",
+      });
+    }
+    const openTarget = this.extractOpenTarget(text);
+    if (
+      this.textOnlyAcceptance?.enabled === true &&
+      /^(?:blocked fixture|text-only blocked)$/u.test(normalized)
+    ) {
+      return this.brainDecision({
+        intent: "blocked",
+        confidence: 0.99,
+        requiresApproval: false,
+        slots: {},
+        reason:
+          "Matched deterministic text-only Chat Answer blocked fixture route.",
+      });
+    }
+    if (
+      /记得|之前|前几天|昨天|回忆|记忆|memory|recall|remember|what did i/u.test(
+        normalized,
+      )
+    ) {
+      return this.brainDecision({
+        intent: "memory.search",
+        confidence: 0.86,
+        requiresApproval: false,
+        slots: {},
+        reason: "Matched a Memory recall request.",
+      });
+    }
+    if (
+      /状态|健康|诊断|检查|observability|status|health|diagnostic/u.test(
+        normalized,
+      )
+    ) {
+      return this.brainDecision({
+        intent: "observability.status",
+        confidence: 0.84,
+        requiresApproval: false,
+        slots: {},
+        reason: "Matched a runtime status or diagnostic request.",
+      });
+    }
+    if (/模型|provider|runtime|gpu|model/u.test(normalized)) {
+      return this.brainDecision({
+        intent: "model.status",
+        confidence: 0.82,
+        requiresApproval: false,
+        slots: {},
+        reason: "Matched a model governance status request.",
+      });
+    }
+    const filesystemSearchQuery = this.extractFilesystemSearchQuery(text);
+    if (filesystemSearchQuery !== undefined) {
+      return this.brainDecision({
+        intent: "filesystem.search",
+        confidence: 0.87,
+        requiresApproval: false,
+        slots: { query: filesystemSearchQuery },
+        reason:
+          "Matched a bounded filesystem search request; dispatch is observe-only.",
+      });
+    }
+    const pluginInvocation = this.extractPluginInvocation(text);
+    if (pluginInvocation !== undefined) {
+      return this.brainDecision({
+        intent: "plugin.invoke",
+        confidence: 0.89,
+        requiresApproval: false,
+        slots: pluginInvocation,
+        reason:
+          "Matched a read-only Plugin SDK Alpha sample request; dispatch must pass plugin runtime output validation.",
+      });
+    }
+    const notepadWriteText = this.extractNotepadWriteText(text);
+    if (notepadWriteText !== undefined) {
+      return this.brainDecision({
+        intent: "notepad.write_text",
+        confidence: 0.9,
+        requiresApproval: false,
+        slots: {
+          target: "notepad",
+          text: notepadWriteText,
+        },
+        reason:
+          "Matched a bounded Notepad text-write request; dispatch must pass the Windows executor verifier.",
+      });
+    }
+    const windowControl = this.extractKnownAppWindowControl(text);
+    if (windowControl !== undefined) {
+      return this.brainDecision({
+        intent: `window.${windowControl.action}` as BrainIntent,
+        confidence: 0.88,
+        requiresApproval: false,
+        slots: {
+          target: windowControl.target,
+          action: windowControl.action,
+        },
+        reason:
+          "Matched a fixed known-app window-control request; dispatch must pass the Windows executor verifier.",
+      });
+    }
+    if (openTarget) {
+      if (this.looksLikeLocalApp(openTarget)) {
+        return this.brainDecision({
+          intent: "localApp.open",
+          confidence: 0.9,
+          requiresApproval: false,
+          slots: { target: openTarget },
+          reason:
+            "Matched an application-open request; dispatch must pass the local app allowlist.",
+        });
+      }
+      return this.brainDecision({
+        intent: "browser.open",
+        confidence: 0.88,
+        requiresApproval: false,
+        slots: { target: openTarget },
+        reason:
+          "Matched a web-open request; dispatch must pass the browser allowlist.",
+      });
+    }
+
+    if (
+      /记得|之前|前几天|昨天|回忆|memory|recall|remember|what did i/u.test(
+        normalized,
+      )
+    ) {
+      return this.brainDecision({
+        intent: "memory.search",
+        confidence: 0.86,
+        requiresApproval: false,
+        slots: {},
+        reason: "Matched a Memory recall request.",
+      });
+    }
+
+    if (
+      /状态|健康|诊断|检查|observability|status|health|diagnostic/u.test(
+        normalized,
+      )
+    ) {
+      return this.brainDecision({
+        intent: "observability.status",
+        confidence: 0.84,
+        requiresApproval: false,
+        slots: {},
+        reason: "Matched a runtime status or diagnostic request.",
+      });
+    }
+
+    if (/模型|provider|runtime|gpu|model/u.test(normalized)) {
+      return this.brainDecision({
+        intent: "model.status",
+        confidence: 0.82,
+        requiresApproval: false,
+        slots: {},
+        reason: "Matched a model governance status request.",
+      });
+    }
+
+    if (normalized.length < 3) {
+      return this.brainDecision({
+        intent: "clarify",
+        confidence: 0.55,
+        requiresApproval: false,
+        slots: {},
+        reason: "The command is too short to route confidently.",
+      });
+    }
+
+    return this.brainDecision({
+      intent: "chat.answer",
+      confidence: 0.72,
+      requiresApproval: false,
+      slots: {},
+      reason: "Defaulted to a conversational answer route.",
+    });
+  }
+
+  private routeBrainIntentForCommandRouterProductMode(
+    text: string,
+  ): BrainRouterDecision {
+    return this.applyCommandRouterProductModeSafetyToDecision(
+      this.routeBrainIntentByRules(text),
+    );
+  }
+
+  private applyCommandRouterProductModeSafetyToDecision(
+    decision: BrainRouterDecision,
+  ): BrainRouterDecision {
+    if (
+      decision.intent !== "browser.open" &&
+      decision.intent !== "localApp.open"
+    ) {
+      return decision;
+    }
+    const target = String(decision.slots.target ?? "");
+    const lowRiskKnownApp =
+      decision.intent === "localApp.open" &&
+      this.commandRouterRealLocalAppLaunchLabel(target) !== "blocked";
+    return this.brainDecision({
+      intent: decision.intent,
+      confidence: decision.confidence,
+      requiresApproval: !lowRiskKnownApp,
+      slots: decision.slots,
+      reason: lowRiskKnownApp
+        ? `${decision.reason} Deterministic rules selected a low-risk known app action.`
+        : `${decision.reason} Deterministic rules require confirmation or blocking for this target.`,
+    });
+  }
+
+  private async planBrainFallback(input: {
+    source: "text" | "voice";
+    text: string;
+    routing: CoreBrainRoutingOutcome;
+    conversationId?: string;
+  }): Promise<CoreBrainPlanningOutcome> {
+    const providerId = this.brainPlannerProviderId();
+    if (!this.shouldUseBrainPlanner(input)) {
+      return {
+        selection: this.brainPlannerSelection({
+          providerId,
+          status: "not_needed",
+          reasonCode: "PLANNER_NOT_NEEDED",
+          failureClass: "PLANNER_NOT_NEEDED",
+          usedPlanner: false,
+          usedRulesFallback: true,
+        }),
+      };
+    }
+    if (providerId === DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID) {
+      const result = this.createDeterministicMinimalBrainPlannerResult({
+        text: input.text,
+        source: input.source,
+        routing: input.routing,
+      });
+      return {
+        result,
+        selection: this.brainPlannerSelection({
+          providerId,
+          status: result.status,
+          reasonCode: result.reasonCode,
+          failureClass: result.failureClass,
+          usedPlanner: true,
+          usedRulesFallback: false,
+        }),
+      };
+    }
+    if (!this.heavyPlannerProvider) {
+      return {
+        selection: this.brainPlannerSelection({
+          providerId,
+          fallbackProviderId: "brain.rules",
+          status: "unavailable",
+          reasonCode: "PROVIDER_UNAVAILABLE",
+          failureClass: "PROVIDER_UNAVAILABLE",
+          usedPlanner: false,
+          usedRulesFallback: true,
+        }),
+      };
+    }
+
+    try {
+      const request = BrainPlannerRequestSchema.parse({
+        providerId,
+        utterance: input.text,
+        source: input.source,
+        routedAt: this.now().toISOString(),
+        routerDecision: input.routing.decision,
+        routerSelection: input.routing.selection,
+        context: {
+          ...((input.conversationId ?? this.activeConversationId)
+            ? {
+                activeConversationId:
+                  input.conversationId ?? this.activeConversationId,
+              }
+            : {}),
+          allowedToolIds: [...BRAIN_PLANNER_ALLOWED_TOOL_IDS],
+        },
+      });
+      const rawResult = await this.heavyPlannerProvider.plan(request);
+      const parsedResult = BrainPlannerResultSchema.safeParse(rawResult);
+      if (!parsedResult.success) {
+        return {
+          selection: this.brainPlannerSelection({
+            providerId,
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "INVALID_PLAN",
+            failureClass: "PROVIDER_RESULT_INVALID",
+            usedPlanner: false,
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      const result = parsedResult.data;
+      if (result.providerId !== providerId) {
+        return {
+          selection: this.brainPlannerSelection({
+            providerId,
+            fallbackProviderId: "brain.rules",
+            status: "fallback",
+            reasonCode: "INVALID_PLAN",
+            failureClass: "PROVIDER_RESULT_INVALID",
+            usedPlanner: false,
+            usedRulesFallback: true,
+          }),
+        };
+      }
+      if (result.status === "planned") {
+        return {
+          result,
+          selection: this.brainPlannerSelection({
+            providerId,
+            status: "planned",
+            reasonCode: result.reasonCode,
+            failureClass: result.failureClass,
+            usedPlanner: true,
+            usedRulesFallback: false,
+          }),
+        };
+      }
+      if (result.status === "clarify") {
+        return {
+          result,
+          selection: this.brainPlannerSelection({
+            providerId,
+            status: "clarify",
+            reasonCode: result.reasonCode,
+            failureClass: result.failureClass,
+            usedPlanner: true,
+            usedRulesFallback: false,
+          }),
+        };
+      }
+      if (result.status === "blocked") {
+        return {
+          result,
+          selection: this.brainPlannerSelection({
+            providerId,
+            status: "blocked",
+            reasonCode:
+              result.reasonCode === "UNSAFE_PLAN"
+                ? "UNSAFE_PLAN"
+                : result.reasonCode,
+            failureClass:
+              result.failureClass === "none"
+                ? "UNSAFE_PLAN"
+                : result.failureClass,
+            usedPlanner: true,
+            usedRulesFallback: false,
+          }),
+        };
+      }
+      return {
+        result,
+        selection: this.brainPlannerSelection({
+          providerId,
+          fallbackProviderId: "brain.rules",
+          status: "unavailable",
+          reasonCode: "PROVIDER_UNAVAILABLE",
+          failureClass: "PROVIDER_UNAVAILABLE",
+          usedPlanner: false,
+          usedRulesFallback: true,
+        }),
+      };
+    } catch {
+      return {
+        selection: this.brainPlannerSelection({
+          providerId,
+          fallbackProviderId: "brain.rules",
+          status: "fallback",
+          reasonCode: "PROVIDER_FAILED",
+          failureClass: "PROVIDER_EXECUTION_FAILED",
+          usedPlanner: false,
+          usedRulesFallback: true,
+        }),
+      };
+    }
+  }
+
+  private createDeterministicMinimalBrainPlannerResult(input: {
+    text: string;
+    source: "text" | "voice";
+    routing: CoreBrainRoutingOutcome;
+  }): BrainPlannerResult {
+    const plannedAt = this.now().toISOString();
+    const steps = this.createDeterministicMinimalPlannerSteps(input.text);
+    if (steps.length === 0) {
+      return BrainPlannerResultSchema.parse({
+        providerId: DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
+        status: "clarify",
+        reasonCode: "CLARIFY_REQUIRED",
+        failureClass: "CLARIFY_REQUIRED",
+        clarifyQuestion:
+          "Please add the goal, target app or file, and the desired outcome.",
+        directActionAttempted: false,
+        plannedAt,
+      });
+    }
+    return BrainPlannerResultSchema.parse({
+      providerId: DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
+      status: "planned",
+      reasonCode:
+        input.routing.selection.reasonCode === "CONFIDENCE_LOW"
+          ? "FAST_ROUTER_LOW_CONFIDENCE"
+          : "COMPLEX_REQUEST",
+      failureClass: "none",
+      plan: {
+        summary:
+          "Deterministic minimal planner prepared a bounded draft plan for user review.",
+        risk: "medium",
+        requiresConfirmation: true,
+        steps,
+        directActionAttempted: false,
+      },
+      directActionAttempted: false,
+      plannedAt,
+    });
+  }
+
+  private createDeterministicMinimalPlannerSteps(
+    text: string,
+  ): NonNullable<BrainPlannerResult["plan"]>["steps"] {
+    const normalized = text.trim().toLowerCase();
+    const steps: NonNullable<BrainPlannerResult["plan"]>["steps"] = [];
+    const addStep = (input: {
+      id: string;
+      toolId: string;
+      title: string;
+      args?: Record<string, unknown>;
+    }): void => {
+      if (
+        !(BRAIN_PLANNER_ALLOWED_TOOL_IDS as readonly string[]).includes(
+          input.toolId,
+        ) ||
+        steps.some((step) => step.id === input.id || step.toolId === input.toolId)
+      ) {
+        return;
+      }
+      steps.push({
+        id: input.id,
+        toolId: input.toolId,
+        title: input.title,
+        args: input.args ?? {},
+        risk: "medium",
+        requiresConfirmation: true,
+        directActionAttempted: false,
+      });
+    };
+
+    if (/(?:status|health|diagnostic|状态|诊断|运行|检查)/iu.test(normalized)) {
+      addStep({
+        id: "status-review",
+        toolId: "observability.status",
+        title: "Review current Jarvis-K runtime status",
+      });
+    }
+    if (/(?:memory|remember|alias|preference|记忆|偏好|别名)/iu.test(normalized)) {
+      addStep({
+        id: "memory-review",
+        toolId: "memory.status",
+        title: "Review user-controlled memory boundaries",
+      });
+    }
+    if (/(?:search|find|file|document|文件|搜索|查找|资料)/iu.test(normalized)) {
+      addStep({
+        id: "file-search",
+        toolId: "filesystem.search",
+        title: "Search bounded user file locations",
+        args: {
+          query: this.extractMinimalPlannerFilesystemQuery(text),
+        },
+      });
+    }
+    if (/(?:browser|url|website|web|github|izytoken|网页|网址|后台)/iu.test(normalized)) {
+      addStep({
+        id: "browser-review",
+        toolId: "browser.open",
+        title: "Open a verified HTTPS browser target after policy checks",
+        args: {
+          target: this.extractMinimalPlannerBrowserTarget(text),
+        },
+      });
+    }
+    if (/(?:notepad|calculator|vscode|vs code|app|记事本|计算器|代码|应用)/iu.test(normalized)) {
+      addStep({
+        id: "known-app",
+        toolId: "localApp.open",
+        title: "Open a known local app through Task Runtime",
+        args: {
+          target: this.extractMinimalPlannerLocalAppTarget(text),
+        },
+      });
+    }
+    if (/(?:plugin|stock|quote|compare|bargain|插件|股票|商品|比较|砍价)/iu.test(normalized)) {
+      addStep({
+        id: "plugin-readonly",
+        toolId: "plugin.invoke",
+        title: "Invoke a read-only plugin capability after permission gates",
+      });
+    }
+    if (steps.length === 0 && this.looksLikeComplexPlannerRequest(text)) {
+      addStep({
+        id: "answer-plan",
+        toolId: "chat.answer",
+        title: "Draft the next safe user-visible plan",
+      });
+    }
+    return steps.slice(0, 6);
+  }
+
+  private extractMinimalPlannerFilesystemQuery(text: string): string {
+    const normalized = text.trim().toLowerCase();
+    if (/\bproject\b|椤圭洰/u.test(normalized)) {
+      return "project";
+    }
+    if (/\bmemory\b|璁板繂/u.test(normalized)) {
+      return "memory";
+    }
+    const quoted = /["'“”‘’]([^"'“”‘’]{1,80})["'“”‘’]/u.exec(text);
+    if (quoted?.[1]) {
+      return quoted[1].trim();
+    }
+    return "project";
+  }
+
+  private extractMinimalPlannerBrowserTarget(text: string): string {
+    const urlMatch = text.match(/https?:\/\/[^\s"'<>锛屻€傦紱]+/iu);
+    if (urlMatch?.[0]) {
+      return urlMatch[0];
+    }
+    const openTarget = this.extractOpenTarget(text);
+    if (openTarget) {
+      return openTarget;
+    }
+    const normalized = text.toLowerCase();
+    if (normalized.includes("github")) {
+      return "GitHub";
+    }
+    if (
+      normalized.includes("izytoken") ||
+      normalized.includes("easy token") ||
+      normalized.includes("easytoken")
+    ) {
+      return "IZYtoken admin";
+    }
+    return "";
+  }
+
+  private extractMinimalPlannerLocalAppTarget(text: string): string {
+    const openTarget = this.extractOpenTarget(text);
+    if (
+      openTarget &&
+      this.commandRouterRealLocalAppLaunchLabel(openTarget) !== "blocked"
+    ) {
+      return openTarget;
+    }
+    const normalized = text.toLowerCase();
+    if (
+      normalized.includes("vscode") ||
+      normalized.includes("vs code") ||
+      normalized.includes("visual studio code")
+    ) {
+      return "vscode";
+    }
+    if (normalized.includes("notepad")) {
+      return "notepad";
+    }
+    if (normalized.includes("calculator") || normalized.includes("calc")) {
+      return "calculator";
+    }
+    if (text.includes("记事本")) {
+      return "notepad";
+    }
+    if (text.includes("计算器")) {
+      return "calculator";
+    }
+    return "";
+  }
+
+  private async dispatchBrainIntent(input: {
+    envelope: CommandEnvelope;
+    text: string;
+    decision: BrainRouterDecision;
+    conversationId: string;
+    planning: CoreBrainPlanningOutcome;
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+    chatAnswer?: ChatAnswerResult;
+    pluginResult?: PluginInvocationResult;
+    memoryRecall?: CoreMemoryRecallObservation;
+  }> {
+    const basePlan = this.brainPlan(input.decision.intent);
+    const plannerDispatch = await this.dispatchBrainPlannerOutcome({
+      planning: input.planning,
+      basePlan,
+      envelope: input.envelope,
+      source:
+        input.envelope.command.type === "agent.runBrainCommand"
+          ? input.envelope.command.payload.source
+          : "text",
+      decision: input.decision,
+    });
+    if (plannerDispatch) {
+      return plannerDispatch;
+    }
+    switch (input.decision.intent) {
+      case "chat.answer":
+        return this.dispatchChatAnswer({
+          basePlan,
+          source:
+            input.envelope.command.type === "agent.runBrainCommand"
+              ? input.envelope.command.payload.source
+              : "text",
+          text: input.text,
+          decision: input.decision,
+        });
+
+      case "memory.search": {
+        const probe = await this.probeMemoryAlphaRecall({
+          text: input.text,
+          conversationId: input.conversationId,
+        });
+        return {
+          dispatchStatus: probe.status === "ok" ? "completed" : "degraded",
+          plan: this.completeBrainPlan(basePlan),
+          summary: `Brain Alpha routed this as memory.search. Recall status ${probe.status}; matches ${probe.matchCount}; mode ${probe.mode}.`,
+          memoryRecall: this.memoryRecallObservationFromProbe(probe),
+        };
+      }
+
+      case "observability.status":
+        return {
+          dispatchStatus: "completed",
+          plan: this.completeBrainPlan(basePlan),
+          summary: `Brain Alpha routed this as observability.status. Core ${this.health}; sequence ${this.sequenceId}; voice ${this.voiceEngine.getSnapshot().state}; Memory ${this.memoryHealth?.status ?? "unknown"}.`,
+        };
+
+      case "model.status":
+        return {
+          dispatchStatus: "completed",
+          plan: this.completeBrainPlan(basePlan),
+          summary: `Brain Alpha routed this as model.status. Runtime ${this.capabilities?.runtimeMode ?? "unknown"}; model operations ${this.modelOperations.length}; active operations ${this.modelOperations.filter((operation) => operation.phase !== "completed").length}.`,
+        };
+
+      case "coding.task":
+        return {
+          dispatchStatus: "blocked",
+          plan: this.blockFinalBrainPlan(basePlan),
+          summary:
+            "Voice command correction identified a Codex coding task, but no bounded coding executor is connected in Jarvis-K yet.",
+        };
+
+      case "filesystem.search": {
+        const query = String(input.decision.slots.query ?? "").trim();
+        return this.dispatchTaskRuntimeFilesystemSearch({
+          envelope: input.envelope,
+          source:
+            input.envelope.command.type === "agent.runBrainCommand"
+              ? input.envelope.command.payload.source
+              : "text",
+          decision: input.decision,
+          query,
+          basePlan,
+        });
+      }
+
+      case "plugin.invoke": {
+        const pluginId = String(input.decision.slots.pluginId ?? "").trim();
+        const capability = String(input.decision.slots.capability ?? "").trim();
+        const pluginInput =
+          typeof input.decision.slots.input === "object" &&
+          input.decision.slots.input !== null
+            ? (input.decision.slots.input as Record<string, unknown>)
+            : {};
+        return this.dispatchTaskRuntimePluginInvoke({
+          envelope: input.envelope,
+          source:
+            input.envelope.command.type === "agent.runBrainCommand"
+              ? input.envelope.command.payload.source
+              : "text",
+          decision: input.decision,
+          pluginId,
+          capability,
+          pluginInput,
+          basePlan,
+        });
+      }
+
+      case "notepad.write_text": {
+        const text = String(input.decision.slots.text ?? "").trim();
+        return this.dispatchTaskRuntimeNotepadWriteText({
+          envelope: input.envelope,
+          source:
+            input.envelope.command.type === "agent.runBrainCommand"
+              ? input.envelope.command.payload.source
+              : "text",
+          decision: input.decision,
+          text,
+          basePlan,
+        });
+      }
+
+      case "window.focus":
+      case "window.minimize":
+      case "window.restore": {
+        const target = String(input.decision.slots.target ?? "").trim();
+        const action = String(
+          input.decision.slots.action ??
+            input.decision.intent.replace("window.", ""),
+        ) as CoreKnownAppWindowAction;
+        return this.dispatchTaskRuntimeWindowControl({
+          envelope: input.envelope,
+          source:
+            input.envelope.command.type === "agent.runBrainCommand"
+              ? input.envelope.command.payload.source
+              : "text",
+          decision: input.decision,
+          target,
+          action,
+          basePlan,
+        });
+      }
+
+      case "browser.open":
+      case "localApp.open": {
+        const target = String(input.decision.slots.target ?? "").trim();
+        if (
+          input.decision.intent === "browser.open" &&
+          this.shouldRunTaskRuntimeBrowserOpen(target)
+        ) {
+          return this.dispatchTaskRuntimeBrowserOpen({
+            envelope: input.envelope,
+            source:
+              input.envelope.command.type === "agent.runBrainCommand"
+                ? input.envelope.command.payload.source
+                : "text",
+            decision: input.decision,
+            target,
+            basePlan,
+          });
+        }
+        if (
+          input.decision.intent === "localApp.open" &&
+          this.shouldRunTaskRuntimeKnownAppSlice(target)
+        ) {
+          return this.dispatchTaskRuntimeKnownAppOpen({
+            envelope: input.envelope,
+            source:
+              input.envelope.command.type === "agent.runBrainCommand"
+                ? input.envelope.command.payload.source
+                : "text",
+            decision: input.decision,
+            target,
+            basePlan,
+          });
+        }
+        if (this.commandRouterProductMode?.enabled === true) {
+          if (input.decision.intent === "localApp.open") {
+            if (!this.isCommandRouterLocalAppFixtureAllowlisted(target)) {
+              return {
+                dispatchStatus: "blocked",
+                plan: this.blockFinalBrainPlan(basePlan),
+                summary: `Command Router product mode identified localApp.open for "${target || "unknown"}", but the fixture allowlist blocked this target.`,
+              };
+            }
+            return {
+              dispatchStatus: "completed",
+              plan: this.completeBrainPlan([
+                ...basePlan,
+                {
+                  id: "local-app-fixture",
+                  title: "Replay local app allowlist fixture",
+                  status: "completed",
+                },
+              ]),
+              summary: `Command Router product mode fixture accepted localApp.open for "${this.commandRouterLocalAppFixtureLabel(target)}". No Windows process was launched.`,
+            };
+          }
+          return {
+            dispatchStatus: "needs_approval",
+            plan: this.blockFinalBrainPlan(basePlan),
+            summary: `Command Router product mode identified ${input.decision.intent} for "${target || "unknown"}". Direct execution is disabled in fixture-only mode.`,
+          };
+        }
+        if (!this.brainActionExecutor) {
+          return {
+            dispatchStatus: "blocked",
+            plan: this.blockFinalBrainPlan(basePlan),
+            summary: `Brain Alpha identified ${input.decision.intent} for "${target || "unknown"}", but no allowlist action adapter is configured.`,
+          };
+        }
+        const actionResult =
+          input.decision.intent === "browser.open"
+            ? await this.brainActionExecutor.openBrowser({ target })
+            : await this.brainActionExecutor.openLocalApp({ target });
+        const completed = actionResult.status === "completed";
+        return {
+          dispatchStatus: completed ? "completed" : "blocked",
+          plan: completed
+            ? this.completeBrainPlan(basePlan)
+            : this.blockFinalBrainPlan(basePlan),
+          summary: completed
+            ? `Brain Alpha opened allowlisted target: ${actionResult.label}.`
+            : `Brain Alpha blocked ${input.decision.intent}: ${actionResult.reasonCode}.`,
+        };
+      }
+
+      case "clarify":
+        return {
+          dispatchStatus: "blocked",
+          plan: this.blockFinalBrainPlan(basePlan),
+          summary:
+            "Brain Alpha needs a little more detail before it can route this safely.",
+        };
+
+      case "blocked":
+        if (this.textOnlyAcceptance?.enabled === true && this.chatAnswer) {
+          return this.dispatchChatAnswer({
+            basePlan,
+            source:
+              input.envelope.command.type === "agent.runBrainCommand"
+                ? input.envelope.command.payload.source
+                : "text",
+            text: input.text,
+            decision: input.decision,
+          });
+        }
+        return {
+          dispatchStatus: "blocked",
+          plan: this.blockFinalBrainPlan(basePlan),
+          summary: "Brain Alpha blocked this command before dispatch.",
+        };
+    }
+
+    return {
+      dispatchStatus: "blocked",
+      plan: this.blockFinalBrainPlan(basePlan),
+      summary: "Brain Alpha could not route this command safely.",
+    };
+  }
+
+  private async dispatchChatAnswer(input: {
+    basePlan: BrainPlanStep[];
+    source: "text" | "voice";
+    text: string;
+    decision: BrainRouterDecision;
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+    chatAnswer?: ChatAnswerResult;
+  }> {
+    const providerId =
+      this.chatAnswer?.providerId ?? "chat-answer.unconfigured";
+    const preferenceProjection =
+      await this.resolveChatAnswerPreferenceProjection();
+    if (this.chatAnswer === undefined) {
+      const result = this.unavailableChatAnswer(
+        providerId,
+        "PROVIDER_UNAVAILABLE",
+        "PROVIDER_UNAVAILABLE",
+        preferenceProjection,
+      );
+      return {
+        dispatchStatus: "degraded",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Chat answer generation is unavailable; deterministic rules remain active.",
+        chatAnswer: result,
+      };
+    }
+    if (!this.chatAnswer?.enabled || !this.chatAnswerProvider) {
+      const result = this.unavailableChatAnswer(
+        providerId,
+        "PROVIDER_UNAVAILABLE",
+        "PROVIDER_UNAVAILABLE",
+        preferenceProjection,
+      );
+      return {
+        dispatchStatus: "degraded",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Chat answer generation is unavailable; deterministic fallback remains active.",
+        chatAnswer: result,
+      };
+    }
+
+    let result: ChatAnswerResult;
+    try {
+      const request = ChatAnswerRequestSchema.parse({
+        providerId,
+        utterance: input.text,
+        source: input.source,
+        routedAt: this.now().toISOString(),
+        routerDecision: input.decision,
+        preferenceProjection,
+      });
+      const rawResult = await this.chatAnswerProvider.answer(request);
+      const parsedResult = ChatAnswerResultSchema.safeParse(rawResult);
+      if (
+        !parsedResult.success ||
+        parsedResult.data.providerId !== providerId
+      ) {
+        result = this.unavailableChatAnswer(
+          providerId,
+          "INVALID_OUTPUT",
+          "PROVIDER_RESULT_INVALID",
+          preferenceProjection,
+        );
+      } else {
+        result = ChatAnswerResultSchema.parse({
+          ...parsedResult.data,
+          preferenceProjection,
+        });
+      }
+    } catch {
+      result = this.unavailableChatAnswer(
+        providerId,
+        "PROVIDER_FAILED",
+        "PROVIDER_EXECUTION_FAILED",
+        preferenceProjection,
+      );
+    }
+
+    if (result.status === "answered" && result.answer) {
+      return {
+        dispatchStatus: "completed",
+        plan: this.completeBrainPlan([
+          ...input.basePlan,
+          {
+            id: "chat-answer",
+            title: "Prepare bounded answer",
+            status: "completed",
+          },
+        ]),
+        summary: result.answer,
+        chatAnswer: result,
+      };
+    }
+    if (result.status === "clarify" && result.clarifyQuestion) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan([
+          ...input.basePlan,
+          {
+            id: "chat-answer",
+            title: "Request clarification",
+            status: "blocked",
+          },
+        ]),
+        summary: result.clarifyQuestion,
+        chatAnswer: result,
+      };
+    }
+    if (result.status === "blocked") {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Chat answer generation blocked this request before producing an answer.",
+        chatAnswer: result,
+      };
+    }
+    return {
+      dispatchStatus: "degraded",
+      plan: this.blockFinalBrainPlan(input.basePlan),
+      summary:
+        "Chat answer generation is unavailable; deterministic fallback remains active.",
+      chatAnswer: result,
+    };
+  }
+
+  private unavailableChatAnswer(
+    providerId: string,
+    reasonCode: "PROVIDER_UNAVAILABLE" | "INVALID_OUTPUT" | "PROVIDER_FAILED",
+    failureClass:
+      | "PROVIDER_UNAVAILABLE"
+      | "PROVIDER_RESULT_INVALID"
+      | "PROVIDER_EXECUTION_FAILED",
+    preferenceProjection?: ChatAnswerPreferenceProjection,
+  ): ChatAnswerResult {
+    return ChatAnswerResultSchema.parse({
+      providerId,
+      status: "unavailable",
+      reasonCode,
+      failureClass,
+      fallbackUsed: true,
+      directActionAttempted: false,
+      rawProviderResponsePersisted: false,
+      credentialExposed: false,
+      ...(preferenceProjection ? { preferenceProjection } : {}),
+      answeredAt: this.now().toISOString(),
+    });
+  }
+
+  private async resolveChatAnswerPreferenceProjection(): Promise<ChatAnswerPreferenceProjection> {
+    if (!this.userPreferenceMemoryRepository) {
+      return ChatAnswerPreferenceProjectionSchema.parse({
+        status: "not_configured",
+        appliesTo: "chat.answer",
+        source: "none",
+        rawContentExposed: false,
+        vectorRetrievalUsed: false,
+        providerNeutral: true,
+      });
+    }
+    try {
+      await this.userPreferenceMemoryRepository.initialize();
+      const preferences = (
+        await this.userPreferenceMemoryRepository.listPreferences()
+      ).filter(
+        (record) => record.enabled && record.appliesTo === "ui_projection_only",
+      );
+      const responseLanguagePreference = preferences.find(
+        (record) => record.key === "response_language" && record.value === "zh",
+      );
+      const responseLengthPreference = preferences.find(
+        (record) =>
+          record.key === "response_length" &&
+          (record.value === "short" || record.value === "detailed"),
+      );
+      const responseStylePreference = preferences.find(
+        (record) =>
+          record.key === "response_style" &&
+          (record.value === "concise" ||
+            record.value === "friendly" ||
+            record.value === "technical"),
+      );
+      if (
+        !responseLanguagePreference &&
+        !responseLengthPreference &&
+        !responseStylePreference
+      ) {
+        return ChatAnswerPreferenceProjectionSchema.parse({
+          status: "none",
+          appliesTo: "chat.answer",
+          source: "none",
+          rawContentExposed: false,
+          vectorRetrievalUsed: false,
+          providerNeutral: true,
+        });
+      }
+      return ChatAnswerPreferenceProjectionSchema.parse({
+        status: "applied",
+        appliesTo: "chat.answer",
+        ...(responseLanguagePreference
+          ? { preferredResponseLanguage: "zh" as const }
+          : {}),
+        ...(responseLengthPreference
+          ? {
+              preferredResponseLength: responseLengthPreference.value as
+                | "short"
+                | "detailed",
+            }
+          : {}),
+        ...(responseStylePreference
+          ? {
+              preferredResponseStyle: responseStylePreference.value as
+                | "concise"
+                | "friendly"
+                | "technical",
+            }
+          : {}),
+        source: "user_preference_memory",
+        rawContentExposed: false,
+        vectorRetrievalUsed: false,
+        providerNeutral: true,
+      });
+    } catch {
+      return ChatAnswerPreferenceProjectionSchema.parse({
+        status: "unavailable",
+        appliesTo: "chat.answer",
+        source: "none",
+        rawContentExposed: false,
+        vectorRetrievalUsed: false,
+        providerNeutral: true,
+      });
+    }
+  }
+
+  private summarizePluginInvocationResult(
+    result: PluginInvocationResult,
+    verified: boolean,
+  ): string {
+    if (!verified) {
+      return `Plugin invocation was blocked or unverified: ${result.resultCode}.`;
+    }
+    const firstItem = result.output?.items[0];
+    const firstField = firstItem?.fields[0];
+    const fieldSummary =
+      firstItem && firstField
+        ? ` ${firstItem.title}: ${firstField.label} ${String(firstField.value)}.`
+        : "";
+    const summary = `Plugin Runtime invoked ${result.capability}; sanitized output verified. ${result.output?.summary ?? "No plugin output summary."}${fieldSummary}`;
+    return summary.length <= 500 ? summary : `${summary.slice(0, 497)}...`;
+  }
+
+  private async createBrainToolProductLoop(input: {
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    planning: CoreBrainPlanningOutcome;
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+  }): Promise<BrainToolProductLoop> {
+    const selectedToolId = this.selectBrainToolId(input);
+    const descriptors = this.brainToolRegistryDescriptors(input.decision);
+    const descriptor = selectedToolId
+      ? descriptors.find((candidate) => candidate.id === selectedToolId)
+      : undefined;
+    const request =
+      descriptor === undefined
+        ? undefined
+        : this.createBrainToolReplayRequest({
+            toolId: descriptor.id,
+            source: input.source,
+            decision: input.decision,
+          });
+    const safety =
+      descriptor !== undefined && request !== undefined
+        ? decideToolInvocation({
+            policy: BRAIN_TOOL_REGISTRY_POLICY,
+            descriptor,
+            request,
+            evaluatedAt: this.now().toISOString(),
+          })
+        : undefined;
+    const shouldSkipToolReplay =
+      input.planning.selection.usedPlanner === true &&
+      input.planning.selection.status === "planned" &&
+      input.dispatchStatus === "needs_approval";
+    const execution =
+      request !== undefined && !shouldSkipToolReplay
+        ? await this.executeBrainToolReplay({ request, descriptors })
+        : undefined;
+    const fallbackReasonCode = this.brainToolFallbackReason(input.planning);
+    const projectedExecution =
+      execution === undefined
+        ? undefined
+        : {
+            status: execution.status,
+            resultCode: execution.resultCode,
+            failureClasses: [...execution.failureClasses],
+            rollbackState: execution.rollbackState,
+            cleanupState: execution.cleanupState,
+          };
+    return BrainToolProductLoopSchema.parse({
+      mode: "fixture_replay",
+      registryVersion: BRAIN_TOOL_REGISTRY_VERSION,
+      descriptors: descriptors.map((item) => ({
+        id: item.id,
+        version: item.version,
+        label: this.brainToolLabel(item.id),
+        risk: item.risk,
+        execution: item.execution,
+        requiresConfirmation: item.requiresConfirmation,
+        permissionCount: item.requiredPermissions.length,
+      })),
+      ...(selectedToolId === undefined ? {} : { selectedToolId }),
+      routeReasonCode: this.brainToolRouteReasonCode(input),
+      ...(safety === undefined ? {} : { safety }),
+      ...(projectedExecution === undefined
+        ? {}
+        : { execution: projectedExecution }),
+      lifecycle: this.createBrainToolLifecycle({
+        selectedToolId,
+        safety,
+        execution,
+        fallbackReasonCode,
+        dispatchStatus: input.dispatchStatus,
+      }),
+      ...(fallbackReasonCode === undefined ? {} : { fallbackReasonCode }),
+      retryState: "not_available",
+      rollbackState: execution?.rollbackState ?? "not_started",
+      summary: this.brainToolProductLoopSummary({
+        selectedToolId,
+        safety,
+        execution,
+        fallbackReasonCode,
+      }),
+      persisted: false,
+      rawDiagnosticsExposed: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private shouldRunTaskRuntimeKnownAppSlice(target: string): boolean {
+    return (
+      this.taskRepository !== undefined &&
+      this.brainActionExecutor !== undefined &&
+      this.commandRouterRealLocalAppLaunchLabel(target) !== "blocked"
+    );
+  }
+
+  private shouldRunTaskRuntimeBrowserOpen(target: string): boolean {
+    return (
+      this.taskRepository !== undefined &&
+      this.brainActionExecutor !== undefined &&
+      target.trim().length > 0
+    );
+  }
+
+  private shouldRunTaskRuntimeFilesystemSearch(): boolean {
+    return (
+      this.taskRepository !== undefined &&
+      this.brainActionExecutor?.searchFilesystem !== undefined
+    );
+  }
+
+  private shouldRunTaskRuntimeNotepadWriteText(): boolean {
+    return (
+      this.taskRepository !== undefined &&
+      this.brainActionExecutor?.writeNotepadText !== undefined
+    );
+  }
+
+  private shouldRunTaskRuntimeWindowControl(): boolean {
+    return (
+      this.taskRepository !== undefined &&
+      this.brainActionExecutor?.controlKnownAppWindow !== undefined
+    );
+  }
+
+  private async evaluatePluginInvocationGate(input: {
+    pluginId: string;
+    capability: string;
+  }): Promise<
+    | {
+        allowed: true;
+        summary: string;
+      }
+    | {
+        allowed: false;
+        resultCode:
+          | "PLUGIN_NOT_FOUND"
+          | "PLUGIN_CAPABILITY_NOT_FOUND"
+          | "PLUGIN_PERMISSION_DENIED"
+          | "PLUGIN_RUNTIME_UNAVAILABLE";
+        summary: string;
+      }
+  > {
+    if (!this.pluginRegistry || !this.pluginRuntime) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_RUNTIME_UNAVAILABLE",
+        summary:
+          "Plugin invocation blocked because the Plugin Registry or Runtime is unavailable.",
+      };
+    }
+
+    const manifest = await this.pluginRegistry.getPlugin(input.pluginId);
+    if (!manifest) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_NOT_FOUND",
+        summary:
+          "Plugin invocation blocked because the requested plugin is not registered.",
+      };
+    }
+
+    if (
+      !manifest.capabilities.some(
+        (capability) => capability.name === input.capability,
+      )
+    ) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_CAPABILITY_NOT_FOUND",
+        summary:
+          "Plugin invocation blocked because the requested capability is not declared by the plugin manifest.",
+      };
+    }
+
+    const executablePluginIds = new Set(
+      this.pluginRuntime.listExecutablePluginIds
+        ? await this.pluginRuntime.listExecutablePluginIds()
+        : [],
+    );
+    if (!executablePluginIds.has(input.pluginId)) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_RUNTIME_UNAVAILABLE",
+        summary:
+          "Plugin invocation blocked because no controlled runtime is available for this plugin.",
+      };
+    }
+
+    const localReadOnlyPluginIds = new Set(
+      this.pluginRuntime.listLocalReadOnlyPluginIds
+        ? await this.pluginRuntime.listLocalReadOnlyPluginIds()
+        : [],
+    );
+    if (!localReadOnlyPluginIds.has(input.pluginId)) {
+      return {
+        allowed: true,
+        summary: "Bundled read-only plugin runtime allowed.",
+      };
+    }
+
+    if (!canEnableLocalPluginState(manifest)) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_PERMISSION_DENIED",
+        summary:
+          "Local read-only plugin invocation blocked because the manifest does not satisfy the no-permission read-only policy.",
+      };
+    }
+    if (!this.localPluginStateRepository) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_PERMISSION_DENIED",
+        summary:
+          "Local read-only plugin invocation blocked because the local plugin state store is unavailable.",
+      };
+    }
+
+    await this.ensureLocalPluginStateRepositoryInitialized();
+    const state = await this.localPluginStateRepository.getState(
+      input.pluginId,
+    );
+    if (state?.enabled !== true) {
+      return {
+        allowed: false,
+        resultCode: "PLUGIN_PERMISSION_DENIED",
+        summary:
+          "Local read-only plugin invocation blocked because the plugin is not enabled in the local state store.",
+      };
+    }
+
+    return {
+      allowed: true,
+      summary:
+        "Local read-only plugin invocation allowed by manifest policy and persisted enabled state.",
+    };
+  }
+
+  private async dispatchTaskRuntimePluginInvoke(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    pluginId: string;
+    capability: string;
+    pluginInput: Record<string, unknown>;
+    basePlan: BrainPlanStep[];
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+    pluginResult?: PluginInvocationResult;
+  }> {
+    const repository = this.taskRepository;
+    const pluginRuntime = this.pluginRuntime;
+    if (!repository || !pluginRuntime) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime could not execute plugin.invoke because its repository or Plugin Runtime is unavailable.",
+      };
+    }
+
+    const request = PluginInvocationRequestSchema.safeParse({
+      requestId: createId("plugin-request"),
+      pluginId: input.pluginId,
+      capability: input.capability,
+      input: input.pluginInput,
+      dryRun: false,
+    });
+    if (!request.success) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime blocked plugin.invoke because the plugin request failed contract validation.",
+      };
+    }
+    const gate = await this.evaluatePluginInvocationGate({
+      pluginId: request.data.pluginId,
+      capability: request.data.capability,
+    });
+    if (!gate.allowed) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary: gate.summary,
+      };
+    }
+
+    const taskId = createId("task");
+    const stepId = createId("step");
+    const createdAt = this.now().toISOString();
+    await repository.createTask({
+      id: taskId,
+      title: "Invoke Read-only Plugin",
+      state: "queued",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createStep({
+      id: stepId,
+      taskId,
+      title: `Invoke plugin capability: ${request.data.capability}`,
+      state: "pending",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message:
+        "Task created from deterministic rules route for a read-only plugin invocation.",
+      createdAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const runningAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "running",
+      updatedAt: runningAt,
+      startedAt: runningAt,
+    });
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: "running",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: "step_started",
+      message: "Plugin Runtime read-only invocation requested.",
+      createdAt: runningAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    let pluginResult: PluginInvocationResult;
+    try {
+      pluginResult = PluginInvocationResultSchema.parse(
+        await pluginRuntime.invoke(request.data),
+      );
+    } catch {
+      const failedAt = this.now().toISOString();
+      const resultSummary =
+        "Plugin invocation failed output validation before sanitized UI projection.";
+      await repository.updateStep({
+        id: stepId,
+        taskId,
+        state: "failed",
+        verificationStatus: "verification_failed",
+        completedAt: failedAt,
+        resultSummary,
+        failureReason: "PLUGIN_OUTPUT_INVALID",
+      });
+      await repository.updateTask({
+        id: taskId,
+        state: "failed",
+        updatedAt: failedAt,
+        completedAt: failedAt,
+        verificationSummary: resultSummary,
+      });
+      await repository.createEvent({
+        id: createId("task-event"),
+        taskId,
+        stepId,
+        type: "verification_failed",
+        message: resultSummary,
+        createdAt: failedAt,
+      });
+      await this.refreshTasksFromRepository();
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary: resultSummary,
+      };
+    }
+
+    const verified =
+      pluginResult.status === "completed" &&
+      pluginResult.directActionAttempted === false &&
+      pluginResult.credentialExposed === false &&
+      pluginResult.rawPluginOutputPersisted === false;
+    const completedAt = this.now().toISOString();
+    const resultSummary = this.summarizePluginInvocationResult(
+      pluginResult,
+      verified,
+    );
+
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: verified ? "completed" : "failed",
+      verificationStatus: verified ? "verified" : "verification_failed",
+      completedAt,
+      resultSummary,
+      ...(verified ? {} : { failureReason: pluginResult.resultCode }),
+    });
+    await repository.updateTask({
+      id: taskId,
+      state: verified ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: resultSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: verified ? "verification_completed" : "verification_failed",
+      message: resultSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+
+    return {
+      dispatchStatus: verified ? "completed" : "blocked",
+      plan: verified
+        ? this.completeBrainPlan([
+            ...input.basePlan,
+            {
+              id: "plugin-result",
+              title: "Validate sanitized plugin output",
+              status: "completed",
+            },
+          ])
+        : this.blockFinalBrainPlan(input.basePlan),
+      summary: resultSummary,
+      pluginResult,
+    };
+  }
+
+  private async dispatchTaskRuntimeFilesystemSearch(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    query: string;
+    basePlan: BrainPlanStep[];
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+  }> {
+    const repository = this.taskRepository;
+    const executor = this.brainActionExecutor;
+    if (!repository || !executor?.searchFilesystem) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime could not execute filesystem.search because its repository or observe-only executor is unavailable.",
+      };
+    }
+
+    const taskId = createId("task");
+    const stepId = createId("step");
+    const createdAt = this.now().toISOString();
+    await repository.createTask({
+      id: taskId,
+      title: "Search Filesystem",
+      state: "queued",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createStep({
+      id: stepId,
+      taskId,
+      title: "Search allowed local files",
+      state: "pending",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message: "Task created from deterministic rules route.",
+      createdAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const runningAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "running",
+      updatedAt: runningAt,
+      startedAt: runningAt,
+    });
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: "running",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: "step_started",
+      message: "Desktop Host observe-only filesystem search requested.",
+      createdAt: runningAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const actionResult = await executor.searchFilesystem({
+      target: input.query,
+    });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "verified")
+        : "verification_failed";
+    const verified = verificationStatus === "verified";
+    const completedAt = this.now().toISOString();
+    const resultSummary =
+      actionResult.verificationSummary ??
+      (verified
+        ? `${actionResult.matchCount ?? 0} sanitized filesystem candidate(s) found.`
+        : `Filesystem search not verified: ${actionResult.reasonCode}.`);
+
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: verified ? "completed" : "failed",
+      verificationStatus,
+      completedAt,
+      resultSummary,
+      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
+    });
+    await repository.updateTask({
+      id: taskId,
+      state: verified ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: resultSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: verified ? "verification_completed" : "verification_failed",
+      message: resultSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+
+    return {
+      dispatchStatus: verified ? "completed" : "blocked",
+      plan: verified
+        ? this.completeBrainPlan(input.basePlan)
+        : this.blockFinalBrainPlan(input.basePlan),
+      summary: verified
+        ? `Task Runtime searched allowed local files and found ${actionResult.matchCount ?? 0} sanitized candidate(s).`
+        : `Task Runtime blocked filesystem search: ${actionResult.reasonCode}.`,
+    };
+  }
+
+  private async dispatchTaskRuntimeNotepadWriteText(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    text: string;
+    basePlan: BrainPlanStep[];
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+  }> {
+    const repository = this.taskRepository;
+    const executor = this.brainActionExecutor;
+    if (!repository || !executor?.writeNotepadText) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime could not execute notepad.write_text because its repository or Windows executor is unavailable.",
+      };
+    }
+    const boundedText = this.normalizeNotepadWriteText(input.text);
+    if (boundedText === undefined) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime blocked notepad.write_text because the requested text is outside the bounded text policy.",
+      };
+    }
+
+    const taskId = createId("task");
+    const stepId = createId("step");
+    const createdAt = this.now().toISOString();
+    await repository.createTask({
+      id: taskId,
+      title: "Write Text In Notepad",
+      state: "queued",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createStep({
+      id: stepId,
+      taskId,
+      title: "Write bounded text into Notepad",
+      state: "pending",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message:
+        "Task created from deterministic rules route for a bounded Notepad write.",
+      createdAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const runningAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "running",
+      updatedAt: runningAt,
+      startedAt: runningAt,
+    });
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: "running",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: "step_started",
+      message: "Desktop Host Notepad write requested.",
+      createdAt: runningAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const actionResult = await executor.writeNotepadText({
+      target: "notepad",
+      text: boundedText,
+    });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "unverified")
+        : "verification_failed";
+    const verified = verificationStatus === "verified";
+    const completedAt = this.now().toISOString();
+    const resultSummary =
+      actionResult.verificationSummary ??
+      (verified
+        ? `Notepad write verification passed for ${boundedText.length} character(s).`
+        : `Notepad write verification failed: ${actionResult.reasonCode}.`);
+
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: verified ? "completed" : "failed",
+      verificationStatus,
+      completedAt,
+      resultSummary,
+      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
+    });
+    await repository.updateTask({
+      id: taskId,
+      state: verified ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: resultSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: verified ? "verification_completed" : "verification_failed",
+      message: resultSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+
+    return {
+      dispatchStatus: verified ? "completed" : "blocked",
+      plan: verified
+        ? this.completeBrainPlan(input.basePlan)
+        : this.blockFinalBrainPlan(input.basePlan),
+      summary: verified
+        ? "Task Runtime wrote bounded text into Notepad through deterministic rules and verified the result."
+        : "Task Runtime attempted to write text into Notepad, but result verification did not pass.",
+    };
+  }
+
+  private async dispatchTaskRuntimeWindowControl(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    target: string;
+    action: CoreKnownAppWindowAction;
+    basePlan: BrainPlanStep[];
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+  }> {
+    const repository = this.taskRepository;
+    const executor = this.brainActionExecutor;
+    const appLabel = this.commandRouterRealLocalAppLaunchLabel(input.target);
+    if (!repository || !executor?.controlKnownAppWindow) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime could not execute window control because its repository or Windows executor is unavailable.",
+      };
+    }
+    if (appLabel === "blocked" || !this.isKnownAppWindowAction(input.action)) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime blocked window control because the target or action is outside the fixed known-app policy.",
+      };
+    }
+
+    const taskId = createId("task");
+    const stepId = createId("step");
+    const createdAt = this.now().toISOString();
+    const appName = this.commandRouterKnownLocalAppDisplayName(appLabel);
+    const actionName = this.commandRouterWindowActionDisplayName(input.action);
+    const actionVerb = this.commandRouterWindowActionVerb(input.action);
+    await repository.createTask({
+      id: taskId,
+      title: `${actionName} ${appName} Window`,
+      state: "queued",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createStep({
+      id: stepId,
+      taskId,
+      title: `${actionName} known local app window: ${appLabel}`,
+      state: "pending",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message: "Task created from deterministic rules route.",
+      createdAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const runningAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "running",
+      updatedAt: runningAt,
+      startedAt: runningAt,
+    });
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: "running",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: "step_started",
+      message: `Desktop Host ${input.action} requested for ${appName}.`,
+      createdAt: runningAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const actionResult = await executor.controlKnownAppWindow({
+      target: appLabel,
+      action: input.action,
+    });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "unverified")
+        : "verification_failed";
+    const verified = verificationStatus === "verified";
+    const completedAt = this.now().toISOString();
+    const resultSummary =
+      actionResult.verificationSummary ??
+      (verified
+        ? `${appName} window ${input.action} verified.`
+        : `${appName} window ${input.action} not verified: ${actionResult.reasonCode}.`);
+
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: verified ? "completed" : "failed",
+      verificationStatus,
+      completedAt,
+      resultSummary,
+      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
+    });
+    await repository.updateTask({
+      id: taskId,
+      state: verified ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: resultSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: verified ? "verification_completed" : "verification_failed",
+      message: resultSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+
+    return {
+      dispatchStatus: verified ? "completed" : "blocked",
+      plan: verified
+        ? this.completeBrainPlan(input.basePlan)
+        : this.blockFinalBrainPlan(input.basePlan),
+      summary: verified
+        ? `Task Runtime ${actionVerb} ${appName} through deterministic rules and verified the result.`
+        : `Task Runtime attempted to ${input.action} ${appName}, but result verification did not pass.`,
+    };
+  }
+
+  private async dispatchTaskRuntimeBrowserOpen(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    target: string;
+    basePlan: BrainPlanStep[];
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+  }> {
+    const repository = this.taskRepository;
+    const executor = this.brainActionExecutor;
+    if (!repository || !executor) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime could not execute browser.open because its repository or executor is unavailable.",
+      };
+    }
+
+    const taskId = createId("task");
+    const stepId = createId("step");
+    const createdAt = this.now().toISOString();
+    await repository.createTask({
+      id: taskId,
+      title: "Open Browser URL",
+      state: "queued",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createStep({
+      id: stepId,
+      taskId,
+      title: "Open safe browser URL",
+      state: "pending",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message: "Task created from deterministic rules route.",
+      createdAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const runningAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "running",
+      updatedAt: runningAt,
+      startedAt: runningAt,
+    });
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: "running",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: "step_started",
+      message:
+        "Desktop Host browser launch requested for a policy-verified URL.",
+      createdAt: runningAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const actionResult = await executor.openBrowser({ target: input.target });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "verified")
+        : "verification_failed";
+    const verified = verificationStatus === "verified";
+    const completedAt = this.now().toISOString();
+    const resultSummary =
+      actionResult.verificationSummary ??
+      (verified
+        ? `${actionResult.label} URL policy verified.`
+        : `Browser URL launch not verified: ${actionResult.reasonCode}.`);
+
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: verified ? "completed" : "failed",
+      verificationStatus,
+      completedAt,
+      resultSummary,
+      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
+    });
+    await repository.updateTask({
+      id: taskId,
+      state: verified ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: resultSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: verified ? "verification_completed" : "verification_failed",
+      message: resultSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+
+    return {
+      dispatchStatus: verified ? "completed" : "blocked",
+      plan: verified
+        ? this.completeBrainPlan(input.basePlan)
+        : this.blockFinalBrainPlan(input.basePlan),
+      summary: verified
+        ? `Task Runtime opened browser URL for ${actionResult.label} through deterministic rules and verified the URL policy.`
+        : `Task Runtime blocked browser URL launch: ${actionResult.reasonCode}.`,
+    };
+  }
+
+  private async dispatchTaskRuntimeKnownAppOpen(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    target: string;
+    basePlan: BrainPlanStep[];
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+  }> {
+    const repository = this.taskRepository;
+    const executor = this.brainActionExecutor;
+    const appLabel = this.commandRouterRealLocalAppLaunchLabel(input.target);
+    if (!repository || !executor) {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime could not execute localApp.open because its repository or executor is unavailable.",
+      };
+    }
+    if (appLabel === "blocked") {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan(input.basePlan),
+        summary:
+          "Task Runtime blocked localApp.open because the target is not a known local app.",
+      };
+    }
+
+    const taskId = createId("task");
+    const stepId = createId("step");
+    const createdAt = this.now().toISOString();
+    const appName = this.commandRouterKnownLocalAppDisplayName(appLabel);
+    await repository.createTask({
+      id: taskId,
+      title: `Open ${appName}`,
+      state: "queued",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createStep({
+      id: stepId,
+      taskId,
+      title: `Launch known local app: ${appLabel}`,
+      state: "pending",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message: "Task created from deterministic rules route.",
+      createdAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const runningAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "running",
+      updatedAt: runningAt,
+      startedAt: runningAt,
+    });
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: "running",
+      verificationStatus: "pending",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: "step_started",
+      message: `Desktop Host launch requested for ${appName}.`,
+      createdAt: runningAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+
+    const actionResult = await executor.openLocalApp({ target: appLabel });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "unverified")
+        : "verification_failed";
+    const verified = verificationStatus === "verified";
+    const completedAt = this.now().toISOString();
+    const resultSummary =
+      actionResult.verificationSummary ??
+      (verified
+        ? `${appName} launch verified.`
+        : `${appName} launch not verified: ${actionResult.reasonCode}.`);
+
+    await repository.updateStep({
+      id: stepId,
+      taskId,
+      state: verified ? "completed" : "failed",
+      verificationStatus,
+      completedAt,
+      resultSummary,
+      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
+    });
+    await repository.updateTask({
+      id: taskId,
+      state: verified ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: resultSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      stepId,
+      type: verified ? "verification_completed" : "verification_failed",
+      message: resultSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+
+    return {
+      dispatchStatus: verified ? "completed" : "blocked",
+      plan: verified
+        ? this.completeBrainPlan(input.basePlan)
+        : this.blockFinalBrainPlan(input.basePlan),
+      summary: verified
+        ? `Task Runtime opened ${appName} through deterministic rules and verified the result.`
+        : `Task Runtime attempted to open ${appName}, but result verification did not pass.`,
+    };
+  }
+
+  private async refreshTasksFromRepository(): Promise<void> {
+    if (!this.taskRepository) {
+      this.tasks = [];
+      return;
+    }
+    this.tasks = (await this.taskRepository.listTasks()).map((task) =>
+      TaskSchema.parse(task),
+    );
+  }
+
+  private async cancelTask(envelope: CommandEnvelope): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.cancelTask") {
+      return this.failure(envelope, {
+        code: "TASK_COMMAND_INVALID",
+        message: "Task cancellation received an unsupported command.",
+        retryable: false,
+      });
+    }
+    const repository = this.taskRepository;
+    if (!repository) {
+      return this.failure(envelope, {
+        code: "TASK_REPOSITORY_UNAVAILABLE",
+        message: "Task cancellation is unavailable because Task Runtime storage is not configured.",
+        retryable: true,
+      });
+    }
+    const { taskId, reason: requestedReason } = envelope.command.payload as {
+      taskId: string;
+      reason?: string;
+    };
+    const tasks = await repository.listTasks();
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!task) {
+      return this.failure(envelope, {
+        code: "TASK_NOT_FOUND",
+        message: "The requested task was not found.",
+        retryable: false,
+      });
+    }
+    if (
+      task.state !== "queued" &&
+      task.state !== "planning" &&
+      task.state !== "awaiting_confirmation"
+    ) {
+      return this.failure(envelope, {
+        code: "TASK_CANCEL_NOT_ALLOWED",
+        message: "Only queued, planning, or awaiting-confirmation tasks can be cancelled by this control.",
+        retryable: false,
+      });
+    }
+    const cancelledAt = this.now().toISOString();
+    for (const step of task.steps) {
+      if (step.state !== "pending" && step.state !== "running") {
+        continue;
+      }
+      await repository.updateStep({
+        id: step.id,
+        taskId: task.id,
+        state: "cancelled",
+        verificationStatus:
+          step.verificationStatus === "verified"
+            ? "verified"
+            : "not_applicable",
+        completedAt: cancelledAt,
+        failureReason:
+          step.failureReason ??
+          "Task was cancelled before this planned step executed.",
+      });
+    }
+    const reason =
+      requestedReason ?? "User cancelled the pending task before execution.";
+    const updated = await repository.updateTask({
+      id: task.id,
+      state: "cancelled",
+      updatedAt: cancelledAt,
+      completedAt: cancelledAt,
+      verificationSummary: reason,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId: task.id,
+      type: "cancelled",
+      message: reason,
+      createdAt: cancelledAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(envelope.correlationId);
+    const refreshed = this.tasks.find((candidate) => candidate.id === task.id) ?? updated;
+    return this.success(envelope, {
+      task: refreshed,
+      cancelled: true,
+      directActionAttempted: false,
+    });
+  }
+
+  private async approveTask(envelope: CommandEnvelope): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.approveTask") {
+      return this.failure(envelope, {
+        code: "TASK_COMMAND_INVALID",
+        message: "Task approval received an unsupported command.",
+        retryable: false,
+      });
+    }
+    const repository = this.taskRepository;
+    if (!repository) {
+      return this.failure(envelope, {
+        code: "TASK_REPOSITORY_UNAVAILABLE",
+        message:
+          "Task approval is unavailable because Task Runtime storage is not configured.",
+        retryable: true,
+      });
+    }
+
+    const { taskId } = envelope.command.payload as {
+      taskId: string;
+      confirmation: "explicit_ui_confirmation";
+    };
+    const tasks = await repository.listTasks();
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!task) {
+      return this.failure(envelope, {
+        code: "TASK_NOT_FOUND",
+        message: "The requested task was not found.",
+        retryable: false,
+      });
+    }
+    if (task.state !== "awaiting_confirmation") {
+      return this.failure(envelope, {
+        code: "TASK_APPROVAL_NOT_ALLOWED",
+        message:
+          "Only awaiting-confirmation planner draft tasks can be approved by this control.",
+        retryable: false,
+      });
+    }
+    if (task.steps.length === 0) {
+      return this.failure(envelope, {
+        code: "TASK_APPROVAL_EMPTY_PLAN",
+        message: "Planner draft approval failed closed because no steps exist.",
+        retryable: false,
+      });
+    }
+
+    const startedAt = this.now().toISOString();
+    await repository.updateTask({
+      id: task.id,
+      state: "running",
+      updatedAt: startedAt,
+      startedAt,
+      verificationSummary:
+        "Planner draft approved by explicit UI confirmation; bounded execution started.",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId: task.id,
+      type: "state_changed",
+      message:
+        "Planner draft approved by explicit UI confirmation; bounded execution started.",
+      createdAt: startedAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(envelope.correlationId);
+
+    let failedStepCount = 0;
+    let executedStepCount = 0;
+    for (const step of task.steps) {
+      if (failedStepCount > 0) {
+        await this.cancelRemainingApprovedPlannerStep(repository, task, step);
+        continue;
+      }
+      const toolId = this.resolvePlannerTaskStepToolId(step);
+      const runningAt = this.now().toISOString();
+      await repository.updateStep({
+        id: step.id,
+        taskId: task.id,
+        state: "running",
+        verificationStatus: "pending",
+      });
+      await repository.createEvent({
+        id: createId("task-event"),
+        taskId: task.id,
+        stepId: step.id,
+        type: "step_started",
+        message: `Approved planner step started: ${toolId ?? "unknown"}.`,
+        createdAt: runningAt,
+      });
+
+      const result = await this.executeApprovedPlannerTaskStep(step, toolId);
+      const completedAt = this.now().toISOString();
+      await repository.updateStep({
+        id: step.id,
+        taskId: task.id,
+        state: result.ok ? "completed" : "failed",
+        verificationStatus: result.verificationStatus,
+        completedAt,
+        resultSummary: result.summary,
+        ...(result.ok ? {} : { failureReason: result.failureReason }),
+      });
+      await repository.createEvent({
+        id: createId("task-event"),
+        taskId: task.id,
+        stepId: step.id,
+        type: result.ok ? "verification_completed" : "verification_failed",
+        message: result.summary,
+        createdAt: completedAt,
+      });
+      if (result.ok) {
+        executedStepCount += 1;
+      } else {
+        failedStepCount += 1;
+      }
+      await this.refreshTasksFromRepository();
+      this.publishSnapshot(envelope.correlationId);
+    }
+
+    const completedAt = this.now().toISOString();
+    const finalSummary =
+      failedStepCount === 0
+        ? `Planner draft approval completed ${executedStepCount} bounded step(s) with verified or not-applicable results.`
+        : `Planner draft approval stopped after ${executedStepCount} bounded step(s); ${failedStepCount} step failed closed.`;
+    const updated = await repository.updateTask({
+      id: task.id,
+      state: failedStepCount === 0 ? "completed" : "failed",
+      updatedAt: completedAt,
+      completedAt,
+      verificationSummary: finalSummary,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId: task.id,
+      type: failedStepCount === 0 ? "verification_completed" : "failed",
+      message: finalSummary,
+      createdAt: completedAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(envelope.correlationId);
+    const refreshed = this.tasks.find((candidate) => candidate.id === task.id) ?? updated;
+    return this.success(envelope, {
+      task: refreshed,
+      approved: true,
+      executedStepCount,
+      failedStepCount,
+      directActionAttempted: false,
+    });
+  }
+
+  private async cancelRemainingApprovedPlannerStep(
+    repository: TaskRepository,
+    task: Task,
+    step: TaskStep,
+  ): Promise<void> {
+    if (step.state !== "pending" && step.state !== "running") {
+      return;
+    }
+    const completedAt = this.now().toISOString();
+    await repository.updateStep({
+      id: step.id,
+      taskId: task.id,
+      state: "cancelled",
+      verificationStatus: "not_applicable",
+      completedAt,
+      failureReason:
+        "Planner approval stopped before this remaining step executed.",
+    });
+  }
+
+  private async executeApprovedPlannerTaskStep(
+    step: TaskStep,
+    toolId: string | undefined,
+  ): Promise<{
+    ok: boolean;
+    verificationStatus: TaskStepVerificationStatus;
+    summary: string;
+    failureReason?: string;
+  }> {
+    switch (toolId) {
+      case "observability.status":
+        return {
+          ok: true,
+          verificationStatus: "verified",
+          summary: `Core status verified: ${this.health}; sequence ${this.sequenceId}; voice ${this.voiceEngine.getSnapshot().state}; Memory ${this.memoryHealth?.status ?? "unknown"}.`,
+        };
+
+      case "memory.status":
+        return {
+          ok: true,
+          verificationStatus: "verified",
+          summary: await this.summarizeApprovedPlannerMemoryStatus(),
+        };
+
+      case "filesystem.search":
+        return this.executeApprovedPlannerFilesystemSearch(step);
+
+      case "browser.open":
+        return this.executeApprovedPlannerBrowserOpen(step);
+
+      case "localApp.open":
+        return this.executeApprovedPlannerLocalAppOpen(step);
+
+      case "plugin.invoke":
+      case "chat.answer":
+      case "notepad.writeText":
+      case "window.focus":
+      case "window.minimize":
+      case "window.restore":
+      case "memory.search":
+      case "model.status":
+      case "system.settings":
+        return {
+          ok: false,
+          verificationStatus: "verification_failed",
+          summary: `${toolId} is not executable in Planner Draft Approve/Execute L3; the step failed closed before any action.`,
+          failureReason: "PLANNER_STEP_NOT_EXECUTABLE_IN_L3",
+        };
+
+      default:
+        return {
+          ok: false,
+          verificationStatus: "verification_failed",
+          summary:
+            "Planner draft approval failed closed because the step tool is unknown.",
+          failureReason: "PLANNER_STEP_TOOL_UNKNOWN",
+        };
+    }
+  }
+
+  private async executeApprovedPlannerFilesystemSearch(
+    step: TaskStep,
+  ): Promise<{
+    ok: boolean;
+    verificationStatus: TaskStepVerificationStatus;
+    summary: string;
+    failureReason?: string;
+  }> {
+    if (!this.brainActionExecutor?.searchFilesystem) {
+      return {
+        ok: false,
+        verificationStatus: "verification_failed",
+        summary:
+          "Planner draft filesystem.search could not run because the observe-only executor is unavailable.",
+        failureReason: "FILESYSTEM_SEARCH_EXECUTOR_UNAVAILABLE",
+      };
+    }
+    const query =
+      typeof step.toolInput?.query === "string" && step.toolInput.query.trim()
+        ? step.toolInput.query.trim()
+        : "project";
+    const actionResult = await this.brainActionExecutor.searchFilesystem({
+      target: query,
+    });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "verified")
+        : "verification_failed";
+    const ok = verificationStatus === "verified";
+    return {
+      ok,
+      verificationStatus,
+      summary:
+        actionResult.verificationSummary ??
+        (ok
+          ? `Planner draft filesystem.search verified ${actionResult.matchCount ?? 0} sanitized candidate(s).`
+          : `Planner draft filesystem.search failed verification: ${actionResult.reasonCode}.`),
+      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
+    };
+  }
+
+  private async executeApprovedPlannerBrowserOpen(
+    step: TaskStep,
+  ): Promise<{
+    ok: boolean;
+    verificationStatus: TaskStepVerificationStatus;
+    summary: string;
+    failureReason?: string;
+  }> {
+    if (!this.brainActionExecutor) {
+      return {
+        ok: false,
+        verificationStatus: "verification_failed",
+        summary:
+          "Planner draft browser.open could not run because the browser executor is unavailable.",
+        failureReason: "BROWSER_OPEN_EXECUTOR_UNAVAILABLE",
+      };
+    }
+    const target =
+      typeof step.toolInput?.target === "string" ? step.toolInput.target.trim() : "";
+    if (!target) {
+      return {
+        ok: false,
+        verificationStatus: "verification_failed",
+        summary:
+          "Planner draft browser.open failed closed because no structured browser target was present.",
+        failureReason: "BROWSER_OPEN_TARGET_MISSING",
+      };
+    }
+    const actionResult = await this.brainActionExecutor.openBrowser({
+      target,
+    });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "verified")
+        : "verification_failed";
+    const ok = verificationStatus === "verified";
+    return {
+      ok,
+      verificationStatus,
+      summary:
+        actionResult.verificationSummary ??
+        (ok
+          ? `Planner draft browser.open verified URL policy for ${actionResult.label}.`
+          : `Planner draft browser.open failed verification: ${actionResult.reasonCode}.`),
+      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
+    };
+  }
+
+  private async executeApprovedPlannerLocalAppOpen(
+    step: TaskStep,
+  ): Promise<{
+    ok: boolean;
+    verificationStatus: TaskStepVerificationStatus;
+    summary: string;
+    failureReason?: string;
+  }> {
+    if (!this.brainActionExecutor) {
+      return {
+        ok: false,
+        verificationStatus: "verification_failed",
+        summary:
+          "Planner draft localApp.open could not run because the known-app executor is unavailable.",
+        failureReason: "LOCAL_APP_OPEN_EXECUTOR_UNAVAILABLE",
+      };
+    }
+    const target =
+      typeof step.toolInput?.target === "string" ? step.toolInput.target.trim() : "";
+    if (!target) {
+      return {
+        ok: false,
+        verificationStatus: "verification_failed",
+        summary:
+          "Planner draft localApp.open failed closed because no structured known-app target was present.",
+        failureReason: "LOCAL_APP_TARGET_MISSING",
+      };
+    }
+    const appLabel = this.commandRouterRealLocalAppLaunchLabel(target);
+    if (appLabel === "blocked") {
+      return {
+        ok: false,
+        verificationStatus: "verification_failed",
+        summary:
+          "Planner draft localApp.open failed closed because the target is not a known local app.",
+        failureReason: "LOCAL_APP_TARGET_NOT_ALLOWLISTED",
+      };
+    }
+    const appName = this.commandRouterKnownLocalAppDisplayName(appLabel);
+    const actionResult = await this.brainActionExecutor.openLocalApp({
+      target: appLabel,
+    });
+    const verificationStatus =
+      actionResult.status === "completed"
+        ? (actionResult.verificationStatus ?? "unverified")
+        : "verification_failed";
+    const ok = verificationStatus === "verified";
+    return {
+      ok,
+      verificationStatus,
+      summary:
+        actionResult.verificationSummary ??
+        (ok
+          ? `Planner draft localApp.open verified ${appName} through existing known-app policy.`
+          : `Planner draft localApp.open failed verification for ${appName}: ${actionResult.reasonCode}.`),
+      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
+    };
+  }
+
+  private async summarizeApprovedPlannerMemoryStatus(): Promise<string> {
+    let voiceAliases = 0;
+    let routeAliases = 0;
+    let preferences = 0;
+    if (this.voiceCommandAliasRepository) {
+      await this.voiceCommandAliasRepository.initialize();
+      voiceAliases = (await this.voiceCommandAliasRepository.listAliases()).length;
+    }
+    if (this.userRouteAliasRepository) {
+      await this.userRouteAliasRepository.initialize();
+      routeAliases = (await this.userRouteAliasRepository.listAliases()).length;
+    }
+    if (this.userPreferenceMemoryRepository) {
+      await this.userPreferenceMemoryRepository.initialize();
+      preferences = (await this.userPreferenceMemoryRepository.listPreferences()).length;
+    }
+    return `User-controlled memory status verified: ${voiceAliases + routeAliases + preferences} visible record(s); routes ${routeAliases}; voice aliases ${voiceAliases}; preferences ${preferences}; raw private content hidden.`;
+  }
+
+  private resolvePlannerTaskStepToolId(step: TaskStep): string | undefined {
+    if (step.toolId) {
+      return step.toolId;
+    }
+    const match = /\[([A-Za-z0-9_.-]+)\]\s*$/u.exec(step.title);
+    return match?.[1];
+  }
+
+  private createBrainAlphaHardening(input: {
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    toolProductLoop: BrainToolProductLoop;
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    memoryRecall?: CoreMemoryRecallObservation;
+  }): BrainAlphaHardening {
+    const memoryContext: BrainAlphaMemoryContext =
+      input.memoryRecall === undefined
+        ? {
+            status: "not_requested",
+            mode: "unknown",
+            matchCount: 0,
+            queryDimensions: 0,
+            readOnly: true,
+            rawContentExposed: false,
+          }
+        : {
+            status:
+              input.memoryRecall.status === "ok" ? "available" : "unavailable",
+            mode: input.memoryRecall.mode,
+            matchCount: Math.min(5, input.memoryRecall.matchCount),
+            queryDimensions: Math.min(
+              16_384,
+              Math.max(0, input.memoryRecall.queryDimensions),
+            ),
+            readOnly: true,
+            rawContentExposed: false,
+          };
+    const retryAvailable =
+      input.dispatchStatus === "blocked" || input.dispatchStatus === "degraded";
+    const reasonCode =
+      input.toolProductLoop.execution?.resultCode ??
+      input.toolProductLoop.safety?.reasonCode ??
+      input.toolProductLoop.routeReasonCode;
+    const confirmation = this.brainAlphaConfirmationStatus(
+      input.toolProductLoop,
+    );
+    return BrainAlphaHardeningSchema.parse({
+      schemaVersion: "1.0.0",
+      sessionEntryId: createId("session-entry"),
+      memoryContext,
+      retry: {
+        status: retryAvailable ? "available" : "not_available",
+        attemptCount: 0,
+        safetyPathReentered: true,
+        ...(retryAvailable ? {} : { reasonCode: "RETRY_NOT_REQUIRED" }),
+      },
+      rollback: {
+        status: retryAvailable ? "available" : "not_available",
+        safetyPreserved: true,
+        ...(retryAvailable ? {} : { reasonCode: "ROLLBACK_NOT_REQUIRED" }),
+      },
+      tts: {
+        status: input.dispatchStatus === "completed" ? "eligible" : "disabled",
+        localOnly: true,
+        defaultOff: true,
+        boundedText: true,
+        rawTextPersisted: false,
+      },
+      persisted: false,
+      rawDiagnosticsExposed: false,
+      directActionAttempted: false,
+      memoryWriteAttempted: false,
+    });
+  }
+
+  private appendSessionHistory(input: {
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    toolProductLoop: BrainToolProductLoop;
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    alphaHardening: BrainAlphaHardening;
+  }): void {
+    const entry = SessionHistoryEntrySchema.parse({
+      id: input.alphaHardening.sessionEntryId,
+      createdAt: this.now().toISOString(),
+      source: input.source,
+      intent: input.decision.intent,
+      ...(input.toolProductLoop.selectedToolId === undefined
+        ? {}
+        : { selectedToolId: input.toolProductLoop.selectedToolId }),
+      dispatchStatus: input.dispatchStatus,
+      confirmation: this.brainAlphaConfirmationStatus(input.toolProductLoop),
+      resultStatus: input.dispatchStatus,
+      reasonCode:
+        input.toolProductLoop.execution?.resultCode ??
+        input.toolProductLoop.safety?.reasonCode ??
+        input.toolProductLoop.routeReasonCode,
+      memoryContextStatus: input.alphaHardening.memoryContext.status,
+      retryStatus: input.alphaHardening.retry.status,
+      rollbackStatus: input.alphaHardening.rollback.status,
+      ttsStatus: input.alphaHardening.tts.status,
+      persisted: false,
+      rawContentExposed: false,
+    });
+    this.sessionHistory.unshift(entry);
+    this.sessionHistory.splice(12);
+  }
+
+  private brainAlphaConfirmationStatus(
+    toolProductLoop: BrainToolProductLoop,
+  ): "not_required" | "required" | "granted" | "blocked" {
+    if (!toolProductLoop.safety?.confirmationRequired) {
+      return "not_required";
+    }
+    if (toolProductLoop.safety.audit.confirmationGranted) {
+      return "granted";
+    }
+    return toolProductLoop.safety.allowed ? "required" : "blocked";
+  }
+
+  private selectBrainToolId(input: {
+    decision: BrainRouterDecision;
+    planning: CoreBrainPlanningOutcome;
+  }): string | undefined {
+    if (
+      input.decision.intent === "filesystem.search" &&
+      this.shouldRunTaskRuntimeFilesystemSearch()
+    ) {
+      return undefined;
+    }
+    if (
+      input.decision.intent === "notepad.write_text" &&
+      this.shouldRunTaskRuntimeNotepadWriteText()
+    ) {
+      return undefined;
+    }
+    if (
+      (input.decision.intent === "window.focus" ||
+        input.decision.intent === "window.minimize" ||
+        input.decision.intent === "window.restore") &&
+      this.shouldRunTaskRuntimeWindowControl()
+    ) {
+      return undefined;
+    }
+    if (input.decision.intent === "notepad.write_text") {
+      return "notepad.writeText";
+    }
+    if (
+      input.decision.intent === "browser.open" &&
+      this.shouldRunTaskRuntimeBrowserOpen(
+        String(input.decision.slots.target ?? ""),
+      )
+    ) {
+      return undefined;
+    }
+    if (
+      input.decision.intent === "localApp.open" &&
+      this.shouldRunTaskRuntimeKnownAppSlice(
+        String(input.decision.slots.target ?? ""),
+      )
+    ) {
+      return undefined;
+    }
+    if (
+      this.commandRouterProductMode?.enabled === true &&
+      input.decision.intent === "localApp.open" &&
+      !this.isCommandRouterLocalAppFixtureAllowlisted(
+        String(input.decision.slots.target ?? ""),
+      )
+    ) {
+      return undefined;
+    }
+    const plannedToolId =
+      input.planning.result?.status === "planned"
+        ? input.planning.result.plan?.steps.find((step) =>
+            (BRAIN_PLANNER_ALLOWED_TOOL_IDS as readonly string[]).includes(
+              step.toolId,
+            ),
+          )?.toolId
+        : undefined;
+    if (plannedToolId !== undefined) {
+      return plannedToolId;
+    }
+    if (
+      (BRAIN_PLANNER_ALLOWED_TOOL_IDS as readonly string[]).includes(
+        input.decision.intent,
+      )
+    ) {
+      return input.decision.intent;
+    }
+    return undefined;
+  }
+
+  private isCommandRouterLocalAppFixtureAllowlisted(target: string): boolean {
+    return COMMAND_ROUTER_LOCAL_APP_FIXTURE_ALLOWLIST.has(
+      this.normalizeCommandRouterLocalAppTarget(target),
+    );
+  }
+
+  private isCommandRouterRealLocalAppLaunchAllowlisted(
+    target: string,
+  ): boolean {
+    return this.commandRouterRealLocalAppLaunchLabel(target) !== "blocked";
+  }
+
+  private commandRouterRealLocalAppLaunchLabel(
+    target: string,
+  ): CommandRouterKnownLocalAppLabel | "blocked" {
+    const normalized = this.normalizeCommandRouterLocalAppTarget(target);
+    if (
+      [
+        "notepad",
+        "\u8bb0\u4e8b\u672c",
+        "\u8bb0\u4e8b\u7c3f",
+        "\u8bb0\u4e8b\u677f",
+        "\u8bb0\u4e8b\u95e8",
+        "\u8bb0\u4e8b\u8584",
+      ].includes(normalized)
+    ) {
+      return "notepad";
+    }
+    if (
+      [
+        "calculator",
+        "calc",
+        "\u8ba1\u7b97\u5668",
+        "\u8ba1\u7b97\u6c14",
+        "\u8ba1\u7b97\u5176",
+      ].includes(normalized)
+    ) {
+      return "calculator";
+    }
+    if (
+      [
+        "vscode",
+        "vs code",
+        "v s code",
+        "visual studio code",
+        "visual studio",
+        "visual code",
+        "code",
+        "\u4ee3\u7801",
+      ].includes(normalized)
+    ) {
+      return "vscode";
+    }
+    return "blocked";
+  }
+
+  private commandRouterKnownLocalAppDisplayName(
+    label: CommandRouterKnownLocalAppLabel,
+  ): string {
+    switch (label) {
+      case "notepad":
+        return "Notepad";
+      case "calculator":
+        return "Calculator";
+      case "vscode":
+        return "VS Code";
+    }
+  }
+
+  private commandRouterWindowActionDisplayName(
+    action: CoreKnownAppWindowAction,
+  ): string {
+    switch (action) {
+      case "focus":
+        return "Focus";
+      case "minimize":
+        return "Minimize";
+      case "restore":
+        return "Restore";
+    }
+  }
+
+  private commandRouterWindowActionVerb(
+    action: CoreKnownAppWindowAction,
+  ): string {
+    switch (action) {
+      case "focus":
+        return "focused";
+      case "minimize":
+        return "minimized";
+      case "restore":
+        return "restored";
+    }
+  }
+
+  private isKnownAppWindowAction(
+    action: string,
+  ): action is CoreKnownAppWindowAction {
+    return action === "focus" || action === "minimize" || action === "restore";
+  }
+
+  private commandRouterLocalAppFixtureLabel(target: string): string {
+    const normalized = this.normalizeCommandRouterLocalAppTarget(target);
+    return normalized === "calc" ? "calculator" : normalized;
+  }
+
+  private normalizeCommandRouterLocalAppTarget(target: string): string {
+    return this.stripCommandSpeechPunctuation(target)
+      .replace(/\b(?:v\s*[\.\s]*s\s*[\.\s]*code|vs\s*[\.\s]*code)\b/giu, "vscode")
+      .replace(/\s+/gu, " ")
+      .toLowerCase();
+  }
+
+  private createBrainToolReplayRequest(input: {
+    toolId: string;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+  }): ToolInvocationRequest {
+    return {
+      requestId: createId("tool-loop"),
+      toolId: input.toolId,
+      input: {
+        origin: input.source,
+        intent: input.decision.intent,
+        confidence: Number(input.decision.confidence.toFixed(3)),
+        approvalFlag: input.decision.requiresApproval,
+      },
+      dryRun: true,
+    };
+  }
+
+  private async executeBrainToolReplay(input: {
+    request: ToolInvocationRequest;
+    descriptors?: readonly ToolDescriptor[];
+  }): Promise<ToolExecutionResult | undefined> {
+    try {
+      const executor = new FixtureToolExecutor(
+        [...(input.descriptors ?? BRAIN_TOOL_REGISTRY_DESCRIPTORS)],
+        BRAIN_TOOL_REGISTRY_POLICY,
+      );
+      return await executor.execute({
+        request: input.request,
+        evaluatedAt: this.now().toISOString(),
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  private createBrainToolLifecycle(input: {
+    selectedToolId: string | undefined;
+    safety: ToolPolicyDecision | undefined;
+    execution: ToolExecutionResult | undefined;
+    fallbackReasonCode: string | undefined;
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+  }): BrainToolProductLoop["lifecycle"] {
+    const steps: BrainToolProductLoop["lifecycle"] = [
+      {
+        stage: "received",
+        status: "completed",
+        label: "BrainCommand received",
+      },
+      {
+        stage: "routed",
+        status: "completed",
+        label: "Intent routed",
+      },
+      {
+        stage: "tool_selected",
+        status: input.selectedToolId === undefined ? "blocked" : "completed",
+        label:
+          input.selectedToolId === undefined
+            ? "No bounded tool selected"
+            : `Selected ${input.selectedToolId}`,
+        ...(input.selectedToolId === undefined
+          ? { reasonCode: "TOOL_NOT_ALLOWLISTED" }
+          : {}),
+      },
+    ];
+    if (input.fallbackReasonCode !== undefined) {
+      steps.splice(2, 0, {
+        stage: "fallback",
+        status: "degraded",
+        label: "Fallback path preserved",
+        reasonCode: input.fallbackReasonCode,
+      });
+    }
+    if (input.safety !== undefined) {
+      steps.push({
+        stage: "safety_checked",
+        status: input.safety.allowed
+          ? "completed"
+          : input.safety.status === "needs_confirmation"
+            ? "needs_confirmation"
+            : "blocked",
+        label: "Safety policy evaluated",
+        reasonCode: input.safety.reasonCode,
+      });
+    }
+    if (input.safety?.confirmationRequired) {
+      steps.push({
+        stage: "confirmation",
+        status: input.safety.allowed ? "completed" : "needs_confirmation",
+        label: input.safety.audit.confirmationGranted
+          ? "Confirmation granted"
+          : "Confirmation required",
+        reasonCode: input.safety.reasonCode,
+      });
+    }
+    if (input.execution !== undefined) {
+      steps.push({
+        stage: "fixture_replayed",
+        status: this.brainToolLifecycleStatus(input.execution.status),
+        label: "Fixture replay completed",
+        reasonCode: input.execution.resultCode,
+      });
+      steps.push({
+        stage: "rollback",
+        status:
+          input.execution.rollbackState === "failed" ? "degraded" : "completed",
+        label: `Rollback ${input.execution.rollbackState}`,
+        reasonCode:
+          input.execution.rollbackState === "failed"
+            ? "TOOL_ROLLBACK_FAILED"
+            : "TOOL_ROLLBACK_NOT_REQUIRED",
+      });
+    }
+    steps.push({
+      stage: "result",
+      status:
+        input.dispatchStatus === "completed"
+          ? "completed"
+          : input.dispatchStatus === "needs_approval"
+            ? "needs_confirmation"
+            : input.dispatchStatus,
+      label: "Projected UI result",
+    });
+    return steps.slice(0, 12);
+  }
+
+  private brainToolLifecycleStatus(
+    status: ToolExecutionResult["status"],
+  ): BrainToolProductLoop["lifecycle"][number]["status"] {
+    if (status === "completed") {
+      return "completed";
+    }
+    if (status === "needs_confirmation") {
+      return "needs_confirmation";
+    }
+    if (
+      status === "degraded" ||
+      status === "timed_out" ||
+      status === "cancelled"
+    ) {
+      return "degraded";
+    }
+    return "blocked";
+  }
+
+  private brainToolFallbackReason(
+    planning: CoreBrainPlanningOutcome,
+  ): string | undefined {
+    if (
+      planning.selection.usedRulesFallback &&
+      (planning.selection.status === "fallback" ||
+        planning.selection.status === "unavailable")
+    ) {
+      return planning.selection.reasonCode;
+    }
+    return undefined;
+  }
+
+  private brainToolRouteReasonCode(input: {
+    decision: BrainRouterDecision;
+    planning: CoreBrainPlanningOutcome;
+  }): string {
+    if (input.decision.intent === "blocked") {
+      return "UNSAFE_OR_BLOCKED";
+    }
+    if (input.planning.selection.usedPlanner) {
+      return input.planning.selection.reasonCode;
+    }
+    return "PROVIDER_ACCEPTED";
+  }
+
+  private brainToolProductLoopSummary(input: {
+    selectedToolId: string | undefined;
+    safety: ToolPolicyDecision | undefined;
+    execution: ToolExecutionResult | undefined;
+    fallbackReasonCode: string | undefined;
+  }): string {
+    if (input.selectedToolId === undefined) {
+      return "No bounded fixture tool was selected; the product loop failed closed.";
+    }
+    const safety = input.safety?.reasonCode ?? "UNKNOWN_SANITIZED_FAILURE";
+    const result = input.execution?.resultCode ?? "UNKNOWN_SANITIZED_FAILURE";
+    const fallback = input.fallbackReasonCode
+      ? ` Fallback preserved: ${input.fallbackReasonCode}.`
+      : "";
+    return `Selected ${input.selectedToolId}; safety ${safety}; fixture result ${result}.${fallback}`;
+  }
+
+  private brainToolRegistryDescriptors(
+    decision: BrainRouterDecision,
+  ): ToolDescriptor[] {
+    if (
+      this.commandRouterProductMode?.enabled !== true ||
+      decision.intent !== "localApp.open" ||
+      !this.isCommandRouterLocalAppFixtureAllowlisted(
+        String(decision.slots.target ?? ""),
+      )
+    ) {
+      return [...BRAIN_TOOL_REGISTRY_DESCRIPTORS];
+    }
+    return BRAIN_TOOL_REGISTRY_DESCRIPTORS.map((descriptor) =>
+      descriptor.id === "localApp.open"
+        ? {
+            ...descriptor,
+            description:
+              "Replay a local-application allowlist route as a fixture-only dry run.",
+            risk: "read_only",
+            requiresConfirmation: false,
+          }
+        : descriptor,
+    );
+  }
+
+  private brainToolLabel(toolId: string): string {
+    switch (toolId) {
+      case "browser.open":
+        return "Browser";
+      case "localApp.open":
+        return "Local app";
+      case "notepad.writeText":
+        return "Notepad";
+      case "window.focus":
+        return "Window focus";
+      case "window.minimize":
+        return "Window minimize";
+      case "window.restore":
+        return "Window restore";
+      case "chat.answer":
+        return "Chat";
+      case "memory.search":
+        return "Memory search";
+      case "memory.status":
+        return "Memory status";
+      case "model.status":
+        return "Model status";
+      case "observability.status":
+        return "Observability";
+      case "system.settings":
+        return "Settings";
+      default:
+        return "Unknown";
+    }
+  }
+
+  private async dispatchBrainPlannerOutcome(input: {
+    planning: CoreBrainPlanningOutcome;
+    basePlan: BrainPlanStep[];
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+  }): Promise<
+    | {
+        dispatchStatus: BrainCommandResult["dispatchStatus"];
+        plan: BrainPlanStep[];
+        summary: string;
+      }
+    | undefined
+  > {
+    const result = input.planning.result;
+    if (input.planning.selection.status === "planned" && result?.plan) {
+      await this.persistMinimalPlannerTask({
+        envelope: input.envelope,
+        source: input.source,
+        decision: input.decision,
+        plannerResult: result,
+      });
+      const projectedPlan = this.projectBrainPlannerSteps(
+        input.basePlan,
+        result.plan.steps,
+      );
+      return {
+        dispatchStatus: "needs_approval",
+        plan: projectedPlan,
+        summary:
+          result.providerId === DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID
+            ? "Minimal Planner prepared a bounded plan and saved it to Task Runtime for review. No tool execution was attempted."
+            : "Heavy Planner prepared a bounded plan that requires confirmation before any tool execution.",
+      };
+    }
+    if (input.planning.selection.status === "clarify") {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan([
+          ...input.basePlan,
+          {
+            id: "planner",
+            title: "Request clarification",
+            status: "blocked",
+          },
+        ]),
+        summary:
+          result?.clarifyQuestion ??
+          "Heavy Planner needs clarification before this can proceed safely.",
+      };
+    }
+    if (input.planning.selection.status === "blocked") {
+      return {
+        dispatchStatus: "blocked",
+        plan: this.blockFinalBrainPlan([
+          ...input.basePlan,
+          {
+            id: "planner",
+            title: "Block unsafe plan",
+            status: "blocked",
+          },
+        ]),
+        summary: "Heavy Planner blocked this request before execution.",
+      };
+    }
+    return undefined;
+  }
+
+  private projectBrainPlannerSteps(
+    basePlan: BrainPlanStep[],
+    plannedSteps: NonNullable<BrainPlannerResult["plan"]>["steps"],
+  ): BrainPlanStep[] {
+    const visiblePlannedSteps = plannedSteps.slice(0, 4).map((step, index) => ({
+      id: `planned-${index + 1}`,
+      title: `${step.title} [${step.toolId}]`,
+      status: "pending" as const,
+    }));
+    return [
+      ...basePlan.filter((step) => step.id !== "dispatch"),
+      {
+        id: "planner",
+        title: "Prepare bounded BrainPlan",
+        status: "completed",
+      },
+      ...visiblePlannedSteps,
+      {
+        id: "confirmation",
+        title: "Wait for user confirmation before execution",
+        status: "pending",
+      },
+    ];
+  }
+
+  private async persistMinimalPlannerTask(input: {
+    envelope: CommandEnvelope;
+    source: "text" | "voice";
+    decision: BrainRouterDecision;
+    plannerResult: BrainPlannerResult;
+  }): Promise<void> {
+    const repository = this.taskRepository;
+    const plan = input.plannerResult.plan;
+    if (!repository || !plan) {
+      return;
+    }
+    const taskId = createId("task");
+    const createdAt = this.now().toISOString();
+    await repository.createTask({
+      id: taskId,
+      title: "Review Minimal Plan",
+      state: "planning",
+      createdAt,
+      updatedAt: createdAt,
+      source: input.source,
+      intent: input.decision.intent,
+      routeSource: "intent-router.deterministic.rules",
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "created",
+      message: "Task created from Minimal Planner draft route.",
+      createdAt,
+    });
+    for (const [index, step] of plan.steps.slice(0, 6).entries()) {
+      await repository.createStep({
+        id: createId("step"),
+        taskId,
+        title: `${index + 1}. ${step.title} [${step.toolId}]`,
+        state: "pending",
+        verificationStatus: "not_applicable",
+        toolId: step.toolId,
+        toolInput: step.args,
+      });
+    }
+    const waitingAt = this.now().toISOString();
+    await repository.updateTask({
+      id: taskId,
+      state: "awaiting_confirmation",
+      updatedAt: waitingAt,
+      verificationSummary:
+        `Minimal Planner (${input.plannerResult.providerId}) saved a bounded plan draft; no tool execution was attempted.`,
+    });
+    await repository.createEvent({
+      id: createId("task-event"),
+      taskId,
+      type: "state_changed",
+      message:
+        `Planner draft from ${input.plannerResult.providerId} is awaiting explicit user confirmation before any step can run.`,
+      createdAt: waitingAt,
+    });
+    await this.refreshTasksFromRepository();
+    this.publishSnapshot(input.envelope.correlationId);
+  }
+
+  private brainDecision(input: {
+    intent: BrainIntent;
+    confidence: number;
+    requiresApproval: boolean;
+    slots: Record<string, unknown>;
+    reason: string;
+  }): BrainRouterDecision {
+    return BrainRouterDecisionSchema.parse(input);
+  }
+
+  private brainPlannerSelection(input: {
+    providerId: string;
+    fallbackProviderId?: string;
+    status: BrainPlannerSelectionReport["status"];
+    reasonCode: BrainPlannerSelectionReport["reasonCode"];
+    failureClass: BrainPlannerSelectionReport["failureClass"];
+    usedPlanner: boolean;
+    usedRulesFallback: boolean;
+  }): BrainPlannerSelectionReport {
+    return BrainPlannerSelectionReportSchema.parse({
+      ...input,
+      directActionAttempted: false,
+    });
+  }
+
+  private brainPlannerProviderId(): string {
+    const providerId = this.brainPlanner?.providerId?.trim();
+    return providerId && providerId.length > 0
+      ? providerId
+      : "heavy-planner.fixture";
+  }
+
+  private shouldUseBrainPlanner(input: {
+    text: string;
+    routing: CoreBrainRoutingOutcome;
+  }): boolean {
+    if (this.brainPlanner?.enabled !== true) {
+      return false;
+    }
+    const escalatedIntents =
+      this.brainPlanner.escalateIntents ??
+      (["chat.answer", "clarify"] as const);
+    if (escalatedIntents.includes(input.routing.decision.intent)) {
+      return true;
+    }
+    if (
+      input.routing.selection.reasonCode === "CONFIDENCE_LOW" ||
+      input.routing.selection.reasonCode === "INTENT_UNSUPPORTED" ||
+      input.routing.selection.reasonCode === "CANDIDATE_MISSING" ||
+      input.routing.selection.reasonCode === "RESULT_INVALID"
+    ) {
+      return true;
+    }
+    return this.looksLikeComplexPlannerRequest(input.text);
+  }
+
+  private looksLikeComplexPlannerRequest(text: string): boolean {
+    const normalized = text.trim().toLowerCase();
+    return /(?:plan|research|compare|workflow|multi-step|steps|安排|计划|比较|研究|步骤|先.+再)/u.test(
+      normalized,
+    );
+  }
+
+  private brainRouterSelection(input: {
+    selectedProviderId: string;
+    fallbackProviderId?: string;
+    status: BrainRouterSelectionReport["status"];
+    reasonCode: BrainRouterSelectionReport["reasonCode"];
+    failureClass: BrainRouterSelectionReport["failureClass"];
+    confidenceBand: BrainRouterSelectionReport["confidenceBand"];
+    usedRulesFallback: boolean;
+  }): BrainRouterSelectionReport {
+    return BrainRouterSelectionReportSchema.parse({
+      ...input,
+      directActionAttempted: false,
+    });
+  }
+
+  private brainRouterProviderId(
+    options: CoreBrainRouterOptions | undefined = this.brainRouter,
+  ): string {
+    const providerId = options?.providerId?.trim();
+    return providerId && providerId.length > 0
+      ? providerId
+      : "intent-router.configured";
+  }
+
+  private brainRouterConfidenceBand(
+    confidence: number | undefined,
+  ): BrainRouterSelectionReport["confidenceBand"] {
+    if (confidence === undefined || !Number.isFinite(confidence)) {
+      return "none";
+    }
+    return confidence >=
+      (this.brainRouter?.minConfidence ?? DEFAULT_BRAIN_ROUTER_MIN_CONFIDENCE)
+      ? "accepted"
+      : "low";
+  }
+
+  private mapBrainRouterIntent(intent: string): BrainIntent | undefined {
+    if ((BRAIN_ROUTER_ALLOWED_INTENTS as readonly string[]).includes(intent)) {
+      return intent as BrainIntent;
+    }
+    if (intent === "agent.help" || intent === "chat" || intent === "help") {
+      return "chat.answer";
+    }
+    if (intent === "system.status" || intent === "runtime.status") {
+      return "observability.status";
+    }
+    return undefined;
+  }
+
+  private normalizeBrainRouterSlots(
+    intent: BrainIntent,
+    slots: Record<string, unknown>,
+    text: string,
+  ): Record<string, unknown> {
+    const target = typeof slots.target === "string" ? slots.target.trim() : "";
+    if (
+      target.length > 0 ||
+      (intent !== "browser.open" && intent !== "localApp.open")
+    ) {
+      return { ...slots, ...(target.length > 0 ? { target } : {}) };
+    }
+    const openTarget = this.extractOpenTarget(text);
+    return openTarget ? { ...slots, target: openTarget } : { ...slots };
+  }
+
+  private brainPlan(intent: BrainIntent): BrainPlanStep[] {
+    return [
+      {
+        id: "intake",
+        title: "Receive command",
+        status: "completed",
+      },
+      {
+        id: "route",
+        title: `Route intent: ${intent}`,
+        status: "completed",
+      },
+      {
+        id: "dispatch",
+        title: "Dispatch bounded capability",
+        status: "pending",
+      },
+    ];
+  }
+
+  private completeBrainPlan(plan: BrainPlanStep[]): BrainPlanStep[] {
+    return plan.map((step) =>
+      step.id === "dispatch" ? { ...step, status: "completed" } : step,
+    );
+  }
+
+  private blockFinalBrainPlan(plan: BrainPlanStep[]): BrainPlanStep[] {
+    return plan.map((step) =>
+      step.id === "dispatch" ? { ...step, status: "blocked" } : step,
+    );
+  }
+
+  private looksLikeUserRouteAliasLearningRequest(text: string): boolean {
+    const normalized = text.trim();
+    if (!/https?:\/\/\S+/iu.test(normalized)) {
+      return false;
+    }
+    return /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|\u5b66\u4e00\u4e0b|remember|save|learn)/iu.test(
+      normalized,
+    );
+  }
+
+  private resolveUserPreferenceMemoryRequest(
+    text: string,
+  ): ResolvedUserPreferenceMemoryRequest | undefined {
+    const normalized = this.normalizeUserRouteAliasComparable(text);
+    const hasMemoryCue =
+      /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|\u4ee5\u540e|\u4ee5\u540e\u9ed8\u8ba4|remember|save)/iu.test(
+        text,
+      ) || normalized.includes("default");
+    if (!hasMemoryCue) {
+      return undefined;
+    }
+    if (
+      normalized.includes("\u4e2d\u6587\u56de\u7b54") ||
+      normalized.includes("\u4e2d\u6587\u56de\u590d") ||
+      normalized.includes("\u7528\u4e2d\u6587\u56de\u7b54") ||
+      normalized.includes("\u7528\u4e2d\u6587\u56de\u590d") ||
+      normalized.includes("chinesereplies") ||
+      normalized.includes("replyinchinese")
+    ) {
+      return {
+        key: "response_language",
+        label: "Response language",
+        value: "zh",
+        summary: "Prefer Chinese replies",
+      };
+    }
+    if (
+      normalized.includes("\u7b80\u77ed\u56de\u7b54") ||
+      normalized.includes("\u7b80\u77ed\u56de\u590d") ||
+      normalized.includes("\u7b80\u77ed\u4e00\u70b9") ||
+      normalized.includes("\u77ed\u56de\u7b54") ||
+      normalized.includes("shortanswers") ||
+      normalized.includes("briefanswers") ||
+      normalized.includes("keepitshort")
+    ) {
+      return {
+        key: "response_length",
+        label: "Response length",
+        value: "short",
+        summary: "Prefer short replies",
+      };
+    }
+    if (
+      normalized.includes("\u8be6\u7ec6\u56de\u7b54") ||
+      normalized.includes("\u8be6\u7ec6\u56de\u590d") ||
+      normalized.includes("\u8be6\u7ec6\u4e00\u70b9") ||
+      normalized.includes("\u5c55\u5f00\u56de\u7b54") ||
+      normalized.includes("detailedanswers") ||
+      normalized.includes("moredetail")
+    ) {
+      return {
+        key: "response_length",
+        label: "Response length",
+        value: "detailed",
+        summary: "Prefer detailed replies",
+      };
+    }
+    if (
+      normalized.includes("\u53cb\u597d\u4e00\u70b9") ||
+      normalized.includes("\u8bed\u6c14\u53cb\u597d") ||
+      normalized.includes("\u6e29\u548c\u4e00\u70b9") ||
+      normalized.includes("friendlytone") ||
+      normalized.includes("friendlystyle")
+    ) {
+      return {
+        key: "response_style",
+        label: "Response style",
+        value: "friendly",
+        summary: "Prefer friendly tone",
+      };
+    }
+    if (
+      normalized.includes("\u4e13\u4e1a\u4e00\u70b9") ||
+      normalized.includes("\u6280\u672f\u98ce\u683c") ||
+      normalized.includes("\u4e13\u4e1a\u98ce\u683c") ||
+      normalized.includes("technicaltone") ||
+      normalized.includes("technicalstyle")
+    ) {
+      return {
+        key: "response_style",
+        label: "Response style",
+        value: "technical",
+        summary: "Prefer technical tone",
+      };
+    }
+    if (
+      normalized.includes("\u76f4\u63a5\u4e00\u70b9") ||
+      normalized.includes("\u7b80\u6d01\u98ce\u683c") ||
+      normalized.includes("\u7b80\u6d01\u4e00\u70b9") ||
+      normalized.includes("concisestyle") ||
+      normalized.includes("concisetone")
+    ) {
+      return {
+        key: "response_style",
+        label: "Response style",
+        value: "concise",
+        summary: "Prefer concise tone",
+      };
+    }
+    return undefined;
+  }
+
+  private createUserRouteAliasLearningProposal(
+    text: string,
+  ): UserRouteAliasLearningProposal | undefined {
+    const urlMatch = text.match(/https?:\/\/[^\s"'<>，。；]+/iu);
+    const safeUrl = urlMatch
+      ? this.normalizeUserRouteAliasHttpsUrl(urlMatch[0])
+      : undefined;
+    if (!safeUrl) {
+      return undefined;
+    }
+    const label = this.extractUserRouteAliasLabel(text) ?? "User route alias";
+    const aliases = this.userRouteAliasesForLabel(label);
+    return UserRouteAliasLearningProposalSchema.parse({
+      id: createId("route_alias_proposal"),
+      label,
+      aliases,
+      intent: "browser.open",
+      targetUrl: safeUrl.href,
+      targetHostname: safeUrl.hostname,
+      requiresConfirmation: true,
+      urlPolicy: "https_only_no_credentials_no_sensitive_query",
+      directActionAttempted: false,
+    });
+  }
+
+  private extractUserRouteAliasLabel(text: string): string | undefined {
+    const comparable = this.normalizeUserRouteAliasComparable(text);
+    if (
+      comparable.includes("izytoken") ||
+      comparable.includes("easytoken") ||
+      comparable.includes("\u4e00\u53eatoken")
+    ) {
+      return "IZYtoken admin";
+    }
+    const withoutUrl = text.replace(/https?:\/\/[^\s"'<>，。；]+/giu, " ");
+    const labelMatch = withoutUrl.match(
+      /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|remember|save|learn)\s*(.+?)(?:\u5730\u5740|url|URL|\u662f|\u4e3a|as|to)/u,
+    );
+    const label = labelMatch?.[1]?.trim();
+    if (!label || label.length < 2 || label.length > 80) {
+      return undefined;
+    }
+    return this.stripCommandSpeechPunctuation(label);
+  }
+
+  private userRouteAliasesForLabel(label: string): string[] {
+    const aliases = new Set<string>([label]);
+    const comparable = this.normalizeUserRouteAliasComparable(label);
+    if (comparable.includes("izytoken")) {
+      aliases.add("IZYtoken admin");
+      aliases.add("IZYtoken \u540e\u53f0");
+      aliases.add("easy TOKEN \u540e\u53f0");
+      aliases.add("\u4e00\u53eatoken\u540e\u53f0");
+      aliases.add("izytoken\u540e\u53f0");
+    }
+    return Array.from(aliases).slice(0, 12);
+  }
+
+  private normalizeUserRouteAliasHttpsUrl(value: string): URL | undefined {
+    try {
+      const url = new URL(value.trim());
+      if (url.protocol !== "https:") {
+        return undefined;
+      }
+      if (url.username || url.password || url.hash) {
+        return undefined;
+      }
+      const sensitiveQueryPattern =
+        /(?:token|secret|password|passwd|pwd|key|apikey|api_key|auth|signature|sig|access[_-]?token|refresh[_-]?token|code)/iu;
+      for (const key of url.searchParams.keys()) {
+        if (sensitiveQueryPattern.test(key)) {
+          return undefined;
+        }
+      }
+      if (url.href.length > 300) {
+        return undefined;
+      }
+      return url;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private normalizeUserRouteAliasComparable(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/\b(?:easy\s*token|izy\s*token|i\s*z\s*y\s*token)\b/giu, "izytoken")
+      .replace(/\s+/gu, "")
+      .replace(/[._\-:：，。；;!?！？"'“”‘’()（）[\]【】]/gu, "");
+  }
+
+  private extractOpenTarget(text: string): string | undefined {
+    const trimmed = text.trim();
+    const zhClean = trimmed.match(
+      /^(?:请|请帮我|帮我|麻烦)?(?:打开|启动|访问|浏览)\s*(.+?)\s*$/u,
+    );
+    if (zhClean?.[1]) {
+      return this.normalizeOpenTargetCandidate(zhClean[1]);
+    }
+    const zhReadable = trimmed.match(
+      /^(?:请|帮我|麻烦)?(?:打开|开启|访问|浏览)\s*(.+?)\s*$/u,
+    );
+    if (zhReadable?.[1]) {
+      return this.normalizeOpenTargetCandidate(zhReadable[1]);
+    }
+    const zh = trimmed.match(
+      /^(?:请)?(?:帮我)?(?:打开|开启|访问|浏览)\s+(.+?)\s*$/u,
+    );
+    if (zh?.[1]) {
+      return this.normalizeOpenTargetCandidate(zh[1]);
+    }
+    const en = trimmed.match(/^(?:open|visit|go to|launch)\s+(.+?)\s*$/iu);
+    if (en?.[1]) {
+      return this.normalizeOpenTargetCandidate(en[1]);
+    }
+    return undefined;
+  }
+
+  private normalizeOpenTargetCandidate(target: string): string | undefined {
+    const cleaned = this.stripCommandSpeechPunctuation(target);
+    const firstClause = cleaned.split(/[，,、;；]/u)[0]?.trim();
+    if (
+      firstClause !== undefined &&
+      firstClause.length > 0 &&
+      this.commandRouterRealLocalAppLaunchLabel(firstClause) !== "blocked"
+    ) {
+      return firstClause;
+    }
+    return cleaned.length > 0 ? cleaned : undefined;
+  }
+
+  private stripCommandSpeechPunctuation(value: string): string {
+    return value
+      .trim()
+      .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/gu, "")
+      .replace(/[\s，,。.!！?？;；:：、]+$/gu, "")
+      .trim();
+  }
+
+  private extractPluginInvocation(text: string):
+    | {
+        pluginId: string;
+        capability: string;
+        input: Record<string, string>;
+      }
+    | undefined {
+    const trimmed = text.trim();
+    const normalized = trimmed.toLowerCase();
+    if (
+      /(?:stock|quote|ticker|股票|股价|行情)/iu.test(normalized) &&
+      !/(?:trade|trading|order|checkout|payment|purchase|buy|sell|交易|下单|支付|付款|购买|买入|卖出)/iu.test(
+        normalized,
+      )
+    ) {
+      return {
+        pluginId: "cn.jarvis-k.stock-analysis",
+        capability: "stock.quote",
+        input: {
+          symbol: this.extractStockSymbol(trimmed),
+        },
+      };
+    }
+    if (
+      /(?:product\s+compare|compare\s+products?|e-?commerce|shopping\s+compare|商品比较|电商比较|比较商品|商品对比|电商对比)/iu.test(
+        normalized,
+      ) &&
+      !/(?:order|checkout|payment|purchase|buy|下单|支付|付款|购买|买入)/iu.test(
+        normalized,
+      )
+    ) {
+      return {
+        pluginId: "cn.jarvis-k.ecommerce-comparison",
+        capability: "product.compare",
+        input: {
+          query: this.extractProductComparisonQuery(trimmed),
+        },
+      };
+    }
+    if (
+      /(?:bargain|haggle|negotiate|discount\s+draft|discount\s+advice|砍价|讲价|议价|还价)/iu.test(
+        normalized,
+      ) &&
+      !/(?:order|checkout|payment|purchase|buy|send|submit|contact\s+seller|message\s+seller|下单|支付|付款|购买|买入|发送|提交|联系卖家)/iu.test(
+        normalized,
+      )
+    ) {
+      return {
+        pluginId: "cn.jarvis-k.ecommerce-comparison",
+        capability: "product.bargain.advice",
+        input: {
+          query: this.extractProductBargainAdviceQuery(trimmed),
+        },
+      };
+    }
+    const helloLookup = trimmed.match(
+      /^(?:hello\s+plugin|plugin\s+hello|hello\s+lookup|local\s+plugin\s+hello)\s+(.+?)\s*$/iu,
+    );
+    if (helloLookup?.[1]) {
+      return {
+        pluginId: "cn.example.hello-readonly",
+        capability: "hello.lookup",
+        input: {
+          name: this.normalizeHelloLookupName(helloLookup[1]),
+        },
+      };
+    }
+    return undefined;
+  }
+
+  private normalizeHelloLookupName(text: string): string {
+    const cleaned = text
+      .replace(/[^\p{L}\p{N}\s_-]/gu, " ")
+      .trim()
+      .replace(/\s+/gu, " ")
+      .slice(0, 40);
+    return cleaned || "Jarvis";
+  }
+
+  private extractStockSymbol(text: string): string {
+    const explicit = text.match(
+      /\b(?:symbol|ticker)\s*[:：]?\s*([A-Z]{1,8})\b/u,
+    );
+    if (explicit?.[1]) {
+      return explicit[1].toUpperCase();
+    }
+    const upper = text.match(/\b[A-Z]{1,8}\b/u);
+    return upper?.[0]?.toUpperCase() ?? "JVS";
+  }
+
+  private extractProductComparisonQuery(text: string): string {
+    const cleaned = text
+      .replace(/(?:please|帮我|请|麻烦)/giu, " ")
+      .replace(
+        /(?:product\s+compare|compare\s+products?|e-?commerce|shopping\s+compare|商品比较|电商比较|比较商品|商品对比|电商对比)/giu,
+        " ",
+      )
+      .trim()
+      .replace(/\s+/gu, " ");
+    if (cleaned.length >= 1 && cleaned.length <= 120) {
+      return cleaned;
+    }
+    return "sample product";
+  }
+
+  private extractProductBargainAdviceQuery(text: string): string {
+    const cleaned = text
+      .replace(
+        /(?:please|help\s+me|give\s+me|draft|advice|帮我|请|生成)/giu,
+        " ",
+      )
+      .replace(
+        /(?:bargain|haggle|negotiate|discount\s+draft|discount\s+advice|砍价|讲价|议价|还价|话术|建议)/giu,
+        " ",
+      )
+      .trim()
+      .replace(/\s+/gu, " ");
+    if (cleaned.length >= 1 && cleaned.length <= 120) {
+      return cleaned;
+    }
+    return "sample product";
+  }
+
+  private extractFilesystemSearchQuery(text: string): string | undefined {
+    const trimmed = text.trim();
+    const patterns = [
+      /^(?:please\s+)?(?:find|search|look\s+for)\s+(?:files?\s+(?:named|called)\s+|documents?\s+(?:named|called)\s+|downloads?\s+(?:named|called)\s+|for\s+)?(.+?)\s*$/iu,
+      /^(?:请|请帮我|帮我|麻烦)?(?:找|搜索|查找)\s*(?:文件|文档|下载|桌面)?\s*(.+?)\s*$/u,
+    ];
+    for (const pattern of patterns) {
+      const match = trimmed.match(pattern);
+      const query = match?.[1]?.trim();
+      if (
+        query &&
+        query.length >= 1 &&
+        query.length <= 120 &&
+        !/[\\/:*?"<>|]/u.test(query) &&
+        !/(?:\.\.|[A-Za-z]:\\|\\\\)/u.test(query)
+      ) {
+        return query;
+      }
+    }
+    return undefined;
+  }
+
+  private extractNotepadWriteText(text: string): string | undefined {
+    const trimmed = text.trim();
+    const patterns = [
+      /^(?:please\s+)?(?:write|type)\s+["']?(.+?)["']?\s+(?:in|into|to)\s+notepad\s*$/iu,
+      /^(?:please\s+)?(?:write|type)\s+(?:notepad\s+)?text\s+["']?(.+?)["']?\s*$/iu,
+      /^(?:\u8bf7|\u8bf7\u5e2e\u6211|\u5e2e\u6211|\u9ebb\u70e6)?(?:\u6253\u5f00|\u542f\u52a8)?\s*\u8bb0\u4e8b\u672c\s*(?:[\uFF0C,\u3001;；])?\s*(?:\u5e76|\u7136\u540e)?\s*(?:\u8f93\u5165|\u5199\u5165|\u5199\u4e0a|\u6253\u5b57)\s*["'\u201c\u201d]?(.+?)["'\u201c\u201d]?\s*$/u,
+      /^(?:\u8bf7|\u8bf7\u5e2e\u6211|\u5e2e\u6211|\u9ebb\u70e6)?(?:\u5728)?\s*\u8bb0\u4e8b\u672c(?:\u91cc|\u4e2d)?\s*(?:\u8f93\u5165|\u5199\u5165|\u5199\u4e0a|\u6253\u5b57)\s*["'\u201c\u201d]?(.+?)["'\u201c\u201d]?\s*$/u,
+    ];
+    for (const pattern of patterns) {
+      const match = trimmed.match(pattern);
+      const candidate = match?.[1]?.trim();
+      if (candidate !== undefined) {
+        return this.normalizeNotepadWriteText(candidate);
+      }
+    }
+    return undefined;
+  }
+
+  private extractKnownAppWindowControl(text: string):
+    | {
+        action: CoreKnownAppWindowAction;
+        target: CommandRouterKnownLocalAppLabel;
+      }
+    | undefined {
+    const trimmed = text.trim();
+    const match = trimmed.match(
+      /^(?:please\s+)?(focus|minimize|restore)\s+(?:the\s+)?(.+?)(?:\s+window)?\s*$/iu,
+    );
+    const action = match?.[1]?.toLowerCase();
+    const rawTarget = match?.[2]?.trim();
+    if (action !== "focus" && action !== "minimize" && action !== "restore") {
+      return undefined;
+    }
+    if (rawTarget === undefined) {
+      return undefined;
+    }
+    const target = this.commandRouterRealLocalAppLaunchLabel(rawTarget);
+    if (target === "blocked") {
+      return undefined;
+    }
+    return { action, target };
+  }
+
+  private normalizeNotepadWriteText(text: string): string | undefined {
+    const trimmed = text
+      .trim()
+      .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/gu, "")
+      .replace(/[。！？]+$/gu, "")
+      .trim();
+    if (/[\u0000-\u001f\u007f]/u.test(trimmed)) {
+      return undefined;
+    }
+    const normalized = trimmed.replace(/\s+/gu, " ");
+    if (
+      normalized.length === 0 ||
+      normalized.length > 160 ||
+      !/^[A-Za-z0-9 .,;:'"!?_-]+$/u.test(normalized)
+    ) {
+      return undefined;
+    }
+    return normalized;
+  }
+
+  private looksLikeLocalApp(target: string): boolean {
+    if (this.commandRouterRealLocalAppLaunchLabel(target) !== "blocked") {
+      return true;
+    }
+    const normalized = target.toLowerCase();
+    if (/记事本|计算器|微信|浏览器|软件|应用|代码/u.test(normalized)) {
+      return true;
+    }
+    if (
+      [
+        "wechat",
+        "vscode",
+        "visual studio code",
+        "notepad",
+        "calculator",
+        "calc",
+        "chrome",
+        "edge",
+        "app",
+      ].some((keyword) => normalized.includes(keyword))
+    ) {
+      return true;
+    }
+    if (
+      /微信|wechat|vscode|visual studio code|notepad|记事本|chrome|edge|浏览器|软件|应用|app/u.test(
+        normalized,
+      )
+    ) {
+      return true;
+    }
+    return /微信|wechat|vscode|visual studio code|notepad|记事本|chrome|edge|浏览器|软件|应用|app/u.test(
+      normalized,
+    );
+  }
+
+  private async acceptMessage(input: {
+    envelope: CommandEnvelope;
+    role: Message["role"];
+    text: string;
+    conversationId?: string;
+    recall: boolean;
+  }): Promise<
+    | {
+        ok: true;
+        message: Message;
+        memoryRecall?: CoreMemoryRecallObservation;
+      }
+    | {
+        ok: false;
+        result: CommandResult;
+      }
+  > {
+    const conversationId = await this.resolveMessageConversationId(
+      input.conversationId,
+    );
+    const message: Message = {
+      id: createId("msg"),
+      conversationId,
+      role: input.role,
+      text: input.text,
+      createdAt: this.now().toISOString(),
+    };
+    if (this.memoryRepository) {
+      try {
+        await this.memoryRepository.appendMessage(message);
+        if (!this.activeConversationId) {
+          await this.memoryRepository.setActiveConversationId(conversationId);
+        }
+        await this.refreshConversationState();
+        this.health = "ready";
+      } catch {
+        this.health = "degraded";
+        return {
+          ok: false,
+          result: this.failure(input.envelope, {
+            code: "MEMORY_WRITE_FAILED",
+            message: "Unable to persist the accepted message.",
+            retryable: true,
+          }),
+        };
+      }
+    } else {
+      this.upsertLocalConversationForMessage(message);
+    }
+    this.messages.push(message);
+    this.publish(
+      {
+        type: "agent.message.accepted",
+        payload: message,
+      },
+      input.envelope.correlationId,
+    );
+    const memoryRecall =
+      input.recall && input.role === "user"
+        ? await this.retrieveMemoryRecallForAcceptedMessage(message)
+        : undefined;
+    return {
+      ok: true,
+      message,
+      ...(memoryRecall ? { memoryRecall } : {}),
+    };
+  }
+
   private async retrieveMemoryRecallForAcceptedMessage(
-    message: Message
+    message: Message,
   ): Promise<CoreMemoryRecallObservation | undefined> {
     if (this.memoryRetrievalRouting?.enabled !== true) {
       return undefined;
@@ -988,9 +7653,7 @@ export class CoreRuntime {
 
     const modelId = this.memoryRetrievalRouting.modelId;
     if (!this.isAllowedMemoryRetrievalModelId(modelId)) {
-      return this.degradedMemoryRecall(
-        "MEMORY_RETRIEVAL_MODEL_BLOCKED"
-      );
+      return this.degradedMemoryRecall("MEMORY_RETRIEVAL_MODEL_BLOCKED");
     }
 
     if (!this.embeddingMemoryRetrievalPort) {
@@ -1004,7 +7667,7 @@ export class CoreRuntime {
         messageId: message.id,
         conversationId: message.conversationId,
         createdAt: message.createdAt,
-        ...(queryText === undefined ? {} : { queryText })
+        ...(queryText === undefined ? {} : { queryText }),
       });
     } catch (error) {
       return this.degradedMemoryRecall(
@@ -1014,8 +7677,8 @@ export class CoreRuntime {
         this.now().toISOString(),
         this.classifyMemoryRecallFailure({
           stage: "query_embedding",
-          error
-        })
+          error,
+        }),
       );
     }
     if (!this.isValidMemoryRetrievalQueryVector(vector)) {
@@ -1024,7 +7687,7 @@ export class CoreRuntime {
         "blocked",
         0,
         this.now().toISOString(),
-        "QUERY_EMBEDDING_FAILED"
+        "QUERY_EMBEDDING_FAILED",
       );
     }
 
@@ -1037,7 +7700,7 @@ export class CoreRuntime {
         ...(this.memoryRetrievalRouting.minScore === undefined
           ? {}
           : { minScore: this.memoryRetrievalRouting.minScore }),
-        conversationId: message.conversationId
+        conversationId: message.conversationId,
       });
     } catch (error) {
       return this.degradedMemoryRecall(
@@ -1047,14 +7710,12 @@ export class CoreRuntime {
         this.now().toISOString(),
         this.classifyMemoryRecallFailure({
           stage: "vector_query",
-          error
-        })
+          error,
+        }),
       );
     }
 
-    let result: Awaited<
-      ReturnType<EmbeddingMemoryRetrievalPort["retrieve"]>
-    >;
+    let result: Awaited<ReturnType<EmbeddingMemoryRetrievalPort["retrieve"]>>;
     try {
       result = EmbeddingMemoryRetrievalResultSchema.parse(rawResult);
     } catch (error) {
@@ -1065,8 +7726,8 @@ export class CoreRuntime {
         this.now().toISOString(),
         this.classifyMemoryRecallFailure({
           stage: "vector_query_result",
-          error
-        })
+          error,
+        }),
       );
     }
 
@@ -1077,13 +7738,13 @@ export class CoreRuntime {
           "blocked",
           0,
           result.generatedAt,
-          "VECTOR_QUERY_RESULT_INVALID"
+          "VECTOR_QUERY_RESULT_INVALID",
         );
       }
 
       if (result.status === "degraded") {
         const reasonCode = this.sanitizeMemoryRecallReasonCode(
-          result.reasonCode
+          result.reasonCode,
         );
         return this.degradedMemoryRecall(
           reasonCode,
@@ -1092,8 +7753,8 @@ export class CoreRuntime {
           result.generatedAt,
           this.classifyMemoryRecallFailure({
             stage: "vector_query_result",
-            ...(reasonCode === undefined ? {} : { reasonCode })
-          })
+            ...(reasonCode === undefined ? {} : { reasonCode }),
+          }),
         );
       }
 
@@ -1108,7 +7769,7 @@ export class CoreRuntime {
         queryDimensions: result.queryDimensions,
         matchCount: matches.length,
         matches,
-        generatedAt: result.generatedAt
+        generatedAt: result.generatedAt,
       };
     } catch {
       return this.degradedMemoryRecall(
@@ -1116,7 +7777,7 @@ export class CoreRuntime {
         modelId,
         vector.length,
         this.now().toISOString(),
-        "MEMORY_RETRIEVAL_ROUTING_FAILED"
+        "MEMORY_RETRIEVAL_ROUTING_FAILED",
       );
     }
   }
@@ -1130,7 +7791,7 @@ export class CoreRuntime {
   }
 
   private isValidMemoryRetrievalQueryVector(
-    vector: readonly number[]
+    vector: readonly number[],
   ): boolean {
     return (
       Array.isArray(vector) &&
@@ -1145,8 +7806,7 @@ export class CoreRuntime {
     modelId = "blocked",
     queryDimensions = 0,
     generatedAt = this.now().toISOString(),
-    failureClass: CoreMemoryRecallFailureClass =
-      "MEMORY_RETRIEVAL_ROUTING_FAILED"
+    failureClass: CoreMemoryRecallFailureClass = "MEMORY_RETRIEVAL_ROUTING_FAILED",
   ): CoreMemoryRecallObservation {
     return {
       status: "degraded",
@@ -1160,12 +7820,12 @@ export class CoreRuntime {
       reasonCode:
         this.sanitizeMemoryRecallReasonCode(reasonCode) ??
         "MEMORY_RETRIEVAL_ROUTING_DEGRADED",
-      failureClass
+      failureClass,
     };
   }
 
   private classifyMemoryRecallFailure(
-    input: CoreMemoryRetrievalFailureClassificationInput
+    input: CoreMemoryRetrievalFailureClassificationInput,
   ): CoreMemoryRecallFailureClass {
     const candidate = this.memoryRetrievalRouting?.classifyFailure?.(input);
     if (candidate && isCoreMemoryRecallFailureClass(candidate)) {
@@ -1191,7 +7851,7 @@ export class CoreRuntime {
   }
 
   private sanitizeMemoryRecallReasonCode(
-    reasonCode: string | undefined
+    reasonCode: string | undefined,
   ): string | undefined {
     if (!reasonCode) {
       return undefined;
@@ -1202,9 +7862,7 @@ export class CoreRuntime {
   }
 
   private sanitizeMemoryRecallModelId(modelId: string): string {
-    return this.isAllowedMemoryRetrievalModelId(modelId)
-      ? modelId
-      : "blocked";
+    return this.isAllowedMemoryRetrievalModelId(modelId) ? modelId : "blocked";
   }
 
   private memoryRetrievalMode(): CoreMemoryRetrievalRoutingMode {
@@ -1230,7 +7888,7 @@ export class CoreRuntime {
   }
 
   private sanitizeMemoryRecallMatch(
-    match: EmbeddingMemoryMatch
+    match: EmbeddingMemoryMatch,
   ): CoreMemoryRecallMatch {
     return {
       id: match.id,
@@ -1239,7 +7897,7 @@ export class CoreRuntime {
       sourceId: match.sourceId,
       modelId: match.modelId,
       score: match.score,
-      createdAt: match.createdAt
+      createdAt: match.createdAt,
     };
   }
 
@@ -1263,7 +7921,7 @@ export class CoreRuntime {
       completedReason: string;
       failureCode: string;
       failureMessage: string;
-    }
+    },
   ): Promise<CommandResult> {
     if (!this.modelRegistry || !this.inferenceExecutionPlanner) {
       return this.modelsUnavailable(envelope);
@@ -1275,9 +7933,9 @@ export class CoreRuntime {
         {
           modelId: input.modelId,
           capability: input.capability,
-          phase: "prechecking"
+          phase: "prechecking",
         },
-        envelope.correlationId
+        envelope.correlationId,
       );
       const manifest = await this.modelRegistry.getManifest(input.modelId);
       if (!manifest) {
@@ -1285,9 +7943,9 @@ export class CoreRuntime {
           operation,
           {
             phase: "blocked",
-            reasons: ["Model manifest was not found."]
+            reasons: ["Model manifest was not found."],
           },
-          envelope.correlationId
+          envelope.correlationId,
         );
         return this.failure(envelope, {
           code: "MODEL_MANIFEST_NOT_FOUND",
@@ -1295,22 +7953,22 @@ export class CoreRuntime {
           retryable: false,
           ...(operation
             ? { details: { operationId: operation.operationId } }
-            : {})
+            : {}),
         });
       }
 
       const report = await this.inferenceExecutionPlanner.preview({
         capability: input.capability,
-        manifest: ModelManifestSchema.parse(manifest)
+        manifest: ModelManifestSchema.parse(manifest),
       });
       if (!report.allowed) {
         operation = await this.updateModelOperation(
           operation,
           {
             phase: "blocked",
-            reasons: report.reasons
+            reasons: report.reasons,
           },
-          envelope.correlationId
+          envelope.correlationId,
         );
         return this.failure(envelope, {
           code: "INFERENCE_PREFLIGHT_BLOCKED",
@@ -1320,8 +7978,8 @@ export class CoreRuntime {
             capability: report.capability,
             modelId: report.modelId,
             reasons: report.reasons,
-            ...(operation ? { operationId: operation.operationId } : {})
-          }
+            ...(operation ? { operationId: operation.operationId } : {}),
+          },
         });
       }
 
@@ -1329,22 +7987,22 @@ export class CoreRuntime {
         operation,
         {
           phase: "executing",
-          reasons: [`${input.capability} inference preflight passed.`]
+          reasons: [`${input.capability} inference preflight passed.`],
         },
-        envelope.correlationId
+        envelope.correlationId,
       );
       const result = input.parseResult(await input.execute());
       operation = await this.updateModelOperation(
         operation,
         {
           phase: "completed",
-          reasons: [input.completedReason]
+          reasons: [input.completedReason],
         },
-        envelope.correlationId
+        envelope.correlationId,
       );
       return this.success(envelope, {
         result,
-        ...(operation ? { operation } : {})
+        ...(operation ? { operation } : {}),
       });
     } catch {
       await this.updateModelOperation(
@@ -1355,15 +8013,15 @@ export class CoreRuntime {
           error: {
             code: input.failureCode,
             message: input.failureMessage,
-            retryable: true
-          }
+            retryable: true,
+          },
         },
-        envelope.correlationId
+        envelope.correlationId,
       );
       return this.failure(envelope, {
         code: input.failureCode,
         message: input.failureMessage,
-        retryable: true
+        retryable: true,
       });
     }
   }
@@ -1374,7 +8032,7 @@ export class CoreRuntime {
       capability: ModelOperationSnapshot["capability"];
       phase: ModelOperationSnapshot["phase"];
     },
-    correlationId?: string
+    correlationId?: string,
   ): Promise<ModelOperationSnapshot | undefined> {
     if (!this.modelOperationSupervisor) {
       return undefined;
@@ -1391,14 +8049,14 @@ export class CoreRuntime {
       reasons?: string[];
       error?: StructuredError;
     },
-    correlationId?: string
+    correlationId?: string,
   ): Promise<ModelOperationSnapshot | undefined> {
     if (!operation || !this.modelOperationSupervisor) {
       return operation;
     }
     const updated = await this.modelOperationSupervisor.update({
       operationId: operation.operationId,
-      ...input
+      ...input,
     });
     this.handleModelOperationUpdated(updated, correlationId);
     return updated;
@@ -1408,14 +8066,14 @@ export class CoreRuntime {
     const nextSequenceId = this.sequenceId + 1;
     const snapshot = {
       ...this.getSnapshot(),
-      sequenceId: nextSequenceId
+      sequenceId: nextSequenceId,
     };
     this.publish(
       {
         type: "state.snapshot",
-        payload: snapshot
+        payload: snapshot,
       },
-      correlationId
+      correlationId,
     );
     return snapshot;
   }
@@ -1429,7 +8087,7 @@ export class CoreRuntime {
       createdAt: this.now().toISOString(),
       source: "core",
       event,
-      ...(correlationId ? { correlationId } : {})
+      ...(correlationId ? { correlationId } : {}),
     };
     this.eventSink(envelope);
   }
@@ -1438,16 +8096,15 @@ export class CoreRuntime {
     if (!this.memoryRepository) {
       this.memoryHealth = MemoryHealthSchema.parse({
         status: "ok",
-        checkedAt: this.now().toISOString()
+        checkedAt: this.now().toISOString(),
       });
       return this.memoryHealth;
     }
     try {
       this.memoryHealth = MemoryHealthSchema.parse(
-        await this.memoryRepository.checkHealth()
+        await this.memoryRepository.checkHealth(),
       );
-      this.health =
-        this.memoryHealth.status === "ok" ? "ready" : "degraded";
+      this.health = this.memoryHealth.status === "ok" ? "ready" : "degraded";
       return this.memoryHealth;
     } catch {
       this.health = "degraded";
@@ -1460,9 +8117,7 @@ export class CoreRuntime {
     if (!this.memoryRepository) {
       return;
     }
-    this.replaceConversations(
-      await this.memoryRepository.listConversations()
-    );
+    this.replaceConversations(await this.memoryRepository.listConversations());
     this.activeConversationId =
       await this.memoryRepository.getActiveConversationId();
   }
@@ -1471,7 +8126,7 @@ export class CoreRuntime {
     this.conversations.splice(
       0,
       this.conversations.length,
-      ...conversations.map((conversation) => ({ ...conversation }))
+      ...conversations.map((conversation) => ({ ...conversation })),
     );
   }
 
@@ -1479,32 +8134,134 @@ export class CoreRuntime {
     this.messages.splice(
       0,
       this.messages.length,
-      ...snapshot.messages.map((message) => ({ ...message }))
+      ...snapshot.messages.map((message) => ({ ...message })),
     );
     this.conversations.splice(
       0,
       this.conversations.length,
       ...snapshot.conversations.map((conversation) => ({
-        ...conversation
-      }))
+        ...conversation,
+      })),
     );
     this.activeConversationId = snapshot.activeConversationId;
   }
 
-  private replaceModelOperations(
-    operations: ModelOperationSnapshot[]
-  ): void {
+  private replaceModelOperations(operations: ModelOperationSnapshot[]): void {
     this.modelOperations.splice(
       0,
       this.modelOperations.length,
       ...operations.map((operation) =>
-        ModelOperationSnapshotSchema.parse(operation)
-      )
+        ModelOperationSnapshotSchema.parse(operation),
+      ),
     );
   }
 
+  private getMemoryAlphaStatus(): MemoryAlphaStatus {
+    if (!this.memoryAlphaSession) {
+      return MemoryAlphaStatusSchema.parse({
+        state: "disabled",
+        enabled: false,
+        retentionScope: "new_accepted_user_messages",
+        maxMessageCount: 5,
+        trackedMessageCount: 0,
+        rollbackStatus: "not_started",
+        rollbackDeletedCount: 0,
+        reasonCodes: ["memory_alpha_unavailable"],
+      });
+    }
+    try {
+      return MemoryAlphaStatusSchema.parse(this.memoryAlphaSession.getStatus());
+    } catch {
+      return MemoryAlphaStatusSchema.parse({
+        state: "degraded",
+        enabled: false,
+        retentionScope: "new_accepted_user_messages",
+        maxMessageCount: 5,
+        trackedMessageCount: 0,
+        rollbackStatus: "degraded",
+        rollbackDeletedCount: 0,
+        reasonCodes: ["memory_alpha_unavailable"],
+      });
+    }
+  }
+
+  private async probeMemoryAlphaRecall(input: {
+    text: string;
+    conversationId?: string;
+  }): Promise<MemoryAlphaRecallProbeResult> {
+    const memoryAlpha = this.getMemoryAlphaStatus();
+    const generatedAt = this.now().toISOString();
+    if (!memoryAlpha.enabled || memoryAlpha.state !== "active") {
+      return MemoryAlphaRecallProbeResultSchema.parse({
+        status: "disabled",
+        mode: this.memoryRetrievalMode(),
+        enabled: false,
+        matchCount: 0,
+        queryDimensions: 0,
+        generatedAt,
+        reasonCode: "MEMORY_ALPHA_DISABLED",
+      });
+    }
+
+    const recall = await this.retrieveMemoryRecallForAcceptedMessage({
+      id: createId("memory-alpha-probe"),
+      conversationId:
+        input.conversationId ?? this.activeConversationId ?? "primary",
+      role: "user",
+      text: input.text,
+      createdAt: generatedAt,
+    });
+    if (!recall) {
+      return MemoryAlphaRecallProbeResultSchema.parse({
+        status: "disabled",
+        mode: this.memoryRetrievalMode(),
+        enabled: false,
+        matchCount: 0,
+        queryDimensions: 0,
+        generatedAt,
+        reasonCode: "MEMORY_ALPHA_DISABLED",
+      });
+    }
+
+    return MemoryAlphaRecallProbeResultSchema.parse({
+      status: recall.status,
+      mode: recall.mode,
+      enabled: true,
+      matchCount: recall.matchCount,
+      queryDimensions: recall.queryDimensions,
+      generatedAt: recall.generatedAt,
+      ...(recall.reasonCode === undefined
+        ? {}
+        : { reasonCode: recall.reasonCode }),
+      ...(recall.failureClass === undefined
+        ? {}
+        : { failureClass: recall.failureClass }),
+    });
+  }
+
+  private memoryRecallObservationFromProbe(
+    probe: MemoryAlphaRecallProbeResult,
+  ): CoreMemoryRecallObservation {
+    return {
+      status: probe.status === "ok" ? "ok" : "degraded",
+      mode: probe.mode,
+      injectedIntoTurnAssembly: false,
+      modelId: "blocked",
+      queryDimensions: probe.queryDimensions,
+      matchCount: Math.min(5, probe.matchCount),
+      matches: [],
+      generatedAt: probe.generatedAt,
+      ...(probe.reasonCode === undefined
+        ? {}
+        : { reasonCode: probe.reasonCode }),
+      ...(probe.failureClass === undefined
+        ? {}
+        : { failureClass: probe.failureClass }),
+    };
+  }
+
   private async resolveMessageConversationId(
-    explicitConversationId: string | undefined
+    explicitConversationId: string | undefined,
   ): Promise<string> {
     if (explicitConversationId) {
       return explicitConversationId;
@@ -1527,9 +8284,37 @@ export class CoreRuntime {
     return "primary";
   }
 
+  private async ensureLocalPluginStateRepositoryInitialized(): Promise<void> {
+    if (
+      !this.localPluginStateRepository ||
+      this.localPluginStateRepositoryInitialized
+    ) {
+      return;
+    }
+    await this.localPluginStateRepository.initialize();
+    this.localPluginStateRepositoryInitialized = true;
+  }
+
+  private async getLocalPluginEnabledStateRecords(
+    plugins: readonly PluginManifest[],
+  ): Promise<Map<string, LocalPluginEnabledStateRecord>> {
+    const records = new Map<string, LocalPluginEnabledStateRecord>();
+    if (!this.localPluginStateRepository) {
+      return records;
+    }
+    await this.ensureLocalPluginStateRepositoryInitialized();
+    for (const plugin of plugins) {
+      const record = await this.localPluginStateRepository.getState(plugin.id);
+      if (record) {
+        records.set(plugin.id, record);
+      }
+    }
+    return records;
+  }
+
   private upsertLocalConversationForMessage(message: Message): void {
     const existing = this.conversations.find(
-      (conversation) => conversation.id === message.conversationId
+      (conversation) => conversation.id === message.conversationId,
     );
     if (!existing) {
       this.conversations.push({
@@ -1537,7 +8322,7 @@ export class CoreRuntime {
         title: this.defaultConversationTitle(message),
         createdAt: message.createdAt,
         updatedAt: message.createdAt,
-        lastMessageAt: message.createdAt
+        lastMessageAt: message.createdAt,
       });
       this.activeConversationId ??= message.conversationId;
       return;
@@ -1563,13 +8348,13 @@ export class CoreRuntime {
       status: "degraded",
       checkedAt: this.now().toISOString(),
       code: "MEMORY_UNAVAILABLE",
-      message: "Memory store is unavailable."
+      message: "Memory store is unavailable.",
     });
   }
 
   private async handleVoiceCommand(
     envelope: CommandEnvelope,
-    command: VoiceCommand
+    command: VoiceCommand,
   ): Promise<CommandResult> {
     this.activeVoiceCorrelationId = envelope.correlationId;
     let result: VoiceActionResult;
@@ -1588,19 +8373,17 @@ export class CoreRuntime {
           result = await this.voiceEngine.cancel();
           break;
         case "voice.suspendForTts":
-          result = this.voiceEngine.suspendForTts(
-            command.payload.playbackId
-          );
+          result = this.voiceEngine.suspendForTts(command.payload.playbackId);
           break;
         case "voice.resumeAfterTts":
           result = await this.voiceEngine.resumeAfterTts(
             command.payload.playbackId,
-            command.payload.interrupted
+            command.payload.interrupted,
           );
           break;
         case "voice.reportPermission":
           result = this.voiceEngine.reportPermission(
-            command.payload.permission
+            command.payload.permission,
           );
           break;
       }
@@ -1614,27 +8397,24 @@ export class CoreRuntime {
 
     this.publishSnapshot(envelope.correlationId);
     return this.success(envelope, {
-      voice: result.snapshot
+      voice: result.snapshot,
     });
   }
 
-  private success(
-    envelope: CommandEnvelope,
-    data?: unknown
-  ): CommandResult {
+  private success(envelope: CommandEnvelope, data?: unknown): CommandResult {
     return {
       protocolVersion: PROTOCOL_VERSION,
       commandId: envelope.commandId,
       correlationId: envelope.correlationId,
       completedAt: this.now().toISOString(),
       ok: true,
-      ...(data === undefined ? {} : { data })
+      ...(data === undefined ? {} : { data }),
     };
   }
 
   private failure(
     envelope: CommandEnvelope,
-    error: StructuredError
+    error: StructuredError,
   ): CommandResult {
     return {
       protocolVersion: PROTOCOL_VERSION,
@@ -1642,7 +8422,7 @@ export class CoreRuntime {
       correlationId: envelope.correlationId,
       completedAt: this.now().toISOString(),
       ok: false,
-      error
+      error,
     };
   }
 
@@ -1650,17 +8430,15 @@ export class CoreRuntime {
     return this.failure(envelope, {
       code: "MEMORY_UNAVAILABLE",
       message: "Memory store is unavailable.",
-      retryable: true
+      retryable: true,
     });
   }
 
-  private capabilitiesUnavailable(
-    envelope: CommandEnvelope
-  ): CommandResult {
+  private capabilitiesUnavailable(envelope: CommandEnvelope): CommandResult {
     return this.failure(envelope, {
       code: "CAPABILITIES_UNAVAILABLE",
       message: "Device capability inspection is unavailable.",
-      retryable: true
+      retryable: true,
     });
   }
 
@@ -1668,7 +8446,144 @@ export class CoreRuntime {
     return this.failure(envelope, {
       code: "MODEL_GOVERNANCE_UNAVAILABLE",
       message: "Model governance is unavailable.",
-      retryable: true
+      retryable: true,
     });
   }
+
+  private pluginsUnavailable(envelope: CommandEnvelope): CommandResult {
+    return this.failure(envelope, {
+      code: "PLUGIN_RUNTIME_UNAVAILABLE",
+      message: "Plugin runtime is unavailable.",
+      retryable: true,
+    });
+  }
+}
+
+function assessPluginManagementRisk(
+  manifest: PluginManifest,
+  executable: boolean,
+) {
+  const capabilityStatuses = manifest.capabilities.map((capability) => {
+    const riskTier = pluginCapabilityRiskTier(
+      capability.risk,
+      capability.readOnly,
+    );
+    return {
+      capability: capability.name,
+      manifestRisk: capability.risk,
+      riskTier,
+      readOnly: capability.readOnly,
+      confirmationPolicy: pluginConfirmationPolicyForRisk(riskTier, executable),
+    };
+  });
+  const permissionStatuses = manifest.permissions.map((permission) => {
+    const category =
+      permission === "storage.plugin" ? "storage_plugin" : "network_https";
+    const riskTier = pluginPermissionRiskTier(category);
+    return {
+      category,
+      riskTier,
+      permissionState: executable ? "runtime_gated" : "disabled_by_policy",
+      confirmationPolicy: pluginConfirmationPolicyForRisk(riskTier, executable),
+      reasonCodes: executable
+        ? ["PLUGIN_PERMISSION_RUNTIME_GATED"]
+        : ["THIRD_PARTY_PERMISSION_DISABLED"],
+    };
+  });
+  const declaredRiskTier = maxPluginRiskTier([
+    ...capabilityStatuses.map((status) => status.riskTier),
+    ...permissionStatuses.map((status) => status.riskTier),
+  ]);
+
+  return {
+    declaredRiskTier,
+    effectiveRiskTier: declaredRiskTier,
+    confirmationPolicy: pluginConfirmationPolicyForRisk(
+      declaredRiskTier,
+      executable,
+    ),
+    capabilityStatuses,
+    permissionStatuses,
+    reasonCodes: [
+      ...(declaredRiskTier === "low" ? ["READ_ONLY_LOW_RISK"] : []),
+      ...(permissionStatuses.length === 0 ? ["NO_DECLARED_PERMISSIONS"] : []),
+      ...Array.from(
+        new Set(permissionStatuses.flatMap((status) => status.reasonCodes)),
+      ),
+      ...(!executable ? ["THIRD_PARTY_EXECUTION_DISABLED"] : []),
+    ],
+  };
+}
+
+function canEnableLocalPluginState(manifest: PluginManifest): boolean {
+  return (
+    manifest.permissions.length === 0 &&
+    manifest.capabilities.every(
+      (capability) =>
+        capability.readOnly === true && capability.risk === "read_only",
+    )
+  );
+}
+
+function pluginCapabilityRiskTier(
+  risk: PluginManifest["capabilities"][number]["risk"],
+  readOnly: boolean,
+): PluginManagementRiskTier {
+  if (!readOnly) {
+    return "high";
+  }
+  if (risk === "critical") {
+    return "critical";
+  }
+  if (risk === "high") {
+    return "high";
+  }
+  if (risk === "medium") {
+    return "medium";
+  }
+  return "low";
+}
+
+function pluginPermissionRiskTier(
+  category: "storage_plugin" | "network_https",
+): PluginManagementRiskTier {
+  if (category === "network_https") {
+    return "medium";
+  }
+  return "medium";
+}
+
+function pluginConfirmationPolicyForRisk(
+  riskTier: PluginManagementRiskTier,
+  executable: boolean,
+): PluginManagementConfirmationPolicy {
+  if (!executable) {
+    return "blocked";
+  }
+  if (riskTier === "critical") {
+    return "blocked";
+  }
+  if (riskTier === "high") {
+    return "strong_confirmation";
+  }
+  if (riskTier === "medium") {
+    return "ui_confirmation";
+  }
+  return "none";
+}
+
+function maxPluginRiskTier(
+  riskTiers: PluginManagementRiskTier[],
+): PluginManagementRiskTier {
+  const rank: Record<PluginManagementRiskTier, number> = {
+    low: 0,
+    medium: 1,
+    high: 2,
+    critical: 3,
+  };
+  return riskTiers.reduce<PluginManagementRiskTier>(
+    (highest, riskTier) =>
+      rank[riskTier] > rank[highest] ? riskTier : highest,
+    "low",
+  );
 }

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "cn.example.hello-readonly",
+  "name": "Hello Read-only Local Plugin",
+  "version": "0.1.0",
+  "apiVersion": "1",
+  "entry": "dist/main.js",
+  "runtime": "node-worker",
+  "capabilities": [
+    {
+      "name": "hello.lookup",
+      "description": "Read-only local developer template capability.",
+      "inputSchema": "schemas/hello-lookup-input.json",
+      "outputSchema": "schemas/hello-lookup-output.json",
+      "risk": "read_only",
+      "readOnly": true
+    }
+  ],
+  "permissions": []
+}

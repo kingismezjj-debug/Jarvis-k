@@ -21,7 +21,12 @@ export class NodeWebSocketFactory implements XunfeiSocketFactory {
           : new Error("Xunfei RTASR WebSocket error.")
       );
     });
-    socket.on("close", () => handlers.onClose());
+    socket.on("close", (code, reason) =>
+      handlers.onClose({
+        code,
+        reason: reason.toString("utf8")
+      })
+    );
 
     return {
       send: (data) => {

@@ -52,6 +52,33 @@ describe("tool governance protocol", () => {
     expect(request.input.limit).toBe(3);
   });
 
+  it("accepts existing Brain camelCase tool IDs without allowing unsafe leading shapes", () => {
+    expect(
+      ToolDescriptorSchema.parse({
+        id: "localApp.open",
+        version: "1.0.0",
+        description: "Open an allowlisted local application through fixture replay.",
+        risk: "mutating",
+        execution: "fixture",
+        requiredPermissions: [],
+        requiresConfirmation: true,
+        inputSchemaId: "tool.localApp.open.input"
+      }).id
+    ).toBe("localApp.open");
+    expect(() =>
+      ToolDescriptorSchema.parse({
+        id: "LocalApp.open",
+        version: "1.0.0",
+        description: "Invalid leading uppercase segment.",
+        risk: "mutating",
+        execution: "fixture",
+        requiredPermissions: [],
+        requiresConfirmation: true,
+        inputSchemaId: "tool.localApp.open.input"
+      })
+    ).toThrow();
+  });
+
   it("rejects command, secret, network, and oversized argument fields", () => {
     expect(() =>
       ToolArgumentsSchema.parse({

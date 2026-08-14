@@ -45,6 +45,12 @@ function createFixtureScript(): string {
     "            values: [0.6, 0.8]",
     "          })), generatedAt: '2026-08-02T00:00:01.000Z'",
     "        }};",
+    "      } else if (request.operation === 'generate') {",
+    "        response = { ...base, ok: false, error: {",
+    "          code: 'GENERATION_EXECUTION_DISABLED',",
+    "          message: 'Generation execution remains disabled by the runtime gate.',",
+    "          retryable: false",
+    "        }};",
     "      } else {",
     "        response = { ...base, ok: true, payload: { status: 'stopped' }};",
     "      }",
@@ -93,6 +99,18 @@ describe("runtime helper process transport", () => {
     ).resolves.toMatchObject({
       dimensions: 2,
       vectors: [{ inputId: "input-1", values: [0.6, 0.8] }]
+    });
+    await expect(
+      client.generate({
+        sessionId: "fixture-session-1",
+        resourceLeaseId: "lease-fixture-1",
+        modelId: "Qwen/Qwen3-0.6B",
+        prompt: "Route command.",
+        maxOutputChars: 512,
+        temperature: 0
+      })
+    ).rejects.toMatchObject({
+      code: "GENERATION_EXECUTION_DISABLED"
     });
     await expect(client.shutdown({ reason: "test" })).resolves.toEqual({
       status: "stopped"

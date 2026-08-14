@@ -1,5 +1,38 @@
 # Phase 4 Progress
 
+## 2026-08-11
+
+### Architecture-Reviewed Phase 4: Windows Executor Alpha L4 Acceptance
+
+- Status: L4 user-facing integration after Windows manual acceptance.
+- This entry refers to the current architecture-reviewed roadmap Phase 4,
+  Windows Executor Alpha. Earlier entries below are the historical model
+  governance Phase 4 record.
+- Manual acceptance result: PASS. The user verified six fixed commands through
+  the official UI path:
+  - `open notepad`
+  - `write Jarvis-K smoke text in notepad`
+  - `minimize notepad`
+  - `restore notepad`
+  - `focus notepad`
+  - `open calculator`
+- Notepad write acceptance: PASS. The write step reused the existing Notepad
+  window opened by the prior step and did not open a second Notepad window.
+- Product route source: `intent-router.deterministic.rules`.
+- Fixture boundary: fixture did not enter the formal product execution path;
+  `fixtureProductPathUsed: false` in the focused Notepad-write smoke and the
+  six-command Windows Executor smoke.
+- Focused smoke evidence:
+  - `npm run smoke:desktop:task-runtime-notepad-write`: PASS,
+    `newProcessCount: 0`, `existingNotepadReused: true`,
+    `notepadWriteVerified: true`, `fixtureProductPathUsed: false`.
+  - `npm run smoke:desktop:windows-executor-five-task-suite`: PASS,
+    `fixedTaskCount: 6`, `consecutivePass: true`,
+    `notepadWriteReusedExistingProcess: true`,
+    `fixtureProductPathUsed: false`.
+- Evidence packet:
+  `docs/phase-4-windows-executor-alpha-l4-evidence-2026-08-11.md`.
+
 ## 2026-07-31
 
 ### Wave 4.1: Local Capability Runtime Foundation

@@ -132,6 +132,21 @@ class FixtureRuntimeHelperTransport implements RuntimeHelperTransport {
           }
         });
         return;
+      case "generate":
+        this.emit({
+          protocolVersion: 1,
+          requestId: request.requestId,
+          correlationId,
+          operation: "generate",
+          completedAt: "2026-08-02T00:00:01.000Z",
+          ok: true,
+          payload: {
+            modelId: request.payload.modelId,
+            text: "{\"intent\":\"chat\",\"confidence\":0.8,\"slots\":{}}",
+            generatedAt: "2026-08-02T00:00:01.000Z"
+          }
+        });
+        return;
       case "shutdown":
         this.emit({
           protocolVersion: 1,
@@ -156,7 +171,7 @@ class FixtureRuntimeHelperTransport implements RuntimeHelperTransport {
 }
 
 describe("runtime helper client", () => {
-  it("completes the correlated health, load, embed, and shutdown lifecycle", async () => {
+  it("completes the correlated health, load, embed, generate, and shutdown lifecycle", async () => {
     const transport = new FixtureRuntimeHelperTransport();
     const client = new RuntimeHelperClient({ transport });
 
@@ -187,6 +202,19 @@ describe("runtime helper client", () => {
     ).resolves.toMatchObject({
       dimensions: 3,
       vectors: [{ inputId: "input-1", values: [0.1, 0.2, 0.3] }]
+    });
+    await expect(
+      client.generate({
+        sessionId: "fixture-session-1",
+        resourceLeaseId: "lease-fixture-1",
+        modelId: "Qwen/Qwen3-0.6B",
+        prompt: "Route a chat command.",
+        maxOutputChars: 512,
+        temperature: 0
+      })
+    ).resolves.toMatchObject({
+      modelId: "Qwen/Qwen3-0.6B",
+      text: "{\"intent\":\"chat\",\"confidence\":0.8,\"slots\":{}}"
     });
     await expect(
       client.shutdown({

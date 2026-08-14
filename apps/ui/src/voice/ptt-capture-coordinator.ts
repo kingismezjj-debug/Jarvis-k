@@ -14,6 +14,23 @@ export type PttStopReason =
   | "capture-error"
   | "shutdown";
 
+export type PttStartFailureReason =
+  | "interrupted"
+  | "microphone-unavailable"
+  | "voice-mode-unavailable"
+  | "voice-session-unavailable";
+
+export interface PttCommandError {
+  code: string;
+  message: string;
+  retryable?: boolean;
+  details?: unknown;
+}
+
+export type PttCommandResult =
+  | { ok: true }
+  | { ok: false; error?: PttCommandError };
+
 export interface PttCapturePort {
   start(options: { captureId: string }): Promise<boolean>;
   stop(): Promise<boolean>;
@@ -22,8 +39,13 @@ export interface PttCapturePort {
 
 export interface PttCaptureCoordinatorOptions {
   capture: PttCapturePort;
-  sendCommand(command: AppCommand): Promise<boolean>;
+  sendCommand(command: AppCommand): Promise<PttCommandResult>;
   createCaptureId(): string;
+  onStartFailure?(
+    reason: PttStartFailureReason,
+    error?: PttCommandError
+  ): void;
+  onCommandFailure?(error?: PttCommandError): void;
   onStateChange?(state: PttCaptureState): void;
 }
 
@@ -51,30 +73,41 @@ export class PttCaptureCoordinator {
     this.setState("starting");
 
     try {
-      if (
-        !(await this.options.sendCommand({
-          type: "voice.setMode",
-          payload: { mode: "ptt" }
-        })) ||
-        operationId !== this.operationId
-      ) {
-        this.resetIfCurrent(operationId);
-        return false;
-      }
-
-      if (
-        !(await this.options.sendCommand({
-          type: "voice.startPtt",
-          payload: { captureId }
-        })) ||
-        operationId !== this.operationId
-      ) {
+      const started = await this.options.capture.start({ captureId });
+      if (!started || operationId !== this.operationId) {
+        this.options.onStartFailure?.(
+          operationId !== this.operationId ? "interrupted" : "microphone-unavailable"
+        );
         await this.cancelStart(operationId, "capture-error");
         return false;
       }
 
-      const started = await this.options.capture.start({ captureId });
-      if (!started || operationId !== this.operationId) {
+      const modeResult = await this.options.sendCommand({
+        type: "voice.setMode",
+        payload: { mode: "ptt" }
+      });
+      if (!modeResult.ok || operationId !== this.operationId) {
+        this.options.onStartFailure?.(
+          operationId !== this.operationId
+            ? "interrupted"
+            : "voice-mode-unavailable",
+          modeResult.ok ? undefined : modeResult.error
+        );
+        await this.cancelStart(operationId, "capture-error");
+        return false;
+      }
+
+      const sessionResult = await this.options.sendCommand({
+        type: "voice.startPtt",
+        payload: { captureId }
+      });
+      if (!sessionResult.ok || operationId !== this.operationId) {
+        this.options.onStartFailure?.(
+          operationId !== this.operationId
+            ? "interrupted"
+            : "voice-session-unavailable",
+          sessionResult.ok ? undefined : sessionResult.error
+        );
         await this.cancelStart(operationId, "capture-error");
         return false;
       }
@@ -102,7 +135,7 @@ export class PttCaptureCoordinator {
 
     try {
       await this.options.capture.stop();
-      await this.options.sendCommand(
+      const result = await this.options.sendCommand(
         reason === "release"
           ? {
               type: "voice.stopPtt",
@@ -115,6 +148,20 @@ export class PttCaptureCoordinator {
               payload: { reason: commandCancelReason(reason) }
             }
       );
+      if (!result.ok && isSecondaryErroredStop(result.error)) {
+        await this.options.sendCommand({
+          type: "voice.cancel",
+          payload: { reason: "user" }
+        });
+      } else if (!result.ok) {
+        this.options.onCommandFailure?.(result.error);
+        if (reason === "release") {
+          await this.options.sendCommand({
+            type: "voice.cancel",
+            payload: { reason: "user" }
+          });
+        }
+      }
     } finally {
       this.captureId = undefined;
       this.setState("idle");
@@ -182,4 +229,11 @@ function commandCancelReason(
   reason: Exclude<PttStopReason, "release">
 ): "user" | "window-blur" | "capture-error" | "shutdown" {
   return reason === "user-cancel" ? "user" : reason;
+}
+
+function isSecondaryErroredStop(error: PttCommandError | undefined): boolean {
+  return (
+    error?.code === "VOICE_STATE_INVALID" &&
+    error.message.includes("state is error")
+  );
 }

@@ -71,6 +71,28 @@ try {
       })
     );
   } else {
+    const generateFailure = await client
+      .generate({
+        sessionId: "smoke-session-1",
+        resourceLeaseId: "smoke-lease-1",
+        modelId: "Qwen/Qwen3-0.6B",
+        prompt: "Route this command.",
+        maxOutputChars: 512,
+        temperature: 0
+      })
+      .then(() => undefined)
+      .catch((error) => ({
+        code: error?.code,
+        message: error?.message
+      }));
+
+    if (
+      generateFailure === undefined ||
+      generateFailure.code !== "GENERATION_EXECUTION_DISABLED"
+    ) {
+      throw new Error("Unexpected sanitized runtime generate result.");
+    }
+
     const loadFailure = await client
       .load({
         modelId: "Qwen/Qwen3-Embedding-0.6B",

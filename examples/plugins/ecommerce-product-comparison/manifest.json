@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "cn.jarvis-k.ecommerce-comparison",
+  "name": "E-commerce Product Comparison Sample",
+  "version": "0.1.0",
+  "apiVersion": "1",
+  "entry": "dist/main.js",
+  "runtime": "node-worker",
+  "capabilities": [
+    {
+      "name": "product.compare",
+      "description": "Read-only product comparison sample.",
+      "inputSchema": "schemas/product-compare-input.json",
+      "outputSchema": "schemas/product-compare-output.json",
+      "risk": "read_only",
+      "readOnly": true
+    },
+    {
+      "name": "product.bargain.advice",
+      "description": "Read-only bargain advice and message draft sample.",
+      "inputSchema": "schemas/product-bargain-advice-input.json",
+      "outputSchema": "schemas/product-bargain-advice-output.json",
+      "risk": "read_only",
+      "readOnly": true
+    }
+  ],
+  "permissions": []
+}

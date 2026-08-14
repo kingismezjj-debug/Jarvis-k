@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createRuntimeHelperEmbedRequest,
   createRuntimeHelperErrorResponse,
+  createRuntimeHelperGenerateRequest,
   createRuntimeHelperHealthRequest,
   createRuntimeHelperLoadRequest,
   createRuntimeHelperProtocolPolicy,
@@ -29,6 +30,7 @@ describe("runtime helper protocol guard", () => {
       requestCorrelationRequired: true,
       resourceLeaseRequiredBeforeLoad: true,
       resourceLeaseRequiredBeforeEmbed: true,
+      resourceLeaseRequiredBeforeGenerate: true,
       directShellExecutionAllowed: false,
       runtimeDependenciesIntroduced: false,
       downloadEnabled: false,
@@ -46,7 +48,7 @@ describe("runtime helper protocol guard", () => {
     expect(serialized).not.toContain("directShellExecutionAllowed\":true");
   });
 
-  it("builds and validates health, load, embed, and shutdown requests", () => {
+  it("builds and validates health, load, embed, generate, and shutdown requests", () => {
     const identity = {
       requestId: "runtime-request-1",
       correlationId: "runtime-correlation-1",
@@ -72,9 +74,19 @@ describe("runtime helper protocol guard", () => {
         dimensions: 3
       }
     });
-    const shutdown = createRuntimeHelperShutdownRequest({
+    const generate = createRuntimeHelperGenerateRequest({
       ...identity,
       requestId: "runtime-request-4",
+      sessionId: "session-test-1",
+      resourceLeaseId: "lease-test-1",
+      modelId: "Qwen/Qwen3-0.6B",
+      prompt: "Return strict JSON.\nRoute chat.",
+      maxOutputChars: 512,
+      temperature: 0
+    });
+    const shutdown = createRuntimeHelperShutdownRequest({
+      ...identity,
+      requestId: "runtime-request-5",
       reason: "app_shutdown"
     });
 
@@ -82,9 +94,12 @@ describe("runtime helper protocol guard", () => {
     expect(load.payload.resourceLeaseId).toBe("lease-test-1");
     expect(load.payload.modelDirectory).toBe("approved-model-dir");
     expect(embed.payload.request.inputs[0]?.text).toBe("protocol guard");
+    expect(generate.payload.maxOutputChars).toBe(512);
+    expect(generate.payload.prompt).toContain("\n");
+    expect(generate.payload.temperature).toBe(0);
     expect(shutdown.payload.reason).toBe("app_shutdown");
     expect(
-      [health, load, embed, shutdown].every((request) =>
+      [health, load, embed, generate, shutdown].every((request) =>
         isRuntimeHelperRequest(request)
       )
     ).toBe(true);
@@ -147,6 +162,42 @@ describe("runtime helper protocol guard", () => {
         extra: "rejected"
       })
     ).toBe(false);
+
+    expect(() =>
+      parseRuntimeHelperRequest({
+        protocolVersion: 1,
+        requestId: "runtime-request-generate",
+        correlationId: "runtime-correlation-generate",
+        createdAt: "2026-08-01T12:00:00.000Z",
+        operation: "generate",
+        payload: {
+          sessionId: "session-test-1",
+          resourceLeaseId: "lease-test-1",
+          modelId: "Qwen/Qwen3-0.6B",
+          prompt: "api_key=secret",
+          maxOutputChars: 512,
+          temperature: 0
+        }
+      })
+    ).toThrow("HELPER_PROTOCOL_INVALID");
+
+    expect(() =>
+      parseRuntimeHelperRequest({
+        protocolVersion: 1,
+        requestId: "runtime-request-generate",
+        correlationId: "runtime-correlation-generate",
+        createdAt: "2026-08-01T12:00:00.000Z",
+        operation: "generate",
+        payload: {
+          sessionId: "session-test-1",
+          resourceLeaseId: "lease-test-1",
+          modelId: "Qwen/Qwen3-0.6B",
+          prompt: "Return strict JSON.",
+          maxOutputChars: 512,
+          temperature: 0.2
+        }
+      })
+    ).toThrow("HELPER_PROTOCOL_INVALID");
   });
 
   it("validates sanitized success responses and preserves correlation", () => {
@@ -179,6 +230,19 @@ describe("runtime helper protocol guard", () => {
         generatedAt: "2026-08-01T12:00:02.000Z"
       }
     });
+    const generateResponse = parseRuntimeHelperResponse({
+      protocolVersion: 1,
+      requestId: "runtime-request-generate",
+      correlationId: "runtime-correlation-generate",
+      operation: "generate",
+      completedAt: "2026-08-01T12:00:02.000Z",
+      ok: true,
+      payload: {
+        modelId: "Qwen/Qwen3-0.6B",
+        text: "{\"intent\":\"chat\",\"confidence\":0.8,\"slots\":{}}",
+        generatedAt: "2026-08-01T12:00:02.000Z"
+      }
+    });
 
     expect(healthResponse).toMatchObject({
       operation: "health",
@@ -197,10 +261,19 @@ describe("runtime helper protocol guard", () => {
         dimensions: 3
       }
     });
+    expect(generateResponse).toMatchObject({
+      operation: "generate",
+      ok: true,
+      payload: {
+        modelId: "Qwen/Qwen3-0.6B",
+        text: "{\"intent\":\"chat\",\"confidence\":0.8,\"slots\":{}}"
+      }
+    });
     expect(isRuntimeHelperResponse(embedResponse)).toBe(true);
+    expect(isRuntimeHelperResponse(generateResponse)).toBe(true);
   });
 
-  it("rejects invalid embedding output and unsafe error payloads", () => {
+  it("rejects invalid embedding/generation output and unsafe error payloads", () => {
     expect(() =>
       parseRuntimeHelperResponse({
         protocolVersion: 1,
@@ -213,6 +286,22 @@ describe("runtime helper protocol guard", () => {
           modelId: "jarvis-fixture/local-embedding-smoke",
           dimensions: 2,
           vectors: [{ values: [0.1, 0.2, 0.3] }],
+          generatedAt: "2026-08-01T12:00:02.000Z"
+        }
+      })
+    ).toThrow("HELPER_PROTOCOL_INVALID");
+
+    expect(() =>
+      parseRuntimeHelperResponse({
+        protocolVersion: 1,
+        requestId: "runtime-request-generate",
+        correlationId: "runtime-correlation-generate",
+        operation: "generate",
+        completedAt: "2026-08-01T12:00:02.000Z",
+        ok: true,
+        payload: {
+          modelId: "Qwen/Qwen3-0.6B",
+          text: "token=leak",
           generatedAt: "2026-08-01T12:00:02.000Z"
         }
       })
@@ -248,6 +337,10 @@ describe("runtime helper protocol guard", () => {
       new Error("RESOURCE_LEASE_REQUIRED"),
       "load"
     );
+    const generationDisabled = mapRuntimeHelperError(
+      new Error("GENERATION_EXECUTION_DISABLED"),
+      "generate"
+    );
 
     expect(mapped).toEqual(createRuntimeHelperSanitizedError("HELPER_INTERNAL"));
     expect(timeout).toEqual(
@@ -256,8 +349,42 @@ describe("runtime helper protocol guard", () => {
     expect(lease).toEqual(
       createRuntimeHelperSanitizedError("RESOURCE_LEASE_REQUIRED")
     );
+    expect(generationDisabled).toEqual(
+      createRuntimeHelperSanitizedError("GENERATION_EXECUTION_DISABLED")
+    );
     expect(JSON.stringify(mapped)).not.toMatch(/https?:\/\//u);
     expect(JSON.stringify(mapped)).not.toMatch(/[A-Za-z]:\\/u);
+  });
+
+  it("creates correlated sanitized generation failure responses", () => {
+    const request = createRuntimeHelperGenerateRequest({
+      requestId: "runtime-request-generate",
+      correlationId: "runtime-correlation-generate",
+      createdAt: "2026-08-01T12:00:00.000Z",
+      sessionId: "session-test-1",
+      resourceLeaseId: "lease-test-1",
+      modelId: "Qwen/Qwen3-0.6B",
+      prompt: "Route this command.",
+      maxOutputChars: 512,
+      temperature: 0
+    });
+    const response = createRuntimeHelperErrorResponse(
+      request,
+      "GENERATION_EXECUTION_DISABLED",
+      "2026-08-01T12:00:01.000Z"
+    );
+
+    expect(response).toMatchObject({
+      requestId: request.requestId,
+      correlationId: request.correlationId,
+      operation: "generate",
+      ok: false,
+      error: {
+        code: "GENERATION_EXECUTION_DISABLED",
+        retryable: false
+      }
+    });
+    expect(isRuntimeHelperResponse(response)).toBe(true);
   });
 
   it("creates correlated sanitized failure responses", () => {

@@ -19,10 +19,17 @@ const workspaceRoots = [
   path.join("packages", "inference-adapter-embedding-local"),
   path.join("packages", "inference-runtime-transformers-local"),
   path.join("packages", "inference-adapter-fixture"),
+  path.join("packages", "inference-adapter-qwen-router"),
+  path.join("packages", "inference-adapter-openai-planner"),
+  path.join("packages", "inference-adapter-openai-chat-answer"),
+  path.join("packages", "inference-adapter-glm-chat-answer-runtime"),
+  path.join("packages", "inference-adapter-glm-planner"),
+  path.join("packages", "inference-adapter-glm-runtime"),
   path.join("packages", "memory"),
   path.join("packages", "memory-sqlite"),
   path.join("packages", "voice-capture-browser"),
   path.join("packages", "voice-adapter-xunfei"),
+  path.join("packages", "voice-adapter-volcengine"),
   path.join("packages", "core"),
   path.join("apps", "core-host"),
   path.join("apps", "ui"),
@@ -119,10 +126,78 @@ describe("check-boundaries script", () => {
     });
   });
 
+  it("fails when Core imports the Qwen router adapter directly", async () => {
+    await writeSourceFile(
+      path.join(directory, "packages", "core"),
+      "import { QwenFastRouterProvider } from \"@jarvis-k/inference-adapter-qwen-router\";\nvoid QwenFastRouterProvider;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "imports forbidden workspace package @jarvis-k/inference-adapter-qwen-router"
+      )
+    });
+  });
+
   it("allows Core Host to import the dedicated Transformers runtime package", async () => {
     await writeSourceFile(
       path.join(directory, "apps", "core-host"),
       "import { createTransformersLocalRuntimeDescriptor } from \"@jarvis-k/inference-runtime-transformers-local\";\nvoid createTransformersLocalRuntimeDescriptor;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
+  it("allows Core Host to import the Qwen router adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { createQwenFastRouterDescriptor } from \"@jarvis-k/inference-adapter-qwen-router\";\nvoid createQwenFastRouterDescriptor;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
+  it("allows Core Host to import the GLM fixture planner adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { GlmHeavyPlannerProvider } from \"@jarvis-k/inference-adapter-glm-planner\";\nvoid GlmHeavyPlannerProvider;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
+  it("allows Core Host to import the GLM runtime planner adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID } from \"@jarvis-k/inference-adapter-glm-runtime\";\nvoid GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
+  it("allows Core Host to import the GLM Chat Answer runtime adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { GLM_CHAT_ANSWER_RUNTIME_PROVIDER_ID } from \"@jarvis-k/inference-adapter-glm-chat-answer-runtime\";\nvoid GLM_CHAT_ANSWER_RUNTIME_PROVIDER_ID;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
+  it("allows Core Host to import the OpenAI-compatible Chat Answer fixture adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { OpenAiCompatibleFixtureChatAnswerProvider } from \"@jarvis-k/inference-adapter-openai-chat-answer\";\nvoid OpenAiCompatibleFixtureChatAnswerProvider;\n"
     );
 
     await expect(runBoundaryCheck(directory)).resolves.toContain(

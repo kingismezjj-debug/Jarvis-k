@@ -11,11 +11,16 @@ export interface XunfeiSocketPort {
 export interface XunfeiSocketHandlers {
   onMessage(data: unknown): void;
   onError(error: Error): void;
-  onClose(): void;
+  onClose(info?: XunfeiSocketCloseInfo): void;
 }
 
 export interface XunfeiSocketFactory {
   create(url: string, handlers: XunfeiSocketHandlers): XunfeiSocketPort;
+}
+
+export interface XunfeiSocketCloseInfo {
+  code?: number;
+  reason?: string;
 }
 
 export interface XunfeiConnectionScheduler {
@@ -63,6 +68,13 @@ export class XunfeiRtasrConnection {
   private state: XunfeiConnectionState = "idle";
   private connectLimitRetries = 0;
   private unexpectedCloseRetries = 0;
+  private lastUnexpectedSocketFailure:
+    | {
+        kind: "close" | "error";
+        message: string;
+        code?: number;
+      }
+    | undefined;
   private readonly readyWaiters: Array<{
     resolve: () => void;
     reject: (error: Error) => void;
@@ -153,7 +165,7 @@ export class XunfeiRtasrConnection {
     const handlers: XunfeiSocketHandlers = {
       onMessage: (data) => this.handleMessage(socket, data),
       onError: (error) => this.handleSocketError(socket, error),
-      onClose: () => this.handleSocketClose(socket)
+      onClose: (info) => this.handleSocketClose(socket, info)
     };
     const socket = this.options.socketFactory.create(
       this.options.createSignedUrl(),
@@ -190,11 +202,9 @@ export class XunfeiRtasrConnection {
       }
       this.options.callbacks.onError({
         code: "XUNFEI_PROVIDER_ERROR",
-        message: "Xunfei RTASR returned a provider error.",
+        message: createProviderErrorMessage(message),
         retryable: false,
-        details: {
-          providerCode: String(message.code ?? "unknown")
-        }
+        details: createProviderErrorDetails(message)
       });
       return;
     }
@@ -241,43 +251,58 @@ export class XunfeiRtasrConnection {
 
   private handleSocketError(
     socket: XunfeiSocketPort,
-    _error: Error
+    error: Error
   ): void {
     if (socket !== this.socket || this.state === "closed") {
       return;
     }
-    this.scheduleUnexpectedCloseRecovery(socket, true);
+    this.scheduleUnexpectedCloseRecovery(socket, true, {
+      kind: "error",
+      message: sanitizeProviderText(error.message)
+    });
   }
 
-  private handleSocketClose(socket: XunfeiSocketPort): void {
+  private handleSocketClose(
+    socket: XunfeiSocketPort,
+    info?: XunfeiSocketCloseInfo
+  ): void {
     if (socket !== this.socket || this.state === "closed") {
       return;
     }
-    this.scheduleUnexpectedCloseRecovery(socket, false);
+    this.scheduleUnexpectedCloseRecovery(socket, false, {
+      kind: "close",
+      message: sanitizeProviderText(info?.reason || "socket closed"),
+      ...(typeof info?.code === "number" ? { code: info.code } : {})
+    });
   }
 
   private scheduleUnexpectedCloseRecovery(
     socket: XunfeiSocketPort,
-    closeSocket: boolean
+    closeSocket: boolean,
+    failure: {
+      kind: "close" | "error";
+      message: string;
+      code?: number;
+    }
   ): void {
     const maxRetries =
       this.options.maxUnexpectedCloseRetries ??
       DEFAULT_MAX_UNEXPECTED_CLOSE_RETRIES;
+    this.lastUnexpectedSocketFailure = failure;
     this.socket = undefined;
     if (closeSocket) {
       socket.close();
     }
 
     if (this.unexpectedCloseRetries >= maxRetries) {
+      const exhausted = socketRecoveryExhaustedError(
+        this.lastUnexpectedSocketFailure
+      );
       this.state = "idle";
       this.rejectReadyWaiters(
-        new Error("Xunfei RTASR socket recovery retries were exhausted.")
+        new Error(exhausted.message)
       );
-      this.options.callbacks.onError({
-        code: "XUNFEI_SOCKET_RECOVERY_EXHAUSTED",
-        message: "Xunfei RTASR socket recovery retries were exhausted.",
-        retryable: false
-      });
+      this.options.callbacks.onError(exhausted);
       this.options.callbacks.onClose();
       return;
     }
@@ -333,6 +358,83 @@ function connectLimitError(retryable: boolean) {
     message: "Xunfei RTASR connection limit persisted after retries.",
     retryable
   };
+}
+
+function socketRecoveryExhaustedError(
+  failure:
+    | {
+        kind: "close" | "error";
+        message: string;
+        code?: number;
+      }
+    | undefined
+) {
+  const suffix = failure
+    ? ` Last socket ${failure.kind}${
+        typeof failure.code === "number" ? ` ${failure.code}` : ""
+      }: ${failure.message}.`
+    : "";
+  return {
+    code: "XUNFEI_SOCKET_RECOVERY_EXHAUSTED",
+    message: `Xunfei RTASR socket recovery retries were exhausted.${suffix}`,
+    retryable: false,
+    ...(failure
+      ? {
+          details: {
+            socketFailureKind: failure.kind,
+            socketFailureMessage: failure.message,
+            ...(typeof failure.code === "number"
+              ? { socketCloseCode: failure.code }
+              : {})
+          }
+        }
+      : {})
+  };
+}
+
+function createProviderErrorMessage(
+  message: Record<string, unknown>
+): string {
+  const providerCode = String(message.code ?? "unknown");
+  const providerMessage =
+    firstString(message.desc, message.message, message.error, message.data) ??
+    "Xunfei RTASR returned a provider error.";
+  return `Xunfei RTASR provider error ${providerCode}: ${sanitizeProviderText(
+    providerMessage
+  )}`;
+}
+
+function createProviderErrorDetails(
+  message: Record<string, unknown>
+): Record<string, unknown> {
+  const details: Record<string, unknown> = {
+    providerCode: String(message.code ?? "unknown")
+  };
+  const action = firstString(message.action);
+  const desc = firstString(message.desc, message.message, message.error);
+  if (action) {
+    details.providerAction = sanitizeProviderText(action);
+  }
+  if (desc) {
+    details.providerMessage = sanitizeProviderText(desc);
+  }
+  return details;
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function sanitizeProviderText(value: string): string {
+  return value
+    .replace(/(api[_-]?key|app[_-]?id|secret|token|authorization)=\S+/gi, "$1=[redacted]")
+    .replace(/\b(sk|ak|asr|api)[_-][A-Za-z0-9_-]{12,}\b/g, "[redacted]")
+    .slice(0, 512);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

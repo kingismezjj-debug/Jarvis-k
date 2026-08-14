@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  AgentCommandSchema,
   AppEventSchema,
+  BrainCommandResultSchema,
+  BrainPlanSchema,
+  BrainPlannerProviderConfigurationReportSchema,
+  BrainPlannerResultSchema,
+  ChatAnswerProductModeStatusSchema,
+  CommandRouterLocalAppLaunchResultSchema,
+  CommandRouterProductModeStatusSchema,
+  QwenRuntimeControlSetResultSchema,
+  QwenRuntimeControlStatusSchema,
+  createCommandRouterQwenProductRoutingActivationStatus,
   CapabilitySnapshotSchema,
   CommandEnvelopeSchema,
   CoreSnapshotSchema,
@@ -27,10 +38,13 @@ import {
   RerankRequestSchema,
   RerankResultSchema,
   ResourceSchedulerDiagnosticsSchema,
+  TaskStepSchema,
   CoreVoiceAudioMessageSchema,
   MemorySnapshotSchema,
   VoiceAudioFrameSchema,
   VoiceAudioFrameMetadataSchema,
+  UserControlledMemoryRecordSchema,
+  UserPreferenceMemoryRecordSchema,
   createCommandEnvelope
 } from "../src";
 
@@ -69,6 +83,100 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(envelope).protocolVersion).toBe(
       PROTOCOL_VERSION
     );
+  });
+
+  it("accepts bounded Task cancellation commands", () => {
+    const command = AgentCommandSchema.parse({
+      type: "agent.cancelTask",
+      payload: {
+        taskId: "task-planner-draft",
+        reason: "User cancelled the pending task from the Tasks view."
+      }
+    });
+
+    expect(command.type).toBe("agent.cancelTask");
+  });
+
+  it("accepts bounded Task approval commands and planner step metadata", () => {
+    const command = AgentCommandSchema.parse({
+      type: "agent.approveTask",
+      payload: {
+        taskId: "task-planner-draft",
+        confirmation: "explicit_ui_confirmation"
+      }
+    });
+    const step = TaskStepSchema.parse({
+      id: "step-1",
+      taskId: "task-planner-draft",
+      title: "Search bounded user file locations",
+      state: "pending",
+      verificationStatus: "not_applicable",
+      toolId: "filesystem.search",
+      toolInput: {
+        query: "project"
+      }
+    });
+
+    expect(command.type).toBe("agent.approveTask");
+    expect(step.toolId).toBe("filesystem.search");
+    expect(step.toolInput).toEqual({ query: "project" });
+  });
+
+  it("accepts provider-neutral user-controlled memory contracts", () => {
+    const listCommand = createCommandEnvelope({
+      type: "agent.listUserControlledMemories",
+      payload: {}
+    });
+    const deleteCommand = createCommandEnvelope({
+      type: "agent.deleteUserControlledMemory",
+      payload: {
+        kind: "preference",
+        sourceId: "preference_response_language"
+      }
+    });
+    const record = UserControlledMemoryRecordSchema.parse({
+      id: "preference:preference_response_language",
+      sourceId: "preference_response_language",
+      kind: "preference",
+      label: "Response language",
+      summary: "Prefer Chinese replies",
+      preferenceKey: "response_language",
+      preferenceValue: "zh",
+      source: "user_confirmed_preference",
+      risk: "low",
+      deletable: true,
+      rawContentExposed: false,
+      createdAt: "2026-08-13T00:00:00.000Z",
+      updatedAt: "2026-08-13T00:00:00.000Z"
+    });
+    const preference = UserPreferenceMemoryRecordSchema.parse({
+      id: "preference_response_language",
+      key: "response_language",
+      label: "Response language",
+      value: "zh",
+      summary: "Prefer Chinese replies",
+      source: "user_confirmed_preference",
+      risk: "low",
+      enabled: true,
+      appliesTo: "ui_projection_only",
+      createdAt: "2026-08-13T00:00:00.000Z",
+      updatedAt: "2026-08-13T00:00:00.000Z"
+    });
+
+    expect(CommandEnvelopeSchema.parse(listCommand).command.type).toBe(
+      "agent.listUserControlledMemories"
+    );
+    expect(CommandEnvelopeSchema.parse(deleteCommand).command).toMatchObject({
+      type: "agent.deleteUserControlledMemory",
+      payload: {
+        kind: "preference",
+        sourceId: "preference_response_language"
+      }
+    });
+    expect(record.rawContentExposed).toBe(false);
+    expect(record.preferenceKey).toBe("response_language");
+    expect(record.preferenceValue).toBe("zh");
+    expect(preference.appliesTo).toBe("ui_projection_only");
   });
 
   it("rejects an unsupported protocol version", () => {
@@ -111,6 +219,124 @@ describe("protocol contracts", () => {
     ).toThrow();
   });
 
+  it("accepts task runtime timeline snapshots with verification status", () => {
+    const now = new Date().toISOString();
+    const snapshot = CoreSnapshotSchema.parse({
+      protocolVersion: PROTOCOL_VERSION,
+      coreInstanceId: "core-test",
+      sequenceId: 1,
+      health: "ready",
+      startedAt: now,
+      updatedAt: now,
+      voice: {
+        state: "idle",
+        mode: "disabled"
+      },
+      messages: [],
+      tasks: [
+        {
+          id: "task-1",
+          title: "Open Notepad",
+          state: "completed",
+          createdAt: now,
+          updatedAt: now,
+          completedAt: now,
+          source: "text",
+          intent: "localApp.open",
+          routeSource: "intent-router.deterministic.rules",
+          verificationSummary: "notepad process verification passed",
+          steps: [
+            {
+              id: "step-1",
+              taskId: "task-1",
+              title: "Launch known local app: notepad",
+              state: "completed",
+              verificationStatus: "verified",
+              completedAt: now
+            }
+          ],
+          events: [
+            {
+              id: "event-1",
+              taskId: "task-1",
+              stepId: "step-1",
+              type: "verification_completed",
+              message: "Notepad launch verified.",
+              createdAt: now
+            }
+          ]
+        }
+      ]
+    });
+
+    expect(snapshot.tasks[0]?.steps[0]?.verificationStatus).toBe("verified");
+    expect(snapshot.tasks[0]?.routeSource).toBe(
+      "intent-router.deterministic.rules"
+    );
+  });
+
+  it("accepts plugin.invoke Brain results with sanitized plugin output", () => {
+    const now = "2026-08-11T00:00:00.000Z";
+    const result = BrainCommandResultSchema.parse({
+      source: "text",
+      text: "stock quote MSFT",
+      routedAt: now,
+      decision: {
+        intent: "plugin.invoke",
+        confidence: 0.89,
+        requiresApproval: false,
+        slots: {
+          pluginId: "cn.jarvis-k.stock-analysis",
+          capability: "stock.quote",
+          input: {
+            symbol: "MSFT"
+          }
+        },
+        reason: "Matched a read-only plugin request."
+      },
+      plan: [
+        { id: "intake", title: "Receive command", status: "completed" },
+        {
+          id: "route",
+          title: "Route intent: plugin.invoke",
+          status: "completed"
+        },
+        {
+          id: "dispatch",
+          title: "Dispatch bounded capability",
+          status: "completed"
+        }
+      ],
+      dispatchStatus: "completed",
+      summary: "Plugin Runtime invoked stock.quote; sanitized output verified.",
+      pluginResult: {
+        requestId: "plugin-request-1",
+        pluginId: "cn.jarvis-k.stock-analysis",
+        capability: "stock.quote",
+        status: "completed",
+        resultCode: "PLUGIN_INVOKED",
+        output: {
+          summary: "Read-only sample quote returned for MSFT.",
+          items: [
+            {
+              title: "MSFT",
+              fields: [{ label: "Price", value: 128.42 }]
+            }
+          ]
+        },
+        invokedAt: now,
+        completedAt: now,
+        directActionAttempted: false,
+        credentialExposed: false,
+        rawPluginOutputPersisted: false
+      }
+    });
+
+    expect(result.decision.intent).toBe("plugin.invoke");
+    expect(result.pluginResult?.status).toBe("completed");
+    expect(result.pluginResult?.directActionAttempted).toBe(false);
+  });
+
   it("keeps phase one voice commands compatible", () => {
     const startPtt = createCommandEnvelope({
       type: "voice.startPtt",
@@ -120,6 +346,493 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(startPtt).protocolVersion).toBe(
       PROTOCOL_VERSION
     );
+  });
+
+  it("accepts default-off Chat Answer product mode status", () => {
+    const status = ChatAnswerProductModeStatusSchema.parse({
+      enabled: false,
+      providerId: "chat-answer.openai-compatible.deepseek",
+      profileId: "deepseek.v4-flash.compact_json_object_256",
+      status: "disabled",
+      secureStorageAvailable: true,
+      credentialConfigured: false,
+      credentialExposed: false,
+      realProviderRuntimeEnabled: false,
+      networkAccessApproved: false,
+      defaultBehaviorChanged: false,
+      fallbackPreserved: true,
+      reasonCodes: ["CHAT_ANSWER_PRODUCT_MODE_DISABLED"]
+    });
+
+    expect(status.realProviderRuntimeEnabled).toBe(false);
+    expect(status.networkAccessApproved).toBe(false);
+    expect(status.fallbackPreserved).toBe(true);
+  });
+
+  it("accepts default-off Command Router product mode status", () => {
+    const status = CommandRouterProductModeStatusSchema.parse({
+      enabled: false,
+      providerId: "intent-router.deterministic.fixture",
+      mode: "fixture_only",
+      status: "disabled",
+      fixtureOnly: true,
+      directActionEnabled: false,
+      realQwenRuntimeEnabled: false,
+      networkAccessApproved: false,
+      defaultBehaviorChanged: false,
+      chatAnswerFallbackPreserved: true,
+      qwenFastRouterBinding: {
+        providerId: "intent-router.qwen3-0.6b",
+        modelId: "Qwen/Qwen3-0.6B",
+        status: "disabled",
+        mode: "no_runtime_status_only",
+        productRoutingEnabled: false,
+        realRuntimeEnabled: false,
+        runtimeAccessed: false,
+        artifactAccessed: false,
+        persistentCacheChanged: false,
+        directActionAttempted: false,
+        activation: createCommandRouterQwenProductRoutingActivationStatus({
+          commandRouterProductModeEnabled: false,
+          preparedPolicyReviewed: true,
+          readinessEvidencePassed: true,
+          noRuntimeProductBindingPresent: true,
+          coreSelectionFallbackPreserved: true,
+          commandRouterSafetyGatesPreserved: true,
+          deterministicFixtureActive: true
+        }),
+        conversationSurfaceProductRoute: {
+          policyId: "qwen-conversation-surface.product-route.default-off.v1",
+          status: "disabled",
+          explicitOptInRequired: true,
+          explicitOptInEnabled: false,
+          activeRouteSource: "intent-router.deterministic.fixture",
+          fallbackRouteSource: "intent-router.deterministic.fixture",
+          qwenRouteSelectable: false,
+          productRouteExecutionEnabled: false,
+          directActionEnabled: false,
+          browserUrlOpeningEnabled: false,
+          vsCodeBlocked: true,
+          allowlistTargets: ["notepad", "calculator"],
+          persistentOptIn: {
+            policyId:
+              "qwen-conversation-surface.persistent-opt-in.default-off.v1",
+            status: "disabled",
+            localDeveloperOptInRequired: true,
+            localDeveloperOptInEnabled: false,
+            qwenRouteSelectableByDefault: false,
+            productRouteExecutionEnabledByDefault: false,
+            limitedProductSessionOnly: true,
+            routeRequestLimit: 3,
+            retainedSessionRequired: true,
+            helperStartupAllowedByPolicyState: false,
+            generationPortInvocationAllowedByPolicyState: false,
+            activeRouteSource: "intent-router.deterministic.fixture",
+            fallbackRouteSource: "intent-router.deterministic.fixture",
+            rollbackRouteSource: "intent-router.deterministic.fixture",
+            defaultBehaviorChanged: false,
+            releaseBehaviorChanged: false,
+            reasonCodes: ["QWEN_CONVERSATION_PERSISTENT_OPT_IN_DISABLED"]
+          },
+          rollbackState: "not_needed",
+          implementationPrepared: true,
+          defaultBehaviorChanged: false,
+          releaseBehaviorChanged: false,
+          reasonCodes: ["QWEN_CONVERSATION_PRODUCT_ROUTE_DISABLED"]
+        },
+        gates: {
+          explicitEnablementRequired: true,
+          artifactDigestApprovalRequired: true,
+          modelLifecycleReadinessRequired: true,
+          runtimeGenerationPortReadinessRequired: true,
+          selectionPolicyReadinessRequired: true,
+          defaultOffPreserved: true,
+          deterministicFallbackPreserved: true,
+          singleEnvVarSufficient: false,
+          normalCoreHostStartupInstantiatesQwen: false
+        },
+        reasonCodes: [
+          "QWEN_FAST_ROUTER_PRODUCT_BINDING_DISABLED",
+          "QWEN_FAST_ROUTER_NO_RUNTIME_STATUS_ONLY"
+        ]
+      },
+      reasonCodes: ["COMMAND_ROUTER_PRODUCT_MODE_DISABLED"]
+    });
+
+    expect(status.fixtureOnly).toBe(true);
+    expect(status.directActionEnabled).toBe(false);
+    expect(status.realQwenRuntimeEnabled).toBe(false);
+    expect(status.qwenFastRouterBinding.productRoutingEnabled).toBe(false);
+    expect(status.qwenFastRouterBinding.activation.status).toBe("disabled");
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute.status
+    ).toBe("disabled");
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .activeRouteSource
+    ).toBe("intent-router.deterministic.fixture");
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .qwenRouteSelectable
+    ).toBe(false);
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .persistentOptIn.localDeveloperOptInRequired
+    ).toBe(true);
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .persistentOptIn.qwenRouteSelectableByDefault
+    ).toBe(false);
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .persistentOptIn.productRouteExecutionEnabledByDefault
+    ).toBe(false);
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .persistentOptIn.limitedProductSessionOnly
+    ).toBe(true);
+    expect(
+      status.qwenFastRouterBinding.conversationSurfaceProductRoute
+        .persistentOptIn.activeRouteSource
+    ).toBe("intent-router.deterministic.fixture");
+    expect(() =>
+      CommandRouterProductModeStatusSchema.parse({
+        ...status,
+        qwenFastRouterBinding: {
+          ...status.qwenFastRouterBinding,
+          conversationSurfaceProductRoute: {
+            ...status.qwenFastRouterBinding.conversationSurfaceProductRoute,
+            persistentOptIn: {
+              ...status.qwenFastRouterBinding.conversationSurfaceProductRoute
+                .persistentOptIn,
+              localDeveloperOptInEnabled: true
+            }
+          }
+        }
+      })
+    ).toThrow();
+    expect(() =>
+      CommandRouterProductModeStatusSchema.parse({
+        ...status,
+        qwenFastRouterBinding: {
+          ...status.qwenFastRouterBinding,
+          conversationSurfaceProductRoute: {
+            ...status.qwenFastRouterBinding.conversationSurfaceProductRoute,
+            persistentOptIn: {
+              ...status.qwenFastRouterBinding.conversationSurfaceProductRoute
+                .persistentOptIn,
+              helperStartupAllowedByPolicyState: true
+            }
+          }
+        }
+      })
+    ).toThrow();
+    expect(() =>
+      CommandRouterProductModeStatusSchema.parse({
+        ...status,
+        qwenFastRouterBinding: {
+          ...status.qwenFastRouterBinding,
+          conversationSurfaceProductRoute: {
+            ...status.qwenFastRouterBinding.conversationSurfaceProductRoute,
+            persistentOptIn: {
+              ...status.qwenFastRouterBinding.conversationSurfaceProductRoute
+                .persistentOptIn,
+              routeRequestLimit: 5
+            }
+          }
+        }
+      })
+    ).toThrow();
+    expect(
+      status.qwenFastRouterBinding.activation.supportedStates
+    ).toContain("active");
+    expect(
+      status.qwenFastRouterBinding.activation.gates.runtimeRetentionApproved
+    ).toBe(false);
+    expect(status.qwenFastRouterBinding.realRuntimeEnabled).toBe(false);
+    expect(status.qwenFastRouterBinding.runtimeAccessed).toBe(false);
+    expect(
+      status.qwenFastRouterBinding.gates.normalCoreHostStartupInstantiatesQwen
+    ).toBe(false);
+    expect(status.chatAnswerFallbackPreserved).toBe(true);
+  });
+
+  it("evaluates Qwen product-routing activation states without runtime authority", () => {
+    const ready = createCommandRouterQwenProductRoutingActivationStatus({
+      commandRouterProductModeEnabled: true,
+      preparedPolicyReviewed: true,
+      readinessEvidencePassed: true,
+      noRuntimeProductBindingPresent: true,
+      coreSelectionFallbackPreserved: true,
+      commandRouterSafetyGatesPreserved: true,
+      deterministicFixtureActive: true
+    });
+    const fallback = createCommandRouterQwenProductRoutingActivationStatus({
+      ...ready.gates,
+      commandRouterProductModeEnabled: true,
+      rollbackRequested: true
+    });
+    const degraded = createCommandRouterQwenProductRoutingActivationStatus({
+      ...ready.gates,
+      commandRouterProductModeEnabled: true,
+      degraded: true
+    });
+    const blocked = createCommandRouterQwenProductRoutingActivationStatus({
+      ...ready.gates,
+      commandRouterProductModeEnabled: true,
+      blocked: true
+    });
+    const armed = createCommandRouterQwenProductRoutingActivationStatus({
+      commandRouterProductModeEnabled: true,
+      preparedPolicyReviewed: true,
+      readinessEvidencePassed: true,
+      noRuntimeProductBindingPresent: true,
+      coreSelectionFallbackPreserved: true,
+      commandRouterSafetyGatesPreserved: true,
+      deterministicFixtureActive: true,
+      armingWindowApproved: true,
+      runtimeRetentionApproved: true,
+      manualAcceptanceApproved: true,
+      helperStartupAllowed: true,
+      artifactMaterializationAllowed: true,
+      generationPortInvocationAllowed: true,
+      productRoutingArmed: true
+    });
+    const active = createCommandRouterQwenProductRoutingActivationStatus({
+      commandRouterProductModeEnabled: true,
+      preparedPolicyReviewed: true,
+      readinessEvidencePassed: true,
+      noRuntimeProductBindingPresent: true,
+      coreSelectionFallbackPreserved: true,
+      commandRouterSafetyGatesPreserved: true,
+      deterministicFixtureActive: true,
+      armingWindowApproved: true,
+      runtimeRetentionApproved: true,
+      manualAcceptanceApproved: true,
+      helperStartupAllowed: true,
+      artifactMaterializationAllowed: true,
+      generationPortInvocationAllowed: true,
+      productRoutingArmed: true,
+      persistentEnablementApproved: true,
+      explicitOptInEnabled: true,
+      productRoutingEnabled: true,
+      realQwenRuntimeEnabled: true,
+      runtimeAccessed: true,
+      artifactAccessed: true,
+      helperStarted: true,
+      generationPortInvoked: true,
+      deterministicFixtureRollbackReady: true
+    });
+
+    expect(ready.status).toBe("ready");
+    expect(ready.supportedStates).toEqual([
+      "disabled",
+      "ready",
+      "armed",
+      "active",
+      "fallback",
+      "degraded",
+      "blocked"
+    ]);
+    expect(fallback.status).toBe("fallback");
+    expect(fallback.rollbackState).toBe("completed");
+    expect(fallback.productRoutingEnabled).toBe(false);
+    expect(fallback.realRuntimeEnabled).toBe(false);
+    expect(fallback.activeRouteSource).toBe(
+      "intent-router.deterministic.fixture"
+    );
+    expect(degraded.status).toBe("degraded");
+    expect(blocked.status).toBe("blocked");
+    expect(armed.status).toBe("armed");
+    expect(armed.productRoutingEnabled).toBe(false);
+    expect(armed.activeRouteSource).toBe("intent-router.deterministic.fixture");
+    expect(armed.gates.productRoutingArmed).toBe(true);
+    expect(armed.gates.uiIpcRuntimeControlAllowed).toBe(false);
+    expect(active.status).toBe("active");
+    expect(active.productRoutingEnabled).toBe(true);
+    expect(active.realRuntimeEnabled).toBe(true);
+    expect(active.activeRouteSource).toBe("intent-router.qwen3-0.6b");
+    expect(active.fallbackRouteSource).toBe(
+      "intent-router.deterministic.fixture"
+    );
+    expect(active.gates.explicitOptInEnabled).toBe(true);
+    expect(active.gates.deterministicFixtureRollbackReady).toBe(true);
+    expect(active.gates.uiIpcRuntimeControlAllowed).toBe(false);
+    for (const status of [ready, fallback, degraded, blocked]) {
+      expect(status.productRoutingEnabled).toBe(false);
+      expect(status.realRuntimeEnabled).toBe(false);
+      expect(status.helperStarted).toBe(false);
+      expect(status.generationPortInvoked).toBe(false);
+      expect(status.gates.runtimeRetentionApproved).toBe(false);
+      expect(status.gates.manualAcceptanceApproved).toBe(false);
+      expect(status.gates.productRoutingArmed).toBe(false);
+    }
+  });
+
+  it("accepts default-off Qwen runtime control status without runtime authority", () => {
+    const status = QwenRuntimeControlStatusSchema.parse({
+      mode: "developer_alpha_local",
+      status: "disabled",
+      retainedSessionId: "qwen-retained-product-session-2026-08-10",
+      retainedSessionAvailable: true,
+      explicitOptInRequired: true,
+      explicitOptInEnabled: false,
+      activeRouteSource: "intent-router.deterministic.fixture",
+      fallbackRouteSource: "intent-router.deterministic.fixture",
+      helperLifecycle: "stopped",
+      helperStartCount: 0,
+      generationPortReadinessProbeCount: 0,
+      routeRequestCount: 0,
+      helperShutdownVerified: true,
+      routeRequestLimit: 3,
+      controls: {
+        start: "available",
+        stop: "blocked",
+        rollback: "available"
+      },
+      directActionEnabled: false,
+      browserUrlOpeningEnabled: false,
+      vsCodeBlocked: true,
+      allowlistTargets: ["notepad", "calculator"],
+      defaultBehaviorChanged: false,
+      releaseBehaviorChanged: false,
+      telemetryChanged: false,
+      activation: createCommandRouterQwenProductRoutingActivationStatus({
+        commandRouterProductModeEnabled: true,
+        preparedPolicyReviewed: true,
+        readinessEvidencePassed: true,
+        noRuntimeProductBindingPresent: true,
+        coreSelectionFallbackPreserved: true,
+        commandRouterSafetyGatesPreserved: true,
+        deterministicFixtureActive: true,
+        persistentEnablementApproved: true,
+        deterministicFixtureRollbackReady: true
+      }),
+      reasonCodes: ["QWEN_RUNTIME_CONTROL_DEFAULT_OFF"]
+    });
+
+    const result = QwenRuntimeControlSetResultSchema.parse({
+      ok: true,
+      action: "start",
+      status: {
+        ...status,
+        status: "prepared",
+        explicitOptInEnabled: true,
+        helperLifecycle: "start_prepared",
+        helperStartCount: 1,
+        generationPortReadinessProbeCount: 1,
+        routeRequestCount: 3,
+        helperShutdownVerified: false,
+        controls: {
+          start: "available",
+          stop: "available",
+          rollback: "available"
+        },
+        reasonCodes: ["QWEN_RUNTIME_CONTROL_START_PREPARED"]
+      }
+    });
+
+    expect(result.status.activeRouteSource).toBe(
+      "intent-router.deterministic.fixture"
+    );
+    expect(result.status.directActionEnabled).toBe(false);
+    expect(result.status.browserUrlOpeningEnabled).toBe(false);
+    expect(result.status.vsCodeBlocked).toBe(true);
+    expect(result.status.allowlistTargets).toEqual(["notepad", "calculator"]);
+  });
+
+  it("accepts the bounded extended Qwen runtime control route limit", () => {
+    const status = QwenRuntimeControlStatusSchema.parse({
+      mode: "developer_alpha_local",
+      status: "active",
+      retainedSessionId: "qwen-retained-product-session-2026-08-10",
+      retainedSessionAvailable: true,
+      explicitOptInRequired: true,
+      explicitOptInEnabled: true,
+      activeRouteSource: "intent-router.qwen3-0.6b",
+      fallbackRouteSource: "intent-router.deterministic.fixture",
+      helperLifecycle: "running",
+      helperStartCount: 1,
+      generationPortReadinessProbeCount: 1,
+      routeRequestCount: 10,
+      helperShutdownVerified: false,
+      routeRequestLimit: 10,
+      controls: {
+        start: "blocked",
+        stop: "available",
+        rollback: "available"
+      },
+      directActionEnabled: false,
+      browserUrlOpeningEnabled: false,
+      vsCodeBlocked: true,
+      allowlistTargets: ["notepad", "calculator"],
+      defaultBehaviorChanged: false,
+      releaseBehaviorChanged: false,
+      telemetryChanged: false,
+      activation: createCommandRouterQwenProductRoutingActivationStatus({
+        commandRouterProductModeEnabled: true,
+        preparedPolicyReviewed: true,
+        readinessEvidencePassed: true,
+        noRuntimeProductBindingPresent: true,
+        coreSelectionFallbackPreserved: true,
+        commandRouterSafetyGatesPreserved: true,
+        deterministicFixtureActive: false,
+        persistentEnablementApproved: true,
+        deterministicFixtureRollbackReady: true
+      }),
+      reasonCodes: ["QWEN_RUNTIME_CONTROL_ACCEPTANCE_ACTIVE"]
+    });
+
+    expect(status.routeRequestLimit).toBe(10);
+    expect(status.routeRequestCount).toBe(10);
+    expect(status.directActionEnabled).toBe(false);
+    expect(status.browserUrlOpeningEnabled).toBe(false);
+    expect(status.vsCodeBlocked).toBe(true);
+  });
+
+  it("rejects Qwen runtime control route limits above the bounded approval", () => {
+    expect(() =>
+      QwenRuntimeControlStatusSchema.parse({
+        mode: "developer_alpha_local",
+        status: "active",
+        retainedSessionId: "qwen-retained-product-session-2026-08-10",
+        retainedSessionAvailable: true,
+        explicitOptInRequired: true,
+        explicitOptInEnabled: true,
+        activeRouteSource: "intent-router.qwen3-0.6b",
+        fallbackRouteSource: "intent-router.deterministic.fixture",
+        helperLifecycle: "running",
+        helperStartCount: 1,
+        generationPortReadinessProbeCount: 1,
+        routeRequestCount: 11,
+        helperShutdownVerified: false,
+        routeRequestLimit: 11,
+        controls: {
+          start: "blocked",
+          stop: "available",
+          rollback: "available"
+        },
+        directActionEnabled: false,
+        browserUrlOpeningEnabled: false,
+        vsCodeBlocked: true,
+        allowlistTargets: ["notepad", "calculator"],
+        defaultBehaviorChanged: false,
+        releaseBehaviorChanged: false,
+        telemetryChanged: false,
+        activation: createCommandRouterQwenProductRoutingActivationStatus({
+          commandRouterProductModeEnabled: true,
+          preparedPolicyReviewed: true,
+          readinessEvidencePassed: true,
+          noRuntimeProductBindingPresent: true,
+          coreSelectionFallbackPreserved: true,
+          commandRouterSafetyGatesPreserved: true,
+          deterministicFixtureActive: false,
+          persistentEnablementApproved: true,
+          deterministicFixtureRollbackReady: true
+        }),
+        reasonCodes: ["QWEN_RUNTIME_CONTROL_ACCEPTANCE_ACTIVE"]
+      })
+    ).toThrow();
   });
 
   it("accepts provider-neutral conversation commands", () => {
@@ -152,6 +865,333 @@ describe("protocol contracts", () => {
     );
   });
 
+  it("accepts Brain Alpha command routing contracts", () => {
+    const command = createCommandEnvelope({
+      type: "agent.runBrainCommand",
+      payload: {
+        source: "text",
+        text: "打开 GitHub"
+      }
+    });
+    const result = BrainCommandResultSchema.parse({
+      source: "text",
+      text: "打开 GitHub",
+      routedAt: "2026-08-06T00:00:00.000Z",
+      decision: {
+        intent: "browser.open",
+        confidence: 0.88,
+        requiresApproval: true,
+        slots: {
+          target: "GitHub"
+        },
+        reason: "Matched a web-open request."
+      },
+      routerSelection: {
+        selectedProviderId: "intent-router.qwen3-0.6b",
+        fallbackProviderId: "brain.rules",
+        status: "fallback",
+        reasonCode: "CONFIDENCE_LOW",
+        failureClass: "CONFIDENCE_LOW",
+        confidenceBand: "low",
+        usedRulesFallback: true,
+        directActionAttempted: false
+      },
+      plan: [
+        {
+          id: "intake",
+          title: "Receive command",
+          status: "completed"
+        },
+        {
+          id: "dispatch",
+          title: "Dispatch bounded capability",
+          status: "blocked"
+        }
+      ],
+      plannerSelection: {
+        providerId: "heavy-planner.fixture",
+        fallbackProviderId: "brain.rules",
+        status: "not_needed",
+        reasonCode: "PLANNER_NOT_NEEDED",
+        failureClass: "PLANNER_NOT_NEEDED",
+        usedPlanner: false,
+        usedRulesFallback: true,
+        directActionAttempted: false
+      },
+      dispatchStatus: "needs_approval",
+      summary: "Browser execution is approval-gated."
+    });
+
+    expect(CommandEnvelopeSchema.parse(command).command.type).toBe(
+      "agent.runBrainCommand"
+    );
+    expect(result.decision.intent).toBe("browser.open");
+    expect(result.decision.requiresApproval).toBe(true);
+    expect(result.routerSelection?.directActionAttempted).toBe(false);
+    expect(result.plannerSelection?.directActionAttempted).toBe(false);
+    expect(
+      BrainCommandResultSchema.parse({
+        ...result,
+        toolProductLoop: {
+          mode: "fixture_replay",
+          registryVersion: "1.0.0",
+          descriptors: [
+            {
+              id: "browser.open",
+              version: "1.0.0",
+              label: "Browser",
+              risk: "mutating",
+              execution: "fixture",
+              requiresConfirmation: true,
+              permissionCount: 0
+            }
+          ],
+          selectedToolId: "browser.open",
+          routeReasonCode: "PROVIDER_ACCEPTED",
+          safety: {
+            requestId: "request-1",
+            toolId: "browser.open",
+            status: "needs_confirmation",
+            allowed: false,
+            confirmationRequired: true,
+            reasonCode: "CONFIRMATION_REQUIRED",
+            audit: {
+              policyVersion: "1.0.0",
+              requestId: "request-1",
+              toolId: "browser.open",
+              decision: "needs_confirmation",
+              reasonCode: "CONFIRMATION_REQUIRED",
+              confirmationRequired: true,
+              confirmationGranted: false,
+              evaluatedAt: "2026-08-07T00:00:00.000Z"
+            }
+          },
+          execution: {
+            status: "needs_confirmation",
+            resultCode: "CONFIRMATION_REQUIRED",
+            failureClasses: ["CONFIRMATION_MISSING"],
+            rollbackState: "not_required",
+            cleanupState: "not_required"
+          },
+          lifecycle: [
+            {
+              stage: "received",
+              status: "completed",
+              label: "BrainCommand received"
+            },
+            {
+              stage: "safety_checked",
+              status: "needs_confirmation",
+              label: "Safety policy evaluated",
+              reasonCode: "CONFIRMATION_REQUIRED"
+            }
+          ],
+          retryState: "not_available",
+          rollbackState: "not_required",
+          summary:
+            "Selected browser.open; safety CONFIRMATION_REQUIRED; fixture result CONFIRMATION_REQUIRED.",
+          persisted: false,
+          rawDiagnosticsExposed: false,
+          directActionAttempted: false
+        }
+      }).toolProductLoop?.directActionAttempted
+    ).toBe(false);
+    expect(() =>
+      BrainCommandResultSchema.parse({
+        ...result,
+        routerSelection: {
+          ...result.routerSelection,
+          directActionAttempted: true
+        }
+      })
+    ).toThrow();
+    expect(() =>
+      BrainCommandResultSchema.parse({
+        ...result,
+        toolProductLoop: {
+          mode: "fixture_replay",
+          registryVersion: "1.0.0",
+          descriptors: [],
+          routeReasonCode: "PROVIDER_ACCEPTED",
+          lifecycle: [
+            {
+              stage: "received",
+              status: "completed",
+              label: "BrainCommand received"
+            }
+          ],
+          retryState: "not_available",
+          rollbackState: "not_started",
+          summary: "Invalid product loop.",
+          persisted: false,
+          rawDiagnosticsExposed: false,
+          directActionAttempted: true
+        }
+      })
+    ).toThrow();
+  });
+
+  it("accepts bounded Stage 5 session-hardening contracts", () => {
+    const clearHistory = createCommandEnvelope({
+      type: "agent.clearSessionHistory",
+      payload: {}
+    });
+    const result = BrainCommandResultSchema.parse({
+      source: "text",
+      text: "Check the current status.",
+      routedAt: "2026-08-08T00:00:00.000Z",
+      decision: {
+        intent: "observability.status",
+        confidence: 0.9,
+        requiresApproval: false,
+        slots: {},
+        reason: "Fixture status request."
+      },
+      plan: [
+        {
+          id: "intake",
+          title: "Receive command",
+          status: "completed"
+        }
+      ],
+      dispatchStatus: "completed",
+      summary: "Bounded status result.",
+      alphaHardening: {
+        schemaVersion: "1.0.0",
+        sessionEntryId: "session-entry-1",
+        memoryContext: {
+          status: "not_requested",
+          mode: "unknown",
+          matchCount: 0,
+          queryDimensions: 0,
+          readOnly: true,
+          rawContentExposed: false
+        },
+        retry: {
+          status: "not_available",
+          attemptCount: 0,
+          safetyPathReentered: true,
+          reasonCode: "RETRY_NOT_REQUIRED"
+        },
+        rollback: {
+          status: "not_available",
+          safetyPreserved: true,
+          reasonCode: "ROLLBACK_NOT_REQUIRED"
+        },
+        tts: {
+          status: "eligible",
+          localOnly: true,
+          defaultOff: true,
+          boundedText: true,
+          rawTextPersisted: false
+        },
+        persisted: false,
+        rawDiagnosticsExposed: false,
+        directActionAttempted: false,
+        memoryWriteAttempted: false
+      }
+    });
+
+    expect(CommandEnvelopeSchema.parse(clearHistory).command.type).toBe(
+      "agent.clearSessionHistory"
+    );
+    expect(result.alphaHardening).toMatchObject({
+      persisted: false,
+      rawDiagnosticsExposed: false,
+      directActionAttempted: false,
+      memoryWriteAttempted: false
+    });
+    expect(() =>
+      BrainCommandResultSchema.parse({
+        ...result,
+        alphaHardening: {
+          ...result.alphaHardening!,
+          memoryContext: {
+            ...result.alphaHardening!.memoryContext,
+            rawContentExposed: true
+          }
+        }
+      })
+    ).toThrow();
+  });
+
+  it("accepts bounded Heavy Planner fallback contracts", () => {
+    const plan = BrainPlanSchema.parse({
+      summary: "Prepare a fixture-only plan.",
+      risk: "medium",
+      requiresConfirmation: true,
+      steps: [
+        {
+          id: "step-1",
+          toolId: "memory.search",
+          title: "Search bounded Memory context",
+          args: {},
+          risk: "medium",
+          requiresConfirmation: true,
+          directActionAttempted: false
+        }
+      ],
+      directActionAttempted: false
+    });
+    const result = BrainPlannerResultSchema.parse({
+      providerId: "heavy-planner.fixture",
+      status: "planned",
+      reasonCode: "COMPLEX_REQUEST",
+      failureClass: "none",
+      plan,
+      directActionAttempted: false,
+      plannedAt: "2026-08-07T00:00:00.000Z"
+    });
+    const configuration =
+      BrainPlannerProviderConfigurationReportSchema.parse({
+        providerId: "heavy-planner.fixture",
+        status: "configured",
+        credentialConfigured: false,
+        credentialExposed: false,
+        networkAccessApproved: false,
+        reasons: ["Fixture-only planner; no real API."]
+      });
+
+    expect(result.plan?.requiresConfirmation).toBe(true);
+    expect(result.directActionAttempted).toBe(false);
+    expect(configuration.credentialExposed).toBe(false);
+    expect(configuration.networkAccessApproved).toBe(false);
+    expect(() =>
+      BrainPlanSchema.parse({
+        ...plan,
+        steps: [
+          {
+            ...plan.steps[0],
+            requiresConfirmation: false
+          }
+        ]
+      })
+    ).toThrow("require confirmation");
+    expect(() =>
+      BrainPlannerResultSchema.parse({
+        ...result,
+        directActionAttempted: true
+      })
+    ).toThrow();
+  });
+
+  it("accepts voice-sourced Brain Alpha commands", () => {
+    const command = createCommandEnvelope({
+      type: "agent.runBrainCommand",
+      payload: {
+        source: "voice",
+        text: "检查当前状态"
+      }
+    });
+
+    expect(CommandEnvelopeSchema.parse(command).command).toMatchObject({
+      type: "agent.runBrainCommand",
+      payload: {
+        source: "voice"
+      }
+    });
+  });
+
   it("accepts provider-neutral memory snapshot commands", () => {
     const exported = createCommandEnvelope({
       type: "agent.exportMemorySnapshot",
@@ -180,6 +1220,63 @@ describe("protocol contracts", () => {
       conversations: [],
       summaries: [],
       activeConversationId: "primary"
+    });
+  });
+
+  it("accepts bounded Memory alpha product spine commands and snapshots", () => {
+    const status = createCommandEnvelope({
+      type: "agent.getMemoryAlphaStatus",
+      payload: {}
+    });
+    const probe = createCommandEnvelope({
+      type: "agent.probeMemoryAlphaRecall",
+      payload: {
+        text: "Probe only sanitized recall metadata."
+      }
+    });
+    const disable = createCommandEnvelope({
+      type: "agent.disableMemoryAlpha",
+      payload: {}
+    });
+    const snapshot = CoreSnapshotSchema.parse({
+      protocolVersion: 1,
+      coreInstanceId: "core-test",
+      sequenceId: 1,
+      health: "ready",
+      startedAt: "2026-08-06T00:00:00.000Z",
+      updatedAt: "2026-08-06T00:00:01.000Z",
+      voice: {
+        state: "idle",
+        mode: "disabled"
+      },
+      messages: [],
+      conversations: [],
+      memoryAlpha: {
+        state: "disabled",
+        enabled: false,
+        retentionScope: "new_accepted_user_messages",
+        maxMessageCount: 5,
+        trackedMessageCount: 0,
+        rollbackStatus: "not_started",
+        rollbackDeletedCount: 0,
+        reasonCodes: ["memory_alpha_opt_in_missing"]
+      },
+      tasks: []
+    });
+
+    expect(CommandEnvelopeSchema.parse(status).command.type).toBe(
+      "agent.getMemoryAlphaStatus"
+    );
+    expect(CommandEnvelopeSchema.parse(probe).command.type).toBe(
+      "agent.probeMemoryAlphaRecall"
+    );
+    expect(CommandEnvelopeSchema.parse(disable).command.type).toBe(
+      "agent.disableMemoryAlpha"
+    );
+    expect(snapshot.memoryAlpha).toMatchObject({
+      state: "disabled",
+      enabled: false,
+      reasonCodes: ["memory_alpha_opt_in_missing"]
     });
   });
 
@@ -811,6 +1908,40 @@ describe("protocol contracts", () => {
     expect(CoreInboundMessageSchema.parse(message).kind).toBe(
       "voice-audio"
     );
+  });
+
+  it("accepts explicit Command Router local app launch confirmation contracts", () => {
+    const command = createCommandEnvelope({
+      type: "agent.confirmCommandRouterLocalAppLaunch",
+      payload: {
+        target: "notepad",
+        confirmation: "explicit_ui_confirmation"
+      }
+    });
+    const result = CommandRouterLocalAppLaunchResultSchema.parse({
+      status: "completed",
+      target: "notepad",
+      label: "notepad",
+      reasonCode: "ALLOWLISTED_TARGET_OPENED",
+      confirmationRequired: true,
+      confirmationGranted: true,
+      directActionAttempted: true,
+      persisted: false,
+      rawDiagnosticsExposed: false
+    });
+
+    expect(CommandEnvelopeSchema.parse(command).command).toEqual({
+      type: "agent.confirmCommandRouterLocalAppLaunch",
+      payload: {
+        target: "notepad",
+        confirmation: "explicit_ui_confirmation"
+      }
+    });
+    expect(result).toMatchObject({
+      status: "completed",
+      target: "notepad",
+      rawDiagnosticsExposed: false
+    });
   });
 
   it("rejects binary audio whose byte length does not match metadata", () => {

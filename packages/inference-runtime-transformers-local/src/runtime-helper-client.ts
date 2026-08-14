@@ -3,6 +3,7 @@ import type {
 } from "@jarvis-k/contracts";
 import {
   createRuntimeHelperEmbedRequest,
+  createRuntimeHelperGenerateRequest,
   createRuntimeHelperHealthRequest,
   createRuntimeHelperLoadRequest,
   createRuntimeHelperSanitizedError,
@@ -12,6 +13,8 @@ import {
   parseRuntimeHelperResponse,
   type RuntimeHelperEmbedRequestInput,
   type RuntimeHelperErrorCode,
+  type RuntimeHelperGenerateRequestInput,
+  type RuntimeHelperGenerateResponse,
   type RuntimeHelperHealth,
   type RuntimeHelperLoadRequestInput,
   type RuntimeHelperLoadResponse,
@@ -103,6 +106,15 @@ export class RuntimeHelperClient {
   ): Promise<EmbeddingGenerationResult> {
     return this.send<EmbeddingGenerationResult>(
       createRuntimeHelperEmbedRequest(input),
+      this.timeoutPolicy.requestTimeoutMs
+    );
+  }
+
+  public generate(
+    input: RuntimeHelperGenerateRequestInput
+  ): Promise<RuntimeHelperGenerateResponse["payload"]> {
+    return this.send<RuntimeHelperGenerateResponse["payload"]>(
+      createRuntimeHelperGenerateRequest(input),
       this.timeoutPolicy.requestTimeoutMs
     );
   }

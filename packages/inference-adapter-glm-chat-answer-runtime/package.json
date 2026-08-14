@@ -1,0 +1,16 @@
+{
+  "name": "@jarvis-k/inference-adapter-glm-chat-answer-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@jarvis-k/capabilities": "*",
+    "@jarvis-k/contracts": "*",
+    "@jarvis-k/inference-adapter-openai-chat-answer": "*"
+  }
+}

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const ToolIdSchema = z
   .string()
-  .regex(/^[a-z][a-z0-9]*(?:\.[a-z0-9]+)+$/u)
+  .regex(/^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$/u)
   .max(128);
 
 const ToolVersionSchema = z
@@ -86,7 +86,7 @@ export const ToolDescriptorSchema = z
     requiresConfirmation: z.boolean(),
     inputSchemaId: z
       .string()
-      .regex(/^[a-z][a-z0-9]*(?:\.[a-z0-9]+)+$/u)
+      .regex(/^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$/u)
       .max(128)
   })
   .strict();
