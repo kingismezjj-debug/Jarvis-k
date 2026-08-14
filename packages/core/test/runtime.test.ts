@@ -5697,7 +5697,7 @@ describe("CoreRuntime", () => {
         type: "agent.runBrainCommand",
         payload: {
           source: "text",
-          text: "记住 IZYtoken 后台地址是 https://example.com/admin?token=secret",
+          text: "记住 IZYtoken 后台地址是 https://example.com/admin?token=redacted",
         },
       }),
     );

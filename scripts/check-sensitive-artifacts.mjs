@@ -108,7 +108,7 @@ function inspectTrackedContent(cwd, relativePath) {
   }
 
   const envAssignmentPattern =
-    /^\s*(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|secret)\s*=\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|`([^`\r\n]*)`|([^\s#]+))/gimu;
+    /^(?:export\s+)?(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|secret)\s*=\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|`([^`\r\n]*)`|([^\s#]+))/gimu;
   for (const match of contents.matchAll(envAssignmentPattern)) {
     const value = match[1] ?? match[2] ?? match[3] ?? match[4] ?? "";
     if (!isPlaceholderValue(value)) {
@@ -143,6 +143,12 @@ function isPlaceholderValue(value) {
     normalized.includes("redacted") ||
     normalized.includes("placeholder") ||
     normalized.includes("not-a-credential")
+  ) {
+    return true;
+  }
+  if (
+    /^(?:test|fixture)-[a-z0-9-]*(?:key|token|secret)$/u.test(normalized) ||
+    /^[a-z0-9-]*-test-[a-z0-9-]*(?:key|token|secret)$/u.test(normalized)
   ) {
     return true;
   }

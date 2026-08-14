@@ -82,6 +82,38 @@ describe("check-sensitive-artifacts script", () => {
     });
   });
 
+  it("allows explicit fixture credential placeholders in tests", async () => {
+    await writeTrackedFile(
+      "src/provider.test.ts",
+      [
+        'export const one = { apiKey: "test-provider-key" };\n',
+        'export const two = { apiKey: "fixture-only-key" };\n',
+        'export const three = { apiKey: "vendor-test-api-key" };\n'
+      ].join("")
+    );
+
+    await expect(runArtifactCheck(directory)).resolves.toContain(
+      "PASS sensitive artifact guard"
+    );
+  });
+
+  it("ignores indented runtime credential variable assignments without literals", async () => {
+    await writeTrackedFile(
+      "scripts/configure-credential.cjs",
+      [
+        "function submit(rawInput) {\n",
+        "  let apiKey;\n",
+        "  apiKey = parseCredentialInput(rawInput);\n",
+        "  return { credentials: { apiKey } };\n",
+        "}\n"
+      ].join("")
+    );
+
+    await expect(runArtifactCheck(directory)).resolves.toContain(
+      "PASS sensitive artifact guard"
+    );
+  });
+
   it("fails when a local env file is tracked", async () => {
     await writeTrackedFile(".env.local", "PLACEHOLDER=value\n");
 
