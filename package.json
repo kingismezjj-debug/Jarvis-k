@@ -73,6 +73,8 @@
     "smoke:desktop:command-router-fixture-suite": "npm run build && node tests/desktop-command-router-fixture-suite.mjs",
     "smoke:desktop:task-runtime-notepad": "npm run build && node tests/desktop-task-runtime-notepad-smoke.mjs",
     "smoke:desktop:voice-task-runtime-notepad": "npm run build && node tests/desktop-voice-task-runtime-notepad-smoke.mjs",
+    "smoke:desktop:voice-task-runtime-known-app-correction": "npm run build && node tests/desktop-voice-task-runtime-known-app-correction-smoke.mjs",
+    "smoke:desktop:core-task-runtime-eight-loop-stability": "npm run build && node tests/desktop-core-task-runtime-eight-loop-stability.mjs",
     "smoke:desktop:task-runtime-notepad-write": "npm run build && node tests/desktop-task-runtime-notepad-write-smoke.mjs",
     "smoke:desktop:windows-executor-five-task-suite": "npm run build && node tests/desktop-windows-executor-five-task-suite-smoke.mjs",
     "smoke:desktop:task-runtime-calculator": "npm run build && node tests/desktop-task-runtime-notepad-smoke.mjs calculator",
@@ -143,5 +145,11 @@
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "allowScripts": {
+    "electron@39.8.5": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "@tailwindcss/oxide@4.1.14": true
   }
 }
