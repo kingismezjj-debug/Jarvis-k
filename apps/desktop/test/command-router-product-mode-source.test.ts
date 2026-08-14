@@ -113,19 +113,21 @@ describe("Command Router product mode desktop wiring", () => {
     expect(supervisorSource).toContain("configureCommandRouterProductMode");
   });
 
-  it("runs bounded Qwen UI/IPC runtime controls through retained session gates", () => {
+  it("keeps Qwen UI/IPC runtime controls status-only inside the Desktop boundary", () => {
     expect(mainSource).toContain(
       'QWEN_RETAINED_SESSION_ID =\n  "qwen-retained-product-session-2026-08-10"'
     );
     expect(mainSource).toContain("retainedQwenSessionAvailable");
-    expect(mainSource).toContain("retainedQwenPythonExecutablePath");
-    expect(mainSource).toContain("retainedQwenArtifactRootPath");
-    expect(mainSource).toContain("verifyRetainedQwenArtifacts");
-    expect(mainSource).toContain("RuntimeHelperProcessTransport");
-    expect(mainSource).toContain("RuntimeHelperClient");
-    expect(mainSource).toContain("QwenFastRouterProvider");
-    expect(mainSource).toContain("CoreRuntime");
-    expect(mainSource).toContain("QWEN_RUNTIME_CONTROL_ROUTE_REQUESTS");
+    expect(mainSource).not.toContain("@jarvis-k/core");
+    expect(mainSource).not.toContain("@jarvis-k/inference-adapter-qwen-router");
+    expect(mainSource).not.toContain(
+      "@jarvis-k/inference-runtime-transformers-local"
+    );
+    expect(mainSource).not.toContain("RuntimeHelperProcessTransport");
+    expect(mainSource).not.toContain("RuntimeHelperClient");
+    expect(mainSource).not.toContain("QwenFastRouterProvider");
+    expect(mainSource).not.toContain("CoreRuntime");
+    expect(mainSource).not.toContain("QWEN_RUNTIME_CONTROL_ROUTE_REQUESTS");
     expect(mainSource).toContain("qwenRuntimeControlHelperStartCount");
     expect(mainSource).toContain(
       "qwenRuntimeControlGenerationPortReadinessProbeCount"
@@ -134,6 +136,10 @@ describe("Command Router product mode desktop wiring", () => {
     expect(mainSource).toContain("qwenRuntimeControlHelperShutdownVerified");
     expect(mainSource).toContain('const helperLifecycle = active');
     expect(mainSource).toContain('? "running"');
+    expect(mainSource).toContain('start: "blocked"');
+    expect(mainSource).toContain(
+      "Qwen runtime control is disabled in the Desktop product boundary."
+    );
     expect(mainSource).toContain('activeRouteSource: active');
     expect(mainSource).toContain('"intent-router.qwen3-0.6b"');
     expect(mainSource).toContain('fallbackRouteSource: "intent-router.deterministic.fixture"');
@@ -147,17 +153,17 @@ describe("Command Router product mode desktop wiring", () => {
     expect(mainSource).toContain('parsedAction.data === "start"');
     expect(mainSource).toContain('parsedAction.data === "stop"');
     expect(mainSource).toContain('parsedAction.data === "rollback"');
-    expect(mainSource).toContain(
+    expect(mainSource).not.toContain(
       "JARVIS_K_QWEN_CONVERSATION_SURFACE_ACCEPTANCE"
     );
     expect(mainSource).toContain(
       "JARVIS_K_QWEN_CONVERSATION_SURFACE_EXTENDED_USAGE"
     );
-    expect(mainSource).toContain("handleQwenConversationSurfaceBrainCommand");
-    expect(mainSource).toContain(
+    expect(mainSource).not.toContain("handleQwenConversationSurfaceBrainCommand");
+    expect(mainSource).not.toContain(
       "qwenRuntimeControlRouteRequestCount >= qwenConversationSurfaceRouteLimit()"
     );
-    expect(mainSource).toContain(
+    expect(mainSource).not.toContain(
       'selection?.selectedProviderId !== "intent-router.qwen3-0.6b"'
     );
     expect(mainSource).not.toContain("spawnQwen");
