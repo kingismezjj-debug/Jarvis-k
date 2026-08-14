@@ -19,7 +19,7 @@ describe("unavailable Transformers local runtime scaffold", () => {
 
     expect(descriptor).toMatchObject({
       runtime: "transformers",
-      capabilities: ["embedding"],
+      capabilities: ["embedding", "intent_router"],
       accelerationBackends: []
     });
     expect(health).toMatchObject({

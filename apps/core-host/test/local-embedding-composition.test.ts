@@ -64,7 +64,7 @@ describe("Core Host local embedding composition", () => {
     expect(descriptors).toEqual([
       expect.objectContaining({
         runtime: "transformers",
-        capabilities: ["embedding"]
+        capabilities: ["embedding", "intent_router"]
       })
     ]);
     expect(composition.providerDescriptor).toMatchObject({
