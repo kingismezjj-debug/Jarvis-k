@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const hookSource = [
   "use-jarvis.ts",
   "jarvis-event-router.ts",
+  "use-jarvis-plugin-actions.ts",
   "use-model-governance.ts",
 ].map((fileName) =>
   readFileSync(
