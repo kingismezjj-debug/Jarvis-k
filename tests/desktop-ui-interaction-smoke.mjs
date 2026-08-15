@@ -119,15 +119,15 @@ try {
   });
   await window
     .getByTestId("tool-loop-selected-tool")
-    .getByText("browser.open")
+    .getByText("none")
     .waitFor({ timeout: 5_000 });
   await window
     .getByTestId("tool-loop-safety")
-    .getByText("CONFIRMATION_REQUIRED")
+    .getByText("blocked")
     .waitFor({ timeout: 5_000 });
   await window
     .getByTestId("tool-loop-result")
-    .getByText("CONFIRMATION_REQUIRED")
+    .getByText("not_run")
     .waitFor({ timeout: 5_000 });
   const brainIntent = await window.getByTestId("brain-intent").innerText();
   const toolLoopSelectedTool = await window
