@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   BrainCommandResultSchema,
   CoreSnapshotSchema,
@@ -22,9 +22,29 @@ import {
   type VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 import {
+  initialJarvisConversationState,
+  jarvisConversationReducer,
+} from "./jarvis-conversation-state";
+import {
+  initialJarvisDiagnosticsState,
+  jarvisDiagnosticsReducer,
+} from "./jarvis-diagnostics-state";
+import {
   prependBoundedEvent,
   routeJarvisEvent,
 } from "./jarvis-event-router";
+import {
+  initialJarvisMemoryState,
+  jarvisMemoryReducer,
+} from "./jarvis-memory-state";
+import {
+  initialJarvisPluginState,
+  jarvisPluginReducer,
+} from "./jarvis-plugin-state";
+import {
+  initialJarvisVoiceState,
+  jarvisVoiceReducer,
+} from "./jarvis-voice-state";
 import { useJarvisDiagnosticsActions } from "./use-jarvis-diagnostics-actions";
 import { useJarvisEventBridge } from "./use-jarvis-event-bridge";
 import { useJarvisMemoryActions } from "./use-jarvis-memory-actions";
@@ -39,42 +59,134 @@ export function useJarvis() {
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [connection, setConnection] = useState<CoreConnection>("connecting");
   const [error, setError] = useState<string | null>(null);
-  const [memoryAlphaStatus, setMemoryAlphaStatus] =
-    useState<MemoryAlphaStatus | null>(null);
-  const [memoryAlphaRecallProbe, setMemoryAlphaRecallProbe] =
-    useState<MemoryAlphaRecallProbeResult | null>(null);
-  const [brainResult, setBrainResult] = useState<BrainCommandResult | null>(
-    null,
+  const [conversationState, dispatchConversationState] = useReducer(
+    jarvisConversationReducer,
+    initialJarvisConversationState,
   );
-  const [voiceCommandAliases, setVoiceCommandAliases] = useState<
-    VoiceCommandAliasRecord[]
-  >([]);
-  const [userRouteAliases, setUserRouteAliases] = useState<
-    UserRouteAliasRecord[]
-  >([]);
-  const [userControlledMemories, setUserControlledMemories] = useState<
-    UserControlledMemoryRecord[]
-  >([]);
-  const [voiceServiceStatus, setVoiceServiceStatus] =
-    useState<VoiceServiceStatus | null>(null);
-  const [ttsServiceStatus, setTtsServiceStatus] =
-    useState<TtsServiceStatus | null>(null);
-  const [chatAnswerProductModeStatus, setChatAnswerProductModeStatus] =
-    useState<ChatAnswerProductModeStatus | null>(null);
-  const [commandRouterProductModeStatus, setCommandRouterProductModeStatus] =
-    useState<CommandRouterProductModeStatus | null>(null);
-  const [qwenRuntimeControlStatus, setQwenRuntimeControlStatus] =
-    useState<QwenRuntimeControlStatus | null>(null);
-  const [pluginManagementStatus, setPluginManagementStatus] =
-    useState<PluginManagementStatusResult | null>(null);
-  const [
-    localPluginManifestDeveloperStatus,
-    setLocalPluginManifestDeveloperStatus,
-  ] = useState<LocalPluginManifestDeveloperStatusResult | null>(null);
-  const [
+  const [memoryState, dispatchMemoryState] = useReducer(
+    jarvisMemoryReducer,
+    initialJarvisMemoryState,
+  );
+  const [voiceState, dispatchVoiceState] = useReducer(
+    jarvisVoiceReducer,
+    initialJarvisVoiceState,
+  );
+  const [diagnosticsState, dispatchDiagnosticsState] = useReducer(
+    jarvisDiagnosticsReducer,
+    initialJarvisDiagnosticsState,
+  );
+  const [pluginState, dispatchPluginState] = useReducer(
+    jarvisPluginReducer,
+    initialJarvisPluginState,
+  );
+  const { brainResult } = conversationState;
+  const {
+    memoryAlphaStatus,
+    memoryAlphaRecallProbe,
+    userRouteAliases,
+    userControlledMemories,
+  } = memoryState;
+  const { voiceCommandAliases, voiceServiceStatus, ttsServiceStatus } =
+    voiceState;
+  const {
+    chatAnswerProductModeStatus,
+    commandRouterProductModeStatus,
+    qwenRuntimeControlStatus,
     commandRouterLocalAppLaunchResult,
-    setCommandRouterLocalAppLaunchResult,
-  ] = useState<CommandRouterLocalAppLaunchResult | null>(null);
+  } = diagnosticsState;
+  const { pluginManagementStatus, localPluginManifestDeveloperStatus } =
+    pluginState;
+  const setBrainResult = useCallback((brainResult: BrainCommandResult | null) => {
+    dispatchConversationState({ type: "brainResult.set", brainResult });
+  }, []);
+  const setMemoryAlphaStatus = useCallback(
+    (status: MemoryAlphaStatus | null) => {
+      dispatchMemoryState({ type: "memoryAlphaStatus.set", status });
+    },
+    [],
+  );
+  const setMemoryAlphaProbeResult = useCallback(
+    (status: MemoryAlphaStatus, probe: MemoryAlphaRecallProbeResult) => {
+      dispatchMemoryState({
+        type: "memoryAlphaProbe.set",
+        status,
+        probe,
+      });
+    },
+    [],
+  );
+  const setUserRouteAliases = useCallback((aliases: UserRouteAliasRecord[]) => {
+    dispatchMemoryState({ type: "routeAliases.set", aliases });
+  }, []);
+  const setUserControlledMemories = useCallback(
+    (memories: UserControlledMemoryRecord[]) => {
+      dispatchMemoryState({ type: "controlledMemories.set", memories });
+    },
+    [],
+  );
+  const setVoiceCommandAliases = useCallback(
+    (aliases: VoiceCommandAliasRecord[]) => {
+      dispatchVoiceState({ type: "voiceAliases.set", aliases });
+    },
+    [],
+  );
+  const setVoiceServiceStatus = useCallback(
+    (status: VoiceServiceStatus | null) => {
+      dispatchVoiceState({ type: "voiceServiceStatus.set", status });
+    },
+    [],
+  );
+  const setTtsServiceStatus = useCallback((status: TtsServiceStatus | null) => {
+    dispatchVoiceState({ type: "ttsServiceStatus.set", status });
+  }, []);
+  const setChatAnswerProductModeStatus = useCallback(
+    (status: ChatAnswerProductModeStatus | null) => {
+      dispatchDiagnosticsState({
+        type: "chatAnswerProductModeStatus.set",
+        status,
+      });
+    },
+    [],
+  );
+  const setCommandRouterProductModeStatus = useCallback(
+    (status: CommandRouterProductModeStatus | null) => {
+      dispatchDiagnosticsState({
+        type: "commandRouterProductModeStatus.set",
+        status,
+      });
+    },
+    [],
+  );
+  const setQwenRuntimeControlStatus = useCallback(
+    (status: QwenRuntimeControlStatus | null) => {
+      dispatchDiagnosticsState({ type: "qwenRuntimeControlStatus.set", status });
+    },
+    [],
+  );
+  const setCommandRouterLocalAppLaunchResult = useCallback(
+    (result: CommandRouterLocalAppLaunchResult | null) => {
+      dispatchDiagnosticsState({
+        type: "commandRouterLocalAppLaunchResult.set",
+        result,
+      });
+    },
+    [],
+  );
+  const setPluginManagementStatus = useCallback(
+    (status: PluginManagementStatusResult | null) => {
+      dispatchPluginState({ type: "pluginManagementStatus.set", status });
+    },
+    [],
+  );
+  const setLocalPluginManifestDeveloperStatus = useCallback(
+    (status: LocalPluginManifestDeveloperStatusResult | null) => {
+      dispatchPluginState({
+        type: "localPluginManifestDeveloperStatus.set",
+        status,
+      });
+    },
+    [],
+  );
   const {
     refreshPlugins,
     refreshLocalPluginManifestDeveloperStatus,
@@ -327,7 +439,7 @@ export function useJarvis() {
     sendCommand,
     setSnapshot,
     setMemoryAlphaStatus,
-    setMemoryAlphaRecallProbe,
+    setMemoryAlphaProbeResult,
     setUserRouteAliases,
     setUserControlledMemories,
     refreshVoiceCommandAliases,

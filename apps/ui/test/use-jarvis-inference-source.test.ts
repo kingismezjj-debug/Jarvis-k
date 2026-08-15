@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 
 const hookSource = [
   "use-jarvis.ts",
+  "jarvis-conversation-state.ts",
+  "jarvis-diagnostics-state.ts",
   "jarvis-event-router.ts",
+  "jarvis-memory-state.ts",
+  "jarvis-plugin-state.ts",
+  "jarvis-voice-state.ts",
   "use-jarvis-diagnostics-actions.ts",
   "use-jarvis-memory-actions.ts",
   "use-jarvis-plugin-actions.ts",
@@ -64,7 +69,8 @@ describe("useJarvis inference wiring", () => {
     expect(hookSource).toContain("BrainCommandResultSchema");
     expect(hookSource).toContain("type BrainCommandSource");
     expect(hookSource).toContain("dispatchBrainCommand");
-    expect(hookSource).toContain("useState<BrainCommandResult | null>");
+    expect(hookSource).toContain("jarvisConversationReducer");
+    expect(hookSource).toContain("brainResult.set");
     expect(hookSource).toContain("runBrainCommand");
     expect(hookSource).toContain('type: "agent.runBrainCommand"');
     expect(hookSource).toContain('dispatchBrainCommand(text, "text")');
@@ -108,7 +114,8 @@ describe("useJarvis inference wiring", () => {
 
   it("surfaces voice service status for ASR language diagnosis", () => {
     expect(hookSource).toContain("type VoiceServiceStatus");
-    expect(hookSource).toContain("useState<VoiceServiceStatus | null>");
+    expect(hookSource).toContain("jarvisVoiceReducer");
+    expect(hookSource).toContain("voiceServiceStatus.set");
     expect(hookSource).toContain("getVoiceServiceStatus");
     expect(hookSource).toContain("setVoiceServiceStatus(status)");
     expect(hookSource).toContain("refreshVoiceServiceStatus");
