@@ -60,6 +60,18 @@ export class ConfigurableHeavyPlannerProvider implements HeavyPlannerProvider {
     this.current = provider;
   }
 
+  public toJSON(): {
+    readonly providerId: string;
+    readonly configured: boolean;
+    readonly credentialExposed: false;
+  } {
+    return {
+      providerId: this.providerId,
+      configured: this.current !== undefined,
+      credentialExposed: false,
+    };
+  }
+
   public async plan(
     request: Parameters<HeavyPlannerProvider["plan"]>[0],
   ): ReturnType<HeavyPlannerProvider["plan"]> {

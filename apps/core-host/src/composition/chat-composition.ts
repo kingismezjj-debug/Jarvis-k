@@ -13,6 +13,18 @@ export class ConfigurableChatAnswerProvider implements ChatAnswerProvider {
     this.current = provider;
   }
 
+  public toJSON(): {
+    readonly providerId: string;
+    readonly configured: boolean;
+    readonly credentialExposed: false;
+  } {
+    return {
+      providerId: this.providerId,
+      configured: this.current !== undefined,
+      credentialExposed: false,
+    };
+  }
+
   public async answer(
     request: Parameters<ChatAnswerProvider["answer"]>[0],
   ): ReturnType<ChatAnswerProvider["answer"]> {
@@ -68,6 +80,18 @@ export class OneShotFixedUtteranceChatAnswerProvider
     private readonly allowedUtterance: string,
     private readonly inner: ChatAnswerProvider,
   ) {}
+
+  public toJSON(): {
+    readonly providerId: string;
+    readonly used: boolean;
+    readonly credentialExposed: false;
+  } {
+    return {
+      providerId: this.providerId,
+      used: this.used,
+      credentialExposed: false,
+    };
+  }
 
   public async answer(
     request: Parameters<ChatAnswerProvider["answer"]>[0],
