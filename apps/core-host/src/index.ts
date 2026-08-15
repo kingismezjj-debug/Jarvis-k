@@ -97,21 +97,12 @@ import { JsonVoiceCommandAliasRepository } from "./voice-command-alias-repositor
 import { JsonUserRouteAliasRepository } from "./user-route-alias-repository";
 import { JsonUserPreferenceMemoryRepository } from "./user-preference-memory-repository";
 import {
-  resolveLocalPluginManifestDirectories,
-  resolveLocalPluginStatePath,
-  resolveMemoryDatabasePath,
-  resolveModelDirectoryPath,
-  resolveTaskDatabasePath,
-  resolveUserPreferenceMemoryPath,
-  resolveUserRouteAliasPath,
-  resolveVoiceCommandAliasPath,
-} from "./core-host-paths";
-import {
   ConfigurableChatAnswerProvider,
   LocalSmokeChatAnswerProvider,
   OneShotFixedUtteranceChatAnswerProvider,
 } from "./composition/chat-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
+import { loadCoreHostStoragePaths } from "./config/storage-paths";
 
 function send(message: CoreOutboundMessage): void {
   if (process.send) {
@@ -291,9 +282,9 @@ const textOnlyAcceptanceMemoryDisabled =
     enabled: chatAnswerTextOnlyAcceptanceRequested,
     fixtureChatAnswerEnabled,
   });
-const memoryDatabasePath = textOnlyAcceptanceMemoryDisabled
-  ? undefined
-  : resolveMemoryDatabasePath();
+const storagePaths = loadCoreHostStoragePaths({
+  memoryDisabled: textOnlyAcceptanceMemoryDisabled,
+});
 const capabilityProvider = new NodeDeviceCapabilityProvider();
 const modelCandidateRegistry = new StaticModelCandidateRegistry(
   recommendedModelCandidates,
@@ -316,13 +307,15 @@ const providerVectorWriteModelIds = areMemoryProviderVectorWriteGatesEnabled(
 const sqliteMemoryRepository = textOnlyAcceptanceMemoryDisabled
   ? undefined
   : new SqliteMemoryRepository({
-      ...(memoryDatabasePath ? { filePath: memoryDatabasePath } : {}),
+      ...(storagePaths.memoryDatabasePath
+        ? { filePath: storagePaths.memoryDatabasePath }
+        : {}),
       ...(providerVectorWriteModelIds.length > 0
         ? { allowedEmbeddingModelIds: providerVectorWriteModelIds }
         : {}),
     });
 const taskRepository = new SqliteTaskRepository({
-  filePath: resolveTaskDatabasePath(),
+  filePath: storagePaths.taskDatabasePath,
 });
 const modelRegistry = new StaticModelRegistry([
   ...fixtureModelManifests,
@@ -335,7 +328,7 @@ const modelInstallWorkflowOrchestrator =
     resourceScheduler,
   });
 const modelLifecycleManager = new FileSystemModelLifecycleManager({
-  rootDirectory: resolveModelDirectoryPath(),
+  rootDirectory: storagePaths.modelDirectoryPath,
   fetchArtifact: async () => {
     throw new Error("MODEL_FETCHER_NOT_CONFIGURED");
   },
@@ -365,7 +358,8 @@ const ocrRecognitionProvider = fixtureInferenceEnabled
 const rerankingProvider = fixtureInferenceEnabled
   ? new FixtureRerankingProvider()
   : undefined;
-const localPluginManifestDirectories = resolveLocalPluginManifestDirectories();
+const localPluginManifestDirectories =
+  storagePaths.localPluginManifestDirectories;
 const localPluginManifestDiscoveryEnabled =
   runtimeConfig.localPluginManifestDiscoveryEnabled;
 const localPluginTemplateRuntimeEnabled =
@@ -401,16 +395,16 @@ const localPluginManifestDiagnostics =
     rootDirectory: process.cwd(),
   });
 const localPluginStateRepository = new JsonLocalPluginStateRepository(
-  resolveLocalPluginStatePath(),
+  storagePaths.localPluginStatePath,
 );
 const voiceCommandAliasRepository = new JsonVoiceCommandAliasRepository(
-  resolveVoiceCommandAliasPath(),
+  storagePaths.voiceCommandAliasPath,
 );
 const userRouteAliasRepository = new JsonUserRouteAliasRepository(
-  resolveUserRouteAliasPath(),
+  storagePaths.userRouteAliasPath,
 );
 const userPreferenceMemoryRepository = new JsonUserPreferenceMemoryRepository(
-  resolveUserPreferenceMemoryPath(),
+  storagePaths.userPreferenceMemoryPath,
 );
 const chatAnswerComposition = createCoreHostFixtureChatAnswerComposition({
   enabled: fixtureChatAnswerEnabled,
