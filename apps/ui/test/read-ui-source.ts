@@ -29,6 +29,7 @@ export function readAppCompositionSource() {
     "features/diagnostics/system-status-panel.tsx",
     "features/memory/memory-center.tsx",
     "features/model-management/model-operation-list.tsx",
+    "features/plugins/plugin-management-view.tsx",
     "features/plugins/plugin-projection-panel.tsx",
     "features/tasks/task-timeline.tsx",
   ]);

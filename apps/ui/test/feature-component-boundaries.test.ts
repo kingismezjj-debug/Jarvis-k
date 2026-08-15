@@ -11,6 +11,7 @@ function readSource(relativePath: string) {
 const featureComponents = [
   "features/diagnostics/system-status-panel.tsx",
   "features/model-management/model-operation-list.tsx",
+  "features/plugins/plugin-management-view.tsx",
   "features/plugins/plugin-projection-panel.tsx",
   "features/memory/memory-center.tsx",
   "features/tasks/task-timeline.tsx",
@@ -54,14 +55,18 @@ describe("UI feature component boundaries", () => {
   });
 
   it("keeps plugin safety, permission, and local manifest test ids", () => {
-    const appSource = readSource("App.tsx");
+    const managementSource = readSource(
+      "features/plugins/plugin-management-view.tsx",
+    );
     const projectionSource = readSource(
       "features/plugins/plugin-projection-panel.tsx",
     );
 
-    expect(appSource).toContain('data-testid="plugin-card"');
-    expect(appSource).toContain('data-testid="plugin-capability"');
-    expect(appSource).toContain('data-testid="plugin-permission-status"');
+    expect(managementSource).toContain('data-testid="plugin-card"');
+    expect(managementSource).toContain('data-testid="plugin-capability"');
+    expect(managementSource).toContain(
+      'data-testid="plugin-permission-status"',
+    );
     expect(projectionSource).toContain(
       'data-testid="plugin-management-state-summary"',
     );

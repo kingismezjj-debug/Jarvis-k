@@ -94,7 +94,7 @@ import { Metric } from "@/components/shared/Metric";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
-import { PluginProjectionPanel } from "@/features/plugins/plugin-projection-panel";
+import { PluginManagementView } from "@/features/plugins/plugin-management-view";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { cn } from "@/lib/utils";
 import {
@@ -2379,312 +2379,40 @@ export default function App() {
             </ScrollArea>
           ) : activeView === "plugins" ? (
             <ScrollArea className="min-h-0 flex-1">
-              <div
-                className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(0,1fr)_320px]"
-                data-testid="plugins-view"
-              >
-                <section
-                  className="min-w-0"
-                  data-testid="plugin-management-panel"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold">
-                      {copy.view.plugins}
-                    </h3>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Refresh plugins"
-                          className="size-8 rounded-md"
-                          data-testid="refresh-plugins"
-                          disabled={sending}
-                          onClick={() =>
-                            void trackAction(
-                              "Refresh plugins",
-                              async () => {
-                                const pluginsOk = await refreshPlugins();
-                                const manifestsOk =
-                                  await refreshLocalPluginManifestDeveloperStatus();
-                                return pluginsOk && manifestsOk;
-                              },
-                              copy.action.pluginManagementRefreshed,
-                            )
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              "size-3.5",
-                              sending && "animate-spin",
-                            )}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Refresh plugins</TooltipContent>
-                    </Tooltip>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {plugins.length === 0 ? (
-                      <div className="border-y py-5 text-xs text-muted-foreground">
-                        {copy.label.noPlugins}
-                      </div>
-                    ) : (
-                      plugins.map((plugin) => (
-                        <article
-                          className="rounded-md border bg-card/40 p-3 text-xs"
-                          data-testid="plugin-card"
-                          key={plugin.manifest.id}
-                        >
-                          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-medium">
-                                {plugin.manifest.name}
-                              </div>
-                              <div className="mt-1 truncate text-[10px] text-muted-foreground">
-                                {plugin.manifest.id}
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <Badge
-                                className={cn(
-                                  "rounded-md text-[10px]",
-                                  plugin.state === "enabled" && "text-success",
-                                  plugin.state === "disabled" && "text-warning",
-                                )}
-                                variant="outline"
-                              >
-                                {plugin.state}
-                              </Badge>
-                              <Badge
-                                className="rounded-md text-[10px]"
-                                variant="outline"
-                              >
-                                {plugin.source}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          <dl className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2">
-                            <Metric
-                              label={copy.label.pluginCapabilities}
-                              value={String(
-                                plugin.manifest.capabilities.length,
-                              )}
-                            />
-                            <Metric
-                              label={copy.label.pluginPermissions}
-                              value={String(
-                                plugin.manifest.permissions?.length ?? 0,
-                              )}
-                            />
-                            <Metric
-                              label={copy.label.pluginDeclaredRisk}
-                              tone={
-                                plugin.riskAssessment.declaredRiskTier === "low"
-                                  ? "success"
-                                  : "warning"
-                              }
-                              value={plugin.riskAssessment.declaredRiskTier}
-                            />
-                            <Metric
-                              label={copy.label.pluginEffectiveRisk}
-                              tone={
-                                plugin.riskAssessment.effectiveRiskTier ===
-                                "low"
-                                  ? "success"
-                                  : "warning"
-                              }
-                              value={plugin.riskAssessment.effectiveRiskTier}
-                            />
-                            <Metric
-                              label={copy.label.pluginConfirmationPolicy}
-                              tone={
-                                plugin.riskAssessment.confirmationPolicy ===
-                                "none"
-                                  ? "success"
-                                  : "warning"
-                              }
-                              value={plugin.riskAssessment.confirmationPolicy}
-                            />
-                            <Metric
-                              label={copy.label.pluginExecutionMode}
-                              value={plugin.executionMode}
-                            />
-                            <Metric
-                              label={copy.label.pluginRouteSelectable}
-                              tone={
-                                plugin.routeSelectable ? "success" : "warning"
-                              }
-                              value={plugin.routeSelectable ? "YES" : "NO"}
-                            />
-                            <Metric
-                              label={copy.label.pluginRuntime}
-                              value={plugin.manifest.runtime}
-                            />
-                            <Metric
-                              label={copy.label.pluginVersion}
-                              value={plugin.manifest.version}
-                            />
-                            <Metric
-                              label={copy.label.pluginStatePersistence}
-                              tone={
-                                plugin.statePersisted ? "success" : undefined
-                              }
-                              value={
-                                plugin.statePersisted
-                                  ? plugin.stateSource
-                                  : "not_persisted"
-                              }
-                            />
-                          </dl>
-
-                          {plugin.source === "local_manifest" ? (
-                            <div className="mt-3 flex items-center justify-between gap-2 border-t pt-3 text-[10px]">
-                              <span className="min-w-0 truncate text-muted-foreground">
-                                {copy.label.pluginStateToggle}:{" "}
-                                {plugin.stateToggleAvailable
-                                  ? "state_only"
-                                  : "unavailable"}
-                              </span>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    data-testid="local-plugin-state-toggle"
-                                    disabled={
-                                      !plugin.stateToggleAvailable ||
-                                      localPluginStateUpdatingId ===
-                                        plugin.manifest.id
-                                    }
-                                    onClick={() => {
-                                      void toggleLocalPluginState(plugin);
-                                    }}
-                                    size="xs"
-                                    type="button"
-                                    variant="outline"
-                                  >
-                                    {plugin.state === "enabled" ? (
-                                      <X data-icon="inline-start" />
-                                    ) : (
-                                      <Check data-icon="inline-start" />
-                                    )}
-                                    {plugin.state === "enabled"
-                                      ? "Disable state"
-                                      : "Enable state"}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Persist local manifest state only
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          ) : null}
-
-                          <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-                            {plugin.riskAssessment.capabilityStatuses.map(
-                              (capability) => (
-                                <Badge
-                                  className="rounded-md text-[10px]"
-                                  data-testid="plugin-capability"
-                                  key={capability.capability}
-                                  variant="outline"
-                                >
-                                  {capability.capability} /{" "}
-                                  {capability.riskTier}
-                                </Badge>
-                              ),
-                            )}
-                          </div>
-
-                          {plugin.riskAssessment.permissionStatuses.length >
-                          0 ? (
-                            <div className="mt-3 grid gap-2 border-t pt-3">
-                              {plugin.riskAssessment.permissionStatuses.map(
-                                (permission, index) => (
-                                  <div
-                                    className="grid grid-cols-[minmax(0,1fr)_110px_140px] items-center gap-2 text-[10px]"
-                                    data-testid="plugin-permission-status"
-                                    key={`${permission.category}-${index}`}
-                                  >
-                                    <span className="truncate font-medium">
-                                      {permission.category}
-                                    </span>
-                                    <span
-                                      className={cn(
-                                        "truncate",
-                                        permission.riskTier === "low"
-                                          ? "text-success"
-                                          : "text-warning",
-                                      )}
-                                    >
-                                      {permission.riskTier}
-                                    </span>
-                                    <span className="truncate text-right text-muted-foreground">
-                                      {permission.permissionState}
-                                    </span>
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                          ) : (
-                            <div
-                              className="mt-3 border-t pt-3 text-[10px] text-muted-foreground"
-                              data-testid="plugin-permission-status"
-                            >
-                              {copy.label.pluginPermissionGate}:{" "}
-                              NO_DECLARED_PERMISSIONS
-                            </div>
-                          )}
-
-                          <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-                            {plugin.riskAssessment.reasonCodes.map((reason) => (
-                              <Badge
-                                className="rounded-md text-[10px]"
-                                data-testid="plugin-risk-reason"
-                                key={reason}
-                                variant="outline"
-                              >
-                                {reason}
-                              </Badge>
-                            ))}
-                          </div>
-
-                          {plugin.reasonCodes.length > 0 ? (
-                            <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-                              {plugin.reasonCodes.map((reason) => (
-                                <Badge
-                                  className="rounded-md text-[10px] text-muted-foreground"
-                                  key={reason}
-                                  variant="outline"
-                                >
-                                  {reason}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : null}
-                        </article>
-                      ))
-                    )}
-                  </div>
-                </section>
-
-                <PluginProjectionPanel
-                  copy={copy}
-                  viewModel={{
-                    blockedPolicyPluginCount,
-                    bundledPluginCount,
-                    disabledPluginCount,
-                    enabledPluginCount,
-                    localManifestDiscovery,
-                    localManifestPluginCount,
-                    lowRiskPluginCount,
-                    mediumRiskPluginCount,
-                    pluginManagementStatus,
-                  }}
-                />
-              </div>
+              <PluginManagementView
+                actions={{
+                  refresh: () => {
+                    void trackAction(
+                      "Refresh plugins",
+                      async () => {
+                        const pluginsOk = await refreshPlugins();
+                        const manifestsOk =
+                          await refreshLocalPluginManifestDeveloperStatus();
+                        return pluginsOk && manifestsOk;
+                      },
+                      copy.action.pluginManagementRefreshed,
+                    );
+                  },
+                  toggleLocalPluginState: (plugin) => {
+                    void toggleLocalPluginState(plugin);
+                  },
+                }}
+                copy={copy}
+                sending={sending}
+                viewModel={{
+                  blockedPolicyPluginCount,
+                  bundledPluginCount,
+                  disabledPluginCount,
+                  enabledPluginCount,
+                  localManifestDiscovery,
+                  localManifestPluginCount,
+                  localPluginStateUpdatingId,
+                  lowRiskPluginCount,
+                  mediumRiskPluginCount,
+                  pluginManagementStatus,
+                  plugins,
+                }}
+              />
             </ScrollArea>
           ) : activeView === "memory" ? (
             <ScrollArea className="min-h-0 flex-1">
