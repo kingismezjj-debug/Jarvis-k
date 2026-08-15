@@ -1,3 +1,5 @@
+import type { UiLanguage } from "./types";
+
 export const LANGUAGE_STORAGE_KEY = "jarvis-k-ui-language";
 
 export function readInitialLanguage(): UiLanguage {
@@ -5,4 +7,8 @@ export function readInitialLanguage(): UiLanguage {
   return window.localStorage.getItem(LANGUAGE_STORAGE_KEY) === "zh"
     ? "zh"
     : "en";
+}
+
+export function persistUiLanguage(language: UiLanguage) {
+  window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
 }

@@ -51,3 +51,7 @@ export function readInitialSkinTheme(): SkinThemeId {
   }
   return "signal";
 }
+
+export function persistSkinTheme(themeId: SkinThemeId) {
+  window.localStorage.setItem(THEME_STORAGE_KEY, themeId);
+}
