@@ -97,6 +97,7 @@ import type {
 import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
+import { ModelOperationList } from "@/features/models/model-operation-list";
 import { cn } from "@/lib/utils";
 import {
   selectLocalTtsLanguage,
@@ -2493,69 +2494,20 @@ export default function App() {
                   </div>
                 </section>
 
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Model Operations</h3>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Refresh model governance from tasks"
-                          className="size-8 rounded-md"
-                          data-testid="tasks-refresh-model-governance"
-                          disabled={sending}
-                          onClick={() =>
-                            void trackAction(
-                              "Refresh model governance",
-                              refreshModelGovernance,
-                              copy.action.modelGovernanceRefreshed,
-                            )
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              "size-3.5",
-                              sending && "animate-spin",
-                            )}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Refresh model governance</TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <div className="divide-y divide-border border-y">
-                    {modelOperations.length === 0 ? (
-                      <div className="py-5 text-xs text-muted-foreground">
-                        {copy.label.noModelOperations}
-                      </div>
-                    ) : (
-                      modelOperations.slice(0, 8).map((operation) => (
-                        <div
-                          className="py-3 text-xs"
-                          key={operation.operationId}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="truncate font-medium">
-                              {operation.modelId}
-                            </span>
-                            <Badge
-                              className="rounded-md text-[10px]"
-                              variant="outline"
-                            >
-                              {operation.phase}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                            {operation.capability} /{" "}
-                            {operation.reasons[0] ?? "no reason"}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
+                <ModelOperationList
+                  actions={{
+                    refresh: () => {
+                      void trackAction(
+                        "Refresh model governance",
+                        refreshModelGovernance,
+                        copy.action.modelGovernanceRefreshed,
+                      );
+                    },
+                  }}
+                  copy={copy}
+                  sending={sending}
+                  viewModel={{ operations: modelOperations }}
+                />
               </div>
             </ScrollArea>
           ) : activeView === "plugins" ? (
