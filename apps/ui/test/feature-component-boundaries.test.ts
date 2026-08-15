@@ -13,6 +13,7 @@ const featureComponents = [
   "features/appearance/appearance-settings-panel.tsx",
   "features/conversation/brain-dispatch-panel.tsx",
   "features/conversation/conversation-composer.tsx",
+  "features/conversation/conversation-header.tsx",
   "features/conversation/conversation-message.tsx",
   "features/conversation/conversation-message-list.tsx",
   "features/conversation/conversation-panel.tsx",

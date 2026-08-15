@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import {
-  Check,
-  ExternalLink,
-  Pencil,
-  Plus,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { ExternalLink, RefreshCw, X } from "lucide-react";
 import type {
   EventEnvelope,
   TaskState,
@@ -18,13 +11,7 @@ import type {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useJarvis } from "@/hooks/use-jarvis";
 import { usePttCapture } from "@/hooks/use-ptt-capture";
 import { stage5Copy, uiCopy } from "@/app/copy";
@@ -73,6 +60,7 @@ import { Metric } from "@/components/shared/Metric";
 import { ActivityView } from "@/features/activity/activity-view";
 import { AppearanceSettingsPanel } from "@/features/appearance/appearance-settings-panel";
 import { ConversationComposer } from "@/features/conversation/conversation-composer";
+import { ConversationHeaderActions } from "@/features/conversation/conversation-header";
 import { ConversationPanel } from "@/features/conversation/conversation-panel";
 import { ConversationTabs } from "@/features/conversation/conversation-tabs";
 import { MemoryBoundaryPanel } from "@/features/memory/memory-boundary-panel";
@@ -182,8 +170,6 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [memorySnapshotDraft, setMemorySnapshotDraft] = useState("");
   const [memoryAlphaProbeDraft, setMemoryAlphaProbeDraft] = useState("");
-  const [renaming, setRenaming] = useState(false);
-  const [conversationTitleDraft, setConversationTitleDraft] = useState("");
   const [activeView, setActiveView] = useState<ActiveView>("conversation");
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [lastAction, setLastAction] = useState<ActionStatus | null>(null);
@@ -1278,29 +1264,6 @@ export default function App() {
     if (accepted) setDraft("");
   }
 
-  async function handleRenameSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (sending) return;
-    if (!activeConversation) {
-      notifyAction(copy.action.noConversationSelected, "warning");
-      return;
-    }
-    const title = conversationTitleDraft.trim();
-    if (!title) {
-      notifyAction(copy.action.enterConversationTitle, "warning");
-      return;
-    }
-    const renamed = await trackAction(
-      "Rename conversation",
-      () => renameConversation(activeConversation.id, title),
-      copy.action.conversationRenamed,
-    );
-    if (renamed) {
-      setRenaming(false);
-      setConversationTitleDraft("");
-    }
-  }
-
   async function handleExportMemorySnapshot() {
     const snapshotJson = await trackAction(
       "Export memory snapshot",
@@ -1806,113 +1769,26 @@ export default function App() {
     >
       <AppViewHeader
         actions={
-          <>
-              {renaming && activeConversation ? (
-                <form
-                  className="flex items-center gap-1.5"
-                  onSubmit={handleRenameSubmit}
-                >
-                  <Input
-                    aria-label="Conversation title"
-                    className="h-8 w-[180px] rounded-md text-xs"
-                    data-testid="conversation-title-input"
-                    onChange={(event) =>
-                      setConversationTitleDraft(event.target.value)
-                    }
-                    value={conversationTitleDraft}
-                  />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        aria-label="Save conversation title"
-                        className="size-8 rounded-md"
-                        data-testid="save-conversation-title"
-                        disabled={sending}
-                        size="icon-sm"
-                        type="submit"
-                      >
-                        <Check className="size-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Save conversation title</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        aria-label="Cancel conversation rename"
-                        className="size-8 rounded-md"
-                        data-testid="cancel-conversation-rename"
-                        onClick={() => {
-                          setRenaming(false);
-                          setConversationTitleDraft("");
-                          notifyAction(
-                            copy.action.conversationRenameCancelled,
-                            "accent",
-                          );
-                        }}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Cancel conversation rename</TooltipContent>
-                  </Tooltip>
-                </form>
-              ) : (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        aria-label="Rename conversation"
-                        className="size-8 rounded-md"
-                        data-testid="rename-conversation"
-                        disabled={sending}
-                        onClick={() => {
-                          if (!activeConversation) {
-                            notifyAction("No conversation selected", "warning");
-                            return;
-                          }
-                          setConversationTitleDraft(
-                            activeConversation?.title ?? "",
-                          );
-                          setRenaming(true);
-                          notifyAction(copy.action.renameModeActive, "accent");
-                        }}
-                        size="icon-sm"
-                        variant="ghost"
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Rename conversation</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        aria-label="New conversation"
-                        className="size-8 rounded-md"
-                        data-testid="new-conversation"
-                        disabled={sending}
-                        onClick={() =>
-                          void trackAction(
-                            "Create conversation",
-                            createConversation,
-                            copy.action.conversationCreated,
-                          )
-                        }
-                        size="icon-sm"
-                        variant="outline"
-                      >
-                        <Plus className="size-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>New conversation</TooltipContent>
-                  </Tooltip>
-                </>
-              )}
-          </>
+          <ConversationHeaderActions
+            activeConversation={activeConversation}
+            copy={copy}
+            createConversation={() =>
+              trackAction(
+                "Create conversation",
+                createConversation,
+                copy.action.conversationCreated,
+              )
+            }
+            notifyAction={notifyAction}
+            renameConversation={(conversationId, title) =>
+              trackAction(
+                "Rename conversation",
+                () => renameConversation(conversationId, title),
+                copy.action.conversationRenamed,
+              )
+            }
+            sending={sending}
+          />
         }
         lastAction={lastAction}
         localContractLabel={copy.label.localContract}
