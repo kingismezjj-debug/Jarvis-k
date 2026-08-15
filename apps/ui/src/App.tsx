@@ -72,9 +72,6 @@ import { useUserControlledMemoryView } from "@/app/use-user-controlled-memory-vi
 import {
   buildSanitizedUserControlledMemorySnapshot,
   formatUserControlledMemoryKey,
-  userControlledMemoryFilterOptions,
-  userControlledMemoryRiskFilterOptions,
-  userControlledMemorySortOptions,
   validateSanitizedUserControlledMemorySnapshot,
 } from "@/app/memory-view";
 import { primaryNavigation } from "@/app/navigation";
@@ -97,6 +94,7 @@ import type {
 import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
+import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/models/model-operation-list";
 import { PluginProjectionPanel } from "@/features/plugins/plugin-projection-panel";
 import { cn } from "@/lib/utils";
@@ -2826,566 +2824,68 @@ export default function App() {
                 className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(0,1fr)_320px]"
                 data-testid="memory-view"
               >
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold">
-                        User-controlled memory
-                      </h3>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Route aliases and voice correction aliases are visible
-                        here.
-                      </p>
-                    </div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Refresh user-controlled memories"
-                          className="size-8 rounded-md"
-                          data-testid="user-controlled-memory-refresh"
-                          onClick={() =>
-                            void handleRefreshUserControlledMemories()
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCw className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Refresh user memory</TooltipContent>
-                    </Tooltip>
-                  </div>
-
-                  <div
-                    className="grid gap-3 sm:grid-cols-4 xl:grid-cols-7"
-                    data-testid="user-controlled-memory-summary"
-                  >
-                    <div className="rounded-md border bg-card px-3 py-3">
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Total
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {userControlledMemories.length}
-                      </p>
-                    </div>
-                    <div className="rounded-md border bg-card px-3 py-3">
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Route aliases
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {routeAliasMemoryCount}
-                      </p>
-                    </div>
-                    <div className="rounded-md border bg-card px-3 py-3">
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Voice aliases
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {voiceAliasMemoryCount}
-                      </p>
-                    </div>
-                    <div className="rounded-md border bg-card px-3 py-3">
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Preferences
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {preferenceMemoryCount}
-                      </p>
-                    </div>
-                    <div
-                      className="rounded-md border bg-card px-3 py-3"
-                      data-testid="user-controlled-memory-low-risk-count"
-                    >
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Low risk
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-success">
-                        {lowRiskMemoryCount}
-                      </p>
-                    </div>
-                    <div
-                      className="rounded-md border bg-card px-3 py-3"
-                      data-testid="user-controlled-memory-medium-risk-count"
-                    >
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        Medium risk
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-warning">
-                        {mediumRiskMemoryCount}
-                      </p>
-                    </div>
-                    <div
-                      className="rounded-md border bg-card px-3 py-3"
-                      data-testid="user-controlled-memory-high-risk-count"
-                    >
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        High risk
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-destructive">
-                        {highRiskMemoryCount}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
-                    data-testid="user-controlled-memory-filter-bar"
-                  >
-                    <Input
-                      data-testid="user-controlled-memory-search"
-                      onChange={(event) =>
-                        setUserControlledMemoryQuery(event.target.value)
-                      }
-                      placeholder="Filter user memory"
-                      value={userControlledMemoryQuery}
-                    />
-                    <div
-                      className="flex flex-wrap gap-2"
-                      data-testid="user-controlled-memory-kind-filter"
-                    >
-                      {userControlledMemoryFilterOptions.map((option) => (
-                        <Button
-                          className="h-9 rounded-md px-3 text-[11px]"
-                          data-testid={`user-controlled-memory-kind-filter-${option.id}`}
-                          key={option.id}
-                          onClick={() =>
-                            setUserControlledMemoryFilter(option.id)
-                          }
-                          type="button"
-                          variant={
-                            userControlledMemoryFilter === option.id
-                              ? "default"
-                              : "outline"
-                          }
-                        >
-                          {option.label}
-                        </Button>
-                      ))}
-                    </div>
-                    <div
-                      className="flex flex-wrap gap-2 md:col-span-2"
-                      data-testid="user-controlled-memory-risk-filter"
-                    >
-                      {userControlledMemoryRiskFilterOptions.map((option) => (
-                        <Button
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid={`user-controlled-memory-risk-filter-${option.id}`}
-                          key={option.id}
-                          onClick={() =>
-                            setUserControlledMemoryRiskFilter(option.id)
-                          }
-                          type="button"
-                          variant={
-                            userControlledMemoryRiskFilter === option.id
-                              ? "default"
-                              : "outline"
-                          }
-                        >
-                          {option.label}
-                        </Button>
-                      ))}
-                    </div>
-                    <div
-                      className="flex flex-wrap gap-2 md:col-span-2"
-                      data-testid="user-controlled-memory-sort"
-                    >
-                      {userControlledMemorySortOptions.map((option) => (
-                        <Button
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid={`user-controlled-memory-sort-${option.id}`}
-                          key={option.id}
-                          onClick={() => setUserControlledMemorySort(option.id)}
-                          type="button"
-                          variant={
-                            userControlledMemorySort === option.id
-                              ? "default"
-                              : "outline"
-                          }
-                        >
-                          {option.label}
-                        </Button>
-                      ))}
-                      <Button
-                        className="h-8 rounded-md px-2 text-[11px]"
-                        data-testid="user-controlled-memory-reset-controls"
-                        disabled={
-                          userControlledMemoryFilter === "all" &&
-                          userControlledMemoryRiskFilter === "all" &&
-                          userControlledMemorySort === "updated_desc" &&
-                          userControlledMemoryQuery.trim().length === 0
-                        }
-                        onClick={() => {
-                          setUserControlledMemoryFilter("all");
-                          setUserControlledMemoryRiskFilter("all");
-                          setUserControlledMemorySort("updated_desc");
-                          setUserControlledMemoryQuery("");
-                        }}
-                        type="button"
-                        variant="outline"
-                      >
-                        Reset
-                      </Button>
-                    </div>
-                    <p
-                      className="text-[11px] text-muted-foreground md:col-span-2"
-                      data-testid="user-controlled-memory-filter-summary"
-                    >
-                      Showing {filteredUserControlledMemories.length} of{" "}
-                      {userControlledMemories.length} user-controlled memories.
-                    </p>
-                    <div
-                      className="flex flex-wrap gap-2 md:col-span-2"
-                      data-testid="user-controlled-memory-active-view-criteria"
-                    >
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant="outline"
-                      >
-                        Kind: {userControlledMemoryActiveKindLabel}
-                      </Badge>
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant="outline"
-                      >
-                        Risk: {userControlledMemoryActiveRiskLabel}
-                      </Badge>
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant="outline"
-                      >
-                        Sort: {userControlledMemoryActiveSortLabel}
-                      </Badge>
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant="outline"
-                      >
-                        Search: {userControlledMemorySearchState}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div
-                    className="mt-5 rounded-md border bg-card p-3"
-                    data-testid="user-controlled-memory-retention-session-controls"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-semibold">
-                          Retention / session controls
-                        </h4>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          Policy controls are visible for review; runtime
-                          mutation is disabled in this L3 slice.
-                        </p>
-                      </div>
-                      <Badge className="rounded-md text-[10px]" variant="outline">
-                        {userControlledMemoryRetentionSessionControlMode}
-                      </Badge>
-                    </div>
-                    <div
-                      className="mt-3 grid gap-2 sm:grid-cols-2"
-                      data-testid="user-controlled-memory-retention-session-status"
-                    >
-                      <Metric
-                        label="Retention controls"
-                        value={userControlledMemoryRetentionControlsBoundary}
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Retention scope"
-                        value={userControlledMemoryRetentionScope}
-                        tone="success"
-                      />
-                      <Metric
-                        label="Session-only mode"
-                        value={userControlledMemorySessionOnlyBoundary}
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Expiration control"
-                        value={userControlledMemoryExpirationBoundary}
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Recording mode"
-                        value={userControlledMemoryRecordingModeBoundary}
-                        tone="success"
-                      />
-                      <Metric
-                        label="Runtime mutation"
-                        value={userControlledMemoryRetentionMutationBoundary}
-                        tone="success"
-                      />
-                    </div>
-                    <div
-                      className="mt-3 flex flex-wrap gap-2 border-t pt-3"
-                      data-testid="user-controlled-memory-retention-controls-disabled"
-                    >
-                      <Button
-                        className="h-8 rounded-md px-2 text-[11px]"
-                        data-testid="user-controlled-memory-session-only-toggle"
-                        disabled
-                        type="button"
-                        variant="outline"
-                      >
-                        Session-only memory disabled
-                      </Button>
-                      <Button
-                        className="h-8 rounded-md px-2 text-[11px]"
-                        data-testid="user-controlled-memory-expiration-control"
-                        disabled
-                        type="button"
-                        variant="outline"
-                      >
-                        Expiration disabled
-                      </Button>
-                      <Button
-                        className="h-8 rounded-md px-2 text-[11px]"
-                        data-testid="user-controlled-memory-retention-mutation-control"
-                        disabled
-                        type="button"
-                        variant="outline"
-                      >
-                        Retention mutation disabled
-                      </Button>
-                    </div>
-                    <p
-                      className="mt-3 text-[10px] text-muted-foreground"
-                      data-testid="user-controlled-memory-retention-policy-summary"
-                    >
-                      Auto capture, import, restore, vector retrieval,
-                      session-only writes, and expiration jobs remain disabled.
-                    </p>
-                  </div>
-
-                  <div
-                    className="mt-5 rounded-md border bg-card p-3"
-                    data-testid="user-controlled-memory-sanitized-snapshot"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-semibold">
-                          Sanitized snapshot
-                        </h4>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          Exports visible user-controlled memory metadata only.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid="user-controlled-memory-export-sanitized-snapshot"
-                          onClick={handleExportUserControlledMemorySanitizedSnapshot}
-                          type="button"
-                          variant="outline"
-                        >
-                          <Download className="mr-1.5 size-3" />
-                          Export snapshot
-                        </Button>
-                        <Button
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid="user-controlled-memory-clear-sanitized-snapshot"
-                          disabled={
-                            userControlledMemorySanitizedSnapshotPreview.trim()
-                              .length === 0
-                          }
-                          onClick={handleClearUserControlledMemorySanitizedSnapshot}
-                          type="button"
-                          variant="outline"
-                        >
-                          <X className="mr-1.5 size-3" />
-                          Clear
-                        </Button>
-                      </div>
-                    </div>
-                    <div
-                      className="mt-3 flex flex-wrap gap-2"
-                      data-testid="user-controlled-memory-sanitized-snapshot-policy"
-                    >
-                      <Badge className="rounded-md text-[10px]" variant="outline">
-                        SCHEMA_V1
-                      </Badge>
-                      <Badge className="rounded-md text-[10px]" variant="outline">
-                        SANITIZED_VISIBLE_FIELDS_ONLY
-                      </Badge>
-                      <Badge className="rounded-md text-[10px]" variant="outline">
-                        USER_INITIATED
-                      </Badge>
-                      <Badge className="rounded-md text-[10px]" variant="outline">
-                        IMPORT_DISABLED
-                      </Badge>
-                      <Badge className="rounded-md text-[10px]" variant="outline">
-                        RESTORE_DISABLED
-                      </Badge>
-                    </div>
-                    {userControlledMemorySanitizedSnapshotPreview.trim()
-                      .length > 0 ? (
-                      <Textarea
-                        className="mt-3 min-h-40 resize-y rounded-md font-mono text-[11px]"
-                        data-testid="user-controlled-memory-sanitized-snapshot-json"
-                        readOnly
-                        value={userControlledMemorySanitizedSnapshotPreview}
-                      />
-                    ) : (
-                      <p
-                        className="mt-3 border-t pt-3 text-[11px] text-muted-foreground"
-                        data-testid="user-controlled-memory-sanitized-snapshot-empty"
-                      >
-                        No sanitized snapshot generated.
-                      </p>
-                    )}
-                    <p
-                      className="mt-2 text-[10px] text-muted-foreground"
-                      data-testid="user-controlled-memory-sanitized-snapshot-status"
-                    >
-                      {userControlledMemorySanitizedSnapshotGeneratedAt
-                        ? `Generated ${formatEventTime(
+                <MemoryCenter
+                  actions={{
+                    clearSanitizedSnapshot:
+                      handleClearUserControlledMemorySanitizedSnapshot,
+                    deleteMemory: (memory) => {
+                      void handleDeleteUserControlledMemory(memory);
+                    },
+                    exportSanitizedSnapshot:
+                      handleExportUserControlledMemorySanitizedSnapshot,
+                    refresh: () => {
+                      void handleRefreshUserControlledMemories();
+                    },
+                    resetControls: () => {
+                      setUserControlledMemoryFilter("all");
+                      setUserControlledMemoryRiskFilter("all");
+                      setUserControlledMemorySort("updated_desc");
+                      setUserControlledMemoryQuery("");
+                    },
+                    setKindFilter: setUserControlledMemoryFilter,
+                    setMemoryQuery: setUserControlledMemoryQuery,
+                    setRiskFilter: setUserControlledMemoryRiskFilter,
+                    setSort: setUserControlledMemorySort,
+                  }}
+                  sending={sending}
+                  viewModel={{
+                    activeKindLabel: userControlledMemoryActiveKindLabel,
+                    activeRiskLabel: userControlledMemoryActiveRiskLabel,
+                    activeSortLabel: userControlledMemoryActiveSortLabel,
+                    deletePendingKey: userControlledMemoryDeletePendingKey,
+                    expirationBoundary: userControlledMemoryExpirationBoundary,
+                    filteredMemories: filteredUserControlledMemories,
+                    highRiskMemoryCount,
+                    lowRiskMemoryCount,
+                    mediumRiskMemoryCount,
+                    memoryQuery: userControlledMemoryQuery,
+                    preferenceMemoryCount,
+                    records: userControlledMemories,
+                    recordingModeBoundary: userControlledMemoryRecordingModeBoundary,
+                    retentionControlsBoundary:
+                      userControlledMemoryRetentionControlsBoundary,
+                    retentionMutationBoundary:
+                      userControlledMemoryRetentionMutationBoundary,
+                    retentionScope: userControlledMemoryRetentionScope,
+                    retentionSessionControlMode:
+                      userControlledMemoryRetentionSessionControlMode,
+                    routeAliasMemoryCount,
+                    sanitizedSnapshotGeneratedAt:
+                      userControlledMemorySanitizedSnapshotGeneratedAt
+                        ? formatEventTime(
                             userControlledMemorySanitizedSnapshotGeneratedAt,
-                          )} / ${userControlledMemories.length} records / raw hidden`
-                        : "Idle / raw hidden / no import or restore action"}
-                    </p>
-                  </div>
-
-                  <div
-                    className="mt-5 divide-y divide-border border-y"
-                    data-testid="user-controlled-memory-list"
-                  >
-                    {filteredUserControlledMemories.length > 0 ? (
-                      filteredUserControlledMemories.map((memory) => {
-                        const deletePending =
-                          userControlledMemoryDeletePendingKey ===
-                          formatUserControlledMemoryKey(memory);
-                        return (
-                        <div
-                          className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
-                          data-testid="user-controlled-memory-record"
-                          key={memory.id}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge
-                                className="rounded-md text-[10px]"
-                                data-testid="user-controlled-memory-kind"
-                                variant="secondary"
-                              >
-                                {memory.kind}
-                              </Badge>
-                              <Badge
-                                className={cn(
-                                  "rounded-md text-[10px]",
-                                  memory.risk === "medium"
-                                    ? "text-warning"
-                                    : memory.risk === "high"
-                                      ? "text-destructive"
-                                      : "text-success",
-                                )}
-                                data-testid="user-controlled-memory-risk"
-                                variant="outline"
-                              >
-                                {memory.risk}
-                              </Badge>
-                              <Badge
-                                className="rounded-md text-[10px]"
-                                data-testid="user-controlled-memory-raw-hidden"
-                                variant="outline"
-                              >
-                                RAW_HIDDEN
-                              </Badge>
-                              {memory.kind === "preference" ? (
-                                <Badge
-                                  className="rounded-md text-[10px]"
-                                  data-testid="user-controlled-memory-provider-neutral"
-                                  variant="outline"
-                                >
-                                  PROVIDER_NEUTRAL
-                                </Badge>
-                              ) : null}
-                              {memory.deletable ? (
-                                <Badge
-                                  className="rounded-md text-[10px]"
-                                  data-testid="user-controlled-memory-delete-policy"
-                                  variant="outline"
-                                >
-                                  VIEW_DELETE
-                                </Badge>
-                              ) : null}
-                              <Badge
-                                className="rounded-md text-[10px]"
-                                data-testid="user-controlled-memory-disable-policy"
-                                variant="outline"
-                              >
-                                DISABLE_NOT_ENABLED
-                              </Badge>
-                            </div>
-                            <p
-                              className="mt-2 truncate text-sm font-semibold"
-                              data-testid="user-controlled-memory-label"
-                            >
-                              {memory.label}
-                            </p>
-                            <p
-                              className="mt-1 truncate text-xs text-muted-foreground"
-                              data-testid="user-controlled-memory-summary-text"
-                            >
-                              {memory.summary}
-                            </p>
-                            {memory.kind === "preference" &&
-                            memory.preferenceKey &&
-                            memory.preferenceValue ? (
-                              <p
-                                className="mt-1 truncate text-[10px] uppercase text-muted-foreground"
-                                data-testid="user-controlled-memory-active-preference"
-                              >
-                                Active policy: {memory.preferenceKey} ={" "}
-                                {memory.preferenceValue}
-                              </p>
-                            ) : null}
-                            <p className="mt-1 text-[10px] uppercase text-muted-foreground">
-                              {memory.source} / {formatEventTime(memory.updatedAt)}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <Button
-                              className="h-8 rounded-md px-2 text-[11px]"
-                              data-testid="user-controlled-memory-disable"
-                              disabled
-                              type="button"
-                              variant="outline"
-                            >
-                              Disable
-                            </Button>
-                            <Button
-                              className="h-8 rounded-md px-2 text-[11px]"
-                              data-testid="user-controlled-memory-delete"
-                              disabled={
-                                sending || !memory.deletable || deletePending
-                              }
-                              onClick={() =>
-                                void handleDeleteUserControlledMemory(memory)
-                              }
-                              type="button"
-                              variant="outline"
-                            >
-                              <Trash2 className="mr-1.5 size-3" />
-                              {deletePending ? "Deleting" : "Delete"}
-                            </Button>
-                          </div>
-                        </div>
-                        );
-                      })
-                    ) : (
-                      <p
-                        className="py-5 text-xs text-muted-foreground"
-                        data-testid="user-controlled-memory-empty"
-                      >
-                        {userControlledMemories.length > 0
-                          ? "No user-controlled memories match this filter."
-                          : "No user-controlled memories have been saved yet."}
-                      </p>
-                    )}
-                  </div>
-                </section>
+                          )
+                        : null,
+                    sanitizedSnapshotPreview:
+                      userControlledMemorySanitizedSnapshotPreview,
+                    searchState: userControlledMemorySearchState,
+                    selectedKind: userControlledMemoryFilter,
+                    selectedRisk: userControlledMemoryRiskFilter,
+                    selectedSort: userControlledMemorySort,
+                    sessionOnlyBoundary: userControlledMemorySessionOnlyBoundary,
+                    voiceAliasMemoryCount,
+                  }}
+                />
 
                 <section className="min-w-0">
                   <div className="mb-3 flex items-center justify-between">
