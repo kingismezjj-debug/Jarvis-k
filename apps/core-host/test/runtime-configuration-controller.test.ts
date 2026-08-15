@@ -100,7 +100,8 @@ describe("RuntimeConfigurationController", () => {
           command: {
             type: "agent.runBrainCommand",
             payload: {
-              utterance: "open notepad",
+              source: "text",
+              text: "open notepad",
             },
           },
         },

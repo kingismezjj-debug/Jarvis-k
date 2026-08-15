@@ -66,7 +66,10 @@ import {
 import { createCoreHostVoiceComposition } from "./composition/voice-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
-import { parseCoreHostMessage } from "./host/host-message-schema";
+import {
+  CoreHostMessageHandler,
+  createProcessMessageSource,
+} from "./host/host-message-handler";
 import { RuntimeConfigurationController } from "./host/runtime-configuration-controller";
 import {
   ChatAnswerRuntimeBinding,
@@ -419,49 +422,17 @@ const runtimeConfigurationController = new RuntimeConfigurationController({
   plannerRuntimeBinding,
   voiceComposition,
 });
-
-let inboundQueue = Promise.resolve();
-
-process.on("message", (rawMessage: unknown) => {
-  const parsedMessage = parseCoreHostMessage(rawMessage);
-  if (!parsedMessage.accepted) {
-    console.error("[core-host] Rejected invalid supervisor message.");
-    return;
-  }
-  if (parsedMessage.message.kind !== "core-inbound") {
-    inboundQueue = inboundQueue
-      .then(async () => {
-        await runtimeConfigurationController.applyMessage(parsedMessage.message);
-      })
-      .catch(() => {
-        console.error("[core-host] Runtime configuration failed.");
-      });
-    return;
-  }
-
-  const parsed = parsedMessage.message.message;
-
-  inboundQueue = inboundQueue
-    .then(async () => {
-      if (parsed.kind === "voice-audio") {
-        await voiceEngine.acceptAudioFrame(parsed.frame);
-        return;
-      }
-      const result = await runtime.handle(parsed.envelope);
-      send({
-        kind: "result",
-        envelope: result,
-      });
-    })
-    .catch((error: unknown) => {
-      console.error(
-        "[core-host] Inbound message handling failed:",
-        error instanceof Error ? error.message : "unknown error",
-      );
-    });
+const messageHandler = new CoreHostMessageHandler({
+  runtime,
+  voiceEngine,
+  runtimeConfigurationController,
+  messageSource: createProcessMessageSource(process),
+  send,
 });
+messageHandler.start();
 
 process.once("disconnect", () => {
+  void messageHandler.dispose();
   void localEmbeddingComposition.close?.();
 });
 
