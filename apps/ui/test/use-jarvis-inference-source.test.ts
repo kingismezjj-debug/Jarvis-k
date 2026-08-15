@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const hookSource = [
   "use-jarvis.ts",
   "jarvis-event-router.ts",
+  "use-jarvis-diagnostics-actions.ts",
   "use-jarvis-memory-actions.ts",
   "use-jarvis-plugin-actions.ts",
   "use-jarvis-voice-actions.ts",

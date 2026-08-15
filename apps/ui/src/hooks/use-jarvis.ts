@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BrainCommandResultSchema,
-  CommandRouterLocalAppLaunchResultSchema,
-  CommandRouterProductModeStatusSchema,
   CoreSnapshotSchema,
-  ChatAnswerProductModeStatusSchema,
-  QwenRuntimeControlStatusSchema,
   type AppCommand,
   type BrainCommandResult,
   type BrainCommandSource,
@@ -18,7 +14,6 @@ import {
   type MemoryAlphaStatus,
   type LocalPluginManifestDeveloperStatusResult,
   type PluginManagementStatusResult,
-  type QwenRuntimeControlAction,
   type QwenRuntimeControlStatus,
   type TtsServiceStatus,
   type UserControlledMemoryRecord,
@@ -30,6 +25,7 @@ import {
   prependBoundedEvent,
   routeJarvisEvent,
 } from "./jarvis-event-router";
+import { useJarvisDiagnosticsActions } from "./use-jarvis-diagnostics-actions";
 import { useJarvisEventBridge } from "./use-jarvis-event-bridge";
 import { useJarvisMemoryActions } from "./use-jarvis-memory-actions";
 import { useJarvisPluginActions } from "./use-jarvis-plugin-actions";
@@ -276,6 +272,26 @@ export function useJarvis() {
   );
 
   const {
+    confirmCommandRouterLocalAppLaunch,
+    probeCore,
+    refreshCapabilities,
+    refreshChatAnswerProductModeStatus,
+    refreshCommandRouterProductModeStatus,
+    refreshQwenRuntimeControlStatus,
+    setChatAnswerProductModeEnabled,
+    setCommandRouterProductModeEnabled,
+    setQwenRuntimeControlAction,
+  } = useJarvisDiagnosticsActions({
+    setError,
+    setSending,
+    sendCommand,
+    setChatAnswerProductModeStatus,
+    setCommandRouterProductModeStatus,
+    setQwenRuntimeControlStatus,
+    setCommandRouterLocalAppLaunchResult,
+  });
+
+  const {
     confirmVoiceCommandCorrection,
     deleteVoiceCommandAlias,
     openTtsSettings,
@@ -427,192 +443,6 @@ export function useJarvis() {
         payload: { conversationId, title },
       }),
     [sendCommand],
-  );
-
-  const refreshCapabilities = useCallback(
-    async () =>
-      sendCommand({
-        type: "agent.getCapabilities",
-        payload: {},
-      }),
-    [sendCommand],
-  );
-
-  const probeCore = useCallback(
-    async () =>
-      sendCommand({
-        type: "agent.ping",
-        payload: { sentAt: new Date().toISOString() },
-      }),
-    [sendCommand],
-  );
-
-  const refreshChatAnswerProductModeStatus = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-    try {
-      const status = ChatAnswerProductModeStatusSchema.parse(
-        await window.jarvis.getChatAnswerProductModeStatus(),
-      );
-      setChatAnswerProductModeStatus(status);
-      setError(null);
-      return true;
-    } catch {
-      setError("Chat Answer product mode status could not be read.");
-      return false;
-    }
-  }, []);
-
-  const refreshCommandRouterProductModeStatus = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-    try {
-      const status = CommandRouterProductModeStatusSchema.parse(
-        await window.jarvis.getCommandRouterProductModeStatus(),
-      );
-      setCommandRouterProductModeStatus(status);
-      setError(null);
-      return true;
-    } catch {
-      setError("Command Router product mode status could not be read.");
-      return false;
-    }
-  }, []);
-
-  const refreshQwenRuntimeControlStatus = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-    try {
-      const status = QwenRuntimeControlStatusSchema.parse(
-        await window.jarvis.getQwenRuntimeControlStatus(),
-      );
-      setQwenRuntimeControlStatus(status);
-      setError(null);
-      return true;
-    } catch {
-      setError("Qwen runtime control status could not be read.");
-      return false;
-    }
-  }, []);
-
-  const setQwenRuntimeControlAction = useCallback(
-    async (action: QwenRuntimeControlAction) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-      try {
-        const result = await window.jarvis.setQwenRuntimeControlAction(action);
-        setQwenRuntimeControlStatus(result.status);
-        if (!result.ok) {
-          setError(
-            result.message ?? "Qwen runtime control could not be changed.",
-          );
-          return false;
-        }
-        setError(null);
-        return true;
-      } catch {
-        setError("Qwen runtime control could not be changed.");
-        return false;
-      }
-    },
-    [],
-  );
-
-  const setCommandRouterProductModeEnabled = useCallback(
-    async (enabled: boolean) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-      try {
-        const result =
-          await window.jarvis.setCommandRouterProductModeEnabled(enabled);
-        setCommandRouterProductModeStatus(result.status);
-        if (!result.ok) {
-          setError(
-            result.message ??
-              "Command Router product mode could not be changed.",
-          );
-          return false;
-        }
-        setError(null);
-        return true;
-      } catch {
-        setError("Command Router product mode could not be changed.");
-        return false;
-      }
-    },
-    [],
-  );
-
-  const setChatAnswerProductModeEnabled = useCallback(
-    async (enabled: boolean) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-      try {
-        const result =
-          await window.jarvis.setChatAnswerProductModeEnabled(enabled);
-        setChatAnswerProductModeStatus(result.status);
-        if (!result.ok) {
-          setError(
-            result.message ?? "Chat Answer product mode could not be changed.",
-          );
-          return false;
-        }
-        setError(null);
-        return true;
-      } catch {
-        setError("Chat Answer product mode could not be changed.");
-        return false;
-      }
-    },
-    [],
-  );
-
-  const confirmCommandRouterLocalAppLaunch = useCallback(
-    async (target: string) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return null;
-      }
-      setSending(true);
-      try {
-        const result = await window.jarvis.sendCommand({
-          type: "agent.confirmCommandRouterLocalAppLaunch",
-          payload: {
-            target,
-            confirmation: "explicit_ui_confirmation",
-          },
-        });
-        if (!result.ok) {
-          setError(result.error.message);
-          return null;
-        }
-        const launch = CommandRouterLocalAppLaunchResultSchema.safeParse(
-          (result.data as { launch?: unknown } | undefined)?.launch,
-        );
-        if (!launch.success) {
-          setError("Core returned an invalid local app launch result.");
-          return null;
-        }
-        setCommandRouterLocalAppLaunchResult(launch.data);
-        setError(null);
-        return launch.data;
-      } finally {
-        setSending(false);
-      }
-    },
-    [],
   );
 
   useJarvisEventBridge({
