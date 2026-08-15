@@ -10,9 +10,11 @@ const hookSource = [
   "jarvis-memory-state.ts",
   "jarvis-plugin-state.ts",
   "jarvis-voice-state.ts",
+  "use-jarvis-conversation-actions.ts",
   "use-jarvis-diagnostics-actions.ts",
   "use-jarvis-memory-actions.ts",
   "use-jarvis-plugin-actions.ts",
+  "use-jarvis-task-actions.ts",
   "use-jarvis-voice-actions.ts",
   "use-model-governance.ts",
 ].map((fileName) =>

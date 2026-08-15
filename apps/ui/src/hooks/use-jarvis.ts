@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
-  BrainCommandResultSchema,
   CoreSnapshotSchema,
   type AppCommand,
   type BrainCommandResult,
-  type BrainCommandSource,
   type ChatAnswerProductModeStatus,
   type CommandRouterLocalAppLaunchResult,
   type CommandRouterProductModeStatus,
@@ -45,10 +43,12 @@ import {
   initialJarvisVoiceState,
   jarvisVoiceReducer,
 } from "./jarvis-voice-state";
+import { useJarvisConversationActions } from "./use-jarvis-conversation-actions";
 import { useJarvisDiagnosticsActions } from "./use-jarvis-diagnostics-actions";
 import { useJarvisEventBridge } from "./use-jarvis-event-bridge";
 import { useJarvisMemoryActions } from "./use-jarvis-memory-actions";
 import { useJarvisPluginActions } from "./use-jarvis-plugin-actions";
+import { useJarvisTaskActions } from "./use-jarvis-task-actions";
 import { useJarvisVoiceActions } from "./use-jarvis-voice-actions";
 import { useModelGovernance } from "./use-model-governance";
 
@@ -221,42 +221,71 @@ export function useJarvis() {
   const dispatchedVoiceTranscriptKeys = useRef<Set<string>>(new Set());
   const textOnlyAcceptanceRef = useRef(false);
 
-  const dispatchBrainCommand = useCallback(
-    async (text: string, source: BrainCommandSource) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
+  const refreshSnapshot = useCallback(async () => {
+    if (!window.jarvis) {
+      setConnection("offline");
+      setError("Desktop bridge unavailable.");
+      return;
+    }
+
+    const result = await window.jarvis.getSnapshot();
+    if (!result.ok) {
+      setError(result.error.message);
+      setConnection("offline");
+      return;
+    }
+
+    const parsed = CoreSnapshotSchema.safeParse(result.data);
+    if (!parsed.success) {
+      setError("Core returned an invalid state snapshot.");
+      return;
+    }
+
+    textOnlyAcceptanceRef.current =
+      parsed.data.textOnlyAcceptance?.enabled === true;
+    setSnapshot(parsed.data);
+    setMemoryAlphaStatus(parsed.data.memoryAlpha ?? null);
+    setConnection("online");
+    setError(null);
+  }, []);
+
+  const sendCommand = useCallback(async (command: AppCommand) => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+
+    setSending(true);
+    try {
+      const result = await window.jarvis.sendCommand(command);
+      if (!result.ok) {
+        setError(result.error.message);
         return false;
       }
+      setError(null);
+      return true;
+    } finally {
+      setSending(false);
+    }
+  }, []);
 
-      setSending(true);
-      try {
-        const result = await window.jarvis.sendCommand({
-          type: "agent.runBrainCommand",
-          payload: {
-            source,
-            text,
-          },
-        });
-        if (!result.ok) {
-          setError(result.error.message);
-          return false;
-        }
-        const brain = BrainCommandResultSchema.safeParse(
-          (result.data as { brain?: unknown } | undefined)?.brain,
-        );
-        if (!brain.success) {
-          setError("Core returned an invalid Brain result.");
-          return false;
-        }
-        setBrainResult(brain.data);
-        setError(null);
-        return true;
-      } finally {
-        setSending(false);
-      }
-    },
-    [],
-  );
+  const {
+    clearSessionHistory,
+    createConversation,
+    dispatchBrainCommand,
+    renameConversation,
+    retryBrainCommand,
+    rollbackBrainResult,
+    runBrainCommand,
+    sendMessage,
+    selectConversation,
+  } = useJarvisConversationActions({
+    brainResult,
+    setBrainResult,
+    setError,
+    setSending,
+    sendCommand,
+  });
 
   const dispatchFinalVoiceTranscript = useCallback(
     (transcript: NonNullable<CoreSnapshot["voice"]["transcript"]>) => {
@@ -317,70 +346,6 @@ export function useJarvis() {
       });
     },
     [applyModelOperation, dispatchFinalVoiceTranscript],
-  );
-
-  const refreshSnapshot = useCallback(async () => {
-    if (!window.jarvis) {
-      setConnection("offline");
-      setError("Desktop bridge unavailable.");
-      return;
-    }
-
-    const result = await window.jarvis.getSnapshot();
-    if (!result.ok) {
-      setError(result.error.message);
-      setConnection("offline");
-      return;
-    }
-
-    const parsed = CoreSnapshotSchema.safeParse(result.data);
-    if (!parsed.success) {
-      setError("Core returned an invalid state snapshot.");
-      return;
-    }
-
-    textOnlyAcceptanceRef.current =
-      parsed.data.textOnlyAcceptance?.enabled === true;
-    setSnapshot(parsed.data);
-    setMemoryAlphaStatus(parsed.data.memoryAlpha ?? null);
-    setConnection("online");
-    setError(null);
-  }, []);
-
-  const sendCommand = useCallback(async (command: AppCommand) => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-
-    setSending(true);
-    try {
-      const result = await window.jarvis.sendCommand(command);
-      if (!result.ok) {
-        setError(result.error.message);
-        return false;
-      }
-      setError(null);
-      return true;
-    } finally {
-      setSending(false);
-    }
-  }, []);
-
-  const sendMessage = useCallback(
-    async (text: string) =>
-      sendCommand({
-        type: "agent.sendMessage",
-        payload: {
-          text,
-        },
-      }),
-    [sendCommand],
-  );
-
-  const runBrainCommand = useCallback(
-    async (text: string) => dispatchBrainCommand(text, "text"),
-    [dispatchBrainCommand],
   );
 
   const {
@@ -445,117 +410,11 @@ export function useJarvis() {
     refreshVoiceCommandAliases,
   });
 
-  const cancelTask = useCallback(
-    async (taskId: string) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-      setSending(true);
-      try {
-        const result = await window.jarvis.sendCommand({
-          type: "agent.cancelTask",
-          payload: {
-            taskId,
-            reason: "User cancelled the pending task from the Tasks view.",
-          },
-        });
-        if (!result.ok) {
-          setError(result.error.message);
-          return false;
-        }
-        await refreshSnapshot();
-        setError(null);
-        return true;
-      } finally {
-        setSending(false);
-      }
-    },
-    [refreshSnapshot],
-  );
-
-  const approveTask = useCallback(
-    async (taskId: string) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-      setSending(true);
-      try {
-        const result = await window.jarvis.sendCommand({
-          type: "agent.approveTask",
-          payload: {
-            taskId,
-            confirmation: "explicit_ui_confirmation",
-          },
-        });
-        if (!result.ok) {
-          setError(result.error.message);
-          return false;
-        }
-        await refreshSnapshot();
-        setError(null);
-        return true;
-      } finally {
-        setSending(false);
-      }
-    },
-    [refreshSnapshot],
-  );
-
-  const retryBrainCommand = useCallback(async () => {
-    if (
-      !brainResult ||
-      (brainResult.dispatchStatus !== "blocked" &&
-        brainResult.dispatchStatus !== "degraded")
-    ) {
-      return false;
-    }
-    return dispatchBrainCommand(brainResult.text, brainResult.source);
-  }, [brainResult, dispatchBrainCommand]);
-
-  const rollbackBrainResult = useCallback(() => {
-    if (!brainResult) return false;
-    setBrainResult(null);
-    setError(null);
-    return true;
-  }, [brainResult]);
-
-  const clearSessionHistory = useCallback(
-    async () =>
-      sendCommand({
-        type: "agent.clearSessionHistory",
-        payload: {},
-      }),
-    [sendCommand],
-  );
-
-  const createConversation = useCallback(
-    async () =>
-      sendCommand({
-        type: "agent.createConversation",
-        payload: {},
-      }),
-    [sendCommand],
-  );
-
-  const selectConversation = useCallback(
-    async (conversationId: string) =>
-      sendCommand({
-        type: "agent.selectConversation",
-        payload: { conversationId },
-      }),
-    [sendCommand],
-  );
-
-  const renameConversation = useCallback(
-    async (conversationId: string, title: string) =>
-      sendCommand({
-        type: "agent.renameConversation",
-        payload: { conversationId, title },
-      }),
-    [sendCommand],
-  );
+  const { approveTask, cancelTask } = useJarvisTaskActions({
+    setError,
+    setSending,
+    refreshSnapshot,
+  });
 
   useJarvisEventBridge({
     onEvent: applyEvent,
