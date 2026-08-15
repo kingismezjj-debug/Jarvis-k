@@ -125,4 +125,48 @@ describe("app view model factories", () => {
     expect(JSON.stringify(viewModel)).not.toContain("credential");
     expect(JSON.stringify(viewModel)).not.toContain("secret");
   });
+
+  it("keeps runtime inspector projection safe during partial startup state", () => {
+    const viewModel = createRuntimeInspectorViewModel({
+      accelerationBackends: "CPU",
+      availableInferenceProviderCount: 0,
+      blockedModelCount: 0,
+      connection: "starting",
+      copy: uiCopy.en,
+      coreOnline: false,
+      downloadableCandidateCount: 0,
+      fixtureEmbeddingAvailable: false,
+      fixtureEmbeddingProbe: null,
+      fixtureIntentProbe: null,
+      fixtureOcrProbe: null,
+      fixtureRerankProbe: null,
+      gpuCount: 0,
+      inferenceProviders: undefined as never,
+      installableModelCount: 0,
+      intentRouterAvailable: false,
+      loadedModelCount: 0,
+      memoryAlphaProbeDraft: "",
+      memoryAlphaProbeSummary: "idle",
+      memoryAlphaReason: "none",
+      memorySnapshotDraft: "{}",
+      modelCandidates: undefined as never,
+      modelInventory: undefined as never,
+      modelManifests: undefined as never,
+      modelOperations: undefined as never,
+      ocrProviderAvailable: false,
+      recentEvents: undefined as never,
+      rerankerProviderAvailable: false,
+      requiredProviderConfigurationCount: 0,
+      runtimeMode: "standard",
+      snapshot: null,
+      voiceFramesSent: 0,
+      voicePeak: "0%",
+      voiceRms: "0%",
+    });
+
+    expect(viewModel.modelGovernanceMetrics).toContainEqual(
+      expect.objectContaining({ label: uiCopy.en.metric.candidates, value: "0" }),
+    );
+    expect(viewModel.recentEvents).toEqual([]);
+  });
 });
