@@ -31,6 +31,10 @@ import { QwenRuntimeController } from "./qwen-runtime/qwen-runtime-controller";
 import { registerQwenRuntimeIpc } from "./ipc/register-qwen-runtime-ipc";
 import { DesktopSupervisorController } from "./core-supervisor/desktop-supervisor-controller";
 import { registerSupervisorIpc } from "./ipc/register-supervisor-ipc";
+import {
+  configureElectronGpuPolicy,
+  registerDesktopAppLifecycle
+} from "./app-lifecycle";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -48,11 +52,7 @@ let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
 let settingsService: SettingsService | null = null;
 let secureStoreService: SecureStoreService | null = null;
 
-if (process.env.JARVIS_K_ENABLE_ELECTRON_GPU !== "1") {
-  app.disableHardwareAcceleration();
-  app.commandLine.appendSwitch("disable-gpu");
-  app.commandLine.appendSwitch("disable-gpu-compositing");
-}
+configureElectronGpuPolicy({ app });
 
 function getSecureStoreService(): SecureStoreService {
   if (!secureStoreService) {
@@ -152,14 +152,14 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!mainWindow) {
-      return;
-    }
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
-    }
-    mainWindow.focus();
+  registerDesktopAppLifecycle({
+    app,
+    getMainWindow: () => mainWindow,
+    createMainWindow,
+    setMainWindow: (window) => {
+      mainWindow = window;
+    },
+    cleanup: disposeDesktopRuntime
   });
 
   void app.whenReady().then(() => {
@@ -298,15 +298,10 @@ if (!hasSingleInstanceLock) {
       mainWindow = null;
     });
 
-    app.on("activate", () => {
-      if (!mainWindow) {
-        mainWindow = createMainWindow();
-      }
-    });
   });
 }
 
-app.on("before-quit", () => {
+function disposeDesktopRuntime(): void {
   voiceIpcDisposer?.();
   voiceIpcDisposer = null;
   voiceController?.dispose();
@@ -318,8 +313,4 @@ app.on("before-quit", () => {
   supervisorIpcDisposer = null;
   supervisorController?.stop();
   supervisorController = null;
-});
-
-app.on("window-all-closed", () => {
-  app.quit();
-});
+}
