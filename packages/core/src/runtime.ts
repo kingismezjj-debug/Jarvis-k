@@ -97,8 +97,6 @@ import {
   VoiceCommandAliasRecord,
   VoiceCommandAliasRecordSchema,
   VoiceCommandCorrection,
-  VoiceCommandCorrectionSchema,
-  VoiceInputMode,
   VoiceEvent,
   createId,
 } from "@jarvis-k/contracts";
@@ -138,13 +136,13 @@ import type { VoiceActionResult, VoiceEnginePort } from "@jarvis-k/voice";
 import type { TaskRepository } from "./task-runtime";
 import { TaskDispatchService } from "./task-dispatch-service";
 import {
+  VoiceCommandResolver,
+} from "./voice-command-resolver";
+import {
   PluginInvocationService,
   canEnableLocalPluginState,
 } from "./plugin-invocation-service";
-import {
-  VoiceCommandResolver,
-  type VoiceCommandResolverPluginCapability,
-} from "./voice-command-resolver";
+import { VoiceResolutionService } from "./voice-resolution-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -574,6 +572,7 @@ export class CoreRuntime {
   private localPluginStateRepositoryInitialized = false;
   private readonly taskDispatchService: TaskDispatchService | undefined;
   private readonly pluginInvocationService: PluginInvocationService;
+  private readonly voiceResolutionService: VoiceResolutionService;
   private readonly pendingUserRouteAliasProposals = new Map<
     string,
     UserRouteAliasLearningProposal
@@ -633,6 +632,11 @@ export class CoreRuntime {
       localPluginStateRepository: this.localPluginStateRepository,
       ensureLocalPluginStateRepositoryInitialized: () =>
         this.ensureLocalPluginStateRepositoryInitialized(),
+    });
+    this.voiceResolutionService = new VoiceResolutionService({
+      voiceCommandAliasRepository: this.voiceCommandAliasRepository,
+      pluginRegistry: this.pluginRegistry,
+      resolver: this.voiceCommandResolver,
     });
   }
 
@@ -1853,7 +1857,7 @@ export class CoreRuntime {
     const payload = envelope.command.payload;
     const voiceCorrection =
       payload.source === "voice"
-        ? await this.resolveVoiceCommandCorrection({
+        ? await this.voiceResolutionService.resolveCommandCorrection({
             rawTranscript: payload.text,
             ...(payload.voiceInputMode === undefined
               ? {}
@@ -1869,7 +1873,7 @@ export class CoreRuntime {
           : { conversationId: payload.conversationId }),
       });
     }
-    const routingText = this.normalizeBrainCommandRoutingText({
+    const routingText = this.voiceResolutionService.normalizeRoutingText({
       source: payload.source,
       text: voiceCorrection?.normalizedTranscript ?? payload.text,
     });
@@ -2354,7 +2358,7 @@ export class CoreRuntime {
       return undefined;
     }
     const candidateDecision =
-      this.voiceCommandResolver.decisionFromCandidate(candidate);
+      this.voiceResolutionService.decisionFromCandidate(candidate);
     return {
       decision:
         (await this.resolveUserRouteAliasBrowserDecision(candidateDecision)) ??
@@ -3172,110 +3176,6 @@ export class CoreRuntime {
     } catch {
       return undefined;
     }
-  }
-
-  private normalizeBrainCommandRoutingText(input: {
-    source: "text" | "voice";
-    text: string;
-  }): string {
-    if (input.source !== "voice") {
-      return input.text;
-    }
-    return this.normalizeVoiceCommandRoutingText(input.text);
-  }
-
-  private normalizeVoiceCommandRoutingText(text: string): string {
-    const normalized = text
-      .trim()
-      .replace(/\s+/gu, " ")
-      .replace(/^(?:(?:\u55ef|\u5443|\u554a|\u90a3\u4e2a|\u5c31\u662f)\s*)+/u, "")
-      .replace(/\u8bb0\u4e8b[\u7c3f\u677f\u95e8\u8584]/gu, "\u8bb0\u4e8b\u672c")
-      .replace(/\u8ba1\u7b97[\u6c14\u5176]/gu, "\u8ba1\u7b97\u5668")
-      .replace(/\b(?:v\s*[\.\s]*s\s*[\.\s]*code|vs\s*[\.\s]*code)\b/giu, "vscode")
-      .replace(/\bjava\s+script\b/giu, "Javascript")
-      .replace(/\bjarvis\s+k\b/giu, "Jarvis-K")
-      .trim();
-    if (!this.looksLikeVoiceNotepadWrite(normalized)) {
-      return normalized;
-    }
-    return normalized
-      .replace(/\b(?:javac|java\s*c|java\s*k)\s+voice\s+smoke\s+test\b/giu, "Jarvis-K voice smoke text")
-      .replace(/\bJarvis-K\s+voice\s+smoke\s+test\b/giu, "Jarvis-K voice smoke text")
-      .trim();
-  }
-
-  private async resolveVoiceCommandCorrection(input: {
-    rawTranscript: string;
-    requestedMode?: VoiceInputMode;
-  }): Promise<VoiceCommandCorrection> {
-    const existingVoiceRoutingText = this.normalizeVoiceCommandRoutingText(
-      input.rawTranscript,
-    );
-    if (this.looksLikeVoiceNotepadWrite(existingVoiceRoutingText)) {
-      return VoiceCommandCorrectionSchema.parse({
-        rawTranscript: input.rawTranscript.trim(),
-        normalizedTranscript: existingVoiceRoutingText,
-        inputMode: "command",
-        correctionSource: "raw",
-        correctionConfidence: 1,
-        correctionCandidates: [],
-        requiresUserSelection: false,
-        rawTranscriptPreserved: true,
-        directActionAttempted: false,
-      });
-    }
-    const aliases = await this.listVoiceCommandAliasesForResolution();
-    const pluginCapabilities =
-      await this.listVoiceCommandPluginCapabilitiesForResolution();
-    return this.voiceCommandResolver.resolve({
-      rawTranscript: input.rawTranscript,
-      ...(input.requestedMode === undefined
-        ? {}
-        : { requestedMode: input.requestedMode }),
-      aliases,
-      pluginCapabilities,
-    });
-  }
-
-  private async listVoiceCommandAliasesForResolution(): Promise<
-    VoiceCommandAliasRecord[]
-  > {
-    if (!this.voiceCommandAliasRepository) {
-      return [];
-    }
-    try {
-      await this.voiceCommandAliasRepository.initialize();
-      return await this.voiceCommandAliasRepository.listAliases();
-    } catch {
-      return [];
-    }
-  }
-
-  private async listVoiceCommandPluginCapabilitiesForResolution(): Promise<
-    VoiceCommandResolverPluginCapability[]
-  > {
-    if (!this.pluginRegistry) {
-      return [];
-    }
-    try {
-      const plugins = await this.pluginRegistry.listPlugins();
-      return plugins.flatMap((plugin) =>
-        plugin.capabilities.map((capability) => ({
-          pluginId: plugin.id,
-          capability: capability.name,
-          aliases: [plugin.name, capability.name],
-        })),
-      );
-    } catch {
-      return [];
-    }
-  }
-
-  private looksLikeVoiceNotepadWrite(text: string): boolean {
-    return (
-      /\u8bb0\u4e8b\u672c/u.test(text) &&
-      /(?:\u8f93\u5165|\u5199\u5165|\u5199\u4e0a|\u6253\u5b57)/u.test(text)
-    );
   }
 
   private async routeBrainIntentWithProvider(input: {
