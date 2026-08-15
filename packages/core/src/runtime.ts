@@ -147,6 +147,7 @@ import {
   DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
   DeterministicPlannerService,
 } from "./planner/deterministic-planner-service";
+import { PlannerApprovalService } from "./planner/planner-approval-service";
 import { ProviderPlannerService } from "./planner/provider-planner-service";
 
 type EventSink = (event: EventEnvelope) => void;
@@ -469,6 +470,7 @@ export class CoreRuntime {
   private readonly routeAliasMemoryService: RouteAliasMemoryService;
   private readonly deterministicPlannerService: DeterministicPlannerService;
   private readonly providerPlannerService: ProviderPlannerService;
+  private readonly plannerApprovalService: PlannerApprovalService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -563,6 +565,10 @@ export class CoreRuntime {
       now: this.now,
       allowedToolIds: BRAIN_PLANNER_ALLOWED_TOOL_IDS,
       rulesFallbackProviderId: "brain.rules",
+    });
+    this.plannerApprovalService = new PlannerApprovalService({
+      repository: this.taskRepository,
+      now: this.now,
     });
     this.commandRoutingService = new CommandRoutingService({
       productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
@@ -4252,76 +4258,26 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    const repository = this.taskRepository;
-    if (!repository) {
-      return this.failure(envelope, {
-        code: "TASK_REPOSITORY_UNAVAILABLE",
-        message: "Task cancellation is unavailable because Task Runtime storage is not configured.",
-        retryable: true,
-      });
-    }
     const { taskId, reason: requestedReason } = envelope.command.payload as {
       taskId: string;
       reason?: string;
     };
-    const tasks = await repository.listTasks();
-    const task = tasks.find((candidate) => candidate.id === taskId);
-    if (!task) {
-      return this.failure(envelope, {
-        code: "TASK_NOT_FOUND",
-        message: "The requested task was not found.",
-        retryable: false,
-      });
-    }
-    if (
-      task.state !== "queued" &&
-      task.state !== "planning" &&
-      task.state !== "awaiting_confirmation"
-    ) {
-      return this.failure(envelope, {
-        code: "TASK_CANCEL_NOT_ALLOWED",
-        message: "Only queued, planning, or awaiting-confirmation tasks can be cancelled by this control.",
-        retryable: false,
-      });
-    }
-    const cancelledAt = this.now().toISOString();
-    for (const step of task.steps) {
-      if (step.state !== "pending" && step.state !== "running") {
-        continue;
-      }
-      await repository.updateStep({
-        id: step.id,
-        taskId: task.id,
-        state: "cancelled",
-        verificationStatus:
-          step.verificationStatus === "verified"
-            ? "verified"
-            : "not_applicable",
-        completedAt: cancelledAt,
-        failureReason:
-          step.failureReason ??
-          "Task was cancelled before this planned step executed.",
-      });
-    }
-    const reason =
-      requestedReason ?? "User cancelled the pending task before execution.";
-    const updated = await repository.updateTask({
-      id: task.id,
-      state: "cancelled",
-      updatedAt: cancelledAt,
-      completedAt: cancelledAt,
-      verificationSummary: reason,
+    const result = await this.plannerApprovalService.cancel({
+      taskId,
+      reason: requestedReason,
     });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId: task.id,
-      type: "cancelled",
-      message: reason,
-      createdAt: cancelledAt,
-    });
+    if (!result.ok) {
+      return this.failure(envelope, {
+        code: result.code,
+        message: result.message,
+        retryable: result.retryable,
+      });
+    }
     await this.refreshTasksFromRepository();
     this.publishSnapshot(envelope.correlationId);
-    const refreshed = this.tasks.find((candidate) => candidate.id === task.id) ?? updated;
+    const refreshed =
+      this.tasks.find((candidate) => candidate.id === result.task.id) ??
+      result.task;
     return this.success(envelope, {
       task: refreshed,
       cancelled: true,
@@ -4337,168 +4293,39 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    const repository = this.taskRepository;
-    if (!repository) {
-      return this.failure(envelope, {
-        code: "TASK_REPOSITORY_UNAVAILABLE",
-        message:
-          "Task approval is unavailable because Task Runtime storage is not configured.",
-        retryable: true,
-      });
-    }
-
     const { taskId } = envelope.command.payload as {
       taskId: string;
       confirmation: "explicit_ui_confirmation";
     };
-    const tasks = await repository.listTasks();
-    const task = tasks.find((candidate) => candidate.id === taskId);
-    if (!task) {
-      return this.failure(envelope, {
-        code: "TASK_NOT_FOUND",
-        message: "The requested task was not found.",
-        retryable: false,
-      });
-    }
-    if (task.state !== "awaiting_confirmation") {
-      return this.failure(envelope, {
-        code: "TASK_APPROVAL_NOT_ALLOWED",
-        message:
-          "Only awaiting-confirmation planner draft tasks can be approved by this control.",
-        retryable: false,
-      });
-    }
-    if (task.steps.length === 0) {
-      return this.failure(envelope, {
-        code: "TASK_APPROVAL_EMPTY_PLAN",
-        message: "Planner draft approval failed closed because no steps exist.",
-        retryable: false,
-      });
-    }
-
-    const startedAt = this.now().toISOString();
-    await repository.updateTask({
-      id: task.id,
-      state: "running",
-      updatedAt: startedAt,
-      startedAt,
-      verificationSummary:
-        "Planner draft approved by explicit UI confirmation; bounded execution started.",
+    const result = await this.plannerApprovalService.approve({
+      taskId,
+      executeStep: (step, toolId) =>
+        this.executeApprovedPlannerTaskStep(step, toolId),
+      onProgress: async () => {
+        await this.refreshTasksFromRepository();
+        this.publishSnapshot(envelope.correlationId);
+      },
     });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId: task.id,
-      type: "state_changed",
-      message:
-        "Planner draft approved by explicit UI confirmation; bounded execution started.",
-      createdAt: startedAt,
-    });
+    if (!result.ok) {
+      return this.failure(envelope, {
+        code: result.code,
+        message: result.message,
+        retryable: result.retryable,
+      });
+    }
     await this.refreshTasksFromRepository();
     this.publishSnapshot(envelope.correlationId);
-
-    let failedStepCount = 0;
-    let executedStepCount = 0;
-    for (const step of task.steps) {
-      if (failedStepCount > 0) {
-        await this.cancelRemainingApprovedPlannerStep(repository, task, step);
-        continue;
-      }
-      const toolId = this.resolvePlannerTaskStepToolId(step);
-      const runningAt = this.now().toISOString();
-      await repository.updateStep({
-        id: step.id,
-        taskId: task.id,
-        state: "running",
-        verificationStatus: "pending",
-      });
-      await repository.createEvent({
-        id: createId("task-event"),
-        taskId: task.id,
-        stepId: step.id,
-        type: "step_started",
-        message: `Approved planner step started: ${toolId ?? "unknown"}.`,
-        createdAt: runningAt,
-      });
-
-      const result = await this.executeApprovedPlannerTaskStep(step, toolId);
-      const completedAt = this.now().toISOString();
-      await repository.updateStep({
-        id: step.id,
-        taskId: task.id,
-        state: result.ok ? "completed" : "failed",
-        verificationStatus: result.verificationStatus,
-        completedAt,
-        resultSummary: result.summary,
-        ...(result.ok ? {} : { failureReason: result.failureReason }),
-      });
-      await repository.createEvent({
-        id: createId("task-event"),
-        taskId: task.id,
-        stepId: step.id,
-        type: result.ok ? "verification_completed" : "verification_failed",
-        message: result.summary,
-        createdAt: completedAt,
-      });
-      if (result.ok) {
-        executedStepCount += 1;
-      } else {
-        failedStepCount += 1;
-      }
-      await this.refreshTasksFromRepository();
-      this.publishSnapshot(envelope.correlationId);
-    }
-
-    const completedAt = this.now().toISOString();
-    const finalSummary =
-      failedStepCount === 0
-        ? `Planner draft approval completed ${executedStepCount} bounded step(s) with verified or not-applicable results.`
-        : `Planner draft approval stopped after ${executedStepCount} bounded step(s); ${failedStepCount} step failed closed.`;
-    const updated = await repository.updateTask({
-      id: task.id,
-      state: failedStepCount === 0 ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: finalSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId: task.id,
-      type: failedStepCount === 0 ? "verification_completed" : "failed",
-      message: finalSummary,
-      createdAt: completedAt,
-    });
-    await this.refreshTasksFromRepository();
-    this.publishSnapshot(envelope.correlationId);
-    const refreshed = this.tasks.find((candidate) => candidate.id === task.id) ?? updated;
+    const refreshed =
+      this.tasks.find((candidate) => candidate.id === result.task.id) ??
+      result.task;
     return this.success(envelope, {
       task: refreshed,
       approved: true,
-      executedStepCount,
-      failedStepCount,
+      executedStepCount: result.executedStepCount,
+      failedStepCount: result.failedStepCount,
       directActionAttempted: false,
     });
   }
-
-  private async cancelRemainingApprovedPlannerStep(
-    repository: TaskRepository,
-    task: Task,
-    step: TaskStep,
-  ): Promise<void> {
-    if (step.state !== "pending" && step.state !== "running") {
-      return;
-    }
-    const completedAt = this.now().toISOString();
-    await repository.updateStep({
-      id: step.id,
-      taskId: task.id,
-      state: "cancelled",
-      verificationStatus: "not_applicable",
-      completedAt,
-      failureReason:
-        "Planner approval stopped before this remaining step executed.",
-    });
-  }
-
   private async executeApprovedPlannerTaskStep(
     step: TaskStep,
     toolId: string | undefined,
