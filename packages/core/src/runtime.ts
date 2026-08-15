@@ -148,6 +148,7 @@ import {
   DeterministicPlannerService,
 } from "./planner/deterministic-planner-service";
 import { PlannerApprovalService } from "./planner/planner-approval-service";
+import { PlannerExecutionCoordinator } from "./planner/planner-execution-coordinator";
 import { ProviderPlannerService } from "./planner/provider-planner-service";
 
 type EventSink = (event: EventEnvelope) => void;
@@ -471,6 +472,7 @@ export class CoreRuntime {
   private readonly deterministicPlannerService: DeterministicPlannerService;
   private readonly providerPlannerService: ProviderPlannerService;
   private readonly plannerApprovalService: PlannerApprovalService;
+  private readonly plannerExecutionCoordinator: PlannerExecutionCoordinator;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -569,6 +571,24 @@ export class CoreRuntime {
     this.plannerApprovalService = new PlannerApprovalService({
       repository: this.taskRepository,
       now: this.now,
+    });
+    this.plannerExecutionCoordinator = new PlannerExecutionCoordinator({
+      actionExecutor: this.brainActionExecutor,
+      getRuntimeStatus: () => ({
+        health: this.health,
+        sequenceId: this.sequenceId,
+        voiceState: this.voiceEngine.getSnapshot().state,
+        memoryHealthStatus: this.memoryHealth?.status ?? "unknown",
+      }),
+      voiceCommandAliasRepository: this.voiceCommandAliasRepository,
+      userRouteAliasRepository: this.userRouteAliasRepository,
+      userPreferenceMemoryRepository: this.userPreferenceMemoryRepository,
+      resolveKnownLocalApp: (target) => {
+        const appLabel = this.commandRouterRealLocalAppLaunchLabel(target);
+        return appLabel === "blocked" ? undefined : appLabel;
+      },
+      displayKnownLocalApp: (label) =>
+        this.commandRouterKnownLocalAppDisplayName(label),
     });
     this.commandRoutingService = new CommandRoutingService({
       productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
@@ -4300,7 +4320,7 @@ export class CoreRuntime {
     const result = await this.plannerApprovalService.approve({
       taskId,
       executeStep: (step, toolId) =>
-        this.executeApprovedPlannerTaskStep(step, toolId),
+        this.plannerExecutionCoordinator.executeStep(step, toolId),
       onProgress: async () => {
         await this.refreshTasksFromRepository();
         this.publishSnapshot(envelope.correlationId);
@@ -4326,241 +4346,6 @@ export class CoreRuntime {
       directActionAttempted: false,
     });
   }
-  private async executeApprovedPlannerTaskStep(
-    step: TaskStep,
-    toolId: string | undefined,
-  ): Promise<{
-    ok: boolean;
-    verificationStatus: TaskStepVerificationStatus;
-    summary: string;
-    failureReason?: string;
-  }> {
-    switch (toolId) {
-      case "observability.status":
-        return {
-          ok: true,
-          verificationStatus: "verified",
-          summary: `Core status verified: ${this.health}; sequence ${this.sequenceId}; voice ${this.voiceEngine.getSnapshot().state}; Memory ${this.memoryHealth?.status ?? "unknown"}.`,
-        };
-
-      case "memory.status":
-        return {
-          ok: true,
-          verificationStatus: "verified",
-          summary: await this.summarizeApprovedPlannerMemoryStatus(),
-        };
-
-      case "filesystem.search":
-        return this.executeApprovedPlannerFilesystemSearch(step);
-
-      case "browser.open":
-        return this.executeApprovedPlannerBrowserOpen(step);
-
-      case "localApp.open":
-        return this.executeApprovedPlannerLocalAppOpen(step);
-
-      case "plugin.invoke":
-      case "chat.answer":
-      case "notepad.writeText":
-      case "window.focus":
-      case "window.minimize":
-      case "window.restore":
-      case "memory.search":
-      case "model.status":
-      case "system.settings":
-        return {
-          ok: false,
-          verificationStatus: "verification_failed",
-          summary: `${toolId} is not executable in Planner Draft Approve/Execute L3; the step failed closed before any action.`,
-          failureReason: "PLANNER_STEP_NOT_EXECUTABLE_IN_L3",
-        };
-
-      default:
-        return {
-          ok: false,
-          verificationStatus: "verification_failed",
-          summary:
-            "Planner draft approval failed closed because the step tool is unknown.",
-          failureReason: "PLANNER_STEP_TOOL_UNKNOWN",
-        };
-    }
-  }
-
-  private async executeApprovedPlannerFilesystemSearch(
-    step: TaskStep,
-  ): Promise<{
-    ok: boolean;
-    verificationStatus: TaskStepVerificationStatus;
-    summary: string;
-    failureReason?: string;
-  }> {
-    if (!this.brainActionExecutor?.searchFilesystem) {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft filesystem.search could not run because the observe-only executor is unavailable.",
-        failureReason: "FILESYSTEM_SEARCH_EXECUTOR_UNAVAILABLE",
-      };
-    }
-    const query =
-      typeof step.toolInput?.query === "string" && step.toolInput.query.trim()
-        ? step.toolInput.query.trim()
-        : "project";
-    const actionResult = await this.brainActionExecutor.searchFilesystem({
-      target: query,
-    });
-    const verificationStatus =
-      actionResult.status === "completed"
-        ? (actionResult.verificationStatus ?? "verified")
-        : "verification_failed";
-    const ok = verificationStatus === "verified";
-    return {
-      ok,
-      verificationStatus,
-      summary:
-        actionResult.verificationSummary ??
-        (ok
-          ? `Planner draft filesystem.search verified ${actionResult.matchCount ?? 0} sanitized candidate(s).`
-          : `Planner draft filesystem.search failed verification: ${actionResult.reasonCode}.`),
-      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
-    };
-  }
-
-  private async executeApprovedPlannerBrowserOpen(
-    step: TaskStep,
-  ): Promise<{
-    ok: boolean;
-    verificationStatus: TaskStepVerificationStatus;
-    summary: string;
-    failureReason?: string;
-  }> {
-    if (!this.brainActionExecutor) {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft browser.open could not run because the browser executor is unavailable.",
-        failureReason: "BROWSER_OPEN_EXECUTOR_UNAVAILABLE",
-      };
-    }
-    const target =
-      typeof step.toolInput?.target === "string" ? step.toolInput.target.trim() : "";
-    if (!target) {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft browser.open failed closed because no structured browser target was present.",
-        failureReason: "BROWSER_OPEN_TARGET_MISSING",
-      };
-    }
-    const actionResult = await this.brainActionExecutor.openBrowser({
-      target,
-    });
-    const verificationStatus =
-      actionResult.status === "completed"
-        ? (actionResult.verificationStatus ?? "verified")
-        : "verification_failed";
-    const ok = verificationStatus === "verified";
-    return {
-      ok,
-      verificationStatus,
-      summary:
-        actionResult.verificationSummary ??
-        (ok
-          ? `Planner draft browser.open verified URL policy for ${actionResult.label}.`
-          : `Planner draft browser.open failed verification: ${actionResult.reasonCode}.`),
-      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
-    };
-  }
-
-  private async executeApprovedPlannerLocalAppOpen(
-    step: TaskStep,
-  ): Promise<{
-    ok: boolean;
-    verificationStatus: TaskStepVerificationStatus;
-    summary: string;
-    failureReason?: string;
-  }> {
-    if (!this.brainActionExecutor) {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft localApp.open could not run because the known-app executor is unavailable.",
-        failureReason: "LOCAL_APP_OPEN_EXECUTOR_UNAVAILABLE",
-      };
-    }
-    const target =
-      typeof step.toolInput?.target === "string" ? step.toolInput.target.trim() : "";
-    if (!target) {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft localApp.open failed closed because no structured known-app target was present.",
-        failureReason: "LOCAL_APP_TARGET_MISSING",
-      };
-    }
-    const appLabel = this.commandRouterRealLocalAppLaunchLabel(target);
-    if (appLabel === "blocked") {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft localApp.open failed closed because the target is not a known local app.",
-        failureReason: "LOCAL_APP_TARGET_NOT_ALLOWLISTED",
-      };
-    }
-    const appName = this.commandRouterKnownLocalAppDisplayName(appLabel);
-    const actionResult = await this.brainActionExecutor.openLocalApp({
-      target: appLabel,
-    });
-    const verificationStatus =
-      actionResult.status === "completed"
-        ? (actionResult.verificationStatus ?? "unverified")
-        : "verification_failed";
-    const ok = verificationStatus === "verified";
-    return {
-      ok,
-      verificationStatus,
-      summary:
-        actionResult.verificationSummary ??
-        (ok
-          ? `Planner draft localApp.open verified ${appName} through existing known-app policy.`
-          : `Planner draft localApp.open failed verification for ${appName}: ${actionResult.reasonCode}.`),
-      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
-    };
-  }
-
-  private async summarizeApprovedPlannerMemoryStatus(): Promise<string> {
-    let voiceAliases = 0;
-    let routeAliases = 0;
-    let preferences = 0;
-    if (this.voiceCommandAliasRepository) {
-      await this.voiceCommandAliasRepository.initialize();
-      voiceAliases = (await this.voiceCommandAliasRepository.listAliases()).length;
-    }
-    if (this.userRouteAliasRepository) {
-      await this.userRouteAliasRepository.initialize();
-      routeAliases = (await this.userRouteAliasRepository.listAliases()).length;
-    }
-    if (this.userPreferenceMemoryRepository) {
-      await this.userPreferenceMemoryRepository.initialize();
-      preferences = (await this.userPreferenceMemoryRepository.listPreferences()).length;
-    }
-    return `User-controlled memory status verified: ${voiceAliases + routeAliases + preferences} visible record(s); routes ${routeAliases}; voice aliases ${voiceAliases}; preferences ${preferences}; raw private content hidden.`;
-  }
-
-  private resolvePlannerTaskStepToolId(step: TaskStep): string | undefined {
-    if (step.toolId) {
-      return step.toolId;
-    }
-    const match = /\[([A-Za-z0-9_.-]+)\]\s*$/u.exec(step.title);
-    return match?.[1];
-  }
-
   private createBrainAlphaHardening(input: {
     source: "text" | "voice";
     decision: BrainRouterDecision;
