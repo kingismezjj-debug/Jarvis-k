@@ -13,11 +13,6 @@ import {
   IPC_EVENT_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
-  IPC_TTS_SETTINGS_CLEAR_CHANNEL,
-  IPC_TTS_SETTINGS_OPEN_CHANNEL,
-  IPC_TTS_SETTINGS_SAVE_CHANNEL,
-  IPC_TTS_SETTINGS_STATUS_CHANNEL,
-  IPC_TTS_SYNTHESIZE_CHANNEL,
   IPC_VOICE_SETTINGS_OPEN_CHANNEL,
   IPC_VOICE_SETTINGS_STATUS_CHANNEL,
   IPC_VOICE_AUDIO_CHANNEL,
@@ -67,6 +62,8 @@ import { createVoiceSettingsWindow } from "./voice-settings-window";
 import { createMainWindow } from "./windows/main-window";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc";
 import { SettingsService } from "./settings/settings-service";
+import { registerSecureStoreIpc } from "./ipc/register-secure-store-ipc";
+import { SecureStoreService } from "./secure-store/secure-store-service";
 
 let mainWindow: BrowserWindow | null = null;
 let voiceSettingsWindow: BrowserWindow | null = null;
@@ -80,6 +77,7 @@ let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
 let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
   null;
 let settingsService: SettingsService | null = null;
+let secureStoreService: SecureStoreService | null = null;
 let qwenRuntimeControlState:
   | "disabled"
   | "prepared"
@@ -127,15 +125,18 @@ function invalidCommandResult(rawValue: unknown): CommandResult {
   };
 }
 
+function getSecureStoreService(): SecureStoreService {
+  if (!secureStoreService) {
+    secureStoreService = new SecureStoreService(safeStorage);
+  }
+  return secureStoreService;
+}
+
 function getVoiceProviderStore(): SecureVoiceProviderStore {
   if (!voiceProviderStore) {
     voiceProviderStore = new SecureVoiceProviderStore(
       path.join(app.getPath("userData"), "jarvis-k-voice-provider.json"),
-      {
-        isAvailable: () => safeStorage.isEncryptionAvailable(),
-        encrypt: (value) => safeStorage.encryptString(value),
-        decrypt: (value) => safeStorage.decryptString(value)
-      }
+      getSecureStoreService().encryption()
     );
   }
   return voiceProviderStore;
@@ -145,11 +146,7 @@ function getTtsProviderStore(): SecureTtsProviderStore {
   if (!ttsProviderStore) {
     ttsProviderStore = new SecureTtsProviderStore(
       path.join(app.getPath("userData"), "jarvis-k-tts-provider.json"),
-      {
-        isAvailable: () => safeStorage.isEncryptionAvailable(),
-        encrypt: (value) => safeStorage.encryptString(value),
-        decrypt: (value) => safeStorage.decryptString(value)
-      }
+      getSecureStoreService().encryption()
     );
   }
   return ttsProviderStore;
@@ -172,11 +169,7 @@ function getHeavyPlannerProviderStore(
         ? "jarvis-k-heavy-planner-glm-provider.json"
         : "jarvis-k-heavy-planner-provider.json"
     ),
-    {
-      isAvailable: () => safeStorage.isEncryptionAvailable(),
-      encrypt: (value) => safeStorage.encryptString(value),
-      decrypt: (value) => safeStorage.decryptString(value)
-    },
+    getSecureStoreService().encryption(),
     provider
   );
   if (provider === "glm") {
@@ -249,11 +242,7 @@ function getChatAnswerProviderStore(
         ? "jarvis-k-chat-answer-deepseek-provider.json"
         : "jarvis-k-chat-answer-glm-provider.json"
     ),
-    {
-      isAvailable: () => safeStorage.isEncryptionAvailable(),
-      encrypt: (value) => safeStorage.encryptString(value),
-      decrypt: (value) => safeStorage.decryptString(value)
-    },
+    getSecureStoreService().encryption(),
     provider
   );
   if (provider === "chat-answer.openai-compatible.deepseek") {
@@ -526,7 +515,7 @@ async function getTtsServiceStatus(): Promise<TtsServiceStatus> {
   } catch {
     return {
       configured: false,
-      secureStorageAvailable: safeStorage.isEncryptionAvailable()
+      secureStorageAvailable: getSecureStoreService().status().available
     };
   }
 }
@@ -770,6 +759,27 @@ async function synthesizeDoubaoTts(
   }
 }
 
+async function synthesizeTtsFromIpc(
+  _event: unknown,
+  rawInput: unknown
+): Promise<TtsSynthesisResult> {
+  const raw =
+    typeof rawInput === "object" && rawInput !== null
+      ? (rawInput as Record<string, unknown>)
+      : {};
+  const text = typeof raw.text === "string" ? raw.text.trim() : "";
+  const voiceId =
+    typeof raw.voiceId === "string" ? raw.voiceId.trim() : undefined;
+  if (!text) {
+    return {
+      ok: false,
+      code: "TTS_REQUEST_REJECTED",
+      message: "TTS text is required."
+    };
+  }
+  return synthesizeDoubaoTts(text, voiceId);
+}
+
 async function getVoiceServiceStatus(): Promise<VoiceServiceStatus> {
   if (isStage5LocalAcceptanceNoSecureStore()) {
     return {
@@ -782,7 +792,7 @@ async function getVoiceServiceStatus(): Promise<VoiceServiceStatus> {
   } catch {
     return {
       configured: false,
-      secureStorageAvailable: safeStorage.isEncryptionAvailable()
+      secureStorageAvailable: getSecureStoreService().status().available
     };
   }
 }
@@ -1003,9 +1013,15 @@ if (!hasSingleInstanceLock) {
       openVoiceSettingsWindow();
       return getVoiceServiceStatus();
     });
-    ipcMain.handle(IPC_TTS_SETTINGS_STATUS_CHANNEL, () =>
-      getTtsServiceStatus()
-    );
+    registerSecureStoreIpc({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      openTtsSettingsWindow: openVoiceSettingsWindow,
+      getTtsServiceStatus,
+      saveTtsProviderSettings,
+      clearTtsProviderSettings,
+      synthesizeTts: synthesizeTtsFromIpc
+    });
     registerSettingsIpc({
       ipcMain,
       getMainWindow: () => mainWindow,
@@ -1018,10 +1034,6 @@ if (!hasSingleInstanceLock) {
       IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
       setQwenRuntimeControlAction
     );
-    ipcMain.handle(IPC_TTS_SETTINGS_OPEN_CHANNEL, async () => {
-      openVoiceSettingsWindow();
-      return getTtsServiceStatus();
-    });
     ipcMain.handle(VOICE_PROVIDER_SETTINGS_STATUS_CHANNEL, (event) => {
       if (!isVoiceSettingsSender(event)) {
         return {
@@ -1039,32 +1051,6 @@ if (!hasSingleInstanceLock) {
       VOICE_PROVIDER_SETTINGS_CLEAR_CHANNEL,
       clearVoiceProviderSettings
     );
-    ipcMain.handle(IPC_TTS_SETTINGS_SAVE_CHANNEL, saveTtsProviderSettings);
-    ipcMain.handle(IPC_TTS_SETTINGS_CLEAR_CHANNEL, clearTtsProviderSettings);
-    ipcMain.handle(IPC_TTS_SYNTHESIZE_CHANNEL, async (event, rawInput) => {
-      if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
-        return {
-          ok: false,
-          code: "TTS_REQUEST_REJECTED",
-          message: "TTS request rejected."
-        };
-      }
-      const raw =
-        typeof rawInput === "object" && rawInput !== null
-          ? (rawInput as Record<string, unknown>)
-          : {};
-      const text = typeof raw.text === "string" ? raw.text.trim() : "";
-      const voiceId =
-        typeof raw.voiceId === "string" ? raw.voiceId.trim() : undefined;
-      if (!text) {
-        return {
-          ok: false,
-          code: "TTS_REQUEST_REJECTED",
-          message: "TTS text is required."
-        };
-      }
-      return synthesizeDoubaoTts(text, voiceId);
-    });
     ipcMain.on(VOICE_PROVIDER_SETTINGS_CLOSE_CHANNEL, (event) => {
       if (voiceSettingsWindow?.webContents.id === event.sender.id) {
         voiceSettingsWindow.close();
