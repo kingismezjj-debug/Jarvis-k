@@ -6,14 +6,21 @@ const mainSource = readFileSync(
   path.resolve(import.meta.dirname, "..", "src", "main.ts"),
   "utf8",
 );
+const appLifecycleSource = readFileSync(
+  path.resolve(import.meta.dirname, "..", "src", "app-lifecycle.ts"),
+  "utf8",
+);
 
 describe("Electron GPU fail-safe", () => {
   it("keeps hardware acceleration disabled unless explicitly opted in", () => {
-    expect(mainSource).toContain("JARVIS_K_ENABLE_ELECTRON_GPU");
-    expect(mainSource).toContain("app.disableHardwareAcceleration()");
-    expect(mainSource).toContain('app.commandLine.appendSwitch("disable-gpu")');
-    expect(mainSource).toContain(
-      'app.commandLine.appendSwitch("disable-gpu-compositing")',
+    expect(mainSource).toContain("configureElectronGpuPolicy({ app })");
+    expect(appLifecycleSource).toContain("JARVIS_K_ENABLE_ELECTRON_GPU");
+    expect(appLifecycleSource).toContain("disableHardwareAcceleration()");
+    expect(appLifecycleSource).toContain(
+      'commandLine.appendSwitch("disable-gpu")',
+    );
+    expect(appLifecycleSource).toContain(
+      'commandLine.appendSwitch("disable-gpu-compositing")',
     );
   });
 });
