@@ -8,7 +8,6 @@ import {
   BrainIntent,
   BrainPlanStep,
   BrainPlannerResult,
-  BrainPlannerResultSchema,
   BrainPlannerSelectionReport,
   BrainPlannerSelectionReportSchema,
   BrainToolProductLoop,
@@ -18,7 +17,6 @@ import {
   BrainRouterDecisionSchema,
   BrainRouterSelectionReport,
   BrainRouterSelectionReportSchema,
-  BrainPlannerRequestSchema,
   ChatAnswerResult,
   CapabilitySnapshot,
   CapabilitySnapshotSchema,
@@ -149,6 +147,7 @@ import {
   DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
   DeterministicPlannerService,
 } from "./planner/deterministic-planner-service";
+import { ProviderPlannerService } from "./planner/provider-planner-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -469,6 +468,7 @@ export class CoreRuntime {
   private readonly userPreferenceMemoryService: UserPreferenceMemoryService;
   private readonly routeAliasMemoryService: RouteAliasMemoryService;
   private readonly deterministicPlannerService: DeterministicPlannerService;
+  private readonly providerPlannerService: ProviderPlannerService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -557,6 +557,12 @@ export class CoreRuntime {
       extractOpenTarget: (text) => this.extractOpenTarget(text),
       isKnownLocalAppTarget: (target) =>
         this.commandRouterRealLocalAppLaunchLabel(target) !== "blocked",
+    });
+    this.providerPlannerService = new ProviderPlannerService({
+      provider: this.heavyPlannerProvider,
+      now: this.now,
+      allowedToolIds: BRAIN_PLANNER_ALLOWED_TOOL_IDS,
+      rulesFallbackProviderId: "brain.rules",
     });
     this.commandRoutingService = new CommandRoutingService({
       productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
@@ -3305,137 +3311,13 @@ export class CoreRuntime {
         }),
       };
     }
-    if (!this.heavyPlannerProvider) {
-      return {
-        selection: this.brainPlannerSelection({
-          providerId,
-          fallbackProviderId: "brain.rules",
-          status: "unavailable",
-          reasonCode: "PROVIDER_UNAVAILABLE",
-          failureClass: "PROVIDER_UNAVAILABLE",
-          usedPlanner: false,
-          usedRulesFallback: true,
-        }),
-      };
-    }
-
-    try {
-      const request = BrainPlannerRequestSchema.parse({
-        providerId,
-        utterance: input.text,
-        source: input.source,
-        routedAt: this.now().toISOString(),
-        routerDecision: input.routing.decision,
-        routerSelection: input.routing.selection,
-        context: {
-          ...((input.conversationId ?? this.activeConversationId)
-            ? {
-                activeConversationId:
-                  input.conversationId ?? this.activeConversationId,
-              }
-            : {}),
-          allowedToolIds: [...BRAIN_PLANNER_ALLOWED_TOOL_IDS],
-        },
-      });
-      const rawResult = await this.heavyPlannerProvider.plan(request);
-      const parsedResult = BrainPlannerResultSchema.safeParse(rawResult);
-      if (!parsedResult.success) {
-        return {
-          selection: this.brainPlannerSelection({
-            providerId,
-            fallbackProviderId: "brain.rules",
-            status: "fallback",
-            reasonCode: "INVALID_PLAN",
-            failureClass: "PROVIDER_RESULT_INVALID",
-            usedPlanner: false,
-            usedRulesFallback: true,
-          }),
-        };
-      }
-      const result = parsedResult.data;
-      if (result.providerId !== providerId) {
-        return {
-          selection: this.brainPlannerSelection({
-            providerId,
-            fallbackProviderId: "brain.rules",
-            status: "fallback",
-            reasonCode: "INVALID_PLAN",
-            failureClass: "PROVIDER_RESULT_INVALID",
-            usedPlanner: false,
-            usedRulesFallback: true,
-          }),
-        };
-      }
-      if (result.status === "planned") {
-        return {
-          result,
-          selection: this.brainPlannerSelection({
-            providerId,
-            status: "planned",
-            reasonCode: result.reasonCode,
-            failureClass: result.failureClass,
-            usedPlanner: true,
-            usedRulesFallback: false,
-          }),
-        };
-      }
-      if (result.status === "clarify") {
-        return {
-          result,
-          selection: this.brainPlannerSelection({
-            providerId,
-            status: "clarify",
-            reasonCode: result.reasonCode,
-            failureClass: result.failureClass,
-            usedPlanner: true,
-            usedRulesFallback: false,
-          }),
-        };
-      }
-      if (result.status === "blocked") {
-        return {
-          result,
-          selection: this.brainPlannerSelection({
-            providerId,
-            status: "blocked",
-            reasonCode:
-              result.reasonCode === "UNSAFE_PLAN"
-                ? "UNSAFE_PLAN"
-                : result.reasonCode,
-            failureClass:
-              result.failureClass === "none"
-                ? "UNSAFE_PLAN"
-                : result.failureClass,
-            usedPlanner: true,
-            usedRulesFallback: false,
-          }),
-        };
-      }
-      return {
-        result,
-        selection: this.brainPlannerSelection({
-          providerId,
-          fallbackProviderId: "brain.rules",
-          status: "unavailable",
-          reasonCode: "PROVIDER_UNAVAILABLE",
-          failureClass: "PROVIDER_UNAVAILABLE",
-          usedPlanner: false,
-          usedRulesFallback: true,
-        }),
-      };
-    } catch {
-      return {
-        selection: this.brainPlannerSelection({
-          providerId,
-          fallbackProviderId: "brain.rules",
-          status: "fallback",
-          reasonCode: "PROVIDER_FAILED",
-          failureClass: "PROVIDER_EXECUTION_FAILED",
-          usedPlanner: false,
-          usedRulesFallback: true,
-        }),
-      };
-    }
+    return this.providerPlannerService.plan({
+      providerId,
+      source: input.source,
+      text: input.text,
+      routing: input.routing,
+      conversationId: input.conversationId ?? this.activeConversationId,
+    });
   }
 
   private async dispatchBrainIntent(input: {
