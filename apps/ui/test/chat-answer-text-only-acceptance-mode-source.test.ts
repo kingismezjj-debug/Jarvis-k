@@ -30,10 +30,10 @@ describe("Chat Answer text-only acceptance mode UI", () => {
   it("keeps text command input available and suppresses voice transcript projection", () => {
     expect(appSource).toContain('data-testid="command-input"');
     expect(appSource).toContain('data-testid="send-command"');
-    expect(appSource).toContain("!textOnlyAcceptanceMode &&");
-    expect(appSource).toContain(
-      '(voiceTranscript || snapshot?.voice.state !== "idle")',
-    );
+    expect(appSource).toContain("hidden: textOnlyAcceptanceMode");
+    expect(appSource).toContain("voiceProjection.hidden");
+    expect(appSource).toContain('state: snapshot?.voice.state ?? "idle"');
+    expect(appSource).toContain("transcript: voiceTranscript");
     expect(appSource).toContain("handleSelectView(view: ActiveView)");
   });
 });
