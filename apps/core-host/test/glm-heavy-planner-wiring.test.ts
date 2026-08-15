@@ -6,6 +6,16 @@ const source = readFileSync(
   path.resolve(import.meta.dirname, "..", "src", "index.ts"),
   "utf8"
 );
+const plannerCompositionSource = readFileSync(
+  path.resolve(
+    import.meta.dirname,
+    "..",
+    "src",
+    "composition",
+    "planner-composition.ts",
+  ),
+  "utf8",
+);
 const runtimeConfigSource = readFileSync(
   path.resolve(import.meta.dirname, "..", "src", "config", "runtime-config.ts"),
   "utf8"
@@ -19,8 +29,15 @@ describe("Core Host GLM runtime wiring", () => {
       "JARVIS_K_HEAVY_PLANNER_GLM_ONE_WINDOW_APPROVED"
     );
     expect(runtimeConfigSource).toContain("Only one heavy planner provider");
-    expect(source).toContain("runtimeConfig.glmRuntimeHeavyPlannerEnabled");
-    expect(source).toContain("runtimeConfig.glmRuntimeHeavyPlannerOneWindowApproved");
+    expect(plannerCompositionSource).toContain(
+      "runtimeConfig.glmRuntimeHeavyPlannerEnabled"
+    );
+    expect(plannerCompositionSource).toContain(
+      "runtimeConfig.glmRuntimeHeavyPlannerOneWindowApproved"
+    );
     expect(source).not.toContain("new GlmRuntimeHeavyPlannerProvider");
+    expect(plannerCompositionSource).not.toContain(
+      "new GlmRuntimeHeavyPlannerProvider"
+    );
   });
 });
