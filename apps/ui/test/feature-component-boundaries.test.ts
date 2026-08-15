@@ -16,6 +16,7 @@ const featureComponents = [
   "features/plugins/plugin-management-view.tsx",
   "features/plugins/plugin-projection-panel.tsx",
   "features/settings/settings-general-panel.tsx",
+  "features/memory/memory-boundary-panel.tsx",
   "features/memory/memory-center.tsx",
   "features/tasks/task-timeline.tsx",
 ];
@@ -73,7 +74,9 @@ describe("UI feature component boundaries", () => {
     expect(projectionSource).toContain(
       'data-testid="plugin-management-state-summary"',
     );
-    expect(projectionSource).toContain('data-testid="plugin-management-safety"');
+    expect(projectionSource).toContain(
+      'data-testid="plugin-management-safety"',
+    );
     expect(projectionSource).toContain(
       'data-testid="plugin-mcp-adapter-status"',
     );
@@ -93,5 +96,19 @@ describe("UI feature component boundaries", () => {
     );
     expect(source).toContain("RAW_HIDDEN");
     expect(source).toContain("PROVIDER_NEUTRAL");
+  });
+
+  it("keeps memory boundary rendering passive", () => {
+    const source = readSource("features/memory/memory-boundary-panel.tsx");
+    const viewModelSource = readSource(
+      "features/memory/memory-boundary-view-model.ts",
+    );
+
+    expect(source).toContain('data-testid="user-controlled-memory-boundary"');
+    expect(source).not.toContain("onClick");
+    expect(source).not.toContain("useEffect");
+    expect(viewModelSource).toContain("buildMemoryBoundaryViewModel");
+    expect(viewModelSource).not.toContain("window.jarvis");
+    expect(viewModelSource).not.toContain("ipcRenderer");
   });
 });

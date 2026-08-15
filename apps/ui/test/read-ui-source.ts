@@ -29,6 +29,8 @@ export function readAppCompositionSource() {
     "features/activity/activity-view.tsx",
     "features/appearance/appearance-settings-panel.tsx",
     "features/diagnostics/system-status-panel.tsx",
+    "features/memory/memory-boundary-panel.tsx",
+    "features/memory/memory-boundary-view-model.ts",
     "features/memory/memory-center.tsx",
     "features/model-management/model-operation-list.tsx",
     "features/plugins/plugin-management-view.tsx",

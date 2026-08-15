@@ -93,6 +93,8 @@ import { Metric } from "@/components/shared/Metric";
 import { ActivityView } from "@/features/activity/activity-view";
 import { AppearanceSettingsPanel } from "@/features/appearance/appearance-settings-panel";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
+import { MemoryBoundaryPanel } from "@/features/memory/memory-boundary-panel";
+import { buildMemoryBoundaryViewModel } from "@/features/memory/memory-boundary-view-model";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
@@ -192,8 +194,7 @@ export default function App() {
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [lastAction, setLastAction] = useState<ActionStatus | null>(null);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(readInitialLanguage);
-  const [skinTheme, setSkinTheme] =
-    useState<SkinThemeId>(readInitialSkinTheme);
+  const [skinTheme, setSkinTheme] = useState<SkinThemeId>(readInitialSkinTheme);
   const [localTtsEnabled, setLocalTtsEnabled] = useState(false);
   const [localTtsStatus, setLocalTtsStatus] =
     useState<LocalTtsStatus>("disabled");
@@ -366,6 +367,159 @@ export default function App() {
     mediumRiskMemoryCount,
     highRiskMemoryCount,
   } = useUserControlledMemoryView(userControlledMemories);
+  const memoryBoundaryViewModel = buildMemoryBoundaryViewModel({
+    allowlistMutation: userControlledMemoryAllowlistMutationBoundary,
+    analyticsProfiling: userControlledMemoryAnalyticsProfilingBoundary,
+    auditHistory: userControlledMemoryAuditHistoryBoundary,
+    autoCapture: userControlledMemoryAutoCaptureBoundary,
+    autoExecution: userControlledMemoryAutoExecutionBoundary,
+    autofillRetention: userControlledMemoryAutofillRetentionBoundary,
+    autonomousFollowUp: userControlledMemoryAutonomousFollowUpBoundary,
+    backgroundIndexing: userControlledMemoryBackgroundIndexingBoundary,
+    backgroundTaskCreation: userControlledMemoryBackgroundTaskCreationBoundary,
+    biometricObservation: userControlledMemoryBiometricObservationBoundary,
+    biometricRetention: userControlledMemoryBiometricRetentionBoundary,
+    browserHistoryObservation:
+      userControlledMemoryBrowserHistoryObservationBoundary,
+    browserHistoryRetention:
+      userControlledMemoryBrowserHistoryRetentionBoundary,
+    calendarObservation: userControlledMemoryCalendarObservationBoundary,
+    calendarRetention: userControlledMemoryCalendarRetentionBoundary,
+    cameraObservation: userControlledMemoryCameraObservationBoundary,
+    clipboardObservation: userControlledMemoryClipboardObservationBoundary,
+    clipboardRetention: userControlledMemoryClipboardRetentionBoundary,
+    cloudAccount: userControlledMemoryCloudAccountBoundary,
+    cloudStorageObservation:
+      userControlledMemoryCloudStorageObservationBoundary,
+    cloudSync: userControlledMemoryCloudSyncBoundary,
+    communitySharing: userControlledMemoryCommunitySharingBoundary,
+    confirmationBypass: userControlledMemoryConfirmationBypassBoundary,
+    confirmedPreferenceSourceCount: userConfirmedPreferenceSourceCount,
+    confirmedRouteSourceCount: userConfirmedRouteAliasSourceCount,
+    confirmedVoiceSourceCount: userConfirmedVoiceAliasSourceCount,
+    contactRetention: userControlledMemoryContactRetentionBoundary,
+    contactsObservation: userControlledMemoryContactsObservationBoundary,
+    contextPolling: userControlledMemoryContextPollingBoundary,
+    cookieRetention: userControlledMemoryCookieRetentionBoundary,
+    crashDumpRetention: userControlledMemoryCrashDumpRetentionBoundary,
+    credentialAccess: userControlledMemoryCredentialAccessBoundary,
+    credentialObservation: userControlledMemoryCredentialObservationBoundary,
+    credentialRetention: userControlledMemoryCredentialRetentionBoundary,
+    customUiAccess: userControlledMemoryCustomUiAccessBoundary,
+    deletableRecordCount: deletableMemoryCount,
+    deleteBoundary: userControlledMemoryDeleteBoundary,
+    deletePending: Boolean(userControlledMemoryDeletePendingKey),
+    deletePendingState: userControlledMemoryDeletePendingState,
+    deviceIdentifierRetention:
+      userControlledMemoryDeviceIdentifierRetentionBoundary,
+    disabledRecordCount: disabledMemoryCount,
+    disableControls: userControlledMemoryDisableControlBoundary,
+    disableMutation: userControlledMemoryDisableMutationBoundary,
+    downloadHistoryRetention:
+      userControlledMemoryDownloadHistoryRetentionBoundary,
+    editBoundary: userControlledMemoryEditBoundary,
+    editRestore: userControlledMemoryEditRestoreBoundary,
+    emailObservation: userControlledMemoryEmailObservationBoundary,
+    emailRetention: userControlledMemoryEmailRetentionBoundary,
+    errorReportRetention: userControlledMemoryErrorReportRetentionBoundary,
+    expirationControl: userControlledMemoryExpirationBoundary,
+    expirationJobs: userControlledMemoryExpirationJobBoundary,
+    exportBoundary: userControlledMemoryExportBoundary,
+    exportImport: userControlledMemoryExportImportBoundary,
+    externalSharing: userControlledMemoryExternalSharingBoundary,
+    externalTriggers: userControlledMemoryExternalTriggerBoundary,
+    fileContentRetention: userControlledMemoryFileContentRetentionBoundary,
+    fileObservation: userControlledMemoryFileObservationBoundary,
+    financialAccountObservation:
+      userControlledMemoryFinancialAccountObservationBoundary,
+    governmentIdObservation:
+      userControlledMemoryGovernmentIdObservationBoundary,
+    healthObservation: userControlledMemoryHealthObservationBoundary,
+    healthRetention: userControlledMemoryHealthRetentionBoundary,
+    identityDocumentRetention:
+      userControlledMemoryIdentityDocumentRetentionBoundary,
+    importBoundary: userControlledMemoryImportBoundary,
+    keystrokeObservation: userControlledMemoryKeystrokeObservationBoundary,
+    legalDocumentObservation:
+      userControlledMemoryLegalDocumentObservationBoundary,
+    locationObservation: userControlledMemoryLocationObservationBoundary,
+    locationRetention: userControlledMemoryLocationRetentionBoundary,
+    lockedRecordCount: lockedMemoryCount,
+    mediumRiskMemoryCount,
+    memoryCountCheck: userControlledMemoryCountCheck,
+    messagingObservation: userControlledMemoryMessagingObservationBoundary,
+    microphoneObservation: userControlledMemoryMicrophoneObservationBoundary,
+    modelCacheRetention: userControlledMemoryModelCacheRetentionBoundary,
+    modelTraining: userControlledMemoryModelTrainingBoundary,
+    networkAccess: userControlledMemoryNetworkAccessBoundary,
+    networkIdentifierRetention:
+      userControlledMemoryNetworkIdentifierRetentionBoundary,
+    outboundMessaging: userControlledMemoryOutboundMessagingBoundary,
+    paymentDataRetention: userControlledMemoryPaymentDataRetentionBoundary,
+    paymentObservation: userControlledMemoryPaymentObservationBoundary,
+    permissionOverride: userControlledMemoryPermissionOverrideBoundary,
+    personalityAccess: userControlledMemoryPersonalityAccessBoundary,
+    petAccess: userControlledMemoryPetAccessBoundary,
+    pluginAccess: userControlledMemoryPluginAccessBoundary,
+    preferenceMemoryCount,
+    preferenceProjectionOn: chatAnswerPreferenceProjectionOn,
+    proactiveNotifications: userControlledMemoryProactiveNotificationBoundary,
+    proactiveScan: userControlledMemoryProactiveScanBoundary,
+    proactiveSuggestions: userControlledMemoryProactiveSuggestionBoundary,
+    promptCacheRetention: userControlledMemoryPromptCacheRetentionBoundary,
+    promptInjection: userControlledMemoryPromptInjectionBoundary,
+    providerAudit: userControlledMemoryProviderAuditBoundary,
+    providerNeutralRecordCount: providerNeutralMemoryCount,
+    providerPersonalization:
+      userControlledMemoryProviderPersonalizationBoundary,
+    providerSync: userControlledMemoryProviderSyncBoundary,
+    rawAudioRetention: userControlledMemoryRawAudioRetentionBoundary,
+    rawExposedRecordCount: rawExposedMemoryCount,
+    rawSnapshotReview: userControlledMemoryRawSnapshotReviewBoundary,
+    rawTranscriptRetention: userControlledMemoryRawTranscriptRetentionBoundary,
+    recordCount: userControlledMemories.length,
+    recordingMode: userControlledMemoryRecordingModeBoundary,
+    recordingPause: userControlledMemoryRecordingPauseBoundary,
+    reminderScheduling: userControlledMemoryReminderSchedulingBoundary,
+    repositoryObservation: userControlledMemoryRepositoryObservationBoundary,
+    restoreBoundary: userControlledMemoryRestoreBoundary,
+    retentionControls: userControlledMemoryRetentionControlsBoundary,
+    retentionMutation: userControlledMemoryRetentionMutationBoundary,
+    retentionScope: userControlledMemoryRetentionScope,
+    retentionSessionControls: userControlledMemoryRetentionSessionControlMode,
+    riskDowngrade: userControlledMemoryRiskDowngradeBoundary,
+    routeAliasMemoryCount,
+    safetyCheck: userControlledMemorySafetyCheck,
+    sanitizedSnapshot: userControlledMemorySanitizedSnapshotBoundary,
+    savedViewPresets: userControlledMemorySavedViewPresetsBoundary,
+    screenCaptureRetention: userControlledMemoryScreenCaptureRetentionBoundary,
+    screenObservation: userControlledMemoryScreenObservationBoundary,
+    searchPersistence: userControlledMemorySearchPersistenceBoundary,
+    secretRetention: userControlledMemorySecretRetentionBoundary,
+    sessionOnlyMode: userControlledMemorySessionOnlyBoundary,
+    sessionWrites: userControlledMemorySessionOnlyWriteBoundary,
+    skinAccess: userControlledMemorySkinAccessBoundary,
+    snapshotPolicy: userControlledMemorySnapshotPolicy,
+    snapshotProvenance: userControlledMemorySnapshotProvenanceBoundary,
+    snapshotRedaction: userControlledMemorySnapshotRedactionBoundary,
+    snapshotSchemaValidation:
+      userControlledMemorySnapshotSchemaValidationBoundary,
+    sourceBoundary: userControlledMemorySourceBoundaryCheck,
+    storageEncryption: userControlledMemoryStorageEncryptionBoundary,
+    taskHistoryRetention: userControlledMemoryTaskHistoryRetentionBoundary,
+    teachModeAccess: userControlledMemoryTeachModeAccessBoundary,
+    telemetryPayloadRetention:
+      userControlledMemoryTelemetryPayloadRetentionBoundary,
+    trainingExport: userControlledMemoryTrainingExportBoundary,
+    vectorIndexRetention: userControlledMemoryVectorIndexRetentionBoundary,
+    viewPersistence: userControlledMemoryViewPersistenceBoundary,
+    visibleRecordCount: filteredUserControlledMemories.length,
+    voiceAliasMemoryCount,
+    windowObservation: userControlledMemoryWindowObservationBoundary,
+    workflowAccess: userControlledMemoryWorkflowAccessBoundary,
+    workflowReplay: userControlledMemoryWorkflowReplayBoundary,
+    writePolicy: userControlledMemoryWritePolicy,
+  });
   const {
     blockedPolicyPluginCount,
     bundledPluginCount,
@@ -2262,7 +2416,10 @@ export default function App() {
                           {brainResult.userRouteAliasProposal.label}
                         </p>
                       </div>
-                      <Badge className="rounded-md text-[10px]" variant="outline">
+                      <Badge
+                        className="rounded-md text-[10px]"
+                        variant="outline"
+                      >
                         confirm save
                       </Badge>
                     </div>
@@ -2459,7 +2616,8 @@ export default function App() {
                     memoryQuery: userControlledMemoryQuery,
                     preferenceMemoryCount,
                     records: userControlledMemories,
-                    recordingModeBoundary: userControlledMemoryRecordingModeBoundary,
+                    recordingModeBoundary:
+                      userControlledMemoryRecordingModeBoundary,
                     retentionControlsBoundary:
                       userControlledMemoryRetentionControlsBoundary,
                     retentionMutationBoundary:
@@ -2480,784 +2638,13 @@ export default function App() {
                     selectedKind: userControlledMemoryFilter,
                     selectedRisk: userControlledMemoryRiskFilter,
                     selectedSort: userControlledMemorySort,
-                    sessionOnlyBoundary: userControlledMemorySessionOnlyBoundary,
+                    sessionOnlyBoundary:
+                      userControlledMemorySessionOnlyBoundary,
                     voiceAliasMemoryCount,
                   }}
                 />
 
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      Memory boundary
-                    </h3>
-                    <Badge className="rounded-md text-[10px]" variant="outline">
-                      USER CONTROLLED
-                    </Badge>
-                  </div>
-                  <dl
-                    className="divide-y divide-border border-y text-[11px]"
-                    data-testid="user-controlled-memory-boundary"
-                  >
-                    <Metric
-                      label="Persistence"
-                      value={userControlledMemories.length > 0 ? "ON" : "IDLE"}
-                      tone={
-                        userControlledMemories.length > 0
-                          ? "success"
-                          : undefined
-                      }
-                    />
-                    <Metric
-                      label="View controls"
-                      value="LOCAL ONLY"
-                      tone="success"
-                    />
-                    <Metric
-                      label="View persistence"
-                      value={userControlledMemoryViewPersistenceBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Search persistence"
-                      value={userControlledMemorySearchPersistenceBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Visible records"
-                      value={`${filteredUserControlledMemories.length}/${userControlledMemories.length}`}
-                      tone="accent"
-                    />
-                    <Metric
-                      label="Deletable records"
-                      value={String(deletableMemoryCount)}
-                      tone={deletableMemoryCount > 0 ? "success" : undefined}
-                    />
-                    <Metric
-                      label="Locked records"
-                      value={String(lockedMemoryCount)}
-                      tone={lockedMemoryCount > 0 ? "warning" : undefined}
-                    />
-                    <Metric
-                      label="Provider/raw private"
-                      value={
-                        rawExposedMemoryCount > 0 ? "SHOWN" : "HIDDEN"
-                      }
-                      tone="success"
-                    />
-                    <Metric
-                      label="Raw exposed records"
-                      value={String(rawExposedMemoryCount)}
-                      tone={
-                        rawExposedMemoryCount > 0 ? "warning" : "success"
-                      }
-                    />
-                    <Metric
-                      label="Memory safety check"
-                      value={userControlledMemorySafetyCheck}
-                      tone={
-                        userControlledMemorySafetyCheck === "OK"
-                          ? "success"
-                          : "warning"
-                      }
-                    />
-                    <Metric
-                      label="Provider-neutral records"
-                      value={String(providerNeutralMemoryCount)}
-                      tone={
-                        providerNeutralMemoryCount > 0 ? "success" : undefined
-                      }
-                    />
-                    <Metric
-                      label="Confirmed route sources"
-                      value={String(userConfirmedRouteAliasSourceCount)}
-                    />
-                    <Metric
-                      label="Confirmed voice sources"
-                      value={String(userConfirmedVoiceAliasSourceCount)}
-                    />
-                    <Metric
-                      label="Confirmed preference sources"
-                      value={String(userConfirmedPreferenceSourceCount)}
-                    />
-                    <Metric
-                      label="Source boundary"
-                      value={userControlledMemorySourceBoundaryCheck}
-                      tone={
-                        userControlledMemorySourceBoundaryCheck ===
-                        "USER_CONFIRMED"
-                          ? "success"
-                          : "warning"
-                      }
-                    />
-                    <Metric
-                      label="Write policy"
-                      value={userControlledMemoryWritePolicy}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Delete boundary"
-                      value={userControlledMemoryDeleteBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Disable controls"
-                      value={userControlledMemoryDisableControlBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Disable mutation"
-                      value={userControlledMemoryDisableMutationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Disabled records"
-                      value={String(disabledMemoryCount)}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Snapshot policy"
-                      value={userControlledMemorySnapshotPolicy}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Sanitized snapshot"
-                      value={userControlledMemorySanitizedSnapshotBoundary}
-                      tone={
-                        userControlledMemorySanitizedSnapshotBoundary ===
-                        "GENERATED"
-                          ? "success"
-                          : undefined
-                      }
-                    />
-                    <Metric
-                      label="Retention scope"
-                      value={userControlledMemoryRetentionScope}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Export boundary"
-                      value={userControlledMemoryExportBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Import boundary"
-                      value={userControlledMemoryImportBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Edit boundary"
-                      value={userControlledMemoryEditBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Restore boundary"
-                      value={userControlledMemoryRestoreBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Auto capture"
-                      value={userControlledMemoryAutoCaptureBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Background indexing"
-                      value={userControlledMemoryBackgroundIndexingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Proactive scan"
-                      value={userControlledMemoryProactiveScanBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Proactive suggestions"
-                      value={userControlledMemoryProactiveSuggestionBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Proactive notifications"
-                      value={userControlledMemoryProactiveNotificationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Context polling"
-                      value={userControlledMemoryContextPollingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Auto execution"
-                      value={userControlledMemoryAutoExecutionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Permission override"
-                      value={userControlledMemoryPermissionOverrideBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Risk downgrade"
-                      value={userControlledMemoryRiskDowngradeBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Confirmation bypass"
-                      value={userControlledMemoryConfirmationBypassBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Allowlist mutation"
-                      value={userControlledMemoryAllowlistMutationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Workflow replay"
-                      value={userControlledMemoryWorkflowReplayBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Background task creation"
-                      value={userControlledMemoryBackgroundTaskCreationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Reminder scheduling"
-                      value={userControlledMemoryReminderSchedulingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Autonomous follow-up"
-                      value={userControlledMemoryAutonomousFollowUpBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Outbound messaging"
-                      value={userControlledMemoryOutboundMessagingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="External triggers"
-                      value={userControlledMemoryExternalTriggerBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Clipboard observation"
-                      value={userControlledMemoryClipboardObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Keystroke observation"
-                      value={userControlledMemoryKeystrokeObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Window observation"
-                      value={userControlledMemoryWindowObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Screen observation"
-                      value={userControlledMemoryScreenObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="File observation"
-                      value={userControlledMemoryFileObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Camera observation"
-                      value={userControlledMemoryCameraObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Microphone observation"
-                      value={userControlledMemoryMicrophoneObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Browser history observation"
-                      value={userControlledMemoryBrowserHistoryObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Location observation"
-                      value={userControlledMemoryLocationObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Contacts observation"
-                      value={userControlledMemoryContactsObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Calendar observation"
-                      value={userControlledMemoryCalendarObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Email observation"
-                      value={userControlledMemoryEmailObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Messaging observation"
-                      value={userControlledMemoryMessagingObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Credential observation"
-                      value={userControlledMemoryCredentialObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Payment observation"
-                      value={userControlledMemoryPaymentObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Health observation"
-                      value={userControlledMemoryHealthObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Biometric observation"
-                      value={userControlledMemoryBiometricObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Government ID observation"
-                      value={userControlledMemoryGovernmentIdObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Financial account observation"
-                      value={userControlledMemoryFinancialAccountObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Legal document observation"
-                      value={userControlledMemoryLegalDocumentObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Repository observation"
-                      value={userControlledMemoryRepositoryObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Cloud storage observation"
-                      value={userControlledMemoryCloudStorageObservationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Analytics profiling"
-                      value={userControlledMemoryAnalyticsProfilingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Vector index retention"
-                      value={userControlledMemoryVectorIndexRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Plugin access"
-                      value={userControlledMemoryPluginAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Workflow access"
-                      value={userControlledMemoryWorkflowAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Teach Mode access"
-                      value={userControlledMemoryTeachModeAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Skin access"
-                      value={userControlledMemorySkinAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Pet access"
-                      value={userControlledMemoryPetAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Personality access"
-                      value={userControlledMemoryPersonalityAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Custom UI access"
-                      value={userControlledMemoryCustomUiAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Expiration control"
-                      value={userControlledMemoryExpirationBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Session-only mode"
-                      value={userControlledMemorySessionOnlyBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Provider audit"
-                      value={userControlledMemoryProviderAuditBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Audit history"
-                      value={userControlledMemoryAuditHistoryBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="External sharing"
-                      value={userControlledMemoryExternalSharingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Community sharing"
-                      value={userControlledMemoryCommunitySharingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Cloud sync"
-                      value={userControlledMemoryCloudSyncBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Cloud account"
-                      value={userControlledMemoryCloudAccountBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Provider sync"
-                      value={userControlledMemoryProviderSyncBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Credential access"
-                      value={userControlledMemoryCredentialAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Network access"
-                      value={userControlledMemoryNetworkAccessBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Model training"
-                      value={userControlledMemoryModelTrainingBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Training export"
-                      value={userControlledMemoryTrainingExportBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Provider personalization"
-                      value={userControlledMemoryProviderPersonalizationBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Prompt injection"
-                      value={userControlledMemoryPromptInjectionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Raw audio retention"
-                      value={userControlledMemoryRawAudioRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Raw transcript retention"
-                      value={userControlledMemoryRawTranscriptRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Screen capture retention"
-                      value={userControlledMemoryScreenCaptureRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="File content retention"
-                      value={userControlledMemoryFileContentRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Clipboard retention"
-                      value={userControlledMemoryClipboardRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Secret retention"
-                      value={userControlledMemorySecretRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Payment data retention"
-                      value={userControlledMemoryPaymentDataRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Location retention"
-                      value={userControlledMemoryLocationRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Biometric retention"
-                      value={userControlledMemoryBiometricRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Contact retention"
-                      value={userControlledMemoryContactRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Health retention"
-                      value={userControlledMemoryHealthRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Calendar retention"
-                      value={userControlledMemoryCalendarRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Email retention"
-                      value={userControlledMemoryEmailRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Identity document retention"
-                      value={userControlledMemoryIdentityDocumentRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Browser history retention"
-                      value={userControlledMemoryBrowserHistoryRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Cookie retention"
-                      value={userControlledMemoryCookieRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Download history retention"
-                      value={userControlledMemoryDownloadHistoryRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Autofill retention"
-                      value={userControlledMemoryAutofillRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Credential retention"
-                      value={userControlledMemoryCredentialRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Device identifier retention"
-                      value={userControlledMemoryDeviceIdentifierRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Network identifier retention"
-                      value={userControlledMemoryNetworkIdentifierRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Crash dump retention"
-                      value={userControlledMemoryCrashDumpRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Error report retention"
-                      value={userControlledMemoryErrorReportRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Telemetry payload retention"
-                      value={userControlledMemoryTelemetryPayloadRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Model cache retention"
-                      value={userControlledMemoryModelCacheRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Prompt cache retention"
-                      value={userControlledMemoryPromptCacheRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Task history retention"
-                      value={userControlledMemoryTaskHistoryRetentionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Snapshot redaction"
-                      value={userControlledMemorySnapshotRedactionBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Raw snapshot review"
-                      value={userControlledMemoryRawSnapshotReviewBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Snapshot schema validation"
-                      value={userControlledMemorySnapshotSchemaValidationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Snapshot provenance"
-                      value={userControlledMemorySnapshotProvenanceBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Retention controls"
-                      value={userControlledMemoryRetentionControlsBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Retention/session controls"
-                      value={userControlledMemoryRetentionSessionControlMode}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Retention mutation"
-                      value={userControlledMemoryRetentionMutationBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Session writes"
-                      value={userControlledMemorySessionOnlyWriteBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Expiration jobs"
-                      value={userControlledMemoryExpirationJobBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Export/import"
-                      value={userControlledMemoryExportImportBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Edit/restore"
-                      value={userControlledMemoryEditRestoreBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Storage encryption"
-                      value={userControlledMemoryStorageEncryptionBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Recording mode"
-                      value={userControlledMemoryRecordingModeBoundary}
-                      tone="success"
-                    />
-                    <Metric
-                      label="Recording pause"
-                      value={userControlledMemoryRecordingPauseBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Saved view presets"
-                      value={userControlledMemorySavedViewPresetsBoundary}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Delete pending"
-                      value={userControlledMemoryDeletePendingState}
-                      tone={
-                        userControlledMemoryDeletePendingKey
-                          ? "warning"
-                          : "success"
-                      }
-                    />
-                    <Metric
-                      label="Preference projection"
-                      value={chatAnswerPreferenceProjectionOn ? "ON" : "IDLE"}
-                      tone={
-                        chatAnswerPreferenceProjectionOn
-                          ? "success"
-                          : undefined
-                      }
-                    />
-                    <Metric
-                      label="Applies to"
-                      value={
-                        chatAnswerPreferenceProjectionOn
-                          ? "Chat Answer"
-                          : "none"
-                      }
-                      tone={
-                        chatAnswerPreferenceProjectionOn ? "accent" : undefined
-                      }
-                    />
-                    <Metric
-                      label="Route aliases"
-                      value={String(routeAliasMemoryCount)}
-                    />
-                    <Metric
-                      label="Voice aliases"
-                      value={String(voiceAliasMemoryCount)}
-                    />
-                    <Metric
-                      label="Preferences"
-                      value={String(preferenceMemoryCount)}
-                    />
-                    <Metric
-                      label="Memory count check"
-                      value={userControlledMemoryCountCheck}
-                      tone={
-                        userControlledMemoryCountCheck === "OK"
-                          ? "success"
-                          : "warning"
-                      }
-                    />
-                    <Metric
-                      label="Medium risk"
-                      value={String(mediumRiskMemoryCount)}
-                      tone={
-                        mediumRiskMemoryCount > 0 ? "warning" : undefined
-                      }
-                    />
-                    <Metric
-                      label="Vector retrieval"
-                      value="DISABLED"
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Provider runtime"
-                      value="NOT USED"
-                      tone="success"
-                    />
-                    <Metric
-                      label="Execution"
-                      value="VIEW / DELETE ONLY"
-                      tone="success"
-                    />
-                  </dl>
-                  <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
-                    This view lists only records that the user explicitly
-                    confirmed. Deletion flows through Core IPC and the existing
-                    repository boundary.
-                  </p>
-                </section>
+                <MemoryBoundaryPanel viewModel={memoryBoundaryViewModel} />
               </div>
             </ScrollArea>
           ) : activeView === "voice" ? (
@@ -4649,8 +4036,7 @@ export default function App() {
                     rollbackStatus:
                       memoryAlpha?.rollbackStatus ?? "not_started",
                     state: memoryAlpha?.state ?? "unknown",
-                    trackedMessageCount:
-                      memoryAlpha?.trackedMessageCount ?? 0,
+                    trackedMessageCount: memoryAlpha?.trackedMessageCount ?? 0,
                   },
                   recentEvents,
                 }}

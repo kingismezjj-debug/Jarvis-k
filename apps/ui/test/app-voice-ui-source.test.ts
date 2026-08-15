@@ -93,9 +93,7 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('| "memory"');
     expect(appSource).toContain('{ id: "memory", icon: Database }');
     expect(appSource).toContain('data-testid="memory-view"');
-    expect(appSource).toContain(
-      'data-testid="user-controlled-memory-summary"',
-    );
+    expect(appSource).toContain('data-testid="user-controlled-memory-summary"');
     expect(appSource).toContain('data-testid="user-controlled-memory-list"');
     expect(appSource).toContain('data-testid="user-controlled-memory-record"');
     expect(appSource).toContain('data-testid="user-controlled-memory-delete"');
@@ -136,18 +134,14 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("Retention mutation disabled");
     expect(appSource).toContain("session-only writes");
     expect(appSource).toContain("expiration jobs remain disabled");
-    expect(appSource).toContain(
-      "buildSanitizedUserControlledMemorySnapshot",
-    );
+    expect(appSource).toContain("buildSanitizedUserControlledMemorySnapshot");
     expect(appSource).toContain(
       "validateSanitizedUserControlledMemorySnapshot",
     );
     expect(appSource).toContain(
       "USER_CONTROLLED_MEMORY_SNAPSHOT_SCHEMA_VERSION",
     );
-    expect(appSource).toContain(
-      'provenance: "USER_INITIATED_MEMORY_VIEW"',
-    );
+    expect(appSource).toContain('provenance: "USER_INITIATED_MEMORY_VIEW"');
     expect(appSource).toContain(
       'redactionPolicy: "SANITIZED_VISIBLE_FIELDS_ONLY"',
     );
@@ -167,9 +161,7 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain(
       'data-testid="user-controlled-memory-filter-bar"',
     );
-    expect(appSource).toContain(
-      'data-testid="user-controlled-memory-search"',
-    );
+    expect(appSource).toContain('data-testid="user-controlled-memory-search"');
     expect(appSource).toContain(
       'data-testid="user-controlled-memory-kind-filter"',
     );
@@ -199,14 +191,14 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('setUserControlledMemorySort("updated_desc")');
     expect(appSource).toContain('setUserControlledMemoryQuery("")');
     expect(appSource).toContain(
-      'data-testid={`user-controlled-memory-risk-filter-${option.id}`}',
+      "data-testid={`user-controlled-memory-risk-filter-${option.id}`}",
     );
     expect(appSource).toContain('label: "All risk"');
     expect(appSource).toContain('label: "Low"');
     expect(appSource).toContain('label: "Medium"');
     expect(appSource).toContain('label: "High"');
     expect(appSource).toContain(
-      'data-testid={`user-controlled-memory-sort-${option.id}`}',
+      "data-testid={`user-controlled-memory-sort-${option.id}`}",
     );
     expect(appSource).toContain('label: "Newest"');
     expect(appSource).toContain('label: "Oldest"');
@@ -240,9 +232,7 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain(
       'data-testid="user-controlled-memory-disable-policy"',
     );
-    expect(appSource).toContain(
-      'data-testid="user-controlled-memory-disable"',
-    );
+    expect(appSource).toContain('data-testid="user-controlled-memory-disable"');
     expect(appSource).toContain("RAW_HIDDEN");
     expect(appSource).toContain("PROVIDER_NEUTRAL");
     expect(appSource).toContain("VIEW_DELETE");
@@ -295,44 +285,44 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("userControlledMemoryCredentialAccessBoundary");
     expect(appSource).toContain("userControlledMemoryNetworkAccessBoundary");
     expect(appSource).toContain("userControlledMemoryModelTrainingBoundary");
-    expect(appSource).toContain("userControlledMemorySnapshotRedactionBoundary");
-    expect(appSource).toContain("userControlledMemoryRawSnapshotReviewBoundary");
+    expect(appSource).toContain(
+      "userControlledMemorySnapshotRedactionBoundary",
+    );
+    expect(appSource).toContain(
+      "userControlledMemoryRawSnapshotReviewBoundary",
+    );
     expect(appSource).toContain(
       "userControlledMemorySnapshotSchemaValidationBoundary",
     );
-    expect(appSource).toContain("userControlledMemorySnapshotProvenanceBoundary");
-    expect(appSource).toContain("userControlledMemoryRetentionControlsBoundary");
+    expect(appSource).toContain(
+      "userControlledMemorySnapshotProvenanceBoundary",
+    );
+    expect(appSource).toContain(
+      "userControlledMemoryRetentionControlsBoundary",
+    );
     expect(appSource).toContain(
       "userControlledMemoryRetentionSessionControlMode",
     );
     expect(appSource).toContain(
       "userControlledMemoryRetentionMutationBoundary",
     );
-    expect(appSource).toContain(
-      "userControlledMemorySessionOnlyWriteBoundary",
-    );
+    expect(appSource).toContain("userControlledMemorySessionOnlyWriteBoundary");
     expect(appSource).toContain("userControlledMemoryExpirationJobBoundary");
     expect(appSource).toContain('"STATUS_ONLY"');
     expect(appSource).toContain('"NO_RUNTIME_MUTATION"');
     expect(appSource).toContain("userControlledMemoryRecordingModeBoundary");
     expect(appSource).toContain("userControlledMemoryRecordingPauseBoundary");
-    expect(appSource).toContain(
-      "userControlledMemoryViewPersistenceBoundary",
-    );
+    expect(appSource).toContain("userControlledMemoryViewPersistenceBoundary");
     expect(appSource).toContain(
       "userControlledMemorySearchPersistenceBoundary",
     );
     expect(appSource).toContain("userControlledMemorySavedViewPresetsBoundary");
     expect(appSource).toContain("userControlledMemoryDeletePendingState");
-    expect(appSource).toContain(
-      "USER_CONTROLLED_MEMORY_VIEW_STORAGE_KEY",
-    );
+    expect(appSource).toContain("USER_CONTROLLED_MEMORY_VIEW_STORAGE_KEY");
     expect(appSource).toContain(
       "readInitialUserControlledMemoryViewPreferences",
     );
-    expect(appSource).toContain(
-      "persistUserControlledMemoryViewPreferences",
-    );
+    expect(appSource).toContain("persistUserControlledMemoryViewPreferences");
     expect(appSource).toContain("lowRiskMemoryCount");
     expect(appSource).toContain("mediumRiskMemoryCount");
     expect(appSource).toContain("highRiskMemoryCount");
@@ -354,88 +344,211 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("Preference projection");
     expect(appSource).toContain("Applies to");
     expect(appSource).toContain("Chat Answer");
-    expect(appSource).toContain('label="Memory count check"');
-    expect(appSource).toContain("value={userControlledMemoryCountCheck}");
-    expect(appSource).toContain('label="View controls"');
-    expect(appSource).toContain('value="LOCAL ONLY"');
-    expect(appSource).toContain('label="View persistence"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryViewPersistenceBoundary}",
-    );
+    expect(appSource).toContain("MemoryBoundaryPanel");
+    expect(appSource).toContain("buildMemoryBoundaryViewModel");
+
+    const memoryBoundaryLabels = [
+      "Memory count check",
+      "View controls",
+      "View persistence",
+      "Search persistence",
+      "Visible records",
+      "Deletable records",
+      "Locked records",
+      "Raw exposed records",
+      "Memory safety check",
+      "Provider-neutral records",
+      "Confirmed route sources",
+      "Confirmed voice sources",
+      "Confirmed preference sources",
+      "Source boundary",
+      "Write policy",
+      "Delete boundary",
+      "Disable controls",
+      "Disable mutation",
+      "Disabled records",
+      "Snapshot policy",
+      "Sanitized snapshot",
+      "Retention scope",
+      "Export boundary",
+      "Import boundary",
+      "Edit boundary",
+      "Restore boundary",
+      "Auto capture",
+      "Background indexing",
+      "Proactive scan",
+      "Proactive suggestions",
+      "Proactive notifications",
+      "Context polling",
+      "Auto execution",
+      "Permission override",
+      "Risk downgrade",
+      "Confirmation bypass",
+      "Allowlist mutation",
+      "Workflow replay",
+      "Background task creation",
+      "Reminder scheduling",
+      "Autonomous follow-up",
+      "Outbound messaging",
+      "External triggers",
+      "Clipboard observation",
+      "Keystroke observation",
+      "Window observation",
+      "Screen observation",
+      "File observation",
+      "Camera observation",
+      "Microphone observation",
+      "Browser history observation",
+      "Location observation",
+      "Contacts observation",
+      "Calendar observation",
+      "Email observation",
+      "Messaging observation",
+      "Credential observation",
+      "Payment observation",
+      "Health observation",
+      "Biometric observation",
+      "Government ID observation",
+      "Financial account observation",
+      "Legal document observation",
+      "Repository observation",
+      "Cloud storage observation",
+      "Analytics profiling",
+      "Vector index retention",
+      "Plugin access",
+      "Workflow access",
+      "Teach Mode access",
+      "Skin access",
+      "Pet access",
+      "Personality access",
+      "Custom UI access",
+      "Expiration control",
+      "Session-only mode",
+      "Provider audit",
+      "Audit history",
+      "External sharing",
+      "Community sharing",
+      "Cloud sync",
+      "Cloud account",
+      "Storage encryption",
+      "Credential access",
+      "Network access",
+      "Model training",
+      "Training export",
+      "Provider personalization",
+      "Prompt injection",
+      "Raw audio retention",
+      "Raw transcript retention",
+      "Screen capture retention",
+      "File content retention",
+      "Clipboard retention",
+      "Secret retention",
+      "Payment data retention",
+      "Location retention",
+      "Biometric retention",
+      "Contact retention",
+      "Health retention",
+      "Calendar retention",
+      "Email retention",
+      "Identity document retention",
+      "Browser history retention",
+      "Cookie retention",
+      "Download history retention",
+      "Autofill retention",
+      "Credential retention",
+      "Device identifier retention",
+      "Network identifier retention",
+      "Crash dump retention",
+      "Error report retention",
+      "Telemetry payload retention",
+      "Model cache retention",
+      "Prompt cache retention",
+      "Task history retention",
+      "Snapshot redaction",
+      "Raw snapshot review",
+      "Snapshot schema validation",
+      "Snapshot provenance",
+      "Retention controls",
+      "Export/import",
+      "Edit/restore",
+      "Provider sync",
+      "Recording mode",
+      "Recording pause",
+      "Saved view presets",
+      "Delete pending",
+      "Vector retrieval",
+      "VIEW / DELETE ONLY",
+    ];
+    for (const label of memoryBoundaryLabels) {
+      expect(appSource).toContain(label);
+    }
+
+    const memoryBoundaryInputs = [
+      "userControlledMemoryCountCheck",
+      "userControlledMemoryViewPersistenceBoundary",
+      "userControlledMemorySearchPersistenceBoundary",
+      "filteredUserControlledMemories.length",
+      "userControlledMemories.length",
+      "deletableMemoryCount",
+      "lockedMemoryCount",
+      "rawExposedMemoryCount",
+      "userControlledMemorySafetyCheck",
+      "providerNeutralMemoryCount",
+      "userConfirmedRouteAliasSourceCount",
+      "userConfirmedVoiceAliasSourceCount",
+      "userConfirmedPreferenceSourceCount",
+      "userControlledMemorySourceBoundaryCheck",
+      "userControlledMemoryWritePolicy",
+      "userControlledMemoryDeleteBoundary",
+      "userControlledMemoryDisableControlBoundary",
+      "userControlledMemoryDisableMutationBoundary",
+      "disabledMemoryCount",
+      "userControlledMemorySnapshotPolicy",
+      "userControlledMemorySanitizedSnapshotBoundary",
+      "userControlledMemoryRetentionScope",
+      "userControlledMemoryExportBoundary",
+      "userControlledMemoryImportBoundary",
+      "userControlledMemoryEditBoundary",
+      "userControlledMemoryRestoreBoundary",
+      "userControlledMemoryAutoCaptureBoundary",
+      "userControlledMemoryBackgroundIndexingBoundary",
+      "userControlledMemoryVectorIndexRetentionBoundary",
+      "userControlledMemoryPluginAccessBoundary",
+      "userControlledMemoryExpirationBoundary",
+      "userControlledMemorySessionOnlyBoundary",
+      "userControlledMemoryProviderAuditBoundary",
+      "userControlledMemoryAuditHistoryBoundary",
+      "userControlledMemoryExternalSharingBoundary",
+      "userControlledMemoryCloudSyncBoundary",
+      "userControlledMemoryCloudAccountBoundary",
+      "userControlledMemoryStorageEncryptionBoundary",
+      "userControlledMemoryCredentialAccessBoundary",
+      "userControlledMemoryNetworkAccessBoundary",
+      "userControlledMemoryModelTrainingBoundary",
+      "userControlledMemorySnapshotRedactionBoundary",
+      "userControlledMemoryRawSnapshotReviewBoundary",
+      "userControlledMemorySnapshotSchemaValidationBoundary",
+      "userControlledMemorySnapshotProvenanceBoundary",
+      "userControlledMemoryRetentionControlsBoundary",
+      "userControlledMemoryRetentionSessionControlMode",
+      "userControlledMemoryRetentionMutationBoundary",
+      "userControlledMemorySessionOnlyWriteBoundary",
+      "userControlledMemoryExpirationJobBoundary",
+      "userControlledMemoryRecordingModeBoundary",
+      "userControlledMemoryRecordingPauseBoundary",
+      "userControlledMemorySavedViewPresetsBoundary",
+      "userControlledMemoryDeletePendingState",
+    ];
+    for (const input of memoryBoundaryInputs) {
+      expect(appSource).toContain(input);
+    }
+
     expect(appSource).toContain('"LOCAL_FILTERS"');
-    expect(appSource).toContain('label="Search persistence"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySearchPersistenceBoundary}",
-    );
-    expect(appSource).toContain('label="Visible records"');
-    expect(appSource).toContain(
-      "`${filteredUserControlledMemories.length}/${userControlledMemories.length}`",
-    );
-    expect(appSource).toContain('label="Deletable records"');
-    expect(appSource).toContain("value={String(deletableMemoryCount)}");
-    expect(appSource).toContain('label="Locked records"');
-    expect(appSource).toContain("value={String(lockedMemoryCount)}");
-    expect(appSource).toContain('label="Raw exposed records"');
-    expect(appSource).toContain("value={String(rawExposedMemoryCount)}");
-    expect(appSource).toContain(
-      'rawExposedMemoryCount > 0 ? "SHOWN" : "HIDDEN"',
-    );
-    expect(appSource).toContain(
-      'rawExposedMemoryCount === 0 ? "OK" : "REVIEW"',
-    );
-    expect(appSource).toContain('label="Memory safety check"');
-    expect(appSource).toContain("value={userControlledMemorySafetyCheck}");
-    expect(appSource).toContain('label="Provider-neutral records"');
-    expect(appSource).toContain(
-      "value={String(providerNeutralMemoryCount)}",
-    );
-    expect(appSource).toContain('label="Confirmed route sources"');
-    expect(appSource).toContain(
-      "value={String(userConfirmedRouteAliasSourceCount)}",
-    );
-    expect(appSource).toContain('label="Confirmed voice sources"');
-    expect(appSource).toContain(
-      "value={String(userConfirmedVoiceAliasSourceCount)}",
-    );
-    expect(appSource).toContain('label="Confirmed preference sources"');
-    expect(appSource).toContain(
-      "value={String(userConfirmedPreferenceSourceCount)}",
-    );
-    expect(appSource).toContain('label="Source boundary"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySourceBoundaryCheck}",
-    );
     expect(appSource).toContain('"USER_CONFIRMED"');
-    expect(appSource).toContain('label="Write policy"');
-    expect(appSource).toContain("value={userControlledMemoryWritePolicy}");
     expect(appSource).toContain('"EXPLICIT_ONLY"');
-    expect(appSource).toContain('label="Delete boundary"');
-    expect(appSource).toContain("value={userControlledMemoryDeleteBoundary}");
     expect(appSource).toContain('"CORE_IPC_REPOSITORY"');
-    expect(appSource).toContain('label="Disable controls"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryDisableControlBoundary}",
-    );
-    expect(appSource).toContain('label="Disable mutation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryDisableMutationBoundary}",
-    );
-    expect(appSource).toContain('label="Disabled records"');
-    expect(appSource).toContain("value={String(disabledMemoryCount)}");
-    expect(appSource).toContain('label="Snapshot policy"');
-    expect(appSource).toContain("value={userControlledMemorySnapshotPolicy}");
     expect(appSource).toContain('"USER_INITIATED"');
-    expect(appSource).toContain('label="Sanitized snapshot"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySanitizedSnapshotBoundary}",
-    );
-    expect(appSource).toContain('label="Retention scope"');
-    expect(appSource).toContain("value={userControlledMemoryRetentionScope}");
     expect(appSource).toContain('"USER_CONTROLLED_ONLY"');
-    expect(appSource).toContain('label="Export boundary"');
-    expect(appSource).toContain("value={userControlledMemoryExportBoundary}");
-    expect(appSource).toContain('label="Import boundary"');
-    expect(appSource).toContain("value={userControlledMemoryImportBoundary}");
     expect(appSource).toContain('"USER_INITIATED_ONLY"');
     expect(appSource).toContain(
       'const userControlledMemoryImportBoundary = "NOT_ENABLED"',
@@ -443,637 +556,16 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain(
       'const userControlledMemoryExportImportBoundary = "EXPORT_ONLY"',
     );
-    expect(appSource).toContain('label="Edit boundary"');
-    expect(appSource).toContain("value={userControlledMemoryEditBoundary}");
-    expect(appSource).toContain('label="Restore boundary"');
-    expect(appSource).toContain("value={userControlledMemoryRestoreBoundary}");
     expect(appSource).toContain('"NOT_ENABLED"');
-    expect(appSource).toContain('label="Auto capture"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAutoCaptureBoundary}",
-    );
     expect(appSource).toContain('"DISABLED"');
-    expect(appSource).toContain('label="Background indexing"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryBackgroundIndexingBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryProactiveScanBoundary");
-    expect(appSource).toContain('label="Proactive scan"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryProactiveScanBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryProactiveSuggestionBoundary",
-    );
-    expect(appSource).toContain('label="Proactive suggestions"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryProactiveSuggestionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryProactiveNotificationBoundary",
-    );
-    expect(appSource).toContain('label="Proactive notifications"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryProactiveNotificationBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryContextPollingBoundary");
-    expect(appSource).toContain('label="Context polling"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryContextPollingBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryAutoExecutionBoundary");
-    expect(appSource).toContain('label="Auto execution"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAutoExecutionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryPermissionOverrideBoundary",
-    );
-    expect(appSource).toContain('label="Permission override"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPermissionOverrideBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryRiskDowngradeBoundary");
-    expect(appSource).toContain('label="Risk downgrade"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRiskDowngradeBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryConfirmationBypassBoundary",
-    );
-    expect(appSource).toContain('label="Confirmation bypass"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryConfirmationBypassBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryAllowlistMutationBoundary",
-    );
-    expect(appSource).toContain('label="Allowlist mutation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAllowlistMutationBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryWorkflowReplayBoundary");
-    expect(appSource).toContain('label="Workflow replay"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryWorkflowReplayBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryBackgroundTaskCreationBoundary",
-    );
-    expect(appSource).toContain('label="Background task creation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryBackgroundTaskCreationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryReminderSchedulingBoundary",
-    );
-    expect(appSource).toContain('label="Reminder scheduling"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryReminderSchedulingBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryAutonomousFollowUpBoundary",
-    );
-    expect(appSource).toContain('label="Autonomous follow-up"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAutonomousFollowUpBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryOutboundMessagingBoundary",
-    );
-    expect(appSource).toContain('label="Outbound messaging"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryOutboundMessagingBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryExternalTriggerBoundary",
-    );
-    expect(appSource).toContain('label="External triggers"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryExternalTriggerBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryClipboardObservationBoundary",
-    );
-    expect(appSource).toContain('label="Clipboard observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryClipboardObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryKeystrokeObservationBoundary",
-    );
-    expect(appSource).toContain('label="Keystroke observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryKeystrokeObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryWindowObservationBoundary",
-    );
-    expect(appSource).toContain('label="Window observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryWindowObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryScreenObservationBoundary",
-    );
-    expect(appSource).toContain('label="Screen observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryScreenObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryFileObservationBoundary",
-    );
-    expect(appSource).toContain('label="File observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryFileObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCameraObservationBoundary",
-    );
-    expect(appSource).toContain('label="Camera observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCameraObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryMicrophoneObservationBoundary",
-    );
-    expect(appSource).toContain('label="Microphone observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryMicrophoneObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryBrowserHistoryObservationBoundary",
-    );
-    expect(appSource).toContain('label="Browser history observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryBrowserHistoryObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryLocationObservationBoundary",
-    );
-    expect(appSource).toContain('label="Location observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryLocationObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryContactsObservationBoundary",
-    );
-    expect(appSource).toContain('label="Contacts observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryContactsObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCalendarObservationBoundary",
-    );
-    expect(appSource).toContain('label="Calendar observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCalendarObservationBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryEmailObservationBoundary");
-    expect(appSource).toContain('label="Email observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryEmailObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryMessagingObservationBoundary",
-    );
-    expect(appSource).toContain('label="Messaging observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryMessagingObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCredentialObservationBoundary",
-    );
-    expect(appSource).toContain('label="Credential observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCredentialObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryPaymentObservationBoundary",
-    );
-    expect(appSource).toContain('label="Payment observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPaymentObservationBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryHealthObservationBoundary");
-    expect(appSource).toContain('label="Health observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryHealthObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryBiometricObservationBoundary",
-    );
-    expect(appSource).toContain('label="Biometric observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryBiometricObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryGovernmentIdObservationBoundary",
-    );
-    expect(appSource).toContain('label="Government ID observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryGovernmentIdObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryFinancialAccountObservationBoundary",
-    );
-    expect(appSource).toContain('label="Financial account observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryFinancialAccountObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryLegalDocumentObservationBoundary",
-    );
-    expect(appSource).toContain('label="Legal document observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryLegalDocumentObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryRepositoryObservationBoundary",
-    );
-    expect(appSource).toContain('label="Repository observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRepositoryObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCloudStorageObservationBoundary",
-    );
-    expect(appSource).toContain('label="Cloud storage observation"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCloudStorageObservationBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryAnalyticsProfilingBoundary",
-    );
-    expect(appSource).toContain('label="Analytics profiling"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAnalyticsProfilingBoundary}",
-    );
-    expect(appSource).toContain('label="Vector index retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryVectorIndexRetentionBoundary}",
-    );
-    expect(appSource).toContain('label="Plugin access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPluginAccessBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryWorkflowAccessBoundary",
-    );
-    expect(appSource).toContain('label="Workflow access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryWorkflowAccessBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryTeachModeAccessBoundary");
-    expect(appSource).toContain('label="Teach Mode access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryTeachModeAccessBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemorySkinAccessBoundary");
-    expect(appSource).toContain('label="Skin access"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySkinAccessBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryPetAccessBoundary");
-    expect(appSource).toContain('label="Pet access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPetAccessBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryPersonalityAccessBoundary",
-    );
-    expect(appSource).toContain('label="Personality access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPersonalityAccessBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryCustomUiAccessBoundary");
-    expect(appSource).toContain('label="Custom UI access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCustomUiAccessBoundary}",
-    );
+    expect(appSource).toContain('"STATUS_ONLY"');
+    expect(appSource).toContain('"NO_RUNTIME_MUTATION"');
     expect(appSource).toContain('"NOT_GRANTED"');
-    expect(appSource).toContain('label="Expiration control"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryExpirationBoundary}",
-    );
-    expect(appSource).toContain('label="Session-only mode"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySessionOnlyBoundary}",
-    );
-    expect(appSource).toContain('label="Provider audit"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryProviderAuditBoundary}",
-    );
-    expect(appSource).toContain('label="Audit history"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAuditHistoryBoundary}",
-    );
-    expect(appSource).toContain('label="External sharing"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryExternalSharingBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCommunitySharingBoundary",
-    );
-    expect(appSource).toContain('label="Community sharing"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCommunitySharingBoundary}",
-    );
-    expect(appSource).toContain('label="Cloud sync"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCloudSyncBoundary}",
-    );
-    expect(appSource).toContain('label="Cloud account"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCloudAccountBoundary}",
-    );
     expect(appSource).toContain('"NOT_CONFIGURED"');
-    expect(appSource).toContain('label="Storage encryption"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryStorageEncryptionBoundary}",
-    );
-    expect(appSource).toContain('label="Credential access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCredentialAccessBoundary}",
-    );
     expect(appSource).toContain('"NO_ACCESS"');
-    expect(appSource).toContain('label="Network access"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryNetworkAccessBoundary}",
-    );
-    expect(appSource).toContain('label="Model training"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryModelTrainingBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryTrainingExportBoundary");
-    expect(appSource).toContain('label="Training export"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryTrainingExportBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryProviderPersonalizationBoundary",
-    );
-    expect(appSource).toContain('label="Provider personalization"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryProviderPersonalizationBoundary}",
-    );
-    expect(appSource).toContain("userControlledMemoryPromptInjectionBoundary");
-    expect(appSource).toContain('label="Prompt injection"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPromptInjectionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryRawAudioRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Raw audio retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRawAudioRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryRawTranscriptRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Raw transcript retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRawTranscriptRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryScreenCaptureRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Screen capture retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryScreenCaptureRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryFileContentRetentionBoundary",
-    );
-    expect(appSource).toContain('label="File content retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryFileContentRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryClipboardRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Clipboard retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryClipboardRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemorySecretRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Secret retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySecretRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryPaymentDataRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Payment data retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPaymentDataRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryLocationRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Location retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryLocationRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryBiometricRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Biometric retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryBiometricRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryContactRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Contact retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryContactRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryHealthRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Health retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryHealthRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCalendarRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Calendar retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCalendarRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryEmailRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Email retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryEmailRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryIdentityDocumentRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Identity document retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryIdentityDocumentRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryBrowserHistoryRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Browser history retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryBrowserHistoryRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCookieRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Cookie retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCookieRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryDownloadHistoryRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Download history retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryDownloadHistoryRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryAutofillRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Autofill retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryAutofillRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCredentialRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Credential retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCredentialRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryDeviceIdentifierRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Device identifier retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryDeviceIdentifierRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryNetworkIdentifierRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Network identifier retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryNetworkIdentifierRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryCrashDumpRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Crash dump retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryCrashDumpRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryErrorReportRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Error report retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryErrorReportRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryTelemetryPayloadRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Telemetry payload retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryTelemetryPayloadRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryModelCacheRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Model cache retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryModelCacheRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryPromptCacheRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Prompt cache retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryPromptCacheRetentionBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryTaskHistoryRetentionBoundary",
-    );
-    expect(appSource).toContain('label="Task history retention"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryTaskHistoryRetentionBoundary}",
-    );
-    expect(appSource).toContain('label="Snapshot redaction"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySnapshotRedactionBoundary}",
-    );
     expect(appSource).toContain('"SANITIZED_ONLY"');
-    expect(appSource).toContain('label="Raw snapshot review"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRawSnapshotReviewBoundary}",
-    );
-    expect(appSource).toContain('label="Snapshot schema validation"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySnapshotSchemaValidationBoundary}",
-    );
     expect(appSource).toContain('"REQUIRED"');
-    expect(appSource).toContain('label="Snapshot provenance"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySnapshotProvenanceBoundary}",
-    );
     expect(appSource).toContain('"USER_CONFIRMED_ONLY"');
-    expect(appSource).toContain('label="Retention controls"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRetentionControlsBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryExportImportBoundary",
-    );
-    expect(appSource).toContain('label="Export/import"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryExportImportBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryEditRestoreBoundary",
-    );
-    expect(appSource).toContain('label="Edit/restore"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryEditRestoreBoundary}",
-    );
-    expect(appSource).toContain(
-      "userControlledMemoryProviderSyncBoundary",
-    );
-    expect(appSource).toContain('label="Provider sync"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryProviderSyncBoundary}",
-    );
-    expect(appSource).toContain('label="Recording mode"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRecordingModeBoundary}",
-    );
-    expect(appSource).toContain('"MANUAL_ONLY"');
-    expect(appSource).toContain('label="Recording pause"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryRecordingPauseBoundary}",
-    );
-    expect(appSource).toContain('label="Saved view presets"');
-    expect(appSource).toContain(
-      "value={userControlledMemorySavedViewPresetsBoundary}",
-    );
-    expect(appSource).toContain('label="Delete pending"');
-    expect(appSource).toContain(
-      "value={userControlledMemoryDeletePendingState}",
-    );
-    expect(appSource).toContain("Vector retrieval");
-    expect(appSource).toContain("VIEW / DELETE ONLY");
     expect(appSource).not.toContain("formatShortTime");
     expect(appSource).not.toContain("user-controlled-memories.json");
   });
@@ -1287,10 +779,10 @@ describe("voice UI wiring", () => {
   });
 
   it("offers a persisted safe built-in skin theme switch", () => {
-    expect(appSource).toContain('type SkinThemeId = "signal" | "harbor" | "ember"');
     expect(appSource).toContain(
-      'THEME_STORAGE_KEY = "jarvis-k-ui-theme"',
+      'type SkinThemeId = "signal" | "harbor" | "ember"',
     );
+    expect(appSource).toContain('THEME_STORAGE_KEY = "jarvis-k-ui-theme"');
     expect(appSource).toContain("builtInSkinThemes");
     expect(appSource).toContain("readInitialSkinTheme");
     expect(appSource).toContain("isSkinThemeId");
