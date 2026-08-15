@@ -70,6 +70,10 @@ import {
   CoreHostMessageHandler,
   createProcessMessageSource,
 } from "./host/host-message-handler";
+import {
+  disposeCoreHostResources,
+  hydrateCoreHostAndAnnounceReady,
+} from "./host/core-host-bootstrap";
 import { RuntimeConfigurationController } from "./host/runtime-configuration-controller";
 import {
   ChatAnswerRuntimeBinding,
@@ -432,8 +436,7 @@ const messageHandler = new CoreHostMessageHandler({
 messageHandler.start();
 
 process.once("disconnect", () => {
-  void messageHandler.dispose();
-  void localEmbeddingComposition.close?.();
+  void disposeCoreHostResources([messageHandler, localEmbeddingComposition]);
 });
 
 process.on("uncaughtException", (error) => {
@@ -457,8 +460,7 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
-void Promise.all([
-  ...(memoryAlphaImplementation ? [runtime.hydrateMemory()] : []),
-  runtime.hydrateTasks(),
-  runtime.hydrateCapabilities(),
-]).finally(() => runtime.announceReady());
+void hydrateCoreHostAndAnnounceReady({
+  runtime,
+  hydrateMemory: memoryAlphaImplementation !== undefined,
+});
