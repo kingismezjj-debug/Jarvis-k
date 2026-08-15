@@ -88,13 +88,13 @@ import type {
   ActionStatus,
   ActiveView,
   LocalTtsStatus,
-  NavItem,
   SkinThemeId,
   UiLanguage,
   UserControlledMemoryFilter,
   UserControlledMemoryRiskFilter,
   UserControlledMemorySort,
 } from "@/app/types";
+import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
 import { cn } from "@/lib/utils";
 import {
@@ -102,45 +102,6 @@ import {
   selectLocalTtsVoice,
   waitForLocalTtsVoices,
 } from "@/voice/local-tts";
-
-function NavigationButton({
-  active,
-  item,
-  label,
-  onSelect,
-}: {
-  active: boolean;
-  item: NavItem;
-  label: string;
-  onSelect: (view: ActiveView) => void;
-}) {
-  const Icon = item.icon;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          aria-label={label}
-          aria-pressed={active}
-          className={cn(
-            "relative size-10 rounded-md text-muted-foreground",
-            active && "bg-secondary text-primary hover:bg-secondary",
-          )}
-          data-testid={`nav-${item.id}`}
-          onClick={() => onSelect(item.id)}
-          size="icon-lg"
-          type="button"
-          variant="ghost"
-        >
-          {active && (
-            <span className="absolute -left-[17px] h-5 w-0.5 rounded-r bg-primary" />
-          )}
-          <Icon className="size-[18px]" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 export default function App() {
   const {

@@ -22,7 +22,9 @@ export function readAppCompositionSource() {
     "app/skin-themes.ts",
     "app/types.ts",
     "app/ui-language.ts",
+    "app/use-plugin-center.ts",
     "app/use-user-controlled-memory-view.ts",
+    "components/assistant-shell/NavigationButton.tsx",
     "components/shared/Metric.tsx",
   ]);
 }
