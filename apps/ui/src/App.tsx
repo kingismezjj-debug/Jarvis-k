@@ -98,6 +98,7 @@ import { buildMemoryBoundaryViewModel } from "@/features/memory/memory-boundary-
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
+import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { cn } from "@/lib/utils";
@@ -3089,539 +3090,293 @@ export default function App() {
                   }}
                 />
 
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.settings.commandRouter}
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant={
-                          commandRouterProductModeEnabled
-                            ? "default"
-                            : "outline"
-                        }
-                      >
-                        {commandRouterProductModeEnabled
-                          ? "control on"
-                          : "default off"}
-                      </Badge>
-                      <Button
-                        aria-label="Refresh Command Router product mode"
-                        className="size-8 rounded-md"
-                        data-testid="settings-refresh-command-router-product-mode"
-                        disabled={sending}
-                        onClick={() =>
-                          void trackAction(
-                            "Refresh Command Router mode",
-                            refreshCommandRouterProductModeStatus,
-                            copy.action.commandRouterProductModeRefreshed,
-                          )
-                        }
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <RefreshCw
-                          className={cn("size-3.5", sending && "animate-spin")}
-                        />
-                      </Button>
-                    </div>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label="Provider"
-                      value={
-                        commandRouterProductModeStatus?.providerId ??
-                        "intent-router.deterministic.rules"
-                      }
-                      tone="accent"
-                    />
-                    <Metric
-                      label="Mode"
-                      value={
-                        commandRouterProductModeStatus?.mode.replaceAll(
-                          "_",
-                          " ",
-                        ) ?? "fixture only"
-                      }
-                      tone="success"
-                    />
-                    <Metric
-                      label="Runtime"
-                      value={commandRouterProductModeSummary}
-                      tone={
-                        commandRouterProductModeEnabled ? "accent" : "warning"
-                      }
-                    />
-                    <Metric
-                      label="Direct action"
-                      value={commandRouterDirectActionStatus}
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Qwen runtime"
-                      value={
-                        commandRouterProductModeStatus?.realQwenRuntimeEnabled
-                          ? "enabled"
-                          : "disabled"
-                      }
-                      tone="warning"
-                    />
-                    <Metric
-                      label="Chat fallback"
-                      value={
-                        commandRouterProductModeStatus?.chatAnswerFallbackPreserved ===
-                        false
-                          ? "not preserved"
-                          : "preserved"
-                      }
-                      tone="success"
-                    />
-                  </dl>
-                  <div
-                    className="border-b py-3 text-[11px]"
-                    data-testid="settings-command-router-qwen-binding"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium">Qwen Fast Router</span>
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        data-testid="settings-command-router-qwen-status"
-                        variant="outline"
-                      >
-                        {commandRouterQwenBinding?.status ?? "disabled"}
-                      </Badge>
-                    </div>
-                    <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <Metric
-                        label="Provider"
-                        value={
+                <CommandRouterSettingsPanel
+                  actions={{
+                    refreshProductMode: () => {
+                      void trackAction(
+                        "Refresh Command Router mode",
+                        refreshCommandRouterProductModeStatus,
+                        copy.action.commandRouterProductModeRefreshed,
+                      );
+                    },
+                    refreshQwenRuntimeControl: () => {
+                      void trackAction(
+                        "Refresh Qwen runtime control",
+                        refreshQwenRuntimeControlStatus,
+                      );
+                    },
+                    rollbackQwenRuntimeControl: () => {
+                      void handleQwenRuntimeControlAction("rollback");
+                    },
+                    setProductModeEnabled: (enabled) => {
+                      void trackAction(
+                        "Change Command Router mode",
+                        async () => setCommandRouterProductModeEnabled(enabled),
+                        copy.action.commandRouterProductModeChanged,
+                      );
+                    },
+                    startQwenRuntimeControl: () => {
+                      void handleQwenRuntimeControlAction("start");
+                    },
+                    stopQwenRuntimeControl: () => {
+                      void handleQwenRuntimeControlAction("stop");
+                    },
+                  }}
+                  copy={copy}
+                  sending={sending}
+                  viewModel={{
+                    activationGateLabels: commandRouterQwenActivationGateLabels,
+                    activationPolicyId:
+                      commandRouterQwenActivation?.policyId ??
+                      "qwen-product-routing.activation.default-off.v1",
+                    gateLabels: commandRouterQwenGateLabels,
+                    headerBadge: commandRouterProductModeEnabled
+                      ? "control on"
+                      : "default off",
+                    productModeEnabled: commandRouterProductModeEnabled,
+                    productModeNotice:
+                      "Fixture-only surface: deterministic intent routing remains active; Qwen is status-only with no runtime, helper, artifact, cache, or provider call, and no browser execution. Approved local app launches remain Notepad/Calculator only after confirmation.",
+                    productModeSummary: commandRouterProductModeEnabled
+                      ? "Control enabled; text and voice commands are routed through deterministic fixture projection only."
+                      : "Default off; existing Chat Answer and BrainCommand behavior is preserved.",
+                    qwenMetrics: [
+                      {
+                        label: "Provider",
+                        value:
                           commandRouterQwenBinding?.providerId ??
-                          "intent-router.qwen3-0.6b"
-                        }
-                        tone="accent"
-                      />
-                      <Metric
-                        label="Binding"
-                        value={
+                          "intent-router.qwen3-0.6b",
+                        tone: "accent",
+                      },
+                      {
+                        label: "Binding",
+                        value:
                           commandRouterQwenBinding?.mode.replaceAll("_", " ") ??
-                          "no runtime status only"
-                        }
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Product routing"
-                        value={
-                          commandRouterQwenBinding?.productRoutingEnabled
-                            ? "enabled"
-                            : "off"
-                        }
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Conversation route"
-                        value={
+                          "no runtime status only",
+                        tone: "warning",
+                      },
+                      {
+                        label: "Product routing",
+                        value: commandRouterQwenBinding?.productRoutingEnabled
+                          ? "enabled"
+                          : "off",
+                        tone: "warning",
+                      },
+                      {
+                        label: "Conversation route",
+                        value:
                           commandRouterQwenBinding
                             ?.conversationSurfaceProductRoute?.status ??
-                          "disabled"
-                        }
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Route selectable"
-                        value={
-                          commandRouterQwenBinding
-                            ?.conversationSurfaceProductRoute
-                            ?.qwenRouteSelectable
-                            ? "selectable"
-                            : "fixture"
-                        }
-                        tone="success"
-                      />
-                      <Metric
-                        label="Persistent opt-in"
-                        value={
+                          "disabled",
+                        tone: "warning",
+                      },
+                      {
+                        label: "Route selectable",
+                        value: commandRouterQwenBinding
+                          ?.conversationSurfaceProductRoute?.qwenRouteSelectable
+                          ? "selectable"
+                          : "fixture",
+                        tone: "success",
+                      },
+                      {
+                        label: "Persistent opt-in",
+                        value:
                           commandRouterQwenBinding
                             ?.conversationSurfaceProductRoute?.persistentOptIn
-                            ?.status ?? "disabled"
-                        }
-                        tone="warning"
-                      />
-                      <Metric
-                        label="Session scope"
-                        value={
-                          commandRouterQwenBinding
-                            ?.conversationSurfaceProductRoute?.persistentOptIn
-                            ?.limitedProductSessionOnly
-                            ? "limited"
-                            : "blocked"
-                        }
-                        tone="success"
-                      />
-                      <Metric
-                        label="Runtime access"
-                        value={
-                          commandRouterQwenBinding?.runtimeAccessed
-                            ? "accessed"
-                            : "not accessed"
-                        }
-                        tone="success"
-                      />
-                      <Metric
-                        label="Artifact access"
-                        value={
-                          commandRouterQwenBinding?.artifactAccessed
-                            ? "accessed"
-                            : "not accessed"
-                        }
-                        tone="success"
-                      />
-                      <Metric
-                        label="Cache change"
-                        value={
-                          commandRouterQwenBinding?.persistentCacheChanged
-                            ? "changed"
-                            : "none"
-                        }
-                        tone="success"
-                      />
-                      <Metric
-                        label="Activation"
-                        value={
+                            ?.status ?? "disabled",
+                        tone: "warning",
+                      },
+                      {
+                        label: "Session scope",
+                        value: commandRouterQwenBinding
+                          ?.conversationSurfaceProductRoute?.persistentOptIn
+                          ?.limitedProductSessionOnly
+                          ? "limited"
+                          : "blocked",
+                        tone: "success",
+                      },
+                      {
+                        label: "Runtime access",
+                        value: commandRouterQwenBinding?.runtimeAccessed
+                          ? "accessed"
+                          : "not accessed",
+                        tone: "success",
+                      },
+                      {
+                        label: "Artifact access",
+                        value: commandRouterQwenBinding?.artifactAccessed
+                          ? "accessed"
+                          : "not accessed",
+                        tone: "success",
+                      },
+                      {
+                        label: "Cache change",
+                        value: commandRouterQwenBinding?.persistentCacheChanged
+                          ? "changed"
+                          : "none",
+                        tone: "success",
+                      },
+                      {
+                        label: "Activation",
+                        value:
                           commandRouterQwenActivation?.status.replaceAll(
                             "_",
                             " ",
-                          ) ?? "disabled"
-                        }
-                        tone={
+                          ) ?? "disabled",
+                        tone:
                           commandRouterQwenActivation?.status === "ready"
                             ? "accent"
-                            : "warning"
-                        }
-                      />
-                      <Metric
-                        label="Rollback"
-                        value={
+                            : "warning",
+                      },
+                      {
+                        label: "Rollback",
+                        value:
                           commandRouterQwenActivation?.rollbackState.replaceAll(
                             "_",
                             " ",
-                          ) ?? "not needed"
-                        }
-                        tone="success"
-                      />
-                    </dl>
-                    <div
-                      className="mt-2 border-t pt-2"
-                      data-testid="settings-command-router-qwen-activation"
-                    >
-                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <span>Activation policy</span>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          {commandRouterQwenActivation?.policyId ??
-                            "qwen-product-routing.activation.default-off.v1"}
-                        </Badge>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          product route off
-                        </Badge>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          fixture rollback
-                        </Badge>
-                      </div>
-                      <div
-                        className="mt-2 flex flex-wrap gap-1.5"
-                        data-testid="settings-command-router-qwen-activation-gates"
-                      >
-                        {commandRouterQwenActivationGateLabels.map((label) => (
-                          <span
-                            className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                            key={label}
-                          >
-                            {label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div
-                      className="mt-2 flex flex-wrap gap-1.5"
-                      data-testid="settings-command-router-qwen-gates"
-                    >
-                      {commandRouterQwenGateLabels.map((label) => (
-                        <span
-                          className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                          key={label}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                    <div
-                      className="mt-3 border-t pt-3"
-                      data-testid="settings-command-router-qwen-runtime-control"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-medium">
-                            Retained Qwen session control
-                          </div>
-                          <div
-                            className="mt-1 text-[10px] text-muted-foreground"
-                            data-testid="settings-command-router-qwen-runtime-control-status"
-                          >
-                            {qwenRuntimeControlSummary} /{" "}
-                            {qwenRuntimeControlSession} /{" "}
-                            {qwenRuntimeControlHelper}
-                          </div>
-                        </div>
-                        <Button
-                          aria-label="Refresh Qwen runtime control"
-                          className="size-8 rounded-md"
-                          data-testid="settings-refresh-qwen-runtime-control"
-                          disabled={sending}
-                          onClick={() =>
-                            void trackAction(
-                              "Refresh Qwen runtime control",
-                              refreshQwenRuntimeControlStatus,
-                            )
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              "size-3.5",
-                              sending && "animate-spin",
-                            )}
-                          />
-                        </Button>
-                      </div>
-                      <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <Metric
-                          label="Session"
-                          value={
-                            qwenRuntimeControlStatus?.retainedSessionId ??
-                            "qwen-retained-product-session-2026-08-10"
-                          }
-                          tone={
-                            qwenRuntimeControlStatus?.retainedSessionAvailable
-                              ? "success"
-                              : "warning"
-                          }
-                        />
-                        <Metric
-                          label="Route source"
-                          value={qwenRuntimeControlRoute}
-                          tone="accent"
-                        />
-                        <Metric
-                          label="Fallback"
-                          value={
-                            qwenRuntimeControlStatus?.fallbackRouteSource ??
-                            "intent-router.deterministic.rules"
-                          }
-                          tone="success"
-                        />
-                        <Metric
-                          label="Route limit"
-                          value={String(
-                            qwenRuntimeControlStatus?.routeRequestLimit ?? 3,
-                          )}
-                          tone="warning"
-                        />
-                        <Metric
-                          label="Route count"
-                          value={String(
-                            qwenRuntimeControlStatus?.routeRequestCount ?? 0,
-                          )}
-                          tone="warning"
-                        />
-                        <Metric
-                          label="Helper starts"
-                          value={String(
-                            qwenRuntimeControlStatus?.helperStartCount ?? 0,
-                          )}
-                          tone="warning"
-                        />
-                        <Metric
-                          label="Gen probes"
-                          value={String(
-                            qwenRuntimeControlStatus?.generationPortReadinessProbeCount ??
-                              0,
-                          )}
-                          tone="warning"
-                        />
-                        <Metric
-                          label="Shutdown"
-                          value={
-                            qwenRuntimeControlStatus?.helperShutdownVerified ===
-                            false
-                              ? "pending"
-                              : "verified"
-                          }
-                          tone={
-                            qwenRuntimeControlStatus?.helperShutdownVerified ===
-                            false
-                              ? "warning"
-                              : "success"
-                          }
-                        />
-                        <Metric
-                          label="Browser/URL"
-                          value={
-                            qwenRuntimeControlStatus?.browserUrlOpeningEnabled
-                              ? "enabled"
-                              : "blocked"
-                          }
-                          tone="success"
-                        />
-                        <Metric
-                          label="VS Code"
-                          value={
-                            qwenRuntimeControlStatus?.vsCodeBlocked
-                              ? "blocked"
-                              : "allowed"
-                          }
-                          tone="success"
-                        />
-                      </dl>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Button
-                          aria-label="Start Qwen runtime control"
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid="settings-command-router-qwen-runtime-control-start"
-                          disabled={
-                            sending ||
-                            qwenRuntimeControlStatus?.controls.start !==
-                              "available"
-                          }
-                          onClick={() =>
-                            void handleQwenRuntimeControlAction("start")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <Play className="size-3.5" />
-                          Start
-                        </Button>
-                        <Button
-                          aria-label="Stop Qwen runtime control"
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid="settings-command-router-qwen-runtime-control-stop"
-                          disabled={
-                            sending ||
-                            qwenRuntimeControlStatus?.controls.stop !==
-                              "available"
-                          }
-                          onClick={() =>
-                            void handleQwenRuntimeControlAction("stop")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <Square className="size-3.5" />
-                          Stop
-                        </Button>
-                        <Button
-                          aria-label="Rollback Qwen runtime control"
-                          className="h-8 rounded-md px-2 text-[11px]"
-                          data-testid="settings-command-router-qwen-runtime-control-rollback"
-                          disabled={
-                            sending ||
-                            qwenRuntimeControlStatus?.controls.rollback !==
-                              "available"
-                          }
-                          onClick={() =>
-                            void handleQwenRuntimeControlAction("rollback")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <RotateCcw className="size-3.5" />
-                          Rollback
-                        </Button>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          default off
-                        </Badge>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          explicit opt-in
-                        </Badge>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          fixture fallback
-                        </Badge>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          Notepad/Calculator only
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <label className="mt-3 flex items-center justify-between gap-3 border-y py-2 text-[11px]">
-                    <span className="min-w-0">
-                      <span className="block font-medium">
-                        Deterministic router control
-                      </span>
-                      <span className="mt-0.5 block text-muted-foreground">
-                        {commandRouterProductModeEnabled
-                          ? "Control enabled; text and voice commands are routed through deterministic fixture projection only."
-                          : "Default off; existing Chat Answer and BrainCommand behavior is preserved."}
-                      </span>
-                    </span>
-                    <input
-                      aria-label="Command Router product mode control"
-                      checked={commandRouterProductModeEnabled}
-                      className="size-4 accent-primary"
-                      data-testid="settings-command-router-product-mode-toggle"
-                      onChange={(event) =>
-                        void trackAction(
-                          "Change Command Router mode",
-                          async () =>
-                            setCommandRouterProductModeEnabled(
-                              event.target.checked,
-                            ),
-                          copy.action.commandRouterProductModeChanged,
-                        )
-                      }
-                      type="checkbox"
-                    />
-                  </label>
-                  <p
-                    className="mt-2 text-[11px] leading-4 text-muted-foreground"
-                    data-testid="settings-command-router-product-mode-notice"
-                  >
-                    Fixture-only surface: deterministic intent routing remains
-                    active; Qwen is status-only with no runtime, helper,
-                    artifact, cache, or provider call, and no browser execution.
-                    Approved local app launches remain Notepad/Calculator only
-                    after confirmation.
-                  </p>
-                </section>
+                          ) ?? "not needed",
+                        tone: "success",
+                      },
+                    ],
+                    qwenRuntimeControlHelper,
+                    qwenRuntimeControlMetrics: [
+                      {
+                        label: "Session",
+                        value:
+                          qwenRuntimeControlStatus?.retainedSessionId ??
+                          "qwen-retained-product-session-2026-08-10",
+                        tone: qwenRuntimeControlStatus?.retainedSessionAvailable
+                          ? "success"
+                          : "warning",
+                      },
+                      {
+                        label: "Route source",
+                        value: qwenRuntimeControlRoute,
+                        tone: "accent",
+                      },
+                      {
+                        label: "Fallback",
+                        value:
+                          qwenRuntimeControlStatus?.fallbackRouteSource ??
+                          "intent-router.deterministic.rules",
+                        tone: "success",
+                      },
+                      {
+                        label: "Route limit",
+                        value: String(
+                          qwenRuntimeControlStatus?.routeRequestLimit ?? 3,
+                        ),
+                        tone: "warning",
+                      },
+                      {
+                        label: "Route count",
+                        value: String(
+                          qwenRuntimeControlStatus?.routeRequestCount ?? 0,
+                        ),
+                        tone: "warning",
+                      },
+                      {
+                        label: "Helper starts",
+                        value: String(
+                          qwenRuntimeControlStatus?.helperStartCount ?? 0,
+                        ),
+                        tone: "warning",
+                      },
+                      {
+                        label: "Gen probes",
+                        value: String(
+                          qwenRuntimeControlStatus?.generationPortReadinessProbeCount ??
+                            0,
+                        ),
+                        tone: "warning",
+                      },
+                      {
+                        label: "Shutdown",
+                        value:
+                          qwenRuntimeControlStatus?.helperShutdownVerified ===
+                          false
+                            ? "pending"
+                            : "verified",
+                        tone:
+                          qwenRuntimeControlStatus?.helperShutdownVerified ===
+                          false
+                            ? "warning"
+                            : "success",
+                      },
+                      {
+                        label: "Browser/URL",
+                        value:
+                          qwenRuntimeControlStatus?.browserUrlOpeningEnabled
+                            ? "enabled"
+                            : "blocked",
+                        tone: "success",
+                      },
+                      {
+                        label: "VS Code",
+                        value: qwenRuntimeControlStatus?.vsCodeBlocked
+                          ? "blocked"
+                          : "allowed",
+                        tone: "success",
+                      },
+                    ],
+                    qwenRuntimeControlRollbackAvailable:
+                      qwenRuntimeControlStatus?.controls.rollback ===
+                      "available",
+                    qwenRuntimeControlSession,
+                    qwenRuntimeControlStartAvailable:
+                      qwenRuntimeControlStatus?.controls.start === "available",
+                    qwenRuntimeControlStopAvailable:
+                      qwenRuntimeControlStatus?.controls.stop === "available",
+                    qwenRuntimeControlSummary,
+                    qwenStatus: commandRouterQwenBinding?.status ?? "disabled",
+                    routeMetrics: [
+                      {
+                        label: "Provider",
+                        value:
+                          commandRouterProductModeStatus?.providerId ??
+                          "intent-router.deterministic.rules",
+                        tone: "accent",
+                      },
+                      {
+                        label: "Mode",
+                        value:
+                          commandRouterProductModeStatus?.mode.replaceAll(
+                            "_",
+                            " ",
+                          ) ?? "fixture only",
+                        tone: "success",
+                      },
+                      {
+                        label: "Runtime",
+                        value: commandRouterProductModeSummary,
+                        tone: commandRouterProductModeEnabled
+                          ? "accent"
+                          : "warning",
+                      },
+                      {
+                        label: "Direct action",
+                        value: commandRouterDirectActionStatus,
+                        tone: "warning",
+                      },
+                      {
+                        label: "Qwen runtime",
+                        value:
+                          commandRouterProductModeStatus?.realQwenRuntimeEnabled
+                            ? "enabled"
+                            : "disabled",
+                        tone: "warning",
+                      },
+                      {
+                        label: "Chat fallback",
+                        value:
+                          commandRouterProductModeStatus?.chatAnswerFallbackPreserved ===
+                          false
+                            ? "not preserved"
+                            : "preserved",
+                        tone: "success",
+                      },
+                    ],
+                  }}
+                />
 
                 <section className="min-w-0">
                   <div className="mb-3 flex items-center justify-between">

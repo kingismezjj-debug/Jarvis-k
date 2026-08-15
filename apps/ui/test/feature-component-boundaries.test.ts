@@ -15,6 +15,7 @@ const featureComponents = [
   "features/model-management/model-operation-list.tsx",
   "features/plugins/plugin-management-view.tsx",
   "features/plugins/plugin-projection-panel.tsx",
+  "features/settings/command-router-settings-panel.tsx",
   "features/settings/settings-general-panel.tsx",
   "features/memory/memory-boundary-panel.tsx",
   "features/memory/memory-center.tsx",
@@ -32,7 +33,8 @@ describe("UI feature component boundaries", () => {
       expect(source).not.toContain("electron");
       expect(source).not.toContain("ipcRenderer");
       expect(source).not.toContain("Repository");
-      expect(source).not.toContain("Provider");
+      expect(source).not.toMatch(/new\s+\w*Provider/);
+      expect(source).not.toContain("ProviderRegistry");
     },
   );
 
@@ -110,5 +112,20 @@ describe("UI feature component boundaries", () => {
     expect(viewModelSource).toContain("buildMemoryBoundaryViewModel");
     expect(viewModelSource).not.toContain("window.jarvis");
     expect(viewModelSource).not.toContain("ipcRenderer");
+  });
+
+  it("keeps command router settings actions delegated to App", () => {
+    const source = readSource(
+      "features/settings/command-router-settings-panel.tsx",
+    );
+
+    expect(source).toContain(
+      'data-testid="settings-command-router-product-mode-toggle"',
+    );
+    expect(source).toContain(
+      'data-testid="settings-command-router-qwen-runtime-control"',
+    );
+    expect(source).not.toContain("setCommandRouterProductModeEnabled");
+    expect(source).not.toContain("setQwenRuntimeControlAction");
   });
 });
