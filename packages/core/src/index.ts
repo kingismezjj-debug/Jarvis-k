@@ -12,7 +12,6 @@ export type {
   CoreMemoryAlphaSessionPort,
   LocalPluginEnabledStateRecord,
   LocalPluginStateRepository,
-  UserPreferenceMemoryRepository,
   UserRouteAliasRepository,
   VoiceCommandAliasRepository,
 } from "./runtime";
@@ -26,6 +25,10 @@ export type {
   CoreMemoryRetrievalRoutingOptions,
   CoreMemoryRetrievalRoutingQueryContext,
 } from "./memory/memory-recall-service";
+export type {
+  ResolvedUserPreferenceMemoryRequest,
+  UserPreferenceMemoryRepository,
+} from "./memory/user-preference-memory-service";
 export type {
   VoiceCommandResolverInput,
   VoiceCommandResolverPluginCapability,

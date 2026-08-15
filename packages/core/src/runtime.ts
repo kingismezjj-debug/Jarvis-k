@@ -82,7 +82,6 @@ import {
   UserControlledMemoryRecord,
   UserControlledMemoryRecordSchema,
   UserPreferenceMemoryRecord,
-  UserPreferenceMemoryRecordSchema,
   UserRouteAliasLearningProposal,
   UserRouteAliasLearningProposalSchema,
   UserRouteAliasRecord,
@@ -145,6 +144,10 @@ import {
   type CoreMemoryRecallObservation,
   type CoreMemoryRetrievalRoutingOptions,
 } from "./memory/memory-recall-service";
+import {
+  UserPreferenceMemoryService,
+  type UserPreferenceMemoryRepository,
+} from "./memory/user-preference-memory-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -449,20 +452,6 @@ export interface UserRouteAliasRepository {
   deleteAlias(aliasId: string): Promise<boolean>;
 }
 
-export interface UserPreferenceMemoryRepository {
-  initialize(): Promise<void>;
-  listPreferences(): Promise<UserPreferenceMemoryRecord[]>;
-  upsertPreference(
-    input: UserPreferenceMemoryRecord,
-  ): Promise<UserPreferenceMemoryRecord>;
-  deletePreference(preferenceId: string): Promise<boolean>;
-}
-
-type ResolvedUserPreferenceMemoryRequest = Pick<
-  UserPreferenceMemoryRecord,
-  "key" | "label" | "value" | "summary"
->;
-
 interface CoreBrainPlanningOutcome {
   selection: BrainPlannerSelectionReport;
   result?: BrainPlannerResult;
@@ -492,6 +481,7 @@ export class CoreRuntime {
   private readonly chatDispatchService: ChatDispatchService;
   private readonly commandRoutingService: CommandRoutingService;
   private readonly memoryRecallService: MemoryRecallService;
+  private readonly userPreferenceMemoryService: UserPreferenceMemoryService;
   private readonly pendingUserRouteAliasProposals = new Map<
     string,
     UserRouteAliasLearningProposal
@@ -567,6 +557,10 @@ export class CoreRuntime {
     this.memoryRecallService = new MemoryRecallService({
       retrievalPort: this.embeddingMemoryRetrievalPort,
       routing: this.memoryRetrievalRouting,
+      now: this.now,
+    });
+    this.userPreferenceMemoryService = new UserPreferenceMemoryService({
+      repository: this.userPreferenceMemoryRepository,
       now: this.now,
     });
     this.commandRoutingService = new CommandRoutingService({
@@ -2162,7 +2156,7 @@ export class CoreRuntime {
     conversationId?: string;
     voiceCorrection?: VoiceCommandCorrection;
   }): Promise<CommandResult | undefined> {
-    const resolvedPreference = this.resolveUserPreferenceMemoryRequest(
+    const resolvedPreference = this.userPreferenceMemoryService.resolve(
       input.text,
     );
     if (!resolvedPreference) {
@@ -2182,31 +2176,11 @@ export class CoreRuntime {
       return accepted.result;
     }
 
-    const repository = this.userPreferenceMemoryRepository;
-    const canPersist = repository !== undefined;
-    let preference: UserPreferenceMemoryRecord | undefined;
-    if (repository) {
-      await repository.initialize();
-      const existing = (await repository.listPreferences()).find(
-        (record) => record.key === resolvedPreference.key,
+    const preferenceMemory =
+      await this.userPreferenceMemoryService.persistResolved(
+        resolvedPreference,
       );
-      const now = this.now().toISOString();
-      preference = await repository.upsertPreference(
-        UserPreferenceMemoryRecordSchema.parse({
-          id: existing?.id ?? `preference_${resolvedPreference.key}`,
-          key: resolvedPreference.key,
-          label: resolvedPreference.label,
-          value: resolvedPreference.value,
-          summary: resolvedPreference.summary,
-          source: "user_confirmed_preference",
-          risk: "low",
-          enabled: true,
-          appliesTo: "ui_projection_only",
-          createdAt: existing?.createdAt ?? now,
-          updatedAt: now,
-        }),
-      );
-    }
+    const canPersist = preferenceMemory.canPersist;
 
     const decision = this.brainDecision({
       intent: "memory.preference.set",
@@ -2280,7 +2254,6 @@ export class CoreRuntime {
       messageId: accepted.message.id,
       assistantMessageId: assistant.message.id,
     });
-    void preference;
     this.publishSnapshot(input.envelope.correlationId);
     return this.success(input.envelope, { brain: brainResult });
   }
@@ -2652,29 +2625,10 @@ export class CoreRuntime {
       }
     }
 
-    if (this.userPreferenceMemoryRepository) {
-      await this.userPreferenceMemoryRepository.initialize();
-      persisted = true;
-      for (const preference of await this.userPreferenceMemoryRepository.listPreferences()) {
-        memories.push(
-          UserControlledMemoryRecordSchema.parse({
-            id: `preference:${preference.id}`,
-            sourceId: preference.id,
-            kind: "preference",
-            label: preference.label,
-            summary: preference.summary,
-            preferenceKey: preference.key,
-            preferenceValue: preference.value,
-            source: preference.source,
-            risk: preference.risk,
-            deletable: true,
-            rawContentExposed: false,
-            createdAt: preference.createdAt,
-            updatedAt: preference.updatedAt,
-          }),
-        );
-      }
-    }
+    const preferenceRecords =
+      await this.userPreferenceMemoryService.listUserControlledRecords();
+    persisted = persisted || preferenceRecords.persisted;
+    memories.push(...preferenceRecords.memories);
 
     memories.sort((left, right) =>
       right.updatedAt.localeCompare(left.updatedAt),
@@ -2722,20 +2676,10 @@ export class CoreRuntime {
     }
 
     if (kind === "preference") {
-      if (!this.userPreferenceMemoryRepository) {
-        return this.success(envelope, {
-          deleted: false,
-          persisted: false,
-          rawContentExposed: false,
-          directActionAttempted: false,
-          vectorRetrievalUsed: false,
-        });
-      }
-      await this.userPreferenceMemoryRepository.initialize();
+      const deletion = await this.userPreferenceMemoryService.delete(sourceId);
       return this.success(envelope, {
-        deleted:
-          await this.userPreferenceMemoryRepository.deletePreference(sourceId),
-        persisted: true,
+        deleted: deletion.deleted,
+        persisted: deletion.persisted,
         rawContentExposed: false,
         directActionAttempted: false,
         vectorRetrievalUsed: false,
@@ -6171,108 +6115,6 @@ export class CoreRuntime {
     return /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|\u5b66\u4e00\u4e0b|remember|save|learn)/iu.test(
       normalized,
     );
-  }
-
-  private resolveUserPreferenceMemoryRequest(
-    text: string,
-  ): ResolvedUserPreferenceMemoryRequest | undefined {
-    const normalized = this.normalizeUserRouteAliasComparable(text);
-    const hasMemoryCue =
-      /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|\u4ee5\u540e|\u4ee5\u540e\u9ed8\u8ba4|remember|save)/iu.test(
-        text,
-      ) || normalized.includes("default");
-    if (!hasMemoryCue) {
-      return undefined;
-    }
-    if (
-      normalized.includes("\u4e2d\u6587\u56de\u7b54") ||
-      normalized.includes("\u4e2d\u6587\u56de\u590d") ||
-      normalized.includes("\u7528\u4e2d\u6587\u56de\u7b54") ||
-      normalized.includes("\u7528\u4e2d\u6587\u56de\u590d") ||
-      normalized.includes("chinesereplies") ||
-      normalized.includes("replyinchinese")
-    ) {
-      return {
-        key: "response_language",
-        label: "Response language",
-        value: "zh",
-        summary: "Prefer Chinese replies",
-      };
-    }
-    if (
-      normalized.includes("\u7b80\u77ed\u56de\u7b54") ||
-      normalized.includes("\u7b80\u77ed\u56de\u590d") ||
-      normalized.includes("\u7b80\u77ed\u4e00\u70b9") ||
-      normalized.includes("\u77ed\u56de\u7b54") ||
-      normalized.includes("shortanswers") ||
-      normalized.includes("briefanswers") ||
-      normalized.includes("keepitshort")
-    ) {
-      return {
-        key: "response_length",
-        label: "Response length",
-        value: "short",
-        summary: "Prefer short replies",
-      };
-    }
-    if (
-      normalized.includes("\u8be6\u7ec6\u56de\u7b54") ||
-      normalized.includes("\u8be6\u7ec6\u56de\u590d") ||
-      normalized.includes("\u8be6\u7ec6\u4e00\u70b9") ||
-      normalized.includes("\u5c55\u5f00\u56de\u7b54") ||
-      normalized.includes("detailedanswers") ||
-      normalized.includes("moredetail")
-    ) {
-      return {
-        key: "response_length",
-        label: "Response length",
-        value: "detailed",
-        summary: "Prefer detailed replies",
-      };
-    }
-    if (
-      normalized.includes("\u53cb\u597d\u4e00\u70b9") ||
-      normalized.includes("\u8bed\u6c14\u53cb\u597d") ||
-      normalized.includes("\u6e29\u548c\u4e00\u70b9") ||
-      normalized.includes("friendlytone") ||
-      normalized.includes("friendlystyle")
-    ) {
-      return {
-        key: "response_style",
-        label: "Response style",
-        value: "friendly",
-        summary: "Prefer friendly tone",
-      };
-    }
-    if (
-      normalized.includes("\u4e13\u4e1a\u4e00\u70b9") ||
-      normalized.includes("\u6280\u672f\u98ce\u683c") ||
-      normalized.includes("\u4e13\u4e1a\u98ce\u683c") ||
-      normalized.includes("technicaltone") ||
-      normalized.includes("technicalstyle")
-    ) {
-      return {
-        key: "response_style",
-        label: "Response style",
-        value: "technical",
-        summary: "Prefer technical tone",
-      };
-    }
-    if (
-      normalized.includes("\u76f4\u63a5\u4e00\u70b9") ||
-      normalized.includes("\u7b80\u6d01\u98ce\u683c") ||
-      normalized.includes("\u7b80\u6d01\u4e00\u70b9") ||
-      normalized.includes("concisestyle") ||
-      normalized.includes("concisetone")
-    ) {
-      return {
-        key: "response_style",
-        label: "Response style",
-        value: "concise",
-        summary: "Prefer concise tone",
-      };
-    }
-    return undefined;
   }
 
   private createUserRouteAliasLearningProposal(
