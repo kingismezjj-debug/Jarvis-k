@@ -11,6 +11,13 @@ function readSource(relativePath: string) {
 const featureComponents = [
   "features/activity/activity-view.tsx",
   "features/appearance/appearance-settings-panel.tsx",
+  "features/conversation/brain-dispatch-panel.tsx",
+  "features/conversation/conversation-composer.tsx",
+  "features/conversation/conversation-message.tsx",
+  "features/conversation/conversation-message-list.tsx",
+  "features/conversation/conversation-panel.tsx",
+  "features/conversation/conversation-status.tsx",
+  "features/conversation/conversation-tabs.tsx",
   "features/diagnostics/system-status-panel.tsx",
   "features/model-management/model-operation-list.tsx",
   "features/plugins/plugin-management-view.tsx",
@@ -50,6 +57,55 @@ describe("UI feature component boundaries", () => {
     for (const relativePath of featureComponents) {
       expect(readSource(relativePath)).not.toContain("useJarvis()");
     }
+  });
+
+  it("keeps conversation rendering behind extracted feature components", () => {
+    const appSource = readSource("App.tsx");
+    const panelSource = readSource("features/conversation/conversation-panel.tsx");
+    const listSource = readSource(
+      "features/conversation/conversation-message-list.tsx",
+    );
+    const composerSource = readSource(
+      "features/conversation/conversation-composer.tsx",
+    );
+    const messageSource = readSource(
+      "features/conversation/conversation-message.tsx",
+    );
+
+    expect(appSource).toContain("<ConversationPanel");
+    expect(appSource).toContain("<ConversationComposer");
+    expect(appSource).toContain("<ConversationTabs");
+    expect(appSource).not.toContain('data-testid="brain-dispatch-panel"');
+    expect(appSource).not.toContain('data-testid="message-list"');
+    expect(appSource).not.toContain('data-testid="voice-transcript-panel"');
+    expect(appSource).not.toContain('data-testid="command-input"');
+
+    expect(panelSource).toContain("ConversationMessageList");
+    expect(listSource).toContain('data-testid="message-list"');
+    expect(composerSource).toContain('data-testid="command-input"');
+    expect(composerSource).toContain('data-testid="send-command"');
+    expect(messageSource).not.toContain("dangerouslySetInnerHTML");
+  });
+
+  it("keeps conversation feature passive and delegated to App actions", () => {
+    const sources = [
+      readSource("features/conversation/brain-dispatch-panel.tsx"),
+      readSource("features/conversation/conversation-composer.tsx"),
+      readSource("features/conversation/conversation-message-list.tsx"),
+      readSource("features/conversation/conversation-status.tsx"),
+      readSource("features/conversation/conversation-tabs.tsx"),
+    ].join("\n");
+
+    expect(sources).not.toContain("runBrainCommand");
+    expect(sources).not.toContain("sendCommand(");
+    expect(sources).not.toContain("setDraft");
+    expect(sources).not.toContain("useState");
+    expect(sources).not.toContain("useEffect");
+    expect(sources).not.toContain("setTimeout");
+    expect(sources).not.toContain("requestAnimationFrame");
+    expect(sources).not.toContain("apiKey");
+    expect(sources).not.toContain("secret");
+    expect(sources).not.toContain("stack");
   });
 
   it("keeps critical task timeline status and action test ids", () => {
