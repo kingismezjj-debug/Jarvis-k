@@ -15,6 +15,7 @@ const featureComponents = [
   "features/model-management/model-operation-list.tsx",
   "features/plugins/plugin-management-view.tsx",
   "features/plugins/plugin-projection-panel.tsx",
+  "features/settings/chat-answer-settings-panel.tsx",
   "features/settings/command-router-settings-panel.tsx",
   "features/settings/settings-general-panel.tsx",
   "features/memory/memory-boundary-panel.tsx",
@@ -127,5 +128,22 @@ describe("UI feature component boundaries", () => {
     );
     expect(source).not.toContain("setCommandRouterProductModeEnabled");
     expect(source).not.toContain("setQwenRuntimeControlAction");
+  });
+
+  it("keeps chat answer settings credential-safe and action-delegated", () => {
+    const source = readSource(
+      "features/settings/chat-answer-settings-panel.tsx",
+    );
+
+    expect(source).toContain(
+      'data-testid="settings-chat-answer-product-mode-toggle"',
+    );
+    expect(source).toContain(
+      'data-testid="settings-chat-answer-product-mode-notice"',
+    );
+    expect(source).not.toContain("setChatAnswerProductModeEnabled");
+    expect(source).not.toContain("apiKey");
+    expect(source).not.toContain("secret");
+    expect(source).not.toContain("healthCheck");
   });
 });

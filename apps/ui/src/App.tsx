@@ -98,6 +98,7 @@ import { buildMemoryBoundaryViewModel } from "@/features/memory/memory-boundary-
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
+import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
 import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
@@ -3378,138 +3379,87 @@ export default function App() {
                   }}
                 />
 
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.settings.chatAnswer}
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant={
-                          chatAnswerProductModeEnabled ? "default" : "outline"
-                        }
-                      >
-                        {chatAnswerProductModeEnabled
-                          ? "control on"
-                          : "default off"}
-                      </Badge>
-                      <Button
-                        aria-label="Refresh Chat Answer product mode"
-                        className="size-8 rounded-md"
-                        data-testid="settings-refresh-chat-answer-product-mode"
-                        disabled={sending}
-                        onClick={() =>
-                          void trackAction(
-                            "Refresh Chat Answer mode",
-                            refreshChatAnswerProductModeStatus,
-                            copy.action.chatAnswerProductModeRefreshed,
-                          )
-                        }
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <RefreshCw
-                          className={cn("size-3.5", sending && "animate-spin")}
-                        />
-                      </Button>
-                    </div>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label="Provider"
-                      value={
-                        chatAnswerProductModeStatus?.providerId ?? "deepseek"
-                      }
-                      tone="accent"
-                    />
-                    <Metric
-                      label="Profile"
-                      value={
-                        chatAnswerProductModeStatus?.profileId ??
-                        "deepseek.v4-flash.compact_json_object_256"
-                      }
-                    />
-                    <Metric
-                      label="Credential"
-                      value={
-                        chatAnswerCredentialConfigured
+                <ChatAnswerSettingsPanel
+                  actions={{
+                    refreshProductMode: () => {
+                      void trackAction(
+                        "Refresh Chat Answer mode",
+                        refreshChatAnswerProductModeStatus,
+                        copy.action.chatAnswerProductModeRefreshed,
+                      );
+                    },
+                    setProductModeEnabled: (enabled) => {
+                      void trackAction(
+                        "Change Chat Answer mode",
+                        async () => setChatAnswerProductModeEnabled(enabled),
+                        copy.action.chatAnswerProductModeChanged,
+                      );
+                    },
+                  }}
+                  copy={copy}
+                  sending={sending}
+                  viewModel={{
+                    controlSummary: chatAnswerProductModeEnabled
+                      ? chatAnswerRealRuntimeArmed
+                        ? "Control enabled; real runtime armed for one approved fixed text call."
+                        : "Control enabled; real runtime remains locked until credential readiness is confirmed."
+                      : "Default off; typed answers continue through the existing safe path.",
+                    headerBadge: chatAnswerProductModeEnabled
+                      ? "control on"
+                      : "default off",
+                    metrics: [
+                      {
+                        label: "Provider",
+                        value:
+                          chatAnswerProductModeStatus?.providerId ?? "deepseek",
+                        tone: "accent",
+                      },
+                      {
+                        label: "Profile",
+                        value:
+                          chatAnswerProductModeStatus?.profileId ??
+                          "deepseek.v4-flash.compact_json_object_256",
+                      },
+                      {
+                        label: "Credential",
+                        value: chatAnswerCredentialConfigured
                           ? "configured"
-                          : "missing"
-                      }
-                      tone={
-                        chatAnswerCredentialConfigured ? "success" : "warning"
-                      }
-                    />
-                    <Metric
-                      label="Runtime"
-                      value={chatAnswerProductModeSummary}
-                      tone={chatAnswerProductModeEnabled ? "accent" : "warning"}
-                    />
-                    <Metric
-                      label="Secure store"
-                      value={
-                        chatAnswerSecureStoreAvailable
+                          : "missing",
+                        tone: chatAnswerCredentialConfigured
+                          ? "success"
+                          : "warning",
+                      },
+                      {
+                        label: "Runtime",
+                        value: chatAnswerProductModeSummary,
+                        tone: chatAnswerProductModeEnabled
+                          ? "accent"
+                          : "warning",
+                      },
+                      {
+                        label: "Secure store",
+                        value: chatAnswerSecureStoreAvailable
                           ? "available"
-                          : "unavailable"
-                      }
-                      tone={
-                        chatAnswerSecureStoreAvailable ? "success" : "warning"
-                      }
-                    />
-                    <Metric
-                      label="Fallback"
-                      value={
-                        chatAnswerProductModeStatus?.fallbackPreserved === false
-                          ? "not preserved"
-                          : "preserved"
-                      }
-                      tone="success"
-                    />
-                  </dl>
-                  <label className="mt-3 flex items-center justify-between gap-3 border-y py-2 text-[11px]">
-                    <span className="min-w-0">
-                      <span className="block font-medium">
-                        Provider-backed answer control
-                      </span>
-                      <span className="mt-0.5 block text-muted-foreground">
-                        {chatAnswerProductModeEnabled
-                          ? chatAnswerRealRuntimeArmed
-                            ? "Control enabled; real runtime armed for one approved fixed text call."
-                            : "Control enabled; real runtime remains locked until credential readiness is confirmed."
-                          : "Default off; typed answers continue through the existing safe path."}
-                      </span>
-                    </span>
-                    <input
-                      aria-label="Provider-backed Chat Answer control"
-                      checked={chatAnswerProductModeEnabled}
-                      className="size-4 accent-primary"
-                      data-testid="settings-chat-answer-product-mode-toggle"
-                      onChange={(event) =>
-                        void trackAction(
-                          "Change Chat Answer mode",
-                          async () =>
-                            setChatAnswerProductModeEnabled(
-                              event.target.checked,
-                            ),
-                          copy.action.chatAnswerProductModeChanged,
-                        )
-                      }
-                      type="checkbox"
-                    />
-                  </label>
-                  <p
-                    className="mt-2 text-[11px] leading-4 text-muted-foreground"
-                    data-testid="settings-chat-answer-product-mode-notice"
-                  >
-                    Controlled surface: default off; one approved provider call
-                    only after explicit enablement and credential readiness; no
-                    planner, no Memory vector retrieval, and no direct action
-                    behavior.
-                  </p>
-                </section>
-
+                          : "unavailable",
+                        tone: chatAnswerSecureStoreAvailable
+                          ? "success"
+                          : "warning",
+                      },
+                      {
+                        label: "Fallback",
+                        value:
+                          chatAnswerProductModeStatus?.fallbackPreserved ===
+                          false
+                            ? "not preserved"
+                            : "preserved",
+                        tone: "success",
+                      },
+                    ],
+                    notice:
+                      "Controlled surface: default off; one approved provider call only after explicit enablement and credential readiness; no planner, no Memory vector retrieval, and no direct action behavior.",
+                    productModeEnabled: chatAnswerProductModeEnabled,
+                  }}
+                />
                 <section className="min-w-0">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold">
