@@ -80,15 +80,7 @@ import {
   ToolPolicy,
   ToolPolicyDecision,
   UserControlledMemoryRecord,
-  UserControlledMemoryRecordSchema,
-  UserPreferenceMemoryRecord,
-  UserRouteAliasLearningProposal,
-  UserRouteAliasLearningProposalSchema,
-  UserRouteAliasRecord,
-  UserRouteAliasRecordSchema,
   VoiceCommand,
-  VoiceCommandAliasRecord,
-  VoiceCommandAliasRecordSchema,
   VoiceCommandCorrection,
   VoiceEvent,
   createId,
@@ -148,6 +140,11 @@ import {
   UserPreferenceMemoryService,
   type UserPreferenceMemoryRepository,
 } from "./memory/user-preference-memory-service";
+import {
+  RouteAliasMemoryService,
+  type UserRouteAliasRepository,
+  type VoiceCommandAliasRepository,
+} from "./memory/route-alias-memory-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -438,20 +435,6 @@ export interface LocalPluginStateRepository {
   ): Promise<LocalPluginEnabledStateRecord>;
 }
 
-export interface VoiceCommandAliasRepository {
-  initialize(): Promise<void>;
-  listAliases(): Promise<VoiceCommandAliasRecord[]>;
-  upsertAlias(input: VoiceCommandAliasRecord): Promise<VoiceCommandAliasRecord>;
-  deleteAlias(aliasId: string): Promise<boolean>;
-}
-
-export interface UserRouteAliasRepository {
-  initialize(): Promise<void>;
-  listAliases(): Promise<UserRouteAliasRecord[]>;
-  upsertAlias(input: UserRouteAliasRecord): Promise<UserRouteAliasRecord>;
-  deleteAlias(aliasId: string): Promise<boolean>;
-}
-
 interface CoreBrainPlanningOutcome {
   selection: BrainPlannerSelectionReport;
   result?: BrainPlannerResult;
@@ -482,10 +465,7 @@ export class CoreRuntime {
   private readonly commandRoutingService: CommandRoutingService;
   private readonly memoryRecallService: MemoryRecallService;
   private readonly userPreferenceMemoryService: UserPreferenceMemoryService;
-  private readonly pendingUserRouteAliasProposals = new Map<
-    string,
-    UserRouteAliasLearningProposal
-  >();
+  private readonly routeAliasMemoryService: RouteAliasMemoryService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -561,6 +541,11 @@ export class CoreRuntime {
     });
     this.userPreferenceMemoryService = new UserPreferenceMemoryService({
       repository: this.userPreferenceMemoryRepository,
+      now: this.now,
+    });
+    this.routeAliasMemoryService = new RouteAliasMemoryService({
+      routeAliasRepository: this.userRouteAliasRepository,
+      voiceAliasRepository: this.voiceCommandAliasRepository,
       now: this.now,
     });
     this.commandRoutingService = new CommandRoutingService({
@@ -2048,11 +2033,13 @@ export class CoreRuntime {
     conversationId?: string;
     voiceCorrection?: VoiceCommandCorrection;
   }): Promise<CommandResult | undefined> {
-    if (!this.looksLikeUserRouteAliasLearningRequest(input.text)) {
+    if (!this.routeAliasMemoryService.looksLikeLearningRequest(input.text)) {
       return undefined;
     }
 
-    const proposal = this.createUserRouteAliasLearningProposal(input.text);
+    const proposal = this.routeAliasMemoryService.createLearningProposal(
+      input.text,
+    );
     const accepted = await this.acceptMessage({
       envelope: input.envelope,
       role: "user",
@@ -2081,7 +2068,7 @@ export class CoreRuntime {
         : "Detected a user route alias learning request, but the URL did not pass safe HTTPS alias policy.",
     });
     if (proposal) {
-      this.pendingUserRouteAliasProposals.set(proposal.id, proposal);
+      this.routeAliasMemoryService.trackLearningProposal(proposal);
     }
     const summary = proposal
       ? `Jarvis-K can remember route alias "${proposal.label}" for ${proposal.targetHostname} after confirmation. No browser action was attempted.`
@@ -2297,11 +2284,12 @@ export class CoreRuntime {
       return undefined;
     }
     const target = String(decision.slots.target ?? "").trim();
-    const alias = await this.resolveUserRouteAliasRecordByTarget(target);
-    if (!alias) {
+    const resolution =
+      await this.routeAliasMemoryService.resolveRouteAliasByTarget(target);
+    if (!resolution) {
       return undefined;
     }
-    const safeUrl = this.normalizeUserRouteAliasHttpsUrl(alias.targetUrl);
+    const { alias, safeUrl } = resolution;
     if (!safeUrl) {
       return this.brainDecision({
         intent: "blocked",
@@ -2331,36 +2319,6 @@ export class CoreRuntime {
     });
   }
 
-  private async resolveUserRouteAliasRecordByTarget(
-    target: string,
-  ): Promise<UserRouteAliasRecord | undefined> {
-    if (!this.userRouteAliasRepository) {
-      return undefined;
-    }
-    const normalizedTarget = this.normalizeUserRouteAliasComparable(target);
-    if (!normalizedTarget) {
-      return undefined;
-    }
-    try {
-      await this.userRouteAliasRepository.initialize();
-      const aliases = await this.userRouteAliasRepository.listAliases();
-      return aliases.find((alias) =>
-        [alias.label, ...alias.aliases].some((candidate) => {
-          const normalizedAlias =
-            this.normalizeUserRouteAliasComparable(candidate);
-          return (
-            normalizedAlias.length > 0 &&
-            (normalizedTarget === normalizedAlias ||
-              normalizedTarget.includes(normalizedAlias) ||
-              normalizedAlias.includes(normalizedTarget))
-          );
-        }),
-      );
-    } catch {
-      return undefined;
-    }
-  }
-
   private async confirmVoiceCommandCorrection(
     envelope: CommandEnvelope,
   ): Promise<CommandResult> {
@@ -2371,27 +2329,21 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    if (!this.voiceCommandAliasRepository) {
+    const result = await this.routeAliasMemoryService.saveVoiceAlias({
+      rawAlias: envelope.command.payload.rawAlias,
+      normalizedTranscript: envelope.command.payload.normalizedTranscript,
+      intent: envelope.command.payload.intent,
+      slots: envelope.command.payload.slots,
+    });
+    if (result.status === "store_unavailable") {
       return this.failure(envelope, {
         code: "VOICE_ALIAS_STORE_UNAVAILABLE",
         message: "Voice command alias storage is not configured.",
         retryable: true,
       });
     }
-    await this.voiceCommandAliasRepository.initialize();
-    const now = this.now().toISOString();
-    const record = VoiceCommandAliasRecordSchema.parse({
-      id: createId("voice_alias"),
-      rawAlias: envelope.command.payload.rawAlias,
-      normalizedTranscript: envelope.command.payload.normalizedTranscript,
-      intent: envelope.command.payload.intent,
-      slots: envelope.command.payload.slots,
-      createdAt: now,
-      updatedAt: now,
-    });
-    const alias = await this.voiceCommandAliasRepository.upsertAlias(record);
     return this.success(envelope, {
-      alias,
+      alias: result.alias,
       persisted: true,
       rawAudioPersisted: false,
       directActionAttempted: false,
@@ -2408,18 +2360,10 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    if (!this.voiceCommandAliasRepository) {
-      return this.success(envelope, {
-        aliases: [],
-        persisted: false,
-        rawAudioPersisted: false,
-        directActionAttempted: false,
-      });
-    }
-    await this.voiceCommandAliasRepository.initialize();
+    const result = await this.routeAliasMemoryService.listVoiceAliases();
     return this.success(envelope, {
-      aliases: await this.voiceCommandAliasRepository.listAliases(),
-      persisted: true,
+      aliases: result.aliases,
+      persisted: result.persisted,
       rawAudioPersisted: false,
       directActionAttempted: false,
     });
@@ -2435,20 +2379,12 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    if (!this.voiceCommandAliasRepository) {
-      return this.success(envelope, {
-        deleted: false,
-        persisted: false,
-        rawAudioPersisted: false,
-        directActionAttempted: false,
-      });
-    }
-    await this.voiceCommandAliasRepository.initialize();
+    const result = await this.routeAliasMemoryService.deleteVoiceAlias(
+      envelope.command.payload.aliasId,
+    );
     return this.success(envelope, {
-      deleted: await this.voiceCommandAliasRepository.deleteAlias(
-        envelope.command.payload.aliasId,
-      ),
-      persisted: true,
+      deleted: result.deleted,
+      persisted: result.persisted,
       rawAudioPersisted: false,
       directActionAttempted: false,
     });
@@ -2464,51 +2400,33 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    if (!this.userRouteAliasRepository) {
+    const result = await this.routeAliasMemoryService.confirmRouteAlias(
+      envelope.command.payload.proposalId,
+    );
+    if (result.status === "store_unavailable") {
       return this.failure(envelope, {
         code: "USER_ROUTE_ALIAS_STORE_UNAVAILABLE",
         message: "User route alias storage is not configured.",
         retryable: true,
       });
     }
-    const proposal = this.pendingUserRouteAliasProposals.get(
-      envelope.command.payload.proposalId,
-    );
-    if (!proposal) {
+    if (result.status === "proposal_expired") {
       return this.failure(envelope, {
         code: "USER_ROUTE_ALIAS_PROPOSAL_EXPIRED",
         message: "The route alias proposal is no longer pending.",
         retryable: false,
       });
     }
-    const safeUrl = this.normalizeUserRouteAliasHttpsUrl(proposal.targetUrl);
-    if (!safeUrl) {
-      this.pendingUserRouteAliasProposals.delete(proposal.id);
+    if (result.status === "url_blocked") {
       return this.failure(envelope, {
         code: "USER_ROUTE_ALIAS_URL_BLOCKED",
         message: "The route alias URL no longer passes URL policy.",
         retryable: false,
       });
     }
-    await this.userRouteAliasRepository.initialize();
-    const now = this.now().toISOString();
-    const record = UserRouteAliasRecordSchema.parse({
-      id: createId("route_alias"),
-      label: proposal.label,
-      aliases: proposal.aliases,
-      intent: "browser.open",
-      targetUrl: safeUrl.href,
-      targetHostname: safeUrl.hostname,
-      source: "user_confirmed",
-      risk: "medium",
-      createdAt: now,
-      updatedAt: now,
-    });
-    const alias = await this.userRouteAliasRepository.upsertAlias(record);
-    this.pendingUserRouteAliasProposals.delete(proposal.id);
     this.publishSnapshot(envelope.correlationId);
     return this.success(envelope, {
-      alias,
+      alias: result.alias,
       persisted: true,
       directActionAttempted: false,
       rawCredentialPersisted: false,
@@ -2525,17 +2443,10 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    if (!this.userRouteAliasRepository) {
-      return this.success(envelope, {
-        aliases: [],
-        persisted: false,
-        directActionAttempted: false,
-      });
-    }
-    await this.userRouteAliasRepository.initialize();
+    const result = await this.routeAliasMemoryService.listRouteAliases();
     return this.success(envelope, {
-      aliases: await this.userRouteAliasRepository.listAliases(),
-      persisted: true,
+      aliases: result.aliases,
+      persisted: result.persisted,
       directActionAttempted: false,
     });
   }
@@ -2550,19 +2461,12 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    if (!this.userRouteAliasRepository) {
-      return this.success(envelope, {
-        deleted: false,
-        persisted: false,
-        directActionAttempted: false,
-      });
-    }
-    await this.userRouteAliasRepository.initialize();
+    const result = await this.routeAliasMemoryService.deleteRouteAlias(
+      envelope.command.payload.aliasId,
+    );
     return this.success(envelope, {
-      deleted: await this.userRouteAliasRepository.deleteAlias(
-        envelope.command.payload.aliasId,
-      ),
-      persisted: true,
+      deleted: result.deleted,
+      persisted: result.persisted,
       directActionAttempted: false,
     });
   }
@@ -2581,49 +2485,12 @@ export class CoreRuntime {
     const memories: UserControlledMemoryRecord[] = [];
     let persisted = false;
 
-    if (this.voiceCommandAliasRepository) {
-      await this.voiceCommandAliasRepository.initialize();
-      persisted = true;
-      for (const alias of await this.voiceCommandAliasRepository.listAliases()) {
-        memories.push(
-          UserControlledMemoryRecordSchema.parse({
-            id: `voice_command_alias:${alias.id}`,
-            sourceId: alias.id,
-            kind: "voice_command_alias",
-            label: alias.rawAlias,
-            summary: `${alias.intent} / ${this.summarizeMemorySlots(alias.slots)}`,
-            source: "voice_correction_alias",
-            risk: "low",
-            deletable: true,
-            rawContentExposed: false,
-            createdAt: alias.createdAt,
-            updatedAt: alias.updatedAt,
-          }),
-        );
-      }
-    }
-
-    if (this.userRouteAliasRepository) {
-      await this.userRouteAliasRepository.initialize();
-      persisted = true;
-      for (const alias of await this.userRouteAliasRepository.listAliases()) {
-        memories.push(
-          UserControlledMemoryRecordSchema.parse({
-            id: `route_alias:${alias.id}`,
-            sourceId: alias.id,
-            kind: "route_alias",
-            label: alias.label,
-            summary: `${alias.intent} / ${alias.targetHostname}`,
-            source: "user_confirmed_route_alias",
-            risk: alias.risk,
-            deletable: true,
-            rawContentExposed: false,
-            createdAt: alias.createdAt,
-            updatedAt: alias.updatedAt,
-          }),
-        );
-      }
-    }
+    const aliasRecords =
+      await this.routeAliasMemoryService.listUserControlledRecords({
+        summarizeSlots: (slots) => this.summarizeMemorySlots(slots),
+      });
+    persisted = persisted || aliasRecords.persisted;
+    memories.push(...aliasRecords.memories);
 
     const preferenceRecords =
       await this.userPreferenceMemoryService.listUserControlledRecords();
@@ -2656,19 +2523,12 @@ export class CoreRuntime {
 
     const { kind, sourceId } = envelope.command.payload;
     if (kind === "voice_command_alias") {
-      if (!this.voiceCommandAliasRepository) {
-        return this.success(envelope, {
-          deleted: false,
-          persisted: false,
-          rawContentExposed: false,
-          directActionAttempted: false,
-          vectorRetrievalUsed: false,
-        });
-      }
-      await this.voiceCommandAliasRepository.initialize();
+      const deletion = await this.routeAliasMemoryService.deleteVoiceAlias(
+        sourceId,
+      );
       return this.success(envelope, {
-        deleted: await this.voiceCommandAliasRepository.deleteAlias(sourceId),
-        persisted: true,
+        deleted: deletion.deleted,
+        persisted: deletion.persisted,
         rawContentExposed: false,
         directActionAttempted: false,
         vectorRetrievalUsed: false,
@@ -2686,19 +2546,12 @@ export class CoreRuntime {
       });
     }
 
-    if (!this.userRouteAliasRepository) {
-      return this.success(envelope, {
-        deleted: false,
-        persisted: false,
-        rawContentExposed: false,
-        directActionAttempted: false,
-        vectorRetrievalUsed: false,
-      });
-    }
-    await this.userRouteAliasRepository.initialize();
+    const deletion = await this.routeAliasMemoryService.deleteRouteAlias(
+      sourceId,
+    );
     return this.success(envelope, {
-      deleted: await this.userRouteAliasRepository.deleteAlias(sourceId),
-      persisted: true,
+      deleted: deletion.deleted,
+      persisted: deletion.persisted,
       rawContentExposed: false,
       directActionAttempted: false,
       vectorRetrievalUsed: false,
@@ -2827,39 +2680,18 @@ export class CoreRuntime {
   private async routeUserRouteAliasByRules(
     text: string,
   ): Promise<CoreBrainRoutingOutcome | undefined> {
-    if (!this.userRouteAliasRepository) {
-      return undefined;
-    }
     const openTarget = this.extractOpenTarget(text);
     if (!openTarget) {
       return undefined;
     }
-    const normalizedTarget = this.normalizeUserRouteAliasComparable(openTarget);
-    if (!normalizedTarget) {
+    const resolution =
+      await this.routeAliasMemoryService.resolveRouteAliasFromOpenTarget(
+        openTarget,
+      );
+    if (!resolution) {
       return undefined;
     }
-    let aliases: UserRouteAliasRecord[];
-    try {
-      await this.userRouteAliasRepository.initialize();
-      aliases = await this.userRouteAliasRepository.listAliases();
-    } catch {
-      return undefined;
-    }
-    const match = aliases.find((alias) =>
-      [alias.label, ...alias.aliases].some((candidate) => {
-        const normalizedAlias =
-          this.normalizeUserRouteAliasComparable(candidate);
-        return (
-          normalizedAlias.length > 0 &&
-          (normalizedTarget.includes(normalizedAlias) ||
-            normalizedAlias.includes(normalizedTarget))
-        );
-      }),
-    );
-    if (!match) {
-      return undefined;
-    }
-    const safeUrl = this.normalizeUserRouteAliasHttpsUrl(match.targetUrl);
+    const { alias: match, safeUrl } = resolution;
     if (!safeUrl) {
       return {
         decision: this.brainDecision({
@@ -2909,7 +2741,9 @@ export class CoreRuntime {
   private async routeVoiceCommandAliasByRules(
     text: string,
   ): Promise<CoreBrainRoutingOutcome | undefined> {
-    const alias = await this.resolveVoiceCommandAliasRecordByText(text);
+    const alias = await this.routeAliasMemoryService.resolveVoiceAliasByText(
+      text,
+    );
     if (!alias) {
       return undefined;
     }
@@ -2940,38 +2774,6 @@ export class CoreRuntime {
         usedRulesFallback: true,
       }),
     };
-  }
-
-  private async resolveVoiceCommandAliasRecordByText(
-    text: string,
-  ): Promise<VoiceCommandAliasRecord | undefined> {
-    if (!this.voiceCommandAliasRepository) {
-      return undefined;
-    }
-    const normalizedText = this.normalizeUserRouteAliasComparable(text);
-    if (!normalizedText) {
-      return undefined;
-    }
-    try {
-      await this.voiceCommandAliasRepository.initialize();
-      const matches = (await this.voiceCommandAliasRepository.listAliases()).filter(
-        (alias) =>
-          [alias.rawAlias, alias.normalizedTranscript].some((candidate) => {
-            const normalizedCandidate =
-              this.normalizeUserRouteAliasComparable(candidate);
-            return (
-              normalizedCandidate.length > 0 &&
-              normalizedText === normalizedCandidate
-            );
-          }),
-      );
-      if (matches.length !== 1) {
-        return undefined;
-      }
-      return matches[0];
-    } catch {
-      return undefined;
-    }
   }
 
   private async routeBrainIntentWithProvider(input: {
@@ -6105,108 +5907,6 @@ export class CoreRuntime {
     return plan.map((step) =>
       step.id === "dispatch" ? { ...step, status: "blocked" } : step,
     );
-  }
-
-  private looksLikeUserRouteAliasLearningRequest(text: string): boolean {
-    const normalized = text.trim();
-    if (!/https?:\/\/\S+/iu.test(normalized)) {
-      return false;
-    }
-    return /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|\u5b66\u4e00\u4e0b|remember|save|learn)/iu.test(
-      normalized,
-    );
-  }
-
-  private createUserRouteAliasLearningProposal(
-    text: string,
-  ): UserRouteAliasLearningProposal | undefined {
-    const urlMatch = text.match(/https?:\/\/[^\s"'<>，。；]+/iu);
-    const safeUrl = urlMatch
-      ? this.normalizeUserRouteAliasHttpsUrl(urlMatch[0])
-      : undefined;
-    if (!safeUrl) {
-      return undefined;
-    }
-    const label = this.extractUserRouteAliasLabel(text) ?? "User route alias";
-    const aliases = this.userRouteAliasesForLabel(label);
-    return UserRouteAliasLearningProposalSchema.parse({
-      id: createId("route_alias_proposal"),
-      label,
-      aliases,
-      intent: "browser.open",
-      targetUrl: safeUrl.href,
-      targetHostname: safeUrl.hostname,
-      requiresConfirmation: true,
-      urlPolicy: "https_only_no_credentials_no_sensitive_query",
-      directActionAttempted: false,
-    });
-  }
-
-  private extractUserRouteAliasLabel(text: string): string | undefined {
-    const comparable = this.normalizeUserRouteAliasComparable(text);
-    if (
-      comparable.includes("izytoken") ||
-      comparable.includes("easytoken") ||
-      comparable.includes("\u4e00\u53eatoken")
-    ) {
-      return "IZYtoken admin";
-    }
-    const withoutUrl = text.replace(/https?:\/\/[^\s"'<>，。；]+/giu, " ");
-    const labelMatch = withoutUrl.match(
-      /(?:\u8bb0\u4f4f|\u4fdd\u5b58|\u8bb0\u5f55|remember|save|learn)\s*(.+?)(?:\u5730\u5740|url|URL|\u662f|\u4e3a|as|to)/u,
-    );
-    const label = labelMatch?.[1]?.trim();
-    if (!label || label.length < 2 || label.length > 80) {
-      return undefined;
-    }
-    return this.stripCommandSpeechPunctuation(label);
-  }
-
-  private userRouteAliasesForLabel(label: string): string[] {
-    const aliases = new Set<string>([label]);
-    const comparable = this.normalizeUserRouteAliasComparable(label);
-    if (comparable.includes("izytoken")) {
-      aliases.add("IZYtoken admin");
-      aliases.add("IZYtoken \u540e\u53f0");
-      aliases.add("easy TOKEN \u540e\u53f0");
-      aliases.add("\u4e00\u53eatoken\u540e\u53f0");
-      aliases.add("izytoken\u540e\u53f0");
-    }
-    return Array.from(aliases).slice(0, 12);
-  }
-
-  private normalizeUserRouteAliasHttpsUrl(value: string): URL | undefined {
-    try {
-      const url = new URL(value.trim());
-      if (url.protocol !== "https:") {
-        return undefined;
-      }
-      if (url.username || url.password || url.hash) {
-        return undefined;
-      }
-      const sensitiveQueryPattern =
-        /(?:token|secret|password|passwd|pwd|key|apikey|api_key|auth|signature|sig|access[_-]?token|refresh[_-]?token|code)/iu;
-      for (const key of url.searchParams.keys()) {
-        if (sensitiveQueryPattern.test(key)) {
-          return undefined;
-        }
-      }
-      if (url.href.length > 300) {
-        return undefined;
-      }
-      return url;
-    } catch {
-      return undefined;
-    }
-  }
-
-  private normalizeUserRouteAliasComparable(value: string): string {
-    return value
-      .trim()
-      .toLowerCase()
-      .replace(/\b(?:easy\s*token|izy\s*token|i\s*z\s*y\s*token)\b/giu, "izytoken")
-      .replace(/\s+/gu, "")
-      .replace(/[._\-:：，。；;!?！？"'“”‘’()（）[\]【】]/gu, "");
   }
 
   private extractOpenTarget(text: string): string | undefined {
