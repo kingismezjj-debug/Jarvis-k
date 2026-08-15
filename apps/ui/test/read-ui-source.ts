@@ -37,6 +37,7 @@ export function readAppCompositionSource() {
     "features/plugins/plugin-projection-panel.tsx",
     "features/settings/chat-answer-settings-panel.tsx",
     "features/settings/command-router-settings-panel.tsx",
+    "features/settings/model-governance-settings-panel.tsx",
     "features/settings/settings-general-panel.tsx",
     "features/settings/voice-settings-panel.tsx",
     "features/tasks/task-timeline.tsx",

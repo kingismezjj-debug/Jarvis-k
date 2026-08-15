@@ -100,6 +100,7 @@ import { ModelOperationList } from "@/features/model-management/model-operation-
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
 import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
 import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
+import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governance-settings-panel";
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { VoiceSettingsPanel } from "@/features/settings/voice-settings-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
@@ -3599,57 +3600,45 @@ export default function App() {
                   </dl>
                 </section>
 
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.settings.modelGovernance}
-                    </h3>
-                    <Button
-                      aria-label="Refresh model governance from settings"
-                      className="size-8 rounded-md"
-                      data-testid="settings-refresh-model-governance"
-                      disabled={sending}
-                      onClick={() =>
-                        void trackAction(
-                          "Refresh model governance",
-                          refreshModelGovernance,
-                          copy.action.modelGovernanceRefreshed,
-                        )
-                      }
-                      size="icon-sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <RefreshCw
-                        className={cn("size-3.5", sending && "animate-spin")}
-                      />
-                    </Button>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label={copy.metric.providers}
-                      value={String(inferenceProviders.length)}
-                    />
-                    <Metric
-                      label={copy.metric.available}
-                      value={String(availableInferenceProviderCount)}
-                      tone="success"
-                    />
-                    <Metric
-                      label={copy.metric.required}
-                      value={String(requiredProviderConfigurationCount)}
-                      tone="warning"
-                    />
-                    <Metric
-                      label={copy.metric.localModels}
-                      value={String(modelInventory.length)}
-                    />
-                    <Metric
-                      label={copy.metric.operations}
-                      value={String(modelOperations.length)}
-                    />
-                  </dl>
-                </section>
+                <ModelGovernanceSettingsPanel
+                  actions={{
+                    refresh: () => {
+                      void trackAction(
+                        "Refresh model governance",
+                        refreshModelGovernance,
+                        copy.action.modelGovernanceRefreshed,
+                      );
+                    },
+                  }}
+                  copy={copy}
+                  sending={sending}
+                  viewModel={{
+                    metrics: [
+                      {
+                        label: copy.metric.providers,
+                        value: String(inferenceProviders.length),
+                      },
+                      {
+                        label: copy.metric.available,
+                        value: String(availableInferenceProviderCount),
+                        tone: "success",
+                      },
+                      {
+                        label: copy.metric.required,
+                        value: String(requiredProviderConfigurationCount),
+                        tone: "warning",
+                      },
+                      {
+                        label: copy.metric.localModels,
+                        value: String(modelInventory.length),
+                      },
+                      {
+                        label: copy.metric.operations,
+                        value: String(modelOperations.length),
+                      },
+                    ],
+                  }}
+                />
               </div>
             </ScrollArea>
           ) : (

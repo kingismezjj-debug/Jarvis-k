@@ -17,6 +17,7 @@ const featureComponents = [
   "features/plugins/plugin-projection-panel.tsx",
   "features/settings/chat-answer-settings-panel.tsx",
   "features/settings/command-router-settings-panel.tsx",
+  "features/settings/model-governance-settings-panel.tsx",
   "features/settings/settings-general-panel.tsx",
   "features/settings/voice-settings-panel.tsx",
   "features/memory/memory-boundary-panel.tsx",
@@ -158,5 +159,17 @@ describe("UI feature component boundaries", () => {
     expect(source).not.toContain("startListening");
     expect(source).not.toContain("openVoiceSettings(");
     expect(source).not.toContain("openTtsSettings(");
+  });
+
+  it("keeps model governance settings display-only on mount", () => {
+    const source = readSource(
+      "features/settings/model-governance-settings-panel.tsx",
+    );
+
+    expect(source).toContain('data-testid="settings-refresh-model-governance"');
+    expect(source).not.toContain("installModel");
+    expect(source).not.toContain("loadModel");
+    expect(source).not.toContain("acquireLease");
+    expect(source).not.toContain("refreshModelGovernance");
   });
 });
