@@ -6,14 +6,6 @@ import {
   safeStorage
 } from "electron";
 import {
-  CommandEnvelopeSchema,
-  CommandResult,
-  IPC_COMMAND_CHANNEL,
-  IPC_EVENT_CHANNEL,
-  PROTOCOL_VERSION,
-  createId
-} from "@jarvis-k/contracts";
-import {
   SecureHeavyPlannerProviderStore,
   type HeavyPlannerProviderConfiguration,
   type HeavyPlannerProviderName
@@ -27,7 +19,6 @@ import {
   selectedChatAnswerProvider,
   selectedHeavyPlannerProvider
 } from "./desktop-runtime-policy";
-import { CoreSupervisor } from "./supervisor";
 import { createMainWindow } from "./windows/main-window";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc";
 import { SettingsService } from "./settings/settings-service";
@@ -38,9 +29,12 @@ import { registerVoiceIpc } from "./ipc/register-voice-ipc";
 import { createQwenRuntimeConfig } from "./qwen-runtime/qwen-runtime-config";
 import { QwenRuntimeController } from "./qwen-runtime/qwen-runtime-controller";
 import { registerQwenRuntimeIpc } from "./ipc/register-qwen-runtime-ipc";
+import { DesktopSupervisorController } from "./core-supervisor/desktop-supervisor-controller";
+import { registerSupervisorIpc } from "./ipc/register-supervisor-ipc";
 
 let mainWindow: BrowserWindow | null = null;
-let supervisor: CoreSupervisor | null = null;
+let supervisorController: DesktopSupervisorController | null = null;
+let supervisorIpcDisposer: (() => void) | null = null;
 let voiceController: VoiceController | null = null;
 let voiceIpcDisposer: (() => void) | null = null;
 let qwenRuntimeController: QwenRuntimeController | null = null;
@@ -58,32 +52,6 @@ if (process.env.JARVIS_K_ENABLE_ELECTRON_GPU !== "1") {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
-}
-
-function invalidCommandResult(rawValue: unknown): CommandResult {
-  const raw =
-    typeof rawValue === "object" && rawValue !== null
-      ? (rawValue as Record<string, unknown>)
-      : {};
-  const commandId =
-    typeof raw.commandId === "string" ? raw.commandId : createId("cmd");
-  const correlationId =
-    typeof raw.correlationId === "string"
-      ? raw.correlationId
-      : createId("corr");
-
-  return {
-    protocolVersion: PROTOCOL_VERSION,
-    commandId,
-    correlationId,
-    completedAt: new Date().toISOString(),
-    ok: false,
-    error: {
-      code: "IPC_SCHEMA_INVALID",
-      message: "The renderer sent an invalid command envelope.",
-      retryable: false
-    }
-  };
 }
 
 function getSecureStoreService(): SecureStoreService {
@@ -208,20 +176,21 @@ if (!hasSingleInstanceLock) {
       secureStoreService: getSecureStoreService(),
       getMainWindow: () => mainWindow,
       restartCore: (reason) => {
-        supervisor?.restart(reason);
+        supervisorController?.restart(reason);
       },
       enqueueVoiceAudio: (frame) => {
-        if (!supervisor) {
+        if (!supervisorController) {
           return { accepted: false, reason: "backpressure" };
         }
-        return supervisor.enqueueVoiceAudio(frame);
+        return supervisorController.enqueueVoiceAudio(frame);
       }
     });
     qwenRuntimeController = new QwenRuntimeController({
       config: createQwenRuntimeConfig({ baseDirectory: __dirname })
     });
-    supervisor = new CoreSupervisor({
+    supervisorController = new DesktopSupervisorController({
       coreEntry,
+      getMainWindow: () => mainWindow,
       loadVoiceProviderConfiguration: () =>
         voiceController!.loadVoiceProviderConfiguration(),
       loadHeavyPlannerProviderConfiguration:
@@ -229,12 +198,7 @@ if (!hasSingleInstanceLock) {
       loadChatAnswerProviderConfiguration:
         getChatAnswerProviderConfiguration
     });
-    supervisor.onEvent((event) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(IPC_EVENT_CHANNEL, event);
-      }
-    });
-    supervisor.start();
+    supervisorController.start();
     settingsService = new SettingsService({
       loadChatAnswerProviderConfiguration: async () => {
         try {
@@ -262,22 +226,19 @@ if (!hasSingleInstanceLock) {
         }
       },
       configureCommandRouterProductMode: (input) => {
-        supervisor?.configureCommandRouterProductMode(input);
+        supervisorController?.configureCommandRouterProductMode(input);
       },
       configureChatAnswerProductMode: (input) => {
-        supervisor?.configureChatAnswerProductMode({
+        supervisorController?.configureChatAnswerProductMode({
           enabled: input.enabled,
           ...(input.configuration ? { configuration: input.configuration } : {})
         });
       }
     });
 
-    ipcMain.handle(IPC_COMMAND_CHANNEL, async (_event, rawEnvelope: unknown) => {
-      const parsed = CommandEnvelopeSchema.safeParse(rawEnvelope);
-      if (!parsed.success || !supervisor) {
-        return invalidCommandResult(rawEnvelope);
-      }
-      return supervisor.request(parsed.data);
+    supervisorIpcDisposer = registerSupervisorIpc({
+      ipcMain,
+      supervisorController
     });
     voiceIpcDisposer = registerVoiceIpc({
       ipcMain,
@@ -353,7 +314,10 @@ app.on("before-quit", () => {
   qwenRuntimeIpcDisposer?.();
   qwenRuntimeIpcDisposer = null;
   qwenRuntimeController = null;
-  supervisor?.stop();
+  supervisorIpcDisposer?.();
+  supervisorIpcDisposer = null;
+  supervisorController?.stop();
+  supervisorController = null;
 });
 
 app.on("window-all-closed", () => {
