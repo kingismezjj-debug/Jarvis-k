@@ -67,6 +67,7 @@ import {
   isTaskCancellationEligible,
 } from "@/app/formatters";
 import { persistUiLanguage, readInitialLanguage } from "@/app/ui-language";
+import { usePluginCenter } from "@/app/use-plugin-center";
 import { useUserControlledMemoryView } from "@/app/use-user-controlled-memory-view";
 import {
   buildSanitizedUserControlledMemorySnapshot,
@@ -230,9 +231,6 @@ export default function App() {
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(readInitialLanguage);
   const [skinTheme, setSkinTheme] =
     useState<SkinThemeId>(readInitialSkinTheme);
-  const [localPluginStateUpdatingId, setLocalPluginStateUpdatingId] = useState<
-    string | null
-  >(null);
   const [localTtsEnabled, setLocalTtsEnabled] = useState(false);
   const [localTtsStatus, setLocalTtsStatus] =
     useState<LocalTtsStatus>("disabled");
@@ -405,6 +403,22 @@ export default function App() {
     mediumRiskMemoryCount,
     highRiskMemoryCount,
   } = useUserControlledMemoryView(userControlledMemories);
+  const {
+    blockedPolicyPluginCount,
+    bundledPluginCount,
+    disabledPluginCount,
+    enabledPluginCount,
+    localManifestPluginCount,
+    localPluginStateUpdatingId,
+    lowRiskPluginCount,
+    mediumRiskPluginCount,
+    plugins,
+    toggleLocalPluginState,
+  } = usePluginCenter({
+    pluginManagementStatus,
+    setLastAction,
+    setLocalPluginEnabledState,
+  });
 
   const coreOnline = connection === "online";
   const textOnlyAcceptanceMode = snapshot?.textOnlyAcceptance?.enabled === true;
@@ -427,48 +441,6 @@ export default function App() {
     ? primaryNavigation.filter((item) => item.id !== "voice")
     : primaryNavigation;
   const recentEvents = useMemo(() => events.slice(0, 12), [events]);
-  const plugins = pluginManagementStatus?.plugins ?? [];
-  const enabledPluginCount = plugins.filter(
-    (plugin) => plugin.state === "enabled",
-  ).length;
-  const disabledPluginCount = plugins.filter(
-    (plugin) => plugin.state === "disabled",
-  ).length;
-  const bundledPluginCount = plugins.filter(
-    (plugin) => plugin.source === "bundled",
-  ).length;
-  const localManifestPluginCount = plugins.filter(
-    (plugin) => plugin.source === "local_manifest",
-  ).length;
-  const lowRiskPluginCount = plugins.filter(
-    (plugin) => plugin.riskAssessment.effectiveRiskTier === "low",
-  ).length;
-  const mediumRiskPluginCount = plugins.filter(
-    (plugin) => plugin.riskAssessment.effectiveRiskTier === "medium",
-  ).length;
-  const toggleLocalPluginState = async (
-    plugin: (typeof plugins)[number],
-  ): Promise<void> => {
-    setLocalPluginStateUpdatingId(plugin.manifest.id);
-    const result = await setLocalPluginEnabledState(
-      plugin.manifest.id,
-      plugin.state !== "enabled",
-    );
-    setLocalPluginStateUpdatingId(null);
-    if (!result) {
-      return;
-    }
-    setLastAction({
-      label:
-        result.status === "updated"
-          ? `Local plugin state ${result.appliedState}`
-          : "Local plugin state blocked",
-      tone: result.status === "updated" ? "success" : "warning",
-    });
-  };
-  const blockedPolicyPluginCount = plugins.filter(
-    (plugin) => plugin.riskAssessment.confirmationPolicy === "blocked",
-  ).length;
   const localManifestDiscovery = localPluginManifestDeveloperStatus;
   const latestVoiceError = useMemo(
     () =>
