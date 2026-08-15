@@ -145,12 +145,14 @@ import {
   type UserRouteAliasRepository,
   type VoiceCommandAliasRepository,
 } from "./memory/route-alias-memory-service";
+import {
+  DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
+  DeterministicPlannerService,
+} from "./planner/deterministic-planner-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
 const DEFAULT_BRAIN_ROUTER_MIN_CONFIDENCE = 0.7;
-const DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID =
-  "planner.deterministic.rules";
 const COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID =
   "intent-router.deterministic.rules";
 const COMMAND_ROUTER_FIXTURE_PROVIDER_ID =
@@ -466,6 +468,7 @@ export class CoreRuntime {
   private readonly memoryRecallService: MemoryRecallService;
   private readonly userPreferenceMemoryService: UserPreferenceMemoryService;
   private readonly routeAliasMemoryService: RouteAliasMemoryService;
+  private readonly deterministicPlannerService: DeterministicPlannerService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -547,6 +550,13 @@ export class CoreRuntime {
       routeAliasRepository: this.userRouteAliasRepository,
       voiceAliasRepository: this.voiceCommandAliasRepository,
       now: this.now,
+    });
+    this.deterministicPlannerService = new DeterministicPlannerService({
+      allowedToolIds: BRAIN_PLANNER_ALLOWED_TOOL_IDS,
+      now: this.now,
+      extractOpenTarget: (text) => this.extractOpenTarget(text),
+      isKnownLocalAppTarget: (target) =>
+        this.commandRouterRealLocalAppLaunchLabel(target) !== "blocked",
     });
     this.commandRoutingService = new CommandRoutingService({
       productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
@@ -3278,7 +3288,7 @@ export class CoreRuntime {
       };
     }
     if (providerId === DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID) {
-      const result = this.createDeterministicMinimalBrainPlannerResult({
+      const result = this.deterministicPlannerService.createResult({
         text: input.text,
         source: input.source,
         routing: input.routing,
@@ -3426,206 +3436,6 @@ export class CoreRuntime {
         }),
       };
     }
-  }
-
-  private createDeterministicMinimalBrainPlannerResult(input: {
-    text: string;
-    source: "text" | "voice";
-    routing: CoreBrainRoutingOutcome;
-  }): BrainPlannerResult {
-    const plannedAt = this.now().toISOString();
-    const steps = this.createDeterministicMinimalPlannerSteps(input.text);
-    if (steps.length === 0) {
-      return BrainPlannerResultSchema.parse({
-        providerId: DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
-        status: "clarify",
-        reasonCode: "CLARIFY_REQUIRED",
-        failureClass: "CLARIFY_REQUIRED",
-        clarifyQuestion:
-          "Please add the goal, target app or file, and the desired outcome.",
-        directActionAttempted: false,
-        plannedAt,
-      });
-    }
-    return BrainPlannerResultSchema.parse({
-      providerId: DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
-      status: "planned",
-      reasonCode:
-        input.routing.selection.reasonCode === "CONFIDENCE_LOW"
-          ? "FAST_ROUTER_LOW_CONFIDENCE"
-          : "COMPLEX_REQUEST",
-      failureClass: "none",
-      plan: {
-        summary:
-          "Deterministic minimal planner prepared a bounded draft plan for user review.",
-        risk: "medium",
-        requiresConfirmation: true,
-        steps,
-        directActionAttempted: false,
-      },
-      directActionAttempted: false,
-      plannedAt,
-    });
-  }
-
-  private createDeterministicMinimalPlannerSteps(
-    text: string,
-  ): NonNullable<BrainPlannerResult["plan"]>["steps"] {
-    const normalized = text.trim().toLowerCase();
-    const steps: NonNullable<BrainPlannerResult["plan"]>["steps"] = [];
-    const addStep = (input: {
-      id: string;
-      toolId: string;
-      title: string;
-      args?: Record<string, unknown>;
-    }): void => {
-      if (
-        !(BRAIN_PLANNER_ALLOWED_TOOL_IDS as readonly string[]).includes(
-          input.toolId,
-        ) ||
-        steps.some((step) => step.id === input.id || step.toolId === input.toolId)
-      ) {
-        return;
-      }
-      steps.push({
-        id: input.id,
-        toolId: input.toolId,
-        title: input.title,
-        args: input.args ?? {},
-        risk: "medium",
-        requiresConfirmation: true,
-        directActionAttempted: false,
-      });
-    };
-
-    if (/(?:status|health|diagnostic|状态|诊断|运行|检查)/iu.test(normalized)) {
-      addStep({
-        id: "status-review",
-        toolId: "observability.status",
-        title: "Review current Jarvis-K runtime status",
-      });
-    }
-    if (/(?:memory|remember|alias|preference|记忆|偏好|别名)/iu.test(normalized)) {
-      addStep({
-        id: "memory-review",
-        toolId: "memory.status",
-        title: "Review user-controlled memory boundaries",
-      });
-    }
-    if (/(?:search|find|file|document|文件|搜索|查找|资料)/iu.test(normalized)) {
-      addStep({
-        id: "file-search",
-        toolId: "filesystem.search",
-        title: "Search bounded user file locations",
-        args: {
-          query: this.extractMinimalPlannerFilesystemQuery(text),
-        },
-      });
-    }
-    if (/(?:browser|url|website|web|github|izytoken|网页|网址|后台)/iu.test(normalized)) {
-      addStep({
-        id: "browser-review",
-        toolId: "browser.open",
-        title: "Open a verified HTTPS browser target after policy checks",
-        args: {
-          target: this.extractMinimalPlannerBrowserTarget(text),
-        },
-      });
-    }
-    if (/(?:notepad|calculator|vscode|vs code|app|记事本|计算器|代码|应用)/iu.test(normalized)) {
-      addStep({
-        id: "known-app",
-        toolId: "localApp.open",
-        title: "Open a known local app through Task Runtime",
-        args: {
-          target: this.extractMinimalPlannerLocalAppTarget(text),
-        },
-      });
-    }
-    if (/(?:plugin|stock|quote|compare|bargain|插件|股票|商品|比较|砍价)/iu.test(normalized)) {
-      addStep({
-        id: "plugin-readonly",
-        toolId: "plugin.invoke",
-        title: "Invoke a read-only plugin capability after permission gates",
-      });
-    }
-    if (steps.length === 0 && this.looksLikeComplexPlannerRequest(text)) {
-      addStep({
-        id: "answer-plan",
-        toolId: "chat.answer",
-        title: "Draft the next safe user-visible plan",
-      });
-    }
-    return steps.slice(0, 6);
-  }
-
-  private extractMinimalPlannerFilesystemQuery(text: string): string {
-    const normalized = text.trim().toLowerCase();
-    if (/\bproject\b|椤圭洰/u.test(normalized)) {
-      return "project";
-    }
-    if (/\bmemory\b|璁板繂/u.test(normalized)) {
-      return "memory";
-    }
-    const quoted = /["'“”‘’]([^"'“”‘’]{1,80})["'“”‘’]/u.exec(text);
-    if (quoted?.[1]) {
-      return quoted[1].trim();
-    }
-    return "project";
-  }
-
-  private extractMinimalPlannerBrowserTarget(text: string): string {
-    const urlMatch = text.match(/https?:\/\/[^\s"'<>锛屻€傦紱]+/iu);
-    if (urlMatch?.[0]) {
-      return urlMatch[0];
-    }
-    const openTarget = this.extractOpenTarget(text);
-    if (openTarget) {
-      return openTarget;
-    }
-    const normalized = text.toLowerCase();
-    if (normalized.includes("github")) {
-      return "GitHub";
-    }
-    if (
-      normalized.includes("izytoken") ||
-      normalized.includes("easy token") ||
-      normalized.includes("easytoken")
-    ) {
-      return "IZYtoken admin";
-    }
-    return "";
-  }
-
-  private extractMinimalPlannerLocalAppTarget(text: string): string {
-    const openTarget = this.extractOpenTarget(text);
-    if (
-      openTarget &&
-      this.commandRouterRealLocalAppLaunchLabel(openTarget) !== "blocked"
-    ) {
-      return openTarget;
-    }
-    const normalized = text.toLowerCase();
-    if (
-      normalized.includes("vscode") ||
-      normalized.includes("vs code") ||
-      normalized.includes("visual studio code")
-    ) {
-      return "vscode";
-    }
-    if (normalized.includes("notepad")) {
-      return "notepad";
-    }
-    if (normalized.includes("calculator") || normalized.includes("calc")) {
-      return "calculator";
-    }
-    if (text.includes("记事本")) {
-      return "notepad";
-    }
-    if (text.includes("计算器")) {
-      return "calculator";
-    }
-    return "";
   }
 
   private async dispatchBrainIntent(input: {
@@ -5785,33 +5595,12 @@ export class CoreRuntime {
     text: string;
     routing: CoreBrainRoutingOutcome;
   }): boolean {
-    if (this.brainPlanner?.enabled !== true) {
-      return false;
-    }
-    const escalatedIntents =
-      this.brainPlanner.escalateIntents ??
-      (["chat.answer", "clarify"] as const);
-    if (escalatedIntents.includes(input.routing.decision.intent)) {
-      return true;
-    }
-    if (
-      input.routing.selection.reasonCode === "CONFIDENCE_LOW" ||
-      input.routing.selection.reasonCode === "INTENT_UNSUPPORTED" ||
-      input.routing.selection.reasonCode === "CANDIDATE_MISSING" ||
-      input.routing.selection.reasonCode === "RESULT_INVALID"
-    ) {
-      return true;
-    }
-    return this.looksLikeComplexPlannerRequest(input.text);
+    return this.deterministicPlannerService.shouldPlan({
+      options: this.brainPlanner,
+      text: input.text,
+      routing: input.routing,
+    });
   }
-
-  private looksLikeComplexPlannerRequest(text: string): boolean {
-    const normalized = text.trim().toLowerCase();
-    return /(?:plan|research|compare|workflow|multi-step|steps|安排|计划|比较|研究|步骤|先.+再)/u.test(
-      normalized,
-    );
-  }
-
   private brainRouterSelection(input: {
     selectedProviderId: string;
     fallbackProviderId?: string;
