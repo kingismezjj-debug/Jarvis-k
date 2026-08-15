@@ -10,14 +10,14 @@ const rootDirectory = path.resolve(import.meta.dirname, "..");
 const artifactsDirectory = path.join(rootDirectory, "artifacts");
 const screenshotPath = path.join(
   artifactsDirectory,
-  "jarvis-k-command-router-local-app-blocked-smoke.png"
+  "jarvis-k-command-router-production-fallback-smoke.png"
 );
 const metricsPath = path.join(
   artifactsDirectory,
-  "jarvis-k-command-router-local-app-blocked-smoke-metrics.json"
+  "jarvis-k-command-router-production-fallback-smoke-metrics.json"
 );
 const smokeUserDataDirectory = await mkdtemp(
-  path.join(os.tmpdir(), "jarvis-k-command-router-local-app-blocked-")
+  path.join(os.tmpdir(), "jarvis-k-command-router-production-fallback-")
 );
 let electronApp;
 
@@ -48,26 +48,8 @@ async function expectTestIdText(window, testId, expectedText) {
   return window.getByTestId(testId).innerText();
 }
 
-async function enableCommandRouterProductMode(window) {
-  await window.getByTestId("general-settings").click();
-  await window.getByTestId("settings-view").waitFor({ timeout: 5_000 });
-  await window.getByTestId("settings-command-router-product-mode-notice")
-    .getByText("Approved local app launches remain")
-    .waitFor({ timeout: 5_000 });
-  await window.waitForFunction(() => {
-    const toggle = document.querySelector(
-      '[data-testid="settings-command-router-product-mode-toggle"]'
-    );
-    return toggle instanceof HTMLInputElement && !toggle.checked;
-  });
-  await window.getByTestId("settings-command-router-product-mode-toggle").click();
-  await window.getByTestId("settings-view").getByText("control on").waitFor({
-    timeout: 5_000
-  });
-}
-
 try {
-  const codeBefore = await listProcessIds("Code");
+  const notepadBefore = await listProcessIds("notepad");
 
   electronApp = await electron.launch({
     args: [
@@ -95,9 +77,21 @@ try {
   });
   const startupMs = Math.round(performance.now() - startedAt);
 
-  await enableCommandRouterProductMode(window);
+  await window.getByTestId("general-settings").click();
+  await window.getByTestId("settings-view").waitFor({ timeout: 5_000 });
+  await window.waitForFunction(() => {
+    const toggle = document.querySelector(
+      '[data-testid="settings-command-router-product-mode-toggle"]'
+    );
+    return toggle instanceof HTMLInputElement && !toggle.checked;
+  });
+  await window.getByTestId("settings-command-router-product-mode-toggle").click();
+  await window.getByTestId("settings-view").getByText("control on").waitFor({
+    timeout: 5_000
+  });
+
   await window.getByTestId("nav-conversation").click();
-  await window.getByTestId("command-input").fill("open vscode");
+  await window.getByTestId("command-input").fill("open notepad");
   await window.getByTestId("send-command").click();
 
   await window.getByTestId("brain-dispatch-panel").waitFor({
@@ -118,35 +112,24 @@ try {
     "command-router-direct-action",
     "disabled"
   );
-  await window.getByTestId("tool-loop-selected-tool").waitFor({
-    timeout: 5_000
-  });
-  const toolLoopSelectedTool = await window
-    .getByTestId("tool-loop-selected-tool")
-    .innerText();
-  const toolLoopSafety = await window
-    .getByTestId("tool-loop-safety")
-    .innerText();
-  const toolLoopResult = await window
-    .getByTestId("tool-loop-result")
-    .innerText();
   const brainDispatch = await window
     .getByTestId("brain-dispatch-panel")
     .innerText();
+
   if (brainDispatch.includes("intent-router.deterministic.fixture")) {
-    throw new Error("Production blocked smoke displayed the fixture provider.");
+    throw new Error("Production fallback smoke displayed the fixture provider.");
   }
   if (brainDispatch.includes("FIXTURE_DRY_RUN")) {
-    throw new Error("Production blocked smoke executed fixture dry-run semantics.");
+    throw new Error("Production fallback smoke executed fixture dry-run semantics.");
   }
 
-  const codeAfter = await listProcessIds("Code");
-  const newCodeProcessIds = codeAfter.filter(
-    (processId) => !codeBefore.includes(processId)
+  const notepadAfter = await listProcessIds("notepad");
+  const newNotepadProcessIds = notepadAfter.filter(
+    (processId) => !notepadBefore.includes(processId)
   );
-  if (newCodeProcessIds.length > 0) {
+  if (newNotepadProcessIds.length > 0) {
     throw new Error(
-      `Command Router blocked smoke launched VS Code process(es): ${newCodeProcessIds.join(", ")}.`
+      `Command Router production fallback smoke launched notepad process(es): ${newNotepadProcessIds.join(", ")}.`
     );
   }
 
@@ -158,16 +141,13 @@ try {
       {
         capturedAt: new Date().toISOString(),
         startupMs,
-        command: "open vscode",
-        codeBefore,
-        codeAfter,
-        newCodeProcessIds,
+        command: "open notepad",
+        notepadBefore,
+        notepadAfter,
+        newNotepadProcessIds,
         brainIntent,
         selectedProvider,
         directAction,
-        toolLoopSelectedTool,
-        toolLoopSafety,
-        toolLoopResult,
         brainDispatch
       },
       null,
@@ -179,9 +159,10 @@ try {
     JSON.stringify({
       status: "PASS",
       startupMs,
+      selectedProvider,
       screenshotPath,
       metricsPath,
-      newCodeProcessIds
+      newNotepadProcessIds
     })
   );
 } finally {
