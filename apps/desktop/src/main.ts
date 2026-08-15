@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   BrowserWindow,
@@ -11,13 +10,7 @@ import {
   CommandResult,
   IPC_COMMAND_CHANNEL,
   IPC_EVENT_CHANNEL,
-  IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
-  IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
   PROTOCOL_VERSION,
-  createCommandRouterQwenProductRoutingActivationStatus,
-  QwenRuntimeControlActionSchema,
-  QwenRuntimeControlSetResult,
-  QwenRuntimeControlStatus,
   createId
 } from "@jarvis-k/contracts";
 import {
@@ -42,11 +35,16 @@ import { registerSecureStoreIpc } from "./ipc/register-secure-store-ipc";
 import { SecureStoreService } from "./secure-store/secure-store-service";
 import { VoiceController } from "./voice/voice-controller";
 import { registerVoiceIpc } from "./ipc/register-voice-ipc";
+import { createQwenRuntimeConfig } from "./qwen-runtime/qwen-runtime-config";
+import { QwenRuntimeController } from "./qwen-runtime/qwen-runtime-controller";
+import { registerQwenRuntimeIpc } from "./ipc/register-qwen-runtime-ipc";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisor: CoreSupervisor | null = null;
 let voiceController: VoiceController | null = null;
 let voiceIpcDisposer: (() => void) | null = null;
+let qwenRuntimeController: QwenRuntimeController | null = null;
+let qwenRuntimeIpcDisposer: (() => void) | null = null;
 let openAiHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
   null;
 let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
@@ -55,20 +53,6 @@ let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
   null;
 let settingsService: SettingsService | null = null;
 let secureStoreService: SecureStoreService | null = null;
-let qwenRuntimeControlState:
-  | "disabled"
-  | "prepared"
-  | "active"
-  | "fallback"
-  | "blocked" = "disabled";
-let qwenRuntimeControlExplicitOptIn = false;
-let qwenRuntimeControlHelperStartCount = 0;
-let qwenRuntimeControlGenerationPortReadinessProbeCount = 0;
-let qwenRuntimeControlRouteRequestCount = 0;
-let qwenRuntimeControlHelperShutdownVerified = true;
-
-const QWEN_RETAINED_SESSION_ID =
-  "qwen-retained-product-session-2026-08-10" as const;
 
 if (process.env.JARVIS_K_ENABLE_ELECTRON_GPU !== "1") {
   app.disableHardwareAcceleration();
@@ -196,247 +180,6 @@ async function getChatAnswerProviderConfiguration(): Promise<ChatAnswerProviderC
   }
 }
 
-function retainedQwenSessionMarkerPath(): string {
-  return path.join(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "models",
-    QWEN_RETAINED_SESSION_ID,
-    "session-marker.sanitized.json"
-  );
-}
-
-function retainedQwenSessionAvailable(): boolean {
-  try {
-    const raw = JSON.parse(
-      readFileSync(retainedQwenSessionMarkerPath(), "utf8")
-    ) as Record<string, unknown>;
-    return (
-      existsSync(retainedQwenSessionMarkerPath()) &&
-      raw.sessionId === QWEN_RETAINED_SESSION_ID &&
-      raw.status === "retained_bounded_developer_alpha_session" &&
-      raw.dependencyEnv === "retained" &&
-      raw.artifactCache === "retained" &&
-      raw.helperLifecycle === "shutdown_after_verification" &&
-      raw.approvedArtifactCount === 7 &&
-      raw.digestBeforeLoad === "passed" &&
-      raw.defaultOn === false &&
-      raw.releaseExposure === false
-    );
-  } catch {
-    return false;
-  }
-}
-
-function repositoryRootPath(): string {
-  return path.resolve(__dirname, "..", "..", "..");
-}
-
-function qwenConversationSurfaceRouteLimit(): 3 | 5 | 10 {
-  if (process.env.JARVIS_K_QWEN_CONVERSATION_SURFACE_EXTENDED_USAGE === "1") {
-    return 10;
-  }
-  return process.env.JARVIS_K_QWEN_CONVERSATION_SURFACE_USAGE === "1" ? 5 : 3;
-}
-
-async function stopQwenRuntimeControlHelper(): Promise<boolean> {
-  qwenRuntimeControlHelperShutdownVerified = true;
-  return true;
-}
-
-function resetQwenRuntimeControlCounters(): void {
-  qwenRuntimeControlHelperStartCount = 0;
-  qwenRuntimeControlGenerationPortReadinessProbeCount = 0;
-  qwenRuntimeControlRouteRequestCount = 0;
-  qwenRuntimeControlHelperShutdownVerified = true;
-}
-
-function getQwenRuntimeControlStatus(): QwenRuntimeControlStatus {
-  const retainedSessionAvailable = retainedQwenSessionAvailable();
-  const prepared =
-    retainedSessionAvailable &&
-    qwenRuntimeControlExplicitOptIn &&
-    qwenRuntimeControlState === "prepared";
-  const active =
-    retainedSessionAvailable &&
-    qwenRuntimeControlExplicitOptIn &&
-    qwenRuntimeControlState === "active";
-  const fallback = qwenRuntimeControlState === "fallback";
-  const blocked =
-    !retainedSessionAvailable || qwenRuntimeControlState === "blocked";
-  const activation = createCommandRouterQwenProductRoutingActivationStatus({
-    commandRouterProductModeEnabled: true,
-    preparedPolicyReviewed: true,
-    readinessEvidencePassed: retainedSessionAvailable,
-    noRuntimeProductBindingPresent: true,
-    coreSelectionFallbackPreserved: true,
-    commandRouterSafetyGatesPreserved: true,
-    deterministicRulesActive: true,
-    armingWindowApproved: active,
-    runtimeRetentionApproved: active,
-    manualAcceptanceApproved: active,
-    helperStartupAllowed: active,
-    artifactMaterializationAllowed: active,
-    generationPortInvocationAllowed: active,
-    productRoutingArmed: active,
-    persistentEnablementApproved: true,
-    explicitOptInEnabled: active,
-    productRoutingEnabled: active,
-    realQwenRuntimeEnabled: active,
-    runtimeAccessed: active,
-    artifactAccessed: active,
-    helperStarted: active,
-    generationPortInvoked: active,
-      deterministicRulesRollbackReady: true,
-      rollbackRequested: fallback,
-      blocked
-  });
-  const status = blocked
-    ? "blocked"
-    : fallback
-      ? "fallback"
-      : active
-        ? "active"
-      : prepared
-        ? "prepared"
-        : "disabled";
-  const reasonCodes =
-    status === "blocked"
-      ? ["QWEN_RUNTIME_CONTROL_RETAINED_SESSION_MISSING"]
-      : status === "fallback"
-        ? ["QWEN_RUNTIME_CONTROL_ROLLBACK_READY"]
-        : status === "active"
-          ? ["QWEN_RUNTIME_CONTROL_ACCEPTANCE_ACTIVE"]
-        : status === "prepared"
-          ? ["QWEN_RUNTIME_CONTROL_START_PREPARED"]
-          : ["QWEN_RUNTIME_CONTROL_DEFAULT_OFF"];
-  const helperLifecycle = active
-    ? "running"
-    : qwenRuntimeControlHelperShutdownVerified &&
-        qwenRuntimeControlHelperStartCount === 1
-      ? "shutdown_after_verification"
-      : prepared
-        ? "start_prepared"
-        : "stopped";
-
-  return {
-    mode: "developer_alpha_local",
-    status,
-    retainedSessionId: QWEN_RETAINED_SESSION_ID,
-    retainedSessionAvailable,
-    explicitOptInRequired: true,
-    explicitOptInEnabled: prepared || active,
-    activeRouteSource: active
-      ? "intent-router.qwen3-0.6b"
-      : "intent-router.deterministic.rules",
-    fallbackRouteSource: "intent-router.deterministic.rules",
-    helperLifecycle,
-    helperStartCount: qwenRuntimeControlHelperStartCount,
-    generationPortReadinessProbeCount:
-      qwenRuntimeControlGenerationPortReadinessProbeCount,
-    routeRequestCount: qwenRuntimeControlRouteRequestCount,
-    helperShutdownVerified: qwenRuntimeControlHelperShutdownVerified,
-    routeRequestLimit: qwenConversationSurfaceRouteLimit(),
-    controls: {
-      start: "blocked",
-      stop: prepared || active || fallback ? "available" : "blocked",
-      rollback: retainedSessionAvailable ? "available" : "blocked"
-    },
-    directActionEnabled: false,
-    browserUrlOpeningEnabled: false,
-    vsCodeBlocked: true,
-    allowlistTargets: ["notepad", "calculator"] as const,
-    defaultBehaviorChanged: false,
-    releaseBehaviorChanged: false,
-    telemetryChanged: false,
-    activation,
-    reasonCodes
-  };
-}
-
-async function setQwenRuntimeControlAction(
-  event: Electron.IpcMainInvokeEvent,
-  rawInput: unknown
-): Promise<QwenRuntimeControlSetResult> {
-  const parsedAction = QwenRuntimeControlActionSchema.safeParse(
-    typeof rawInput === "object" && rawInput !== null
-      ? (rawInput as Record<string, unknown>).action
-      : undefined
-  );
-  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
-    return {
-      ok: false,
-      action: parsedAction.success ? parsedAction.data : "stop",
-      status: getQwenRuntimeControlStatus(),
-      message: "Qwen runtime control is unavailable."
-    };
-  }
-  if (!parsedAction.success) {
-    return {
-      ok: false,
-      action: "stop",
-      status: getQwenRuntimeControlStatus(),
-      message: "Qwen runtime control action is invalid."
-    };
-  }
-  if (!retainedQwenSessionAvailable()) {
-    qwenRuntimeControlState = "disabled";
-    qwenRuntimeControlExplicitOptIn = false;
-    resetQwenRuntimeControlCounters();
-    return {
-      ok: false,
-      action: parsedAction.data,
-      status: getQwenRuntimeControlStatus(),
-      message: "Retained Qwen product session is unavailable."
-    };
-  }
-  if (parsedAction.data === "start") {
-    qwenRuntimeControlState = "blocked";
-    qwenRuntimeControlExplicitOptIn = false;
-    resetQwenRuntimeControlCounters();
-    return {
-      ok: false,
-      action: parsedAction.data,
-      status: getQwenRuntimeControlStatus(),
-      message:
-        "Qwen runtime control is disabled in the Desktop product boundary."
-    };
-  }
-  if (parsedAction.data === "stop") {
-    const stopped = await stopQwenRuntimeControlHelper();
-    qwenRuntimeControlState = "disabled";
-    qwenRuntimeControlExplicitOptIn = false;
-    if (!stopped) {
-      return {
-        ok: false,
-        action: parsedAction.data,
-        status: getQwenRuntimeControlStatus(),
-        message: "Qwen runtime control helper shutdown was not verified."
-      };
-    }
-  }
-  if (parsedAction.data === "rollback") {
-    const stopped = await stopQwenRuntimeControlHelper();
-    qwenRuntimeControlState = "fallback";
-    qwenRuntimeControlExplicitOptIn = false;
-    if (!stopped) {
-      return {
-        ok: false,
-        action: parsedAction.data,
-        status: getQwenRuntimeControlStatus(),
-        message: "Qwen runtime control rollback shutdown was not verified."
-      };
-    }
-  }
-  return {
-    ok: true,
-    action: parsedAction.data,
-    status: getQwenRuntimeControlStatus()
-  };
-}
-
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
@@ -473,6 +216,9 @@ if (!hasSingleInstanceLock) {
         }
         return supervisor.enqueueVoiceAudio(frame);
       }
+    });
+    qwenRuntimeController = new QwenRuntimeController({
+      config: createQwenRuntimeConfig({ baseDirectory: __dirname })
     });
     supervisor = new CoreSupervisor({
       coreEntry,
@@ -581,13 +327,11 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       settingsService
     });
-    ipcMain.handle(IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL, () =>
-      getQwenRuntimeControlStatus()
-    );
-    ipcMain.handle(
-      IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
-      setQwenRuntimeControlAction
-    );
+    qwenRuntimeIpcDisposer = registerQwenRuntimeIpc({
+      ipcMain,
+      qwenRuntimeController,
+      getMainWindow: () => mainWindow
+    });
     mainWindow = createMainWindow();
     mainWindow.on("closed", () => {
       mainWindow = null;
@@ -606,6 +350,9 @@ app.on("before-quit", () => {
   voiceIpcDisposer = null;
   voiceController?.dispose();
   voiceController = null;
+  qwenRuntimeIpcDisposer?.();
+  qwenRuntimeIpcDisposer = null;
+  qwenRuntimeController = null;
   supervisor?.stop();
 });
 

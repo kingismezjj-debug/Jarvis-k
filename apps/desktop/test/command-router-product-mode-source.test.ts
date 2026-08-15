@@ -11,6 +11,27 @@ const mainSource = readFileSync(
   path.join(desktopSourceDirectory, "main.ts"),
   "utf8"
 );
+const qwenRuntimeConfigSource = readFileSync(
+  path.join(desktopSourceDirectory, "qwen-runtime", "qwen-runtime-config.ts"),
+  "utf8"
+);
+const qwenRuntimeControllerSource = readFileSync(
+  path.join(
+    desktopSourceDirectory,
+    "qwen-runtime",
+    "qwen-runtime-controller.ts"
+  ),
+  "utf8"
+);
+const qwenRuntimeIpcSource = readFileSync(
+  path.join(desktopSourceDirectory, "ipc", "register-qwen-runtime-ipc.ts"),
+  "utf8"
+);
+const qwenRuntimeSource = [
+  qwenRuntimeConfigSource,
+  qwenRuntimeControllerSource,
+  qwenRuntimeIpcSource
+].join("\n");
 const settingsServiceSource = readFileSync(
   path.join(desktopSourceDirectory, "settings", "settings-service.ts"),
   "utf8"
@@ -65,14 +86,17 @@ describe("Command Router product mode desktop wiring", () => {
     expect(settingsServiceSource).toContain(
       "private commandRouterProductModeEnabled = false"
     );
-    expect(mainSource).toContain("let qwenRuntimeControlState:");
-    expect(mainSource).toContain('| "active"');
-    expect(mainSource).toContain('| "blocked" = "disabled"');
+    expect(qwenRuntimeControllerSource).toContain(
+      "type QwenRuntimeControlState"
+    );
+    expect(qwenRuntimeControllerSource).toContain('| "active"');
+    expect(qwenRuntimeControllerSource).toContain('| "blocked"');
     expect(settingsServiceSource).toContain("getCommandRouterProductModeStatus");
     expect(settingsServiceSource).toContain("setCommandRouterProductModeEnabled");
     expect(settingsIpcSource).toContain("registerSettingsIpc");
-    expect(mainSource).toContain("getQwenRuntimeControlStatus");
-    expect(mainSource).toContain("setQwenRuntimeControlAction");
+    expect(mainSource).toContain("registerQwenRuntimeIpc");
+    expect(qwenRuntimeIpcSource).toContain("getStatus");
+    expect(qwenRuntimeIpcSource).toContain("setAction");
   });
 
   it("keeps command routing rules-only with no direct runtime expansion", () => {
@@ -133,59 +157,77 @@ describe("Command Router product mode desktop wiring", () => {
   });
 
   it("keeps Qwen UI/IPC runtime controls status-only inside the Desktop boundary", () => {
-    expect(mainSource).toContain(
+    expect(qwenRuntimeConfigSource).toContain(
       'QWEN_RETAINED_SESSION_ID =\n  "qwen-retained-product-session-2026-08-10"'
     );
-    expect(mainSource).toContain("retainedQwenSessionAvailable");
+    expect(qwenRuntimeControllerSource).toContain("retainedSessionAvailable");
     expect(mainSource).not.toContain("@jarvis-k/core");
-    expect(mainSource).not.toContain("@jarvis-k/inference-adapter-qwen-router");
-    expect(mainSource).not.toContain(
+    expect(qwenRuntimeSource).not.toContain(
+      "@jarvis-k/inference-adapter-qwen-router"
+    );
+    expect(qwenRuntimeSource).not.toContain(
       "@jarvis-k/inference-runtime-transformers-local"
     );
-    expect(mainSource).not.toContain("RuntimeHelperProcessTransport");
-    expect(mainSource).not.toContain("RuntimeHelperClient");
-    expect(mainSource).not.toContain("QwenFastRouterProvider");
+    expect(qwenRuntimeSource).not.toContain("RuntimeHelperProcessTransport");
+    expect(qwenRuntimeSource).not.toContain("RuntimeHelperClient");
+    expect(qwenRuntimeSource).not.toContain("QwenFastRouterProvider");
     expect(mainSource).not.toContain("CoreRuntime");
-    expect(mainSource).not.toContain("QWEN_RUNTIME_CONTROL_ROUTE_REQUESTS");
-    expect(mainSource).toContain("qwenRuntimeControlHelperStartCount");
-    expect(mainSource).toContain(
-      "qwenRuntimeControlGenerationPortReadinessProbeCount"
+    expect(qwenRuntimeSource).not.toContain("QWEN_RUNTIME_CONTROL_ROUTE_REQUESTS");
+    expect(qwenRuntimeControllerSource).toContain("helperStartCount");
+    expect(qwenRuntimeControllerSource).toContain(
+      "generationPortReadinessProbeCount"
     );
-    expect(mainSource).toContain("qwenRuntimeControlRouteRequestCount");
-    expect(mainSource).toContain("qwenRuntimeControlHelperShutdownVerified");
-    expect(mainSource).toContain('const helperLifecycle = active');
-    expect(mainSource).toContain('? "running"');
-    expect(mainSource).toContain('start: "blocked"');
-    expect(mainSource).toContain(
+    expect(qwenRuntimeControllerSource).toContain("routeRequestCount");
+    expect(qwenRuntimeControllerSource).toContain("helperShutdownVerified");
+    expect(qwenRuntimeControllerSource).toContain(
+      "const helperLifecycle = active"
+    );
+    expect(qwenRuntimeControllerSource).toContain('? "running"');
+    expect(qwenRuntimeControllerSource).toContain('start: "blocked"');
+    expect(qwenRuntimeControllerSource).toContain(
       "Qwen runtime control is disabled in the Desktop product boundary."
     );
-    expect(mainSource).toContain('activeRouteSource: active');
-    expect(mainSource).toContain('"intent-router.qwen3-0.6b"');
-    expect(mainSource).toContain('fallbackRouteSource: "intent-router.deterministic.rules"');
-    expect(mainSource).toContain("qwenConversationSurfaceRouteLimit");
-    expect(mainSource).toContain("routeRequestLimit: qwenConversationSurfaceRouteLimit()");
-    expect(mainSource).toContain("directActionEnabled: false");
-    expect(mainSource).toContain("browserUrlOpeningEnabled: false");
-    expect(mainSource).toContain("vsCodeBlocked: true");
-    expect(mainSource).toContain('allowlistTargets: ["notepad", "calculator"] as const');
-    expect(mainSource).toContain("QwenRuntimeControlActionSchema.safeParse");
-    expect(mainSource).toContain('parsedAction.data === "start"');
-    expect(mainSource).toContain('parsedAction.data === "stop"');
-    expect(mainSource).toContain('parsedAction.data === "rollback"');
-    expect(mainSource).not.toContain(
+    expect(qwenRuntimeControllerSource).toContain("activeRouteSource: active");
+    expect(qwenRuntimeControllerSource).toContain('"intent-router.qwen3-0.6b"');
+    expect(qwenRuntimeControllerSource).toContain(
+      'fallbackRouteSource: "intent-router.deterministic.rules"'
+    );
+    expect(qwenRuntimeConfigSource).toContain("qwenConversationSurfaceRouteLimit");
+    expect(qwenRuntimeControllerSource).toContain(
+      "routeRequestLimit: this.options.config.routeRequestLimit"
+    );
+    expect(qwenRuntimeControllerSource).toContain("directActionEnabled: false");
+    expect(qwenRuntimeControllerSource).toContain(
+      "browserUrlOpeningEnabled: false"
+    );
+    expect(qwenRuntimeControllerSource).toContain("vsCodeBlocked: true");
+    expect(qwenRuntimeControllerSource).toContain(
+      'allowlistTargets: ["notepad", "calculator"] as const'
+    );
+    expect(qwenRuntimeControllerSource).toContain(
+      "QwenRuntimeControlActionSchema.safeParse"
+    );
+    expect(qwenRuntimeControllerSource).toContain('parsedAction.data === "start"');
+    expect(qwenRuntimeControllerSource).toContain('parsedAction.data === "stop"');
+    expect(qwenRuntimeControllerSource).toContain(
+      'parsedAction.data === "rollback"'
+    );
+    expect(qwenRuntimeSource).not.toContain(
       "JARVIS_K_QWEN_CONVERSATION_SURFACE_ACCEPTANCE"
     );
-    expect(mainSource).toContain(
+    expect(qwenRuntimeConfigSource).toContain(
       "JARVIS_K_QWEN_CONVERSATION_SURFACE_EXTENDED_USAGE"
     );
-    expect(mainSource).not.toContain("handleQwenConversationSurfaceBrainCommand");
-    expect(mainSource).not.toContain(
-      "qwenRuntimeControlRouteRequestCount >= qwenConversationSurfaceRouteLimit()"
+    expect(qwenRuntimeSource).not.toContain(
+      "handleQwenConversationSurfaceBrainCommand"
     );
-    expect(mainSource).not.toContain(
+    expect(qwenRuntimeSource).not.toContain(
+      "routeRequestCount >= qwenConversationSurfaceRouteLimit()"
+    );
+    expect(qwenRuntimeSource).not.toContain(
       'selection?.selectedProviderId !== "intent-router.qwen3-0.6b"'
     );
-    expect(mainSource).not.toContain("spawnQwen");
+    expect(qwenRuntimeSource).not.toContain("spawnQwen");
   });
 
   it("anchors bounded local usage route assertions to the latest rendered intent", () => {
