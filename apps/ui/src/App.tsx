@@ -33,7 +33,12 @@ import {
 import { AppNavigation } from "@/app/app-navigation";
 import { CommandRouterLocalAppLaunchOverlay } from "@/app/app-overlays";
 import { AppShell } from "@/app/app-shell";
-import { createRuntimeInspectorViewModel } from "@/app/create-app-view-models";
+import {
+  createChatAnswerSettingsViewModel,
+  createCommandRouterSettingsViewModel,
+  createModelGovernanceSettingsViewModel,
+  createRuntimeInspectorViewModel,
+} from "@/app/create-app-view-models";
 import {
   buildSanitizedUserControlledMemorySnapshot,
   formatUserControlledMemoryKey,
@@ -639,80 +644,6 @@ export default function App() {
   const rerankerProviderAvailable = rerankerProvider?.status === "available";
   const commandRouterProductModeEnabled =
     commandRouterProductModeStatus?.enabled === true;
-  const commandRouterProductModeSummary =
-    commandRouterProductModeStatus?.status.replaceAll("_", " ") ?? "unknown";
-  const commandRouterDirectActionStatus =
-    commandRouterProductModeStatus?.directActionEnabled === true
-      ? "enabled"
-      : "disabled";
-  const commandRouterQwenBinding =
-    commandRouterProductModeStatus?.qwenFastRouterBinding;
-  const commandRouterQwenActivation = commandRouterQwenBinding?.activation;
-  const commandRouterQwenGateLabels = commandRouterQwenBinding
-    ? [
-        commandRouterQwenBinding.gates.explicitEnablementRequired
-          ? "explicit enablement"
-          : null,
-        commandRouterQwenBinding.gates.artifactDigestApprovalRequired
-          ? "artifact digest"
-          : null,
-        commandRouterQwenBinding.gates.modelLifecycleReadinessRequired
-          ? "lifecycle readiness"
-          : null,
-        commandRouterQwenBinding.gates.runtimeGenerationPortReadinessRequired
-          ? "generation port"
-          : null,
-        commandRouterQwenBinding.gates.selectionPolicyReadinessRequired
-          ? "selection policy"
-          : null,
-        commandRouterQwenBinding.gates.deterministicFallbackPreserved
-          ? "fallback preserved"
-          : null,
-      ].filter((label): label is string => Boolean(label))
-    : ["explicit enablement", "artifact digest", "lifecycle readiness"];
-  const commandRouterQwenActivationGateLabels = commandRouterQwenActivation
-    ? [
-        commandRouterQwenActivation.gates.preparedPolicyReviewed
-          ? "policy reviewed"
-          : null,
-        commandRouterQwenActivation.gates.readinessEvidencePassed
-          ? "readiness passed"
-          : null,
-        commandRouterQwenActivation.gates.noRuntimeProductBindingPresent
-          ? "no-runtime binding"
-          : null,
-        commandRouterQwenActivation.gates.coreSelectionFallbackPreserved
-          ? "core fallback"
-          : null,
-        commandRouterQwenActivation.gates.commandRouterSafetyGatesPreserved
-          ? "safety gates"
-          : null,
-        commandRouterQwenActivation.gates.deterministicRulesActive
-          ? "rules active"
-          : null,
-      ].filter((label): label is string => Boolean(label))
-    : ["policy reviewed", "readiness passed", "no-runtime binding"];
-  const qwenRuntimeControlSummary =
-    qwenRuntimeControlStatus?.status.replaceAll("_", " ") ?? "disabled";
-  const qwenRuntimeControlHelper =
-    qwenRuntimeControlStatus?.helperLifecycle.replaceAll("_", " ") ?? "stopped";
-  const qwenRuntimeControlRoute =
-    qwenRuntimeControlStatus?.activeRouteSource ??
-    "intent-router.deterministic.rules";
-  const qwenRuntimeControlSession =
-    qwenRuntimeControlStatus?.retainedSessionAvailable === true
-      ? "retained"
-      : "unavailable";
-  const chatAnswerProductModeEnabled =
-    chatAnswerProductModeStatus?.enabled === true;
-  const chatAnswerRealRuntimeArmed =
-    chatAnswerProductModeStatus?.realProviderRuntimeEnabled === true;
-  const chatAnswerCredentialConfigured =
-    chatAnswerProductModeStatus?.credentialConfigured === true;
-  const chatAnswerSecureStoreAvailable =
-    chatAnswerProductModeStatus?.secureStorageAvailable !== false;
-  const chatAnswerProductModeSummary =
-    chatAnswerProductModeStatus?.status.replaceAll("_", " ") ?? "unknown";
   const requiredProviderConfigurationCount = inferenceProviderRequirements
     .flatMap((report) => report.requirements)
     .filter(
@@ -773,6 +704,22 @@ export default function App() {
     voicePeak,
     voiceRms,
   });
+  const commandRouterSettingsViewModel = createCommandRouterSettingsViewModel({
+    productModeStatus: commandRouterProductModeStatus,
+    qwenRuntimeControlStatus,
+  });
+  const chatAnswerSettingsViewModel = createChatAnswerSettingsViewModel({
+    productModeStatus: chatAnswerProductModeStatus,
+  });
+  const modelGovernanceSettingsViewModel =
+    createModelGovernanceSettingsViewModel({
+      availableInferenceProviderCount,
+      copy,
+      inferenceProviderCount: inferenceProviders.length,
+      modelInventoryCount: modelInventory.length,
+      modelOperationCount: modelOperations.length,
+      requiredProviderConfigurationCount,
+    });
   const toolProductLoop = brainResult?.toolProductLoop;
   const alphaHardening = brainResult?.alphaHardening;
   const sessionHistory = snapshot?.sessionHistory ?? [];
@@ -2025,258 +1972,7 @@ export default function App() {
                   }}
                   copy={copy}
                   sending={sending}
-                  viewModel={{
-                    activationGateLabels: commandRouterQwenActivationGateLabels,
-                    activationPolicyId:
-                      commandRouterQwenActivation?.policyId ??
-                      "qwen-product-routing.activation.default-off.v1",
-                    gateLabels: commandRouterQwenGateLabels,
-                    headerBadge: commandRouterProductModeEnabled
-                      ? "control on"
-                      : "default off",
-                    productModeEnabled: commandRouterProductModeEnabled,
-                    productModeNotice:
-                      "Fixture-only surface: deterministic intent routing remains active; Qwen is status-only with no runtime, helper, artifact, cache, or provider call, and no browser execution. Approved local app launches remain Notepad/Calculator only after confirmation.",
-                    productModeSummary: commandRouterProductModeEnabled
-                      ? "Control enabled; text and voice commands are routed through deterministic fixture projection only."
-                      : "Default off; existing Chat Answer and BrainCommand behavior is preserved.",
-                    qwenMetrics: [
-                      {
-                        label: "Provider",
-                        value:
-                          commandRouterQwenBinding?.providerId ??
-                          "intent-router.qwen3-0.6b",
-                        tone: "accent",
-                      },
-                      {
-                        label: "Binding",
-                        value:
-                          commandRouterQwenBinding?.mode.replaceAll("_", " ") ??
-                          "no runtime status only",
-                        tone: "warning",
-                      },
-                      {
-                        label: "Product routing",
-                        value: commandRouterQwenBinding?.productRoutingEnabled
-                          ? "enabled"
-                          : "off",
-                        tone: "warning",
-                      },
-                      {
-                        label: "Conversation route",
-                        value:
-                          commandRouterQwenBinding
-                            ?.conversationSurfaceProductRoute?.status ??
-                          "disabled",
-                        tone: "warning",
-                      },
-                      {
-                        label: "Route selectable",
-                        value: commandRouterQwenBinding
-                          ?.conversationSurfaceProductRoute?.qwenRouteSelectable
-                          ? "selectable"
-                          : "fixture",
-                        tone: "success",
-                      },
-                      {
-                        label: "Persistent opt-in",
-                        value:
-                          commandRouterQwenBinding
-                            ?.conversationSurfaceProductRoute?.persistentOptIn
-                            ?.status ?? "disabled",
-                        tone: "warning",
-                      },
-                      {
-                        label: "Session scope",
-                        value: commandRouterQwenBinding
-                          ?.conversationSurfaceProductRoute?.persistentOptIn
-                          ?.limitedProductSessionOnly
-                          ? "limited"
-                          : "blocked",
-                        tone: "success",
-                      },
-                      {
-                        label: "Runtime access",
-                        value: commandRouterQwenBinding?.runtimeAccessed
-                          ? "accessed"
-                          : "not accessed",
-                        tone: "success",
-                      },
-                      {
-                        label: "Artifact access",
-                        value: commandRouterQwenBinding?.artifactAccessed
-                          ? "accessed"
-                          : "not accessed",
-                        tone: "success",
-                      },
-                      {
-                        label: "Cache change",
-                        value: commandRouterQwenBinding?.persistentCacheChanged
-                          ? "changed"
-                          : "none",
-                        tone: "success",
-                      },
-                      {
-                        label: "Activation",
-                        value:
-                          commandRouterQwenActivation?.status.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? "disabled",
-                        tone:
-                          commandRouterQwenActivation?.status === "ready"
-                            ? "accent"
-                            : "warning",
-                      },
-                      {
-                        label: "Rollback",
-                        value:
-                          commandRouterQwenActivation?.rollbackState.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? "not needed",
-                        tone: "success",
-                      },
-                    ],
-                    qwenRuntimeControlHelper,
-                    qwenRuntimeControlMetrics: [
-                      {
-                        label: "Session",
-                        value:
-                          qwenRuntimeControlStatus?.retainedSessionId ??
-                          "qwen-retained-product-session-2026-08-10",
-                        tone: qwenRuntimeControlStatus?.retainedSessionAvailable
-                          ? "success"
-                          : "warning",
-                      },
-                      {
-                        label: "Route source",
-                        value: qwenRuntimeControlRoute,
-                        tone: "accent",
-                      },
-                      {
-                        label: "Fallback",
-                        value:
-                          qwenRuntimeControlStatus?.fallbackRouteSource ??
-                          "intent-router.deterministic.rules",
-                        tone: "success",
-                      },
-                      {
-                        label: "Route limit",
-                        value: String(
-                          qwenRuntimeControlStatus?.routeRequestLimit ?? 3,
-                        ),
-                        tone: "warning",
-                      },
-                      {
-                        label: "Route count",
-                        value: String(
-                          qwenRuntimeControlStatus?.routeRequestCount ?? 0,
-                        ),
-                        tone: "warning",
-                      },
-                      {
-                        label: "Helper starts",
-                        value: String(
-                          qwenRuntimeControlStatus?.helperStartCount ?? 0,
-                        ),
-                        tone: "warning",
-                      },
-                      {
-                        label: "Gen probes",
-                        value: String(
-                          qwenRuntimeControlStatus?.generationPortReadinessProbeCount ??
-                            0,
-                        ),
-                        tone: "warning",
-                      },
-                      {
-                        label: "Shutdown",
-                        value:
-                          qwenRuntimeControlStatus?.helperShutdownVerified ===
-                          false
-                            ? "pending"
-                            : "verified",
-                        tone:
-                          qwenRuntimeControlStatus?.helperShutdownVerified ===
-                          false
-                            ? "warning"
-                            : "success",
-                      },
-                      {
-                        label: "Browser/URL",
-                        value:
-                          qwenRuntimeControlStatus?.browserUrlOpeningEnabled
-                            ? "enabled"
-                            : "blocked",
-                        tone: "success",
-                      },
-                      {
-                        label: "VS Code",
-                        value: qwenRuntimeControlStatus?.vsCodeBlocked
-                          ? "blocked"
-                          : "allowed",
-                        tone: "success",
-                      },
-                    ],
-                    qwenRuntimeControlRollbackAvailable:
-                      qwenRuntimeControlStatus?.controls.rollback ===
-                      "available",
-                    qwenRuntimeControlSession,
-                    qwenRuntimeControlStartAvailable:
-                      qwenRuntimeControlStatus?.controls.start === "available",
-                    qwenRuntimeControlStopAvailable:
-                      qwenRuntimeControlStatus?.controls.stop === "available",
-                    qwenRuntimeControlSummary,
-                    qwenStatus: commandRouterQwenBinding?.status ?? "disabled",
-                    routeMetrics: [
-                      {
-                        label: "Provider",
-                        value:
-                          commandRouterProductModeStatus?.providerId ??
-                          "intent-router.deterministic.rules",
-                        tone: "accent",
-                      },
-                      {
-                        label: "Mode",
-                        value:
-                          commandRouterProductModeStatus?.mode.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? "fixture only",
-                        tone: "success",
-                      },
-                      {
-                        label: "Runtime",
-                        value: commandRouterProductModeSummary,
-                        tone: commandRouterProductModeEnabled
-                          ? "accent"
-                          : "warning",
-                      },
-                      {
-                        label: "Direct action",
-                        value: commandRouterDirectActionStatus,
-                        tone: "warning",
-                      },
-                      {
-                        label: "Qwen runtime",
-                        value:
-                          commandRouterProductModeStatus?.realQwenRuntimeEnabled
-                            ? "enabled"
-                            : "disabled",
-                        tone: "warning",
-                      },
-                      {
-                        label: "Chat fallback",
-                        value:
-                          commandRouterProductModeStatus?.chatAnswerFallbackPreserved ===
-                          false
-                            ? "not preserved"
-                            : "preserved",
-                        tone: "success",
-                      },
-                    ],
-                  }}
+                  viewModel={commandRouterSettingsViewModel}
                 />
 
                 <ChatAnswerSettingsPanel
@@ -2298,67 +1994,7 @@ export default function App() {
                   }}
                   copy={copy}
                   sending={sending}
-                  viewModel={{
-                    controlSummary: chatAnswerProductModeEnabled
-                      ? chatAnswerRealRuntimeArmed
-                        ? "Control enabled; real runtime armed for one approved fixed text call."
-                        : "Control enabled; real runtime remains locked until credential readiness is confirmed."
-                      : "Default off; typed answers continue through the existing safe path.",
-                    headerBadge: chatAnswerProductModeEnabled
-                      ? "control on"
-                      : "default off",
-                    metrics: [
-                      {
-                        label: "Provider",
-                        value:
-                          chatAnswerProductModeStatus?.providerId ?? "deepseek",
-                        tone: "accent",
-                      },
-                      {
-                        label: "Profile",
-                        value:
-                          chatAnswerProductModeStatus?.profileId ??
-                          "deepseek.v4-flash.compact_json_object_256",
-                      },
-                      {
-                        label: "Credential",
-                        value: chatAnswerCredentialConfigured
-                          ? "configured"
-                          : "missing",
-                        tone: chatAnswerCredentialConfigured
-                          ? "success"
-                          : "warning",
-                      },
-                      {
-                        label: "Runtime",
-                        value: chatAnswerProductModeSummary,
-                        tone: chatAnswerProductModeEnabled
-                          ? "accent"
-                          : "warning",
-                      },
-                      {
-                        label: "Secure store",
-                        value: chatAnswerSecureStoreAvailable
-                          ? "available"
-                          : "unavailable",
-                        tone: chatAnswerSecureStoreAvailable
-                          ? "success"
-                          : "warning",
-                      },
-                      {
-                        label: "Fallback",
-                        value:
-                          chatAnswerProductModeStatus?.fallbackPreserved ===
-                          false
-                            ? "not preserved"
-                            : "preserved",
-                        tone: "success",
-                      },
-                    ],
-                    notice:
-                      "Controlled surface: default off; one approved provider call only after explicit enablement and credential readiness; no planner, no Memory vector retrieval, and no direct action behavior.",
-                    productModeEnabled: chatAnswerProductModeEnabled,
-                  }}
+                  viewModel={chatAnswerSettingsViewModel}
                 />
                 <VoiceSettingsPanel
                   actions={{
@@ -2510,32 +2146,7 @@ export default function App() {
                   }}
                   copy={copy}
                   sending={sending}
-                  viewModel={{
-                    metrics: [
-                      {
-                        label: copy.metric.providers,
-                        value: String(inferenceProviders.length),
-                      },
-                      {
-                        label: copy.metric.available,
-                        value: String(availableInferenceProviderCount),
-                        tone: "success",
-                      },
-                      {
-                        label: copy.metric.required,
-                        value: String(requiredProviderConfigurationCount),
-                        tone: "warning",
-                      },
-                      {
-                        label: copy.metric.localModels,
-                        value: String(modelInventory.length),
-                      },
-                      {
-                        label: copy.metric.operations,
-                        value: String(modelOperations.length),
-                      },
-                    ],
-                  }}
+                  viewModel={modelGovernanceSettingsViewModel}
                 />
               </div>
             </ScrollArea>
