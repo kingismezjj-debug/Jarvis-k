@@ -39,11 +39,14 @@ import {
   type VoiceCommandCorrectionCandidate,
   type VoiceServiceStatus,
 } from "@jarvis-k/contracts";
+import {
+  prependBoundedEvent,
+  routeJarvisEvent,
+} from "./jarvis-event-router";
+import { useJarvisEventBridge } from "./use-jarvis-event-bridge";
 import { useModelGovernance } from "./use-model-governance";
 
 type CoreConnection = "connecting" | "online" | "restarting" | "offline";
-
-const MAX_EVENTS = 40;
 
 export function useJarvis() {
   const [snapshot, setSnapshot] = useState<CoreSnapshot | null>(null);
@@ -182,38 +185,29 @@ export function useJarvis() {
 
   const applyEvent = useCallback(
     (envelope: EventEnvelope) => {
-      setEvents((current) => [envelope, ...current].slice(0, MAX_EVENTS));
-
-      if (envelope.event.type === "state.snapshot") {
-        textOnlyAcceptanceRef.current =
-          envelope.event.payload.textOnlyAcceptance?.enabled === true;
-        setSnapshot(envelope.event.payload);
-        setMemoryAlphaStatus(envelope.event.payload.memoryAlpha ?? null);
-        setConnection("online");
-        setError(null);
-        if (envelope.event.payload.voice.transcript) {
-          dispatchFinalVoiceTranscript(envelope.event.payload.voice.transcript);
-        }
-      }
-
-      if (envelope.event.type === "model.operation.updated") {
-        applyModelOperation(envelope.event.payload);
-      }
-
-      if (envelope.event.type === "voice.transcript.updated") {
-        dispatchFinalVoiceTranscript(envelope.event.payload);
-      }
-
-      if (envelope.event.type === "system.core.lifecycle") {
-        const status = envelope.event.payload.status;
-        if (status === "online") setConnection("online");
-        if (status === "starting" || status === "restarting") {
-          setConnection("restarting");
-        }
-        if (status === "stopped" || status === "failed") {
-          setConnection("offline");
-        }
-      }
+      routeJarvisEvent(envelope, {
+        appendEvent: (event) =>
+          setEvents((current) => prependBoundedEvent(current, event)),
+        applySnapshot: (nextSnapshot) => {
+          textOnlyAcceptanceRef.current =
+            nextSnapshot.textOnlyAcceptance?.enabled === true;
+          setSnapshot(nextSnapshot);
+          setMemoryAlphaStatus(nextSnapshot.memoryAlpha ?? null);
+          setConnection("online");
+          setError(null);
+        },
+        applyModelOperation,
+        applyFinalVoiceTranscript: dispatchFinalVoiceTranscript,
+        applyLifecycleStatus: (status) => {
+          if (status === "online") setConnection("online");
+          if (status === "starting" || status === "restarting") {
+            setConnection("restarting");
+          }
+          if (status === "stopped" || status === "failed") {
+            setConnection("offline");
+          }
+        },
+      });
     },
     [applyModelOperation, dispatchFinalVoiceTranscript],
   );
@@ -1166,13 +1160,10 @@ export function useJarvis() {
     [],
   );
 
-  useEffect(() => {
-    const unsubscribe = window.jarvis?.onEvent(applyEvent);
-    void refreshSnapshot();
-    return () => {
-      unsubscribe?.();
-    };
-  }, [applyEvent, refreshSnapshot]);
+  useJarvisEventBridge({
+    onEvent: applyEvent,
+    refreshSnapshot,
+  });
 
   const textOnlyAcceptanceEnabled =
     snapshot?.textOnlyAcceptance?.enabled === true;
