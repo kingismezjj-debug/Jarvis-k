@@ -60,7 +60,7 @@ describe("SettingsService", () => {
   it("updates chat answer product mode only when credentials are configured", async () => {
     const configuration: ChatAnswerProviderConfiguration = {
       provider: "chat-answer.openai-compatible.deepseek",
-      credentials: { apiKey: "secret-value" },
+      credentials: { apiKey: "test-key" },
     };
     const { service, configureChatAnswerProductMode } = createSettingsService({
       credentialConfigured: true,
@@ -70,7 +70,7 @@ describe("SettingsService", () => {
       enabled: true,
     });
     expect(result.status.status).toBe("control_enabled_runtime_armed");
-    expect(JSON.stringify(result)).not.toContain("secret-value");
+    expect(JSON.stringify(result)).not.toContain("test-key");
     expect(configureChatAnswerProductMode).toHaveBeenCalledWith({
       enabled: true,
       configuration,
