@@ -149,6 +149,7 @@ import {
 } from "./planner/deterministic-planner-service";
 import { PlannerApprovalService } from "./planner/planner-approval-service";
 import { PlannerExecutionCoordinator } from "./planner/planner-execution-coordinator";
+import { PlannerStatusProjector } from "./planner/planner-status-projector";
 import { ProviderPlannerService } from "./planner/provider-planner-service";
 
 type EventSink = (event: EventEnvelope) => void;
@@ -473,6 +474,7 @@ export class CoreRuntime {
   private readonly providerPlannerService: ProviderPlannerService;
   private readonly plannerApprovalService: PlannerApprovalService;
   private readonly plannerExecutionCoordinator: PlannerExecutionCoordinator;
+  private readonly plannerStatusProjector: PlannerStatusProjector;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -589,6 +591,10 @@ export class CoreRuntime {
       },
       displayKnownLocalApp: (label) =>
         this.commandRouterKnownLocalAppDisplayName(label),
+    });
+    this.plannerStatusProjector = new PlannerStatusProjector({
+      repository: this.taskRepository,
+      now: this.now,
     });
     this.commandRoutingService = new CommandRoutingService({
       productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
@@ -3361,15 +3367,18 @@ export class CoreRuntime {
     memoryRecall?: CoreMemoryRecallObservation;
   }> {
     const basePlan = this.brainPlan(input.decision.intent);
-    const plannerDispatch = await this.dispatchBrainPlannerOutcome({
+    const plannerDispatch = await this.plannerStatusProjector.project({
       planning: input.planning,
       basePlan,
-      envelope: input.envelope,
       source:
         input.envelope.command.type === "agent.runBrainCommand"
           ? input.envelope.command.payload.source
           : "text",
       decision: input.decision,
+      onDraftPersisted: async () => {
+        await this.refreshTasksFromRepository();
+        this.publishSnapshot(input.envelope.correlationId);
+      },
     });
     if (plannerDispatch) {
       return plannerDispatch;
@@ -4897,160 +4906,6 @@ export class CoreRuntime {
       default:
         return "Unknown";
     }
-  }
-
-  private async dispatchBrainPlannerOutcome(input: {
-    planning: CoreBrainPlanningOutcome;
-    basePlan: BrainPlanStep[];
-    envelope: CommandEnvelope;
-    source: "text" | "voice";
-    decision: BrainRouterDecision;
-  }): Promise<
-    | {
-        dispatchStatus: BrainCommandResult["dispatchStatus"];
-        plan: BrainPlanStep[];
-        summary: string;
-      }
-    | undefined
-  > {
-    const result = input.planning.result;
-    if (input.planning.selection.status === "planned" && result?.plan) {
-      await this.persistMinimalPlannerTask({
-        envelope: input.envelope,
-        source: input.source,
-        decision: input.decision,
-        plannerResult: result,
-      });
-      const projectedPlan = this.projectBrainPlannerSteps(
-        input.basePlan,
-        result.plan.steps,
-      );
-      return {
-        dispatchStatus: "needs_approval",
-        plan: projectedPlan,
-        summary:
-          result.providerId === DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID
-            ? "Minimal Planner prepared a bounded plan and saved it to Task Runtime for review. No tool execution was attempted."
-            : "Heavy Planner prepared a bounded plan that requires confirmation before any tool execution.",
-      };
-    }
-    if (input.planning.selection.status === "clarify") {
-      return {
-        dispatchStatus: "blocked",
-        plan: this.blockFinalBrainPlan([
-          ...input.basePlan,
-          {
-            id: "planner",
-            title: "Request clarification",
-            status: "blocked",
-          },
-        ]),
-        summary:
-          result?.clarifyQuestion ??
-          "Heavy Planner needs clarification before this can proceed safely.",
-      };
-    }
-    if (input.planning.selection.status === "blocked") {
-      return {
-        dispatchStatus: "blocked",
-        plan: this.blockFinalBrainPlan([
-          ...input.basePlan,
-          {
-            id: "planner",
-            title: "Block unsafe plan",
-            status: "blocked",
-          },
-        ]),
-        summary: "Heavy Planner blocked this request before execution.",
-      };
-    }
-    return undefined;
-  }
-
-  private projectBrainPlannerSteps(
-    basePlan: BrainPlanStep[],
-    plannedSteps: NonNullable<BrainPlannerResult["plan"]>["steps"],
-  ): BrainPlanStep[] {
-    const visiblePlannedSteps = plannedSteps.slice(0, 4).map((step, index) => ({
-      id: `planned-${index + 1}`,
-      title: `${step.title} [${step.toolId}]`,
-      status: "pending" as const,
-    }));
-    return [
-      ...basePlan.filter((step) => step.id !== "dispatch"),
-      {
-        id: "planner",
-        title: "Prepare bounded BrainPlan",
-        status: "completed",
-      },
-      ...visiblePlannedSteps,
-      {
-        id: "confirmation",
-        title: "Wait for user confirmation before execution",
-        status: "pending",
-      },
-    ];
-  }
-
-  private async persistMinimalPlannerTask(input: {
-    envelope: CommandEnvelope;
-    source: "text" | "voice";
-    decision: BrainRouterDecision;
-    plannerResult: BrainPlannerResult;
-  }): Promise<void> {
-    const repository = this.taskRepository;
-    const plan = input.plannerResult.plan;
-    if (!repository || !plan) {
-      return;
-    }
-    const taskId = createId("task");
-    const createdAt = this.now().toISOString();
-    await repository.createTask({
-      id: taskId,
-      title: "Review Minimal Plan",
-      state: "planning",
-      createdAt,
-      updatedAt: createdAt,
-      source: input.source,
-      intent: input.decision.intent,
-      routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message: "Task created from Minimal Planner draft route.",
-      createdAt,
-    });
-    for (const [index, step] of plan.steps.slice(0, 6).entries()) {
-      await repository.createStep({
-        id: createId("step"),
-        taskId,
-        title: `${index + 1}. ${step.title} [${step.toolId}]`,
-        state: "pending",
-        verificationStatus: "not_applicable",
-        toolId: step.toolId,
-        toolInput: step.args,
-      });
-    }
-    const waitingAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "awaiting_confirmation",
-      updatedAt: waitingAt,
-      verificationSummary:
-        `Minimal Planner (${input.plannerResult.providerId}) saved a bounded plan draft; no tool execution was attempted.`,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "state_changed",
-      message:
-        `Planner draft from ${input.plannerResult.providerId} is awaiting explicit user confirmation before any step can run.`,
-      createdAt: waitingAt,
-    });
-    await this.refreshTasksFromRepository();
-    this.publishSnapshot(input.envelope.correlationId);
   }
 
   private brainDecision(input: {
