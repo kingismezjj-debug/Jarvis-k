@@ -56,15 +56,6 @@ import {
   type OpenAiCompatibleChatAnswerRuntimeCredential,
 } from "@jarvis-k/inference-adapter-glm-chat-answer-runtime";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
-import {
-  type AsrProviderCallbacks,
-  type AsrProviderPort,
-  type AsrSessionPort,
-  BailongmaStyleAsrProvider,
-  VoiceEngine,
-} from "@jarvis-k/voice";
-import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
-import { VolcengineAsrProvider } from "@jarvis-k/voice-adapter-volcengine";
 import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
 import { areMemoryProviderVectorWriteGatesEnabled } from "./memory-provider-vector-write-wiring";
 import { createCoreHostMemoryAlphaImplementation } from "./memory-alpha-implementation";
@@ -80,8 +71,6 @@ import {
   shouldDisableCoreHostMemoryForChatAnswerTextOnlyAcceptance,
 } from "./chat-answer-text-only-acceptance-composition";
 import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider";
-import { NodeWebSocketFactory } from "./node-websocket-factory";
-import { VolcengineNodeWebSocketFactory } from "./volcengine-node-websocket-factory";
 import { SqliteTaskRepository } from "./sqlite-task-repository";
 import { JsonVoiceCommandAliasRepository } from "./voice-command-alias-repository";
 import { JsonUserRouteAliasRepository } from "./user-route-alias-repository";
@@ -92,30 +81,16 @@ import {
   OneShotFixedUtteranceChatAnswerProvider,
 } from "./composition/chat-composition";
 import { createCoreHostPluginComposition } from "./composition/plugin-composition";
+import {
+  createCoreHostVoiceComposition,
+  parseVoiceProviderConfigurationMessage,
+} from "./composition/voice-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
 
 function send(message: CoreOutboundMessage): void {
   if (process.send) {
     process.send(message);
-  }
-}
-
-const unavailableProvider = {
-  async connect(_callbacks: AsrProviderCallbacks): Promise<AsrSessionPort> {
-    throw new Error("ASR provider is not configured.");
-  },
-};
-
-class ConfigurableAsrProvider implements AsrProviderPort {
-  public constructor(private current: AsrProviderPort) {}
-
-  public configure(provider: AsrProviderPort): void {
-    this.current = provider;
-  }
-
-  public connect(callbacks: AsrProviderCallbacks): Promise<AsrSessionPort> {
-    return this.current.connect(callbacks);
   }
 }
 
@@ -182,75 +157,6 @@ function parseCommandRouterProductModeConfigurationMessage(
 const CONTROLLED_CHAT_ANSWER_REAL_RUNTIME_UTTERANCE =
   "Answer in one short sentence: what is Jarvis-K?";
 
-let smokeConnectionCount = 0;
-let smokeActiveSessionCount = 0;
-let smokeMaxActiveSessionCount = 0;
-
-const smokeTestProvider = {
-  async connect(callbacks: AsrProviderCallbacks): Promise<AsrSessionPort> {
-    smokeConnectionCount += 1;
-    smokeActiveSessionCount += 1;
-    smokeMaxActiveSessionCount = Math.max(
-      smokeMaxActiveSessionCount,
-      smokeActiveSessionCount,
-    );
-    let frameCount = 0;
-    let recoveryCount = 0;
-    let recoveryDurationMs = 0;
-    let soakCycle = 0;
-    let closed = false;
-    return {
-      sendAudio: async (frame) => {
-        frameCount += 1;
-        if (frame.pcm[0] === 126) {
-          soakCycle = frame.pcm[1] ?? 0;
-        }
-        if (
-          runtimeConfig.smokeProviderFaultEnabled &&
-          recoveryCount === 0 &&
-          frame.pcm[0] === 127
-        ) {
-          const recoveryStartedAt = performance.now();
-          recoveryCount += 1;
-          await new Promise((resolve) => setTimeout(resolve, 25));
-          recoveryDurationMs = Math.round(
-            performance.now() - recoveryStartedAt,
-          );
-        }
-      },
-      finalizeSegment: async () => {
-        const text =
-          recoveryCount > 0
-            ? `deterministic fault frames=${frameCount} recoveries=${recoveryCount} recoveryMs=${recoveryDurationMs} connections=${smokeConnectionCount} maxActive=${smokeMaxActiveSessionCount}`
-            : soakCycle > 0
-              ? `deterministic soak cycle=${soakCycle} connections=${smokeConnectionCount} maxActive=${smokeMaxActiveSessionCount}`
-              : `deterministic fixture frames=${frameCount}`;
-        callbacks.onTranscript({
-          text,
-          isFinal: true,
-          segmentId: "smoke-segment",
-        });
-        frameCount = 0;
-        recoveryCount = 0;
-        recoveryDurationMs = 0;
-        soakCycle = 0;
-      },
-      cancelSegment: async () => {
-        frameCount = 0;
-        recoveryCount = 0;
-        recoveryDurationMs = 0;
-        soakCycle = 0;
-      },
-      close: async () => {
-        if (!closed) {
-          closed = true;
-          smokeActiveSessionCount -= 1;
-        }
-      },
-    };
-  },
-};
-
 let runtime: CoreRuntime;
 const runtimeConfig = loadRuntimeConfig(process.env);
 const scheduler = {
@@ -258,7 +164,6 @@ const scheduler = {
     setTimeout(callback, delayMs),
   clearTimeout: (handle: unknown) => clearTimeout(handle as NodeJS.Timeout),
 };
-const configurableProvider = new ConfigurableAsrProvider(unavailableProvider);
 const fixtureChatAnswerEnabled = runtimeConfig.fixtureChatAnswerEnabled;
 const providerBackedChatAnswerProductManualAcceptanceRequested =
   runtimeConfig.providerBackedChatAnswerProductManualAcceptanceRequested;
@@ -527,21 +432,15 @@ const memoryAlphaImplementation = sqliteMemoryRepository
         : { embeddingProvider: localEmbeddingComposition.embeddingProvider }),
     })
   : undefined;
-const voiceEngine = new VoiceEngine({
-  provider: runtimeConfig.smokeVoiceEnabled
-    ? smokeTestProvider
-    : configurableProvider,
+const voiceComposition = createCoreHostVoiceComposition({
+  smokeVoiceEnabled: runtimeConfig.smokeVoiceEnabled,
+  smokeProviderFaultEnabled: runtimeConfig.smokeProviderFaultEnabled,
   eventSink: {
     publish: (event) => runtime.handleVoiceEvent(event),
   },
-  ttsPlayback: {
-    interrupt: async () => undefined,
-  },
-  clock: {
-    now: () => new Date(),
-  },
   scheduler,
 });
+const voiceEngine = voiceComposition.voiceEngine;
 const brainActionExecutor = new BrainActionAllowlistAdapter({
   disabled: runtimeConfig.brainOpenActionsDisabled,
 });
@@ -824,27 +723,7 @@ process.on("message", (rawMessage: unknown) => {
   if (providerConfiguration) {
     inboundQueue = inboundQueue
       .then(async () => {
-        await voiceEngine.setMode("disabled");
-        const provider =
-          providerConfiguration.provider === "volcengine"
-            ? new VolcengineAsrProvider({
-                credentials: providerConfiguration.credentials,
-                socketFactory: new VolcengineNodeWebSocketFactory(),
-              })
-            : new XunfeiRtasrProvider({
-                credentials: providerConfiguration.credentials,
-                language: providerConfiguration.language,
-                clock: {
-                  now: () => new Date(),
-                },
-                scheduler,
-                socketFactory: new NodeWebSocketFactory(),
-              });
-        configurableProvider.configure(
-          new BailongmaStyleAsrProvider({
-            upstream: provider,
-          }),
-        );
+        await voiceComposition.configureProvider(providerConfiguration);
       })
       .catch(() => {
         console.error("[core-host] Voice provider configuration failed.");
@@ -908,24 +787,6 @@ void Promise.all([
   runtime.hydrateTasks(),
   runtime.hydrateCapabilities(),
 ]).finally(() => runtime.announceReady());
-
-type CoreHostVoiceProviderConfiguration =
-  | {
-      provider: "xunfei";
-      language: "zh" | "en";
-      credentials: {
-        appId: string;
-        apiKey: string;
-      };
-    }
-  | {
-      provider: "volcengine";
-      language: "zh" | "en";
-      credentials: {
-        apiKey: string;
-        resourceId: string;
-      };
-    };
 
 function parseChatAnswerProductModeConfigurationMessage(message: unknown): {
   enabled: boolean;
@@ -1037,69 +898,6 @@ function parseHeavyPlannerProviderConfigurationMessage(
       apiKey: apiKey.trim(),
     },
   };
-}
-
-function parseVoiceProviderConfigurationMessage(
-  message: unknown,
-): CoreHostVoiceProviderConfiguration | null {
-  if (!isRecord(message) || message.kind !== "voice-provider.configure") {
-    return null;
-  }
-  const configuration = message.configuration;
-  if (!isRecord(configuration)) {
-    return null;
-  }
-  const credentials = configuration.credentials;
-  const language = configuration.language === "en" ? "en" : "zh";
-  if (configuration.provider === "xunfei") {
-    if (
-      !isRecord(credentials) ||
-      typeof credentials.appId !== "string" ||
-      typeof credentials.apiKey !== "string"
-    ) {
-      return null;
-    }
-    const appId = credentials.appId.trim();
-    const apiKey = credentials.apiKey.trim();
-    if (appId.length === 0 || apiKey.length === 0) {
-      return null;
-    }
-    return {
-      provider: "xunfei",
-      language,
-      credentials: {
-        appId,
-        apiKey,
-      },
-    };
-  }
-  if (configuration.provider === "volcengine") {
-    if (!isRecord(credentials) || typeof credentials.apiKey !== "string") {
-      return null;
-    }
-    const apiKey = credentials.apiKey.trim();
-    const resourceId =
-      typeof credentials.resourceId === "string" &&
-      credentials.resourceId.trim().length > 0
-        ? credentials.resourceId.trim()
-        : "volc.seedasr.sauc.duration";
-    if (
-      apiKey.length === 0 ||
-      resourceId.length > 128 ||
-      !/^volc\.[a-z0-9_.-]+$/i.test(resourceId)
-    ) {
-      return null;
-    }
-    return {
-      provider: "volcengine",
-      language,
-      credentials: {
-        apiKey,
-        resourceId,
-      },
-    };
-  }
-  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
