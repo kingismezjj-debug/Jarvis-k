@@ -2,10 +2,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const hookSource = readFileSync(
-  path.resolve(import.meta.dirname, "..", "src", "hooks", "use-jarvis.ts"),
-  "utf8",
-);
+const hookSource = [
+  "use-jarvis.ts",
+  "use-model-governance.ts",
+].map((fileName) =>
+  readFileSync(
+    path.resolve(import.meta.dirname, "..", "src", "hooks", fileName),
+    "utf8",
+  ),
+).join("\n");
 
 describe("useJarvis inference wiring", () => {
   it("runs fixture embeddings through the desktop bridge command contract", () => {

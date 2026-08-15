@@ -1,4 +1,4 @@
-import type { EventEnvelope, TaskState, VoiceCommandCorrectionCandidate } from "@jarvis-k/contracts";
+import type { EventEnvelope, TaskState } from "@jarvis-k/contracts";
 
 export const activeModelOperationPhases = new Set([
   "queued",
