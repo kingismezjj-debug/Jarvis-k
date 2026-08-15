@@ -11,6 +11,14 @@ const mainSource = readFileSync(
   path.join(desktopSourceDirectory, "main.ts"),
   "utf8"
 );
+const settingsServiceSource = readFileSync(
+  path.join(desktopSourceDirectory, "settings", "settings-service.ts"),
+  "utf8"
+);
+const settingsIpcSource = readFileSync(
+  path.join(desktopSourceDirectory, "ipc", "register-settings-ipc.ts"),
+  "utf8"
+);
 const preloadSource = readFileSync(
   path.join(desktopSourceDirectory, "preload.ts"),
   "utf8"
@@ -24,20 +32,27 @@ describe("Chat Answer product mode desktop wiring", () => {
       "IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL"
     );
     expect(preloadSource).toContain("IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL");
-    expect(mainSource).toContain("let chatAnswerProductModeEnabled = false");
-    expect(mainSource).toContain("getChatAnswerProductModeStatus");
-    expect(mainSource).toContain("setChatAnswerProductModeEnabled");
+    expect(settingsServiceSource).toContain(
+      "private chatAnswerProductModeEnabled = false"
+    );
+    expect(settingsServiceSource).toContain("getChatAnswerProductModeStatus");
+    expect(settingsServiceSource).toContain("setChatAnswerProductModeEnabled");
+    expect(settingsIpcSource).toContain("registerSettingsIpc");
   });
 
   it("keeps provider-backed runtime explicit and non-default from the product mode toggle", () => {
-    expect(mainSource).toContain(
+    expect(settingsServiceSource).toContain(
       'status === "control_enabled_runtime_armed"'
     );
-    expect(mainSource).toContain("chatAnswerProductModeRuntimeArmed");
-    expect(mainSource).toContain("defaultBehaviorChanged: false");
-    expect(mainSource).toContain("fallbackPreserved: true");
-    expect(mainSource).toContain("CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_ARMED");
-    expect(mainSource).toContain("CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_LOCKED");
+    expect(settingsServiceSource).toContain("chatAnswerProductModeRuntimeArmed");
+    expect(settingsServiceSource).toContain("defaultBehaviorChanged: false");
+    expect(settingsServiceSource).toContain("fallbackPreserved: true");
+    expect(settingsServiceSource).toContain(
+      "CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_ARMED"
+    );
+    expect(settingsServiceSource).toContain(
+      "CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_LOCKED"
+    );
     expect(mainSource).not.toContain(
       'supervisor?.restart("chat-answer-product-mode'
     );

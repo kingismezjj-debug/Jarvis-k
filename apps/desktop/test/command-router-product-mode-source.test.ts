@@ -11,6 +11,14 @@ const mainSource = readFileSync(
   path.join(desktopSourceDirectory, "main.ts"),
   "utf8"
 );
+const settingsServiceSource = readFileSync(
+  path.join(desktopSourceDirectory, "settings", "settings-service.ts"),
+  "utf8"
+);
+const settingsIpcSource = readFileSync(
+  path.join(desktopSourceDirectory, "ipc", "register-settings-ipc.ts"),
+  "utf8"
+);
 const preloadSource = readFileSync(
   path.join(desktopSourceDirectory, "preload.ts"),
   "utf8"
@@ -54,60 +62,67 @@ describe("Command Router product mode desktop wiring", () => {
     expect(preloadSource).toContain("IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL");
     expect(preloadSource).toContain("IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL");
     expect(preloadSource).toContain("IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL");
-    expect(mainSource).toContain("let commandRouterProductModeEnabled = false");
+    expect(settingsServiceSource).toContain(
+      "private commandRouterProductModeEnabled = false"
+    );
     expect(mainSource).toContain("let qwenRuntimeControlState:");
     expect(mainSource).toContain('| "active"');
     expect(mainSource).toContain('| "blocked" = "disabled"');
-    expect(mainSource).toContain("getCommandRouterProductModeStatus");
-    expect(mainSource).toContain("setCommandRouterProductModeEnabled");
+    expect(settingsServiceSource).toContain("getCommandRouterProductModeStatus");
+    expect(settingsServiceSource).toContain("setCommandRouterProductModeEnabled");
+    expect(settingsIpcSource).toContain("registerSettingsIpc");
     expect(mainSource).toContain("getQwenRuntimeControlStatus");
     expect(mainSource).toContain("setQwenRuntimeControlAction");
   });
 
   it("keeps command routing rules-only with no direct runtime expansion", () => {
-    expect(mainSource).toContain('providerId: "intent-router.deterministic.rules"');
-    expect(mainSource).toContain('mode: "production_rules"');
-    expect(mainSource).not.toContain('mode: "fixture_only"');
-    expect(mainSource).toContain("directActionEnabled: false");
-    expect(mainSource).toContain("realQwenRuntimeEnabled: false");
-    expect(mainSource).toContain("networkAccessApproved: false");
-    expect(mainSource).toContain("chatAnswerFallbackPreserved: true");
-    expect(mainSource).toContain('providerId: "intent-router.qwen3-0.6b"');
-    expect(mainSource).toContain('mode: "no_runtime_status_only"');
-    expect(mainSource).toContain("productRoutingEnabled: false");
-    expect(mainSource).toContain("conversationSurfaceProductRoute");
-    expect(mainSource).toContain(
+    expect(settingsServiceSource).toContain(
+      'providerId: "intent-router.deterministic.rules"'
+    );
+    expect(settingsServiceSource).toContain('mode: "production_rules"');
+    expect(settingsServiceSource).not.toContain('mode: "fixture_only"');
+    expect(settingsServiceSource).toContain("directActionEnabled: false");
+    expect(settingsServiceSource).toContain("realQwenRuntimeEnabled: false");
+    expect(settingsServiceSource).toContain("networkAccessApproved: false");
+    expect(settingsServiceSource).toContain("chatAnswerFallbackPreserved: true");
+    expect(settingsServiceSource).toContain('providerId: "intent-router.qwen3-0.6b"');
+    expect(settingsServiceSource).toContain('mode: "no_runtime_status_only"');
+    expect(settingsServiceSource).toContain("productRoutingEnabled: false");
+    expect(settingsServiceSource).toContain("conversationSurfaceProductRoute");
+    expect(settingsServiceSource).toContain(
       "qwen-conversation-surface.product-route.default-off.v1"
     );
-    expect(mainSource).toContain("qwenRouteSelectable: false");
-    expect(mainSource).toContain("productRouteExecutionEnabled: false");
-    expect(mainSource).toContain("persistentOptIn");
-    expect(mainSource).toContain(
+    expect(settingsServiceSource).toContain("qwenRouteSelectable: false");
+    expect(settingsServiceSource).toContain("productRouteExecutionEnabled: false");
+    expect(settingsServiceSource).toContain("persistentOptIn");
+    expect(settingsServiceSource).toContain(
       "qwen-conversation-surface.persistent-opt-in.default-off.v1"
     );
-    expect(mainSource).toContain("localDeveloperOptInRequired: true");
-    expect(mainSource).toContain("localDeveloperOptInEnabled: false");
-    expect(mainSource).toContain("qwenRouteSelectableByDefault: false");
-    expect(mainSource).toContain(
+    expect(settingsServiceSource).toContain("localDeveloperOptInRequired: true");
+    expect(settingsServiceSource).toContain("localDeveloperOptInEnabled: false");
+    expect(settingsServiceSource).toContain("qwenRouteSelectableByDefault: false");
+    expect(settingsServiceSource).toContain(
       "productRouteExecutionEnabledByDefault: false"
     );
-    expect(mainSource).toContain("limitedProductSessionOnly: true");
-    expect(mainSource).toContain("routeRequestLimit: 3");
-    expect(mainSource).toContain("helperStartupAllowedByPolicyState: false");
-    expect(mainSource).toContain(
+    expect(settingsServiceSource).toContain("limitedProductSessionOnly: true");
+    expect(settingsServiceSource).toContain("routeRequestLimit: 3");
+    expect(settingsServiceSource).toContain("helperStartupAllowedByPolicyState: false");
+    expect(settingsServiceSource).toContain(
       "generationPortInvocationAllowedByPolicyState: false"
     );
-    expect(mainSource).toContain("realRuntimeEnabled: false");
-    expect(mainSource).toContain("runtimeAccessed: false");
-    expect(mainSource).toContain("artifactAccessed: false");
-    expect(mainSource).toContain("persistentCacheChanged: false");
-    expect(mainSource).toContain(
+    expect(settingsServiceSource).toContain("realRuntimeEnabled: false");
+    expect(settingsServiceSource).toContain("runtimeAccessed: false");
+    expect(settingsServiceSource).toContain("artifactAccessed: false");
+    expect(settingsServiceSource).toContain("persistentCacheChanged: false");
+    expect(settingsServiceSource).toContain(
       "createCommandRouterQwenProductRoutingActivationStatus"
     );
-    expect(mainSource).toContain("preparedPolicyReviewed: true");
-    expect(mainSource).toContain("readinessEvidencePassed: true");
-    expect(mainSource).toContain("deterministicRulesActive: true");
-    expect(mainSource).toContain("normalCoreHostStartupInstantiatesQwen: false");
+    expect(settingsServiceSource).toContain("preparedPolicyReviewed: true");
+    expect(settingsServiceSource).toContain("readinessEvidencePassed: true");
+    expect(settingsServiceSource).toContain("deterministicRulesActive: true");
+    expect(settingsServiceSource).toContain(
+      "normalCoreHostStartupInstantiatesQwen: false"
+    );
     expect(supervisorSource).toContain(
       'kind: "command-router-product-mode.configure"'
     );

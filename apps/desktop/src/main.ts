@@ -7,15 +7,9 @@ import {
   safeStorage
 } from "electron";
 import {
-  ChatAnswerProductModeStatus,
-  CommandRouterProductModeStatus,
   CommandEnvelopeSchema,
   CommandResult,
-  IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
-  IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_CHANNEL,
-  IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
-  IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_EVENT_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
@@ -71,6 +65,8 @@ import {
 } from "./voice-settings-ipc";
 import { createVoiceSettingsWindow } from "./voice-settings-window";
 import { createMainWindow } from "./windows/main-window";
+import { registerSettingsIpc } from "./ipc/register-settings-ipc";
+import { SettingsService } from "./settings/settings-service";
 
 let mainWindow: BrowserWindow | null = null;
 let voiceSettingsWindow: BrowserWindow | null = null;
@@ -83,9 +79,7 @@ let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
   null;
 let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
   null;
-let commandRouterProductModeEnabled = false;
-let chatAnswerProductModeEnabled = false;
-let chatAnswerProductModeRuntimeArmed = false;
+let settingsService: SettingsService | null = null;
 let qwenRuntimeControlState:
   | "disabled"
   | "prepared"
@@ -283,174 +277,6 @@ async function getChatAnswerProviderConfiguration(): Promise<ChatAnswerProviderC
     );
     return null;
   }
-}
-
-async function getChatAnswerProductModeStatus(): Promise<ChatAnswerProductModeStatus> {
-  const providerId = "chat-answer.openai-compatible.deepseek" as const;
-  let secureStorageAvailable = safeStorage.isEncryptionAvailable();
-  let credentialConfigured = false;
-  try {
-    const status = await getChatAnswerProviderStore(providerId).status();
-    secureStorageAvailable = status.status !== "unavailable";
-    credentialConfigured = status.credentialConfigured;
-  } catch {
-    secureStorageAvailable = false;
-    credentialConfigured = false;
-  }
-
-  const status = !secureStorageAvailable
-    ? "secure_store_unavailable"
-    : !credentialConfigured
-      ? "credential_missing"
-      : chatAnswerProductModeEnabled
-        ? chatAnswerProductModeRuntimeArmed
-          ? "control_enabled_runtime_armed"
-          : "control_enabled_runtime_locked"
-        : "disabled";
-  const reasonCodes =
-    status === "secure_store_unavailable"
-      ? ["CHAT_ANSWER_PRODUCT_MODE_SECURE_STORE_UNAVAILABLE"]
-      : status === "credential_missing"
-        ? ["CHAT_ANSWER_PRODUCT_MODE_CREDENTIAL_MISSING"]
-        : status === "control_enabled_runtime_armed"
-          ? [
-              "CHAT_ANSWER_PRODUCT_MODE_CONTROL_ENABLED",
-              "CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_ARMED"
-            ]
-          : status === "control_enabled_runtime_locked"
-          ? [
-              "CHAT_ANSWER_PRODUCT_MODE_CONTROL_ENABLED",
-              "CHAT_ANSWER_PRODUCT_MODE_REAL_RUNTIME_LOCKED"
-            ]
-          : ["CHAT_ANSWER_PRODUCT_MODE_DISABLED"];
-
-  return {
-    enabled: chatAnswerProductModeEnabled,
-    providerId,
-    profileId: "deepseek.v4-flash.compact_json_object_256",
-    status,
-    secureStorageAvailable,
-    credentialConfigured,
-    credentialExposed: false,
-    realProviderRuntimeEnabled: status === "control_enabled_runtime_armed",
-    networkAccessApproved: status === "control_enabled_runtime_armed",
-    defaultBehaviorChanged: false,
-    fallbackPreserved: true,
-    reasonCodes
-  };
-}
-
-function getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
-  const qwenBindingStatus = commandRouterProductModeEnabled
-    ? "unconfigured"
-    : "disabled";
-  return {
-    enabled: commandRouterProductModeEnabled,
-    providerId: "intent-router.deterministic.rules",
-    mode: "production_rules",
-    status: commandRouterProductModeEnabled
-      ? "control_enabled_rules_only"
-      : "disabled",
-    fixtureOnly: false,
-    directActionEnabled: false,
-    realQwenRuntimeEnabled: false,
-    networkAccessApproved: false,
-    defaultBehaviorChanged: false,
-    chatAnswerFallbackPreserved: true,
-    qwenFastRouterBinding: {
-      providerId: "intent-router.qwen3-0.6b",
-      modelId: "Qwen/Qwen3-0.6B",
-      status: qwenBindingStatus,
-      mode: "no_runtime_status_only",
-      productRoutingEnabled: false,
-      realRuntimeEnabled: false,
-      runtimeAccessed: false,
-      artifactAccessed: false,
-      persistentCacheChanged: false,
-      directActionAttempted: false,
-      activation: createCommandRouterQwenProductRoutingActivationStatus({
-        commandRouterProductModeEnabled,
-        preparedPolicyReviewed: true,
-        readinessEvidencePassed: true,
-        noRuntimeProductBindingPresent: true,
-        coreSelectionFallbackPreserved: true,
-        commandRouterSafetyGatesPreserved: true,
-        deterministicRulesActive: true
-      }),
-      conversationSurfaceProductRoute: {
-        policyId: "qwen-conversation-surface.product-route.default-off.v1",
-        status: commandRouterProductModeEnabled ? "ready" : "disabled",
-        explicitOptInRequired: true,
-        explicitOptInEnabled: false,
-        activeRouteSource: "intent-router.deterministic.rules",
-        fallbackRouteSource: "intent-router.deterministic.rules",
-        qwenRouteSelectable: false,
-        productRouteExecutionEnabled: false,
-        directActionEnabled: false,
-        browserUrlOpeningEnabled: false,
-        vsCodeBlocked: true,
-        allowlistTargets: ["notepad", "calculator"] as const,
-        persistentOptIn: {
-          policyId:
-            "qwen-conversation-surface.persistent-opt-in.default-off.v1",
-          status: commandRouterProductModeEnabled ? "prepared" : "disabled",
-          localDeveloperOptInRequired: true,
-          localDeveloperOptInEnabled: false,
-          qwenRouteSelectableByDefault: false,
-          productRouteExecutionEnabledByDefault: false,
-          limitedProductSessionOnly: true,
-          routeRequestLimit: 3,
-          retainedSessionRequired: true,
-          helperStartupAllowedByPolicyState: false,
-          generationPortInvocationAllowedByPolicyState: false,
-          activeRouteSource: "intent-router.deterministic.rules",
-          fallbackRouteSource: "intent-router.deterministic.rules",
-          rollbackRouteSource: "intent-router.deterministic.rules",
-          defaultBehaviorChanged: false,
-          releaseBehaviorChanged: false,
-          reasonCodes: commandRouterProductModeEnabled
-            ? [
-              "QWEN_CONVERSATION_PERSISTENT_OPT_IN_PREPARED_DEFAULT_OFF",
-              "QWEN_CONVERSATION_PERSISTENT_OPT_IN_LIMITED_SESSION_ONLY"
-              ]
-            : ["QWEN_CONVERSATION_PERSISTENT_OPT_IN_DISABLED"]
-        },
-        rollbackState: commandRouterProductModeEnabled ? "ready" : "not_needed",
-        implementationPrepared: true,
-        defaultBehaviorChanged: false,
-        releaseBehaviorChanged: false,
-        reasonCodes: commandRouterProductModeEnabled
-          ? [
-              "QWEN_CONVERSATION_PRODUCT_ROUTE_READY_DEFAULT_OFF",
-              "QWEN_CONVERSATION_PRODUCT_ROUTE_RULES_ACTIVE"
-            ]
-          : ["QWEN_CONVERSATION_PRODUCT_ROUTE_DISABLED"]
-      },
-      gates: {
-        explicitEnablementRequired: true,
-        artifactDigestApprovalRequired: true,
-        modelLifecycleReadinessRequired: true,
-        runtimeGenerationPortReadinessRequired: true,
-        selectionPolicyReadinessRequired: true,
-        defaultOffPreserved: true,
-        deterministicFallbackPreserved: true,
-        singleEnvVarSufficient: false,
-        normalCoreHostStartupInstantiatesQwen: false
-      },
-      reasonCodes: [
-        "QWEN_FAST_ROUTER_PRODUCT_BINDING_DISABLED",
-        "QWEN_FAST_ROUTER_NO_RUNTIME_STATUS_ONLY",
-        "QWEN_FAST_ROUTER_PRODUCT_ROUTING_UNAVAILABLE"
-      ]
-    },
-    reasonCodes: commandRouterProductModeEnabled
-      ? [
-          "COMMAND_ROUTER_PRODUCT_MODE_CONTROL_ENABLED",
-          "COMMAND_ROUTER_PRODUCT_MODE_FIXTURE_ONLY",
-          "COMMAND_ROUTER_PRODUCT_MODE_DIRECT_ACTION_DISABLED"
-        ]
-      : ["COMMAND_ROUTER_PRODUCT_MODE_DISABLED"]
-  };
 }
 
 function retainedQwenSessionMarkerPath(): string {
@@ -691,73 +517,6 @@ async function setQwenRuntimeControlAction(
     ok: true,
     action: parsedAction.data,
     status: getQwenRuntimeControlStatus()
-  };
-}
-
-function setCommandRouterProductModeEnabled(
-  event: Electron.IpcMainInvokeEvent,
-  rawInput: unknown
-): {
-  ok: boolean;
-  status: CommandRouterProductModeStatus;
-  message?: string;
-} {
-  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
-    return {
-      ok: false,
-      status: getCommandRouterProductModeStatus(),
-      message: "Command Router product mode settings are unavailable."
-    };
-  }
-  const raw =
-    typeof rawInput === "object" && rawInput !== null
-      ? (rawInput as Record<string, unknown>)
-      : {};
-  commandRouterProductModeEnabled = raw.enabled === true;
-  supervisor?.configureCommandRouterProductMode({
-    enabled: commandRouterProductModeEnabled
-  });
-  return {
-    ok: true,
-    status: getCommandRouterProductModeStatus()
-  };
-}
-
-async function setChatAnswerProductModeEnabled(
-  event: Electron.IpcMainInvokeEvent,
-  rawInput: unknown
-): Promise<{ ok: boolean; status: ChatAnswerProductModeStatus; message?: string }> {
-  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
-    return {
-      ok: false,
-      status: await getChatAnswerProductModeStatus(),
-      message: "Chat Answer product mode settings are unavailable."
-    };
-  }
-  const raw =
-    typeof rawInput === "object" && rawInput !== null
-      ? (rawInput as Record<string, unknown>)
-      : {};
-  chatAnswerProductModeEnabled = raw.enabled === true;
-  let configuration: ChatAnswerProviderConfiguration | null = null;
-  if (chatAnswerProductModeEnabled) {
-    try {
-      configuration = await getChatAnswerProviderStore(
-        "chat-answer.openai-compatible.deepseek"
-      ).load();
-    } catch {
-      configuration = null;
-    }
-  }
-  chatAnswerProductModeRuntimeArmed =
-    chatAnswerProductModeEnabled && configuration !== null;
-  supervisor?.configureChatAnswerProductMode({
-    enabled: chatAnswerProductModeEnabled,
-    ...(configuration ? { configuration } : {})
-  });
-  return {
-    ok: true,
-    status: await getChatAnswerProductModeStatus()
   };
 }
 
@@ -1193,6 +952,42 @@ if (!hasSingleInstanceLock) {
       }
     });
     supervisor.start();
+    settingsService = new SettingsService({
+      loadChatAnswerProviderConfiguration: async () => {
+        try {
+          return await getChatAnswerProviderStore(
+            "chat-answer.openai-compatible.deepseek"
+          ).load();
+        } catch {
+          return null;
+        }
+      },
+      getChatAnswerCredentialStatus: async () => {
+        try {
+          const status = await getChatAnswerProviderStore(
+            "chat-answer.openai-compatible.deepseek"
+          ).status();
+          return {
+            secureStorageAvailable: status.status !== "unavailable",
+            credentialConfigured: status.credentialConfigured
+          };
+        } catch {
+          return {
+            secureStorageAvailable: false,
+            credentialConfigured: false
+          };
+        }
+      },
+      configureCommandRouterProductMode: (input) => {
+        supervisor?.configureCommandRouterProductMode(input);
+      },
+      configureChatAnswerProductMode: (input) => {
+        supervisor?.configureChatAnswerProductMode({
+          enabled: input.enabled,
+          ...(input.configuration ? { configuration: input.configuration } : {})
+        });
+      }
+    });
 
     ipcMain.handle(IPC_COMMAND_CHANNEL, async (_event, rawEnvelope: unknown) => {
       const parsed = CommandEnvelopeSchema.safeParse(rawEnvelope);
@@ -1211,20 +1006,11 @@ if (!hasSingleInstanceLock) {
     ipcMain.handle(IPC_TTS_SETTINGS_STATUS_CHANNEL, () =>
       getTtsServiceStatus()
     );
-    ipcMain.handle(IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL, () =>
-      getChatAnswerProductModeStatus()
-    );
-    ipcMain.handle(
-      IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
-      setChatAnswerProductModeEnabled
-    );
-    ipcMain.handle(IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL, () =>
-      getCommandRouterProductModeStatus()
-    );
-    ipcMain.handle(
-      IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
-      setCommandRouterProductModeEnabled
-    );
+    registerSettingsIpc({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      settingsService
+    });
     ipcMain.handle(IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL, () =>
       getQwenRuntimeControlStatus()
     );
