@@ -96,6 +96,7 @@ import type {
 } from "@/app/types";
 import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
+import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { cn } from "@/lib/utils";
 import {
   selectLocalTtsLanguage,
@@ -6375,111 +6376,37 @@ export default function App() {
             data-testid="runtime-inspector"
           >
             <div className="flex h-full min-h-0 flex-col px-[18px] py-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold">
-                    {copy.label.runtimeActivity}
-                  </h2>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {copy.label.runtimeActivitySubtitle}
-                  </p>
-                </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      aria-label="Probe Core"
-                      className="rounded-md"
-                      onClick={() =>
-                        void trackAction("Probe Core", async () => {
-                          const probed = await probeCore();
-                          const refreshedCapabilities =
-                            await refreshCapabilities();
-                          const refreshedMemory = await refreshMemoryHealth();
-                          const refreshedModels =
-                            await refreshModelGovernance();
-                          return (
-                            probed &&
-                            refreshedCapabilities &&
-                            refreshedMemory &&
-                            refreshedModels
-                          );
-                        })
-                      }
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <RefreshCw
-                        className={cn("size-3.5", sending && "animate-spin")}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Probe Core</TooltipContent>
-                </Tooltip>
-              </div>
-
-              <Separator className="my-4" />
-
-              <dl className="shrink-0 divide-y divide-border border-y text-[11px]">
-                <Metric
-                  label={copy.metric.coreHealth}
-                  value={snapshot?.health ?? connection}
-                  tone="success"
-                />
-                <Metric
-                  label={copy.metric.runtimeMode}
-                  value={runtimeMode}
-                  tone="accent"
-                />
-                <Metric
-                  label={copy.metric.memory}
-                  value={snapshot?.memoryHealth?.status ?? "unknown"}
-                  tone={
-                    snapshot?.memoryHealth?.status === "degraded"
-                      ? "warning"
-                      : "success"
-                  }
-                />
-                <Metric
-                  label={copy.metric.memoryAlpha}
-                  value={memoryAlpha?.state ?? "unknown"}
-                  tone={
-                    memoryAlpha?.state === "active"
-                      ? "success"
-                      : memoryAlpha?.state === "degraded"
-                        ? "warning"
-                        : undefined
-                  }
-                />
-                <Metric label={copy.metric.gpuCount} value={String(gpuCount)} />
-                <Metric
-                  label={copy.metric.acceleration}
-                  value={accelerationBackends}
-                />
-                <Metric
-                  label={copy.metric.voiceEngine}
-                  value={snapshot?.voice.state ?? "disabled"}
-                  tone="warning"
-                />
-                <Metric
-                  label={copy.metric.micPermission}
-                  value={snapshot?.voice.permission ?? "unknown"}
-                />
-                <Metric
-                  label={copy.metric.voiceFrames}
-                  value={String(ptt.audioDiagnostics.framesSent)}
-                />
-                <Metric label={copy.metric.voiceRms} value={voiceRms} />
-                <Metric label={copy.metric.voicePeak} value={voicePeak} />
-                <Metric
-                  label={copy.metric.transport}
-                  value="IPC"
-                  tone="accent"
-                />
-                <Metric
-                  label={copy.metric.sequence}
-                  value={String(snapshot?.sequenceId ?? 0).padStart(4, "0")}
-                />
-              </dl>
+              <SystemStatusPanel
+                actions={{
+                  probeCore: () => {
+                    void trackAction("Probe Core", async () => {
+                      const probed = await probeCore();
+                      const refreshedCapabilities = await refreshCapabilities();
+                      const refreshedMemory = await refreshMemoryHealth();
+                      const refreshedModels = await refreshModelGovernance();
+                      return (
+                        probed &&
+                        refreshedCapabilities &&
+                        refreshedMemory &&
+                        refreshedModels
+                      );
+                    });
+                  },
+                }}
+                copy={copy}
+                sending={sending}
+                viewModel={{
+                  accelerationBackends,
+                  connection,
+                  gpuCount,
+                  memoryAlphaState: memoryAlpha?.state,
+                  runtimeMode,
+                  snapshot,
+                  voiceFramesSent: ptt.audioDiagnostics.framesSent,
+                  voicePeak,
+                  voiceRms,
+                }}
+              />
 
               <div className="mt-4 shrink-0" data-testid="model-governance">
                 <div className="mb-2 flex items-center justify-between">
