@@ -22,7 +22,10 @@ interface UseJarvisMemoryActionsOptions {
   sendCommand(command: AppCommand): Promise<boolean>;
   setSnapshot(snapshot: CoreSnapshot): void;
   setMemoryAlphaStatus(status: MemoryAlphaStatus | null): void;
-  setMemoryAlphaRecallProbe(probe: MemoryAlphaRecallProbeResult | null): void;
+  setMemoryAlphaProbeResult(
+    status: MemoryAlphaStatus,
+    probe: MemoryAlphaRecallProbeResult,
+  ): void;
   setUserRouteAliases(aliases: UserRouteAliasRecord[]): void;
   setUserControlledMemories(memories: UserControlledMemoryRecord[]): void;
   refreshVoiceCommandAliases(): Promise<boolean>;
@@ -34,7 +37,7 @@ export function useJarvisMemoryActions({
   sendCommand,
   setSnapshot,
   setMemoryAlphaStatus,
-  setMemoryAlphaRecallProbe,
+  setMemoryAlphaProbeResult,
   setUserRouteAliases,
   setUserControlledMemories,
   refreshVoiceCommandAliases,
@@ -322,8 +325,7 @@ export function useJarvisMemoryActions({
           setError("Core returned invalid Memory alpha probe metadata.");
           return false;
         }
-        setMemoryAlphaStatus(memoryAlpha.data);
-        setMemoryAlphaRecallProbe(probe.data);
+        setMemoryAlphaProbeResult(memoryAlpha.data, probe.data);
         setError(null);
         return true;
       } finally {
@@ -332,7 +334,7 @@ export function useJarvisMemoryActions({
     },
     [
       setError,
-      setMemoryAlphaRecallProbe,
+      setMemoryAlphaProbeResult,
       setMemoryAlphaStatus,
       setSending,
     ],
