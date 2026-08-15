@@ -13,7 +13,6 @@ import {
   Mic2,
   MicOff,
   PanelLeft,
-  Palette,
   Pencil,
   Plug,
   Play,
@@ -92,6 +91,7 @@ import type {
 import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
 import { ActivityView } from "@/features/activity/activity-view";
+import { AppearanceSettingsPanel } from "@/features/appearance/appearance-settings-panel";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
@@ -3640,89 +3640,14 @@ export default function App() {
                   </div>
                 </section>
 
-                <section
-                  className="min-w-0 lg:col-span-2"
-                  data-testid="skin-theme-settings"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold">
-                      <Palette className="size-4 text-primary" />
-                      {copy.settings.theme}
-                    </h3>
-                    <Badge
-                      className="rounded-md text-[10px]"
-                      data-testid="skin-theme-current"
-                      variant="outline"
-                    >
-                      {copy.settings.themeCurrent}: {activeSkinTheme.label}
-                    </Badge>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {builtInSkinThemes.map((theme) => (
-                      <Button
-                        aria-pressed={skinTheme === theme.id}
-                        className={cn(
-                          "h-auto min-h-[76px] justify-start rounded-md px-3 py-2 text-left",
-                          skinTheme === theme.id &&
-                            "border-primary text-primary",
-                        )}
-                        data-testid={`skin-theme-${theme.id}`}
-                        key={theme.id}
-                        onClick={() => handleSelectSkinTheme(theme.id)}
-                        type="button"
-                        variant={skinTheme === theme.id ? "secondary" : "ghost"}
-                      >
-                        <span className="flex min-w-0 flex-col gap-2">
-                          <span className="flex items-center gap-1.5">
-                            {theme.swatches.map((color) => (
-                              <span
-                                aria-hidden="true"
-                                className="size-3 rounded-sm border border-border"
-                                key={color}
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </span>
-                          <span className="text-xs font-semibold">
-                            {theme.id === "signal"
-                              ? copy.settings.signalTheme
-                              : theme.id === "harbor"
-                                ? copy.settings.harborTheme
-                                : copy.settings.emberTheme}
-                          </span>
-                          <span className="text-[10px] leading-4 text-muted-foreground">
-                            {theme.description}
-                          </span>
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                  <dl
-                    className="mt-3 divide-y divide-border border-y text-[11px]"
-                    data-testid="skin-theme-safety"
-                  >
-                    <Metric
-                      label={copy.settings.themeSchema}
-                      value="builtin_theme_schema_v1"
-                      tone="accent"
-                    />
-                    <Metric
-                      label={copy.settings.themeStorage}
-                      value={THEME_STORAGE_KEY}
-                      tone="success"
-                    />
-                    <Metric
-                      label={copy.settings.themeRecovery}
-                      value="signal"
-                      tone="success"
-                    />
-                    <Metric
-                      label={copy.settings.themeSafe}
-                      value="yes"
-                      tone="success"
-                    />
-                  </dl>
-                </section>
+                <AppearanceSettingsPanel
+                  activeTheme={activeSkinTheme}
+                  copy={copy}
+                  currentThemeId={skinTheme}
+                  onSelectTheme={handleSelectSkinTheme}
+                  storageKey={THEME_STORAGE_KEY}
+                  themes={builtInSkinThemes}
+                />
 
                 <section className="min-w-0">
                   <div className="mb-3 flex items-center justify-between">
