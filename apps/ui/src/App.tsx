@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  Bot,
   Check,
-  CircleAlert,
   ExternalLink,
   Mic2,
   MicOff,
@@ -11,12 +9,8 @@ import {
   Plug,
   Plus,
   RefreshCw,
-  RotateCcw,
-  Send,
   Settings,
   Trash2,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import type {
@@ -46,7 +40,6 @@ import {
   activeModelOperationPhases,
   commandRouterAllowedRealLocalAppTarget,
   formatActionError,
-  formatConfidence,
   formatEventTime,
   formatGib,
   formatPttCommandError,
@@ -82,6 +75,9 @@ import { NavigationButton } from "@/components/assistant-shell/NavigationButton"
 import { Metric } from "@/components/shared/Metric";
 import { ActivityView } from "@/features/activity/activity-view";
 import { AppearanceSettingsPanel } from "@/features/appearance/appearance-settings-panel";
+import { ConversationComposer } from "@/features/conversation/conversation-composer";
+import { ConversationPanel } from "@/features/conversation/conversation-panel";
+import { ConversationTabs } from "@/features/conversation/conversation-tabs";
 import { MemoryBoundaryPanel } from "@/features/memory/memory-boundary-panel";
 import { buildMemoryBoundaryViewModel } from "@/features/memory/memory-boundary-view-model";
 import { MemoryCenter } from "@/features/memory/memory-center";
@@ -1785,34 +1781,19 @@ export default function App() {
 
           <div className="flex h-[48px] shrink-0 items-center gap-2 overflow-x-auto border-b px-6">
             {activeView === "conversation" ? (
-              conversations.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {copy.label.noLocalConversations}
-                </p>
-              ) : (
-                conversations.map((conversation) => {
-                  const active =
-                    conversation.id === snapshot?.activeConversationId;
-                  return (
-                    <Button
-                      className={cn(
-                        "h-8 max-w-[220px] shrink-0 rounded-md px-2.5 text-xs",
-                        active && "border-primary text-primary",
-                      )}
-                      data-testid="conversation-tab"
-                      disabled={sending}
-                      key={conversation.id}
-                      onClick={() =>
-                        void handleSelectConversation(conversation.id, active)
-                      }
-                      type="button"
-                      variant={active ? "outline" : "ghost"}
-                    >
-                      <span className="truncate">{conversation.title}</span>
-                    </Button>
-                  );
-                })
-              )
+              <ConversationTabs
+                actions={{
+                  selectConversation: (conversationId, active) => {
+                    void handleSelectConversation(conversationId, active);
+                  },
+                }}
+                viewModel={{
+                  activeConversationId: snapshot?.activeConversationId,
+                  conversations,
+                  copy,
+                  sending,
+                }}
+              />
             ) : (
               <>
                 <Badge className="rounded-md text-[10px]" variant="secondary">
@@ -1826,674 +1807,54 @@ export default function App() {
           </div>
 
           {activeView === "conversation" ? (
-            <ScrollArea className="min-h-0 flex-1">
-              <div
-                className="flex min-h-full flex-col gap-6 px-8 py-7"
-                data-testid="message-list"
-              >
-                <div className="flex gap-3.5">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                    <Bot className="size-4" />
-                  </div>
-                  <div className="max-w-[760px] space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {copy.label.agentCore}
-                    </p>
-                    <p className="text-sm leading-6">
-                      {copy.label.runtimeReady}
-                    </p>
-                  </div>
-                </div>
-
-                {brainResult && (
-                  <div
-                    className="max-w-[760px] rounded-md border bg-card px-4 py-3"
-                    data-testid="brain-dispatch-panel"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold">
-                        {copy.label.brainDispatch}
-                      </h3>
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant="outline"
-                      >
-                        {brainResult.dispatchStatus}
-                      </Badge>
-                    </div>
-                    <dl className="grid gap-2 text-[11px] sm:grid-cols-4">
-                      <div>
-                        <dt className="text-muted-foreground">
-                          {copy.label.brainSource}
-                        </dt>
-                        <dd
-                          className="mt-0.5 truncate font-medium"
-                          data-testid="brain-source"
-                        >
-                          {brainResult.source}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">
-                          {copy.label.brainIntent}
-                        </dt>
-                        <dd
-                          className="mt-0.5 truncate font-medium"
-                          data-testid="brain-intent"
-                        >
-                          {brainResult.decision.intent}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">
-                          {copy.label.brainConfidence}
-                        </dt>
-                        <dd className="mt-0.5 font-medium">
-                          {Math.round(brainResult.decision.confidence * 100)}%
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">
-                          {copy.label.brainStatus}
-                        </dt>
-                        <dd className="mt-0.5 truncate font-medium">
-                          {brainResult.decision.requiresApproval
-                            ? "approval"
-                            : "ready"}
-                        </dd>
-                      </div>
-                    </dl>
-                    {brainResult.routerSelection && (
-                      <div
-                        className="mt-3 grid gap-2 border-y py-2 text-[11px] sm:grid-cols-4"
-                        data-testid="command-router-safety-projection"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-muted-foreground">Router</p>
-                          <p
-                            className="mt-1 truncate font-medium"
-                            data-testid="command-router-selected-provider"
-                          >
-                            {brainResult.routerSelection.selectedProviderId}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-muted-foreground">Route status</p>
-                          <p className="mt-1 truncate font-medium">
-                            {brainResult.routerSelection.status}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-muted-foreground">
-                            Confidence band
-                          </p>
-                          <p className="mt-1 truncate font-medium">
-                            {brainResult.routerSelection.confidenceBand}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-muted-foreground">Direct action</p>
-                          <p
-                            className="mt-1 truncate font-medium"
-                            data-testid="command-router-direct-action"
-                          >
-                            {brainResult.routerSelection.directActionAttempted
-                              ? "attempted"
-                              : "disabled"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <p
-                      className="mt-3 text-xs leading-5 text-muted-foreground"
-                      data-testid="brain-summary"
-                    >
-                      {brainResult.summary}
-                    </p>
-                    {brainResult.pluginResult && (
-                      <div
-                        className="mt-3 rounded-md border bg-background px-3 py-2"
-                        data-testid="plugin-result-panel"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-xs font-semibold">
-                            {brainResult.pluginResult.capability}
-                          </p>
-                          <Badge
-                            className="rounded-md text-[10px]"
-                            variant="outline"
-                          >
-                            {brainResult.pluginResult.status}
-                          </Badge>
-                        </div>
-                        {brainResult.pluginResult.output && (
-                          <p
-                            className="mt-1.5 text-xs leading-5 text-muted-foreground"
-                            data-testid="plugin-result-summary"
-                          >
-                            {brainResult.pluginResult.output.summary}
-                          </p>
-                        )}
-                        {brainResult.pluginResult.output?.items[0] && (
-                          <div
-                            className="mt-2 grid gap-1.5 text-[11px] sm:grid-cols-3"
-                            data-testid="plugin-result-fields"
-                          >
-                            {brainResult.pluginResult.output.items[0].fields
-                              .slice(0, 3)
-                              .map((field) => (
-                                <div className="min-w-0" key={field.label}>
-                                  <p className="truncate text-muted-foreground">
-                                    {field.label}
-                                  </p>
-                                  <p className="truncate font-medium">
-                                    {String(field.value)}
-                                  </p>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {toolProductLoop && (
-                      <div
-                        className="mt-3 border-t pt-3"
-                        data-testid="tool-product-loop-panel"
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <p className="text-[11px] font-medium text-muted-foreground">
-                            Tool Product Loop
-                          </p>
-                          <Badge
-                            className="rounded-md text-[10px]"
-                            variant="secondary"
-                          >
-                            {toolProductLoop.mode.replace("_", " ")}
-                          </Badge>
-                        </div>
-                        <dl className="grid gap-2 text-[11px] sm:grid-cols-4">
-                          <div>
-                            <dt className="text-muted-foreground">Registry</dt>
-                            <dd className="mt-0.5 truncate font-medium">
-                              {toolProductLoop.descriptors.length} fixture tools
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">
-                              Selected Tool
-                            </dt>
-                            <dd
-                              className="mt-0.5 truncate font-medium"
-                              data-testid="tool-loop-selected-tool"
-                            >
-                              {toolProductLoop.selectedToolId ?? "none"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Safety</dt>
-                            <dd
-                              className="mt-0.5 truncate font-medium"
-                              data-testid="tool-loop-safety"
-                            >
-                              {toolProductLoop.safety?.reasonCode ?? "blocked"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Result</dt>
-                            <dd
-                              className="mt-0.5 truncate font-medium"
-                              data-testid="tool-loop-result"
-                            >
-                              {toolProductLoop.execution?.resultCode ??
-                                "not_run"}
-                            </dd>
-                          </div>
-                        </dl>
-                        <div className="mt-3 grid gap-2 border-y py-2 text-[11px] sm:grid-cols-3">
-                          <div className="min-w-0">
-                            <p className="text-muted-foreground">Descriptor</p>
-                            <p className="mt-1 truncate font-medium">
-                              {selectedToolDescriptor
-                                ? `${selectedToolDescriptor.label} / ${selectedToolDescriptor.risk}`
-                                : "No descriptor selected"}
-                            </p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-muted-foreground">
-                              Confirmation
-                            </p>
-                            <p className="mt-1 truncate font-medium">
-                              {toolProductLoop.safety?.confirmationRequired
-                                ? toolProductLoop.safety.audit
-                                    .confirmationGranted
-                                  ? "granted"
-                                  : "required"
-                                : "not required"}
-                            </p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-muted-foreground">Rollback</p>
-                            <p className="mt-1 truncate font-medium">
-                              {toolProductLoop.rollbackState}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
-                          {toolProductLoop.summary}
-                        </p>
-                        <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-                          Evidence: persisted{" "}
-                          {String(toolProductLoop.persisted)} / raw diagnostics{" "}
-                          {String(toolProductLoop.rawDiagnosticsExposed)}
-                        </p>
-                        <div
-                          className="mt-3 space-y-1.5"
-                          data-testid="tool-loop-lifecycle"
-                        >
-                          {toolProductLoop.lifecycle.map((step) => (
-                            <div
-                              className="flex items-center justify-between gap-3 text-[11px]"
-                              key={`${step.stage}-${step.label}`}
-                            >
-                              <span className="min-w-0 truncate">
-                                {step.stage.replaceAll("_", " ")}
-                              </span>
-                              <span className="shrink-0 text-muted-foreground">
-                                {step.status}
-                                {step.reasonCode ? ` / ${step.reasonCode}` : ""}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {alphaHardening && (
-                      <div
-                        className="mt-3 border-t pt-3"
-                        data-testid="stage5-alpha-panel"
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <p className="text-[11px] font-medium text-muted-foreground">
-                            {alphaCopy.title}
-                          </p>
-                          <Badge
-                            className="rounded-md text-[10px]"
-                            variant="outline"
-                          >
-                            {alphaHardening.schemaVersion}
-                          </Badge>
-                        </div>
-                        <dl className="grid gap-2 text-[11px] sm:grid-cols-4">
-                          <div>
-                            <dt className="text-muted-foreground">
-                              {alphaCopy.memoryContext}
-                            </dt>
-                            <dd
-                              className="mt-0.5 truncate font-medium"
-                              data-testid="stage5-memory-context"
-                            >
-                              {alphaHardening.memoryContext.status} /{" "}
-                              {alphaHardening.memoryContext.matchCount}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">
-                              {alphaCopy.safety}
-                            </dt>
-                            <dd className="mt-0.5 truncate font-medium">
-                              {alphaHardening.retry.safetyPathReentered
-                                ? alphaCopy.preserved
-                                : alphaCopy.blocked}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">
-                              {alphaCopy.retry}
-                            </dt>
-                            <dd className="mt-0.5 truncate font-medium">
-                              {alphaHardening.retry.status}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">
-                              {alphaCopy.tts}
-                            </dt>
-                            <dd
-                              className="mt-0.5 truncate font-medium"
-                              data-testid="stage5-tts-status"
-                            >
-                              {displayedLocalTtsStatus}
-                            </dd>
-                          </div>
-                        </dl>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button
-                            aria-label={alphaCopy.retry}
-                            className="h-7 rounded-md px-2 text-xs"
-                            data-testid="stage5-retry"
-                            disabled={
-                              sending ||
-                              alphaHardening.retry.status !== "available"
-                            }
-                            onClick={() => void handleRetryBrainCommand()}
-                            type="button"
-                            variant="outline"
-                          >
-                            <RefreshCw className="size-3.5" />
-                            {alphaCopy.retry}
-                          </Button>
-                          <Button
-                            aria-label={alphaCopy.rollback}
-                            className="h-7 rounded-md px-2 text-xs"
-                            data-testid="stage5-rollback"
-                            disabled={
-                              alphaHardening.rollback.status !== "available"
-                            }
-                            onClick={handleRollbackBrainResult}
-                            type="button"
-                            variant="ghost"
-                          >
-                            <RotateCcw className="size-3.5" />
-                            {alphaCopy.rollback}
-                          </Button>
-                          <Button
-                            aria-label={
-                              localTtsStatus === "playing"
-                                ? alphaCopy.stop
-                                : alphaCopy.play
-                            }
-                            className="h-7 rounded-md px-2 text-xs"
-                            data-testid="stage5-local-tts"
-                            disabled={
-                              localTtsStatus !== "playing" && !localTtsEligible
-                            }
-                            onClick={() => {
-                              if (localTtsStatus === "playing") {
-                                stopLocalTts();
-                                return;
-                              }
-                              void playLocalTts();
-                            }}
-                            type="button"
-                            variant="ghost"
-                          >
-                            {localTtsStatus === "playing" ? (
-                              <VolumeX className="size-3.5" />
-                            ) : (
-                              <Volume2 className="size-3.5" />
-                            )}
-                            {localTtsStatus === "playing"
-                              ? alphaCopy.stop
-                              : alphaCopy.play}
-                          </Button>
-                        </div>
-                        {ttsError && (
-                          <p
-                            className="mt-2 text-[10px] leading-4 text-warning"
-                            data-testid="stage5-tts-error"
-                          >
-                            {ttsError}
-                          </p>
-                        )}
-                        <p className="mt-2 text-[10px] leading-4 text-muted-foreground">
-                          {alphaHardening.memoryContext.readOnly
-                            ? `${alphaCopy.memoryContext}: ${alphaCopy.readOnly}`
-                            : `${alphaCopy.memoryContext}: ${alphaCopy.blocked}`}
-                          {" / "}
-                          {localTtsEnabled
-                            ? alphaCopy.ttsEnabled
-                            : alphaCopy.ttsDisabled}
-                        </p>
-                      </div>
-                    )}
-                    <div className="mt-3 border-t pt-3">
-                      <p className="mb-2 text-[11px] font-medium text-muted-foreground">
-                        {copy.label.brainPlan}
-                      </p>
-                      <div className="space-y-1.5">
-                        {brainResult.plan.map((step) => (
-                          <div
-                            className="flex items-center justify-between gap-3 text-[11px]"
-                            key={step.id}
-                          >
-                            <span className="truncate">{step.title}</span>
-                            <span className="shrink-0 text-muted-foreground">
-                              {step.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <section
-                  className="max-w-[760px] border-y py-3"
-                  data-testid="stage5-session-history"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-medium text-muted-foreground">
-                      {alphaCopy.history}
-                    </p>
-                    <Button
-                      aria-label={alphaCopy.clearHistory}
-                      className="size-7 rounded-md"
-                      data-testid="stage5-clear-history"
-                      disabled={sending || sessionHistory.length === 0}
-                      onClick={() => void handleClearSessionHistory()}
-                      size="icon-sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                  {sessionHistory.length === 0 ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      {alphaCopy.historyEmpty}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {sessionHistory.slice(0, 6).map((entry) => (
-                        <div
-                          className="grid gap-1 text-[11px] sm:grid-cols-[minmax(0,1fr)_auto]"
-                          key={entry.id}
-                        >
-                          <span className="min-w-0 truncate">
-                            {entry.source} / {entry.intent} /{" "}
-                            {entry.selectedToolId ?? alphaCopy.noTool}
-                          </span>
-                          <span className="shrink-0 text-muted-foreground">
-                            {entry.dispatchStatus} / {entry.memoryContextStatus}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                {visibleMessages.map((message) => (
-                  <div
-                    className={cn(
-                      "flex",
-                      message.role === "user" ? "justify-end" : "justify-start",
-                    )}
-                    key={message.id}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[72%] rounded-md px-3.5 py-2.5 text-sm leading-5",
-                        message.role === "user"
-                          ? "bg-secondary"
-                          : "border bg-card",
-                      )}
-                    >
-                      {message.text}
-                    </div>
-                  </div>
-                ))}
-
-                {brainResult?.voiceCorrection?.requiresUserSelection &&
-                  brainResult.correctionCandidates.length > 0 && (
-                    <div
-                      className="max-w-[760px] rounded-md border bg-card px-4 py-3"
-                      data-testid="voice-correction-candidates"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-medium uppercase text-muted-foreground">
-                            Voice correction
-                          </p>
-                          <p
-                            className="mt-1 truncate text-xs"
-                            data-testid="voice-correction-raw-transcript"
-                          >
-                            {brainResult.rawTranscript ?? brainResult.text}
-                          </p>
-                        </div>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          choose one
-                        </Badge>
-                      </div>
-                      <div className="grid gap-2">
-                        {brainResult.correctionCandidates.map(
-                          (candidate, index) => (
-                            <Button
-                              className="h-auto justify-between gap-3 rounded-md px-3 py-2 text-left"
-                              data-testid="voice-correction-candidate"
-                              disabled={sending}
-                              key={`${candidate.intent}-${index}`}
-                              onClick={() =>
-                                void handleConfirmVoiceCommandCorrection(
-                                  candidate,
-                                )
-                              }
-                              type="button"
-                              variant="outline"
-                            >
-                              <span className="min-w-0">
-                                <span className="block truncate text-xs font-semibold">
-                                  {candidate.label}
-                                </span>
-                                <span className="mt-1 block truncate text-[11px] text-muted-foreground">
-                                  {candidate.intent} /{" "}
-                                  {formatVoiceCorrectionSlots(candidate.slots)}
-                                </span>
-                              </span>
-                              <span className="shrink-0 text-[11px] font-medium text-accent">
-                                {formatConfidence(candidate.confidence)}
-                              </span>
-                            </Button>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                {brainResult?.userRouteAliasProposal && (
-                  <div
-                    className="max-w-[760px] rounded-md border bg-card px-4 py-3"
-                    data-testid="user-route-alias-proposal"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-medium uppercase text-muted-foreground">
-                          Route alias memory
-                        </p>
-                        <p
-                          className="mt-1 truncate text-xs font-semibold"
-                          data-testid="user-route-alias-proposal-label"
-                        >
-                          {brainResult.userRouteAliasProposal.label}
-                        </p>
-                      </div>
-                      <Badge
-                        className="rounded-md text-[10px]"
-                        variant="outline"
-                      >
-                        confirm save
-                      </Badge>
-                    </div>
-                    <div className="grid gap-1.5 text-[11px] text-muted-foreground">
-                      <p className="truncate">
-                        browser.open /{" "}
-                        {brainResult.userRouteAliasProposal.targetHostname}
-                      </p>
-                      <p className="truncate">
-                        {brainResult.userRouteAliasProposal.targetUrl}
-                      </p>
-                      <p className="uppercase">
-                        {brainResult.userRouteAliasProposal.urlPolicy}
-                      </p>
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <Button
-                        className="h-8 rounded-md px-3 text-[11px]"
-                        data-testid="user-route-alias-save"
-                        disabled={sending}
-                        onClick={() =>
-                          void handleConfirmUserRouteAlias(
-                            brainResult.userRouteAliasProposal!,
-                          )
-                        }
-                        type="button"
-                        variant="outline"
-                      >
-                        <Check className="mr-1.5 size-3" />
-                        Save alias
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {events.some(
-                  (item) => item.event.type === "agent.message.accepted",
-                ) && (
-                  <div className="flex w-fit items-center gap-2 rounded-md border bg-muted px-3 py-2 text-[11px] text-muted-foreground">
-                    <span className="size-1.5 rounded-full bg-accent" />
-                    agent.message.accepted / correlated command
-                  </div>
-                )}
-
-                {!textOnlyAcceptanceMode &&
-                  (voiceTranscript || snapshot?.voice.state !== "idle") && (
-                    <div
-                      className="max-w-[760px] rounded-md border bg-card px-4 py-3"
-                      data-testid="voice-transcript-panel"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {copy.label.voiceTranscript}
-                        </p>
-                        <Badge
-                          className="rounded-md text-[10px]"
-                          variant="outline"
-                        >
-                          {snapshot?.voice.transcript?.isFinal
-                            ? "FINAL"
-                            : snapshot?.voice.state.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <p
-                        className="mt-2 min-h-5 text-sm leading-6"
-                        data-testid="voice-transcript"
-                      >
-                        {voiceTranscript || "Listening..."}
-                      </p>
-                    </div>
-                  )}
-
-                {error && (
-                  <div className="flex w-fit items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                    <CircleAlert className="size-3.5" />
-                    {error}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+            <ConversationPanel
+              actions={{
+                clearSessionHistory: () => {
+                  void handleClearSessionHistory();
+                },
+                confirmUserRouteAlias: (proposal) => {
+                  void handleConfirmUserRouteAlias(proposal);
+                },
+                confirmVoiceCommandCorrection: (candidate) => {
+                  void handleConfirmVoiceCommandCorrection(candidate);
+                },
+                playLocalTts: () => {
+                  void playLocalTts();
+                },
+                retryBrainCommand: () => {
+                  void handleRetryBrainCommand();
+                },
+                rollbackBrainResult: handleRollbackBrainResult,
+                selectConversation: (conversationId, active) => {
+                  void handleSelectConversation(conversationId, active);
+                },
+                stopLocalTts,
+              }}
+              viewModel={{
+                alphaCopy,
+                brainResult,
+                conversations,
+                copy,
+                error,
+                events,
+                messages: visibleMessages,
+                sending,
+                sessionHistory,
+                tts: {
+                  displayedStatus: displayedLocalTtsStatus,
+                  enabled: localTtsEnabled,
+                  eligible: localTtsEligible,
+                  error: ttsError,
+                  status: localTtsStatus,
+                },
+                voiceProjection: {
+                  hidden: textOnlyAcceptanceMode,
+                  isFinal: snapshot?.voice.transcript?.isFinal ?? false,
+                  state: snapshot?.voice.state ?? "idle",
+                  transcript: voiceTranscript,
+                },
+              }}
+            />
           ) : activeView === "tasks" ? (
             <ScrollArea className="min-h-0 flex-1">
               <div
@@ -3726,34 +3087,13 @@ export default function App() {
               </div>
             )}
 
-          <form
-            className="flex h-[88px] shrink-0 items-center gap-2.5 border-t bg-card px-6"
+          <ConversationComposer
+            copy={copy}
+            onChange={setDraft}
             onSubmit={handleSubmit}
-          >
-            <Input
-              aria-label="Command"
-              className="h-10 rounded-md bg-input/45 px-3.5"
-              data-testid="command-input"
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder={copy.label.commandPlaceholder}
-              value={draft}
-            />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={copy.label.sendCommand}
-                  className="size-10 rounded-md"
-                  data-testid="send-command"
-                  disabled={sending}
-                  size="icon-lg"
-                  type="submit"
-                >
-                  <Send className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{copy.label.sendCommand}</TooltipContent>
-            </Tooltip>
-          </form>
+            sending={sending}
+            value={draft}
+          />
         </main>
 
         {inspectorOpen && (
