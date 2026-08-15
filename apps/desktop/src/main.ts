@@ -55,6 +55,11 @@ import {
   SecureChatAnswerProviderStore,
   type ChatAnswerProviderConfiguration
 } from "./secure-chat-answer-provider-store";
+import {
+  isStage5LocalAcceptanceNoSecureStore,
+  selectedChatAnswerProvider,
+  selectedHeavyPlannerProvider
+} from "./desktop-runtime-policy";
 import { CoreSupervisor } from "./supervisor";
 import { handleVoiceAudioIpc } from "./voice-audio-ipc";
 import {
@@ -100,10 +105,6 @@ if (process.env.JARVIS_K_ENABLE_ELECTRON_GPU !== "1") {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
-}
-
-function isStage5LocalAcceptanceNoSecureStore(): boolean {
-  return process.env.JARVIS_K_STAGE5_LOCAL_ACCEPTANCE_NO_SECURE_STORE === "1";
 }
 
 function invalidCommandResult(rawValue: unknown): CommandResult {
@@ -288,23 +289,6 @@ async function getHeavyPlannerProviderConfiguration(): Promise<HeavyPlannerProvi
     );
     return null;
   }
-}
-
-function selectedChatAnswerProvider():
-  | "chat-answer.openai-compatible.deepseek"
-  | null {
-  const deepseekEnabled =
-    process.env.JARVIS_K_ENABLE_CHAT_ANSWER_DEEPSEEK === "1";
-  const productManualAcceptanceEnabled =
-    process.env.JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_PRODUCT_MANUAL_ACCEPTANCE ===
-    "1";
-  const expandedProductLoopEnabled =
-    process.env.JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_EXPANDED_PRODUCT_LOOP ===
-    "1";
-  return deepseekEnabled &&
-    (productManualAcceptanceEnabled || expandedProductLoopEnabled)
-    ? "chat-answer.openai-compatible.deepseek"
-    : null;
 }
 
 function getChatAnswerProviderStore(
@@ -827,16 +811,6 @@ async function setChatAnswerProductModeEnabled(
     ok: true,
     status: await getChatAnswerProductModeStatus()
   };
-}
-
-function selectedHeavyPlannerProvider(): HeavyPlannerProviderName | null {
-  const openAiEnabled =
-    process.env.JARVIS_K_ENABLE_HEAVY_PLANNER_OPENAI === "1";
-  const glmEnabled = process.env.JARVIS_K_ENABLE_HEAVY_PLANNER_GLM === "1";
-  if (openAiEnabled === glmEnabled) {
-    return null;
-  }
-  return glmEnabled ? "glm" : "openai";
 }
 
 async function getTtsServiceStatus(): Promise<TtsServiceStatus> {
