@@ -1,7 +1,4 @@
-import {
-  CoreInboundMessageSchema,
-  type CoreOutboundMessage,
-} from "@jarvis-k/contracts";
+import { type CoreOutboundMessage } from "@jarvis-k/contracts";
 import {
   fixtureModelManifests,
   recommendedModelCandidates,
@@ -69,13 +66,8 @@ import {
 import { createCoreHostVoiceComposition } from "./composition/voice-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
-import {
-  parseChatAnswerProductModeConfigurationMessage,
-  parseChatAnswerProviderConfigurationMessage,
-  parseCommandRouterProductModeConfigurationMessage,
-  parseHeavyPlannerProviderConfigurationMessage,
-  parseVoiceProviderConfigurationMessage,
-} from "./host/host-message-schema";
+import { parseCoreHostMessage } from "./host/host-message-schema";
+import { RuntimeConfigurationController } from "./host/runtime-configuration-controller";
 import {
   ChatAnswerRuntimeBinding,
   type CoreHostActiveChatAnswerRuntime,
@@ -421,105 +413,41 @@ runtime = new CoreRuntime(
   undefined,
   userPreferenceMemoryRepository,
 );
+const runtimeConfigurationController = new RuntimeConfigurationController({
+  runtime,
+  chatAnswerRuntimeBinding,
+  plannerRuntimeBinding,
+  voiceComposition,
+});
 
 let inboundQueue = Promise.resolve();
 
 process.on("message", (rawMessage: unknown) => {
-  const commandRouterProductModeConfiguration =
-    parseCommandRouterProductModeConfigurationMessage(rawMessage);
-  if (commandRouterProductModeConfiguration) {
-    inboundQueue = inboundQueue
-      .then(() => {
-        runtime.configureCommandRouterProductMode({
-          enabled: commandRouterProductModeConfiguration.enabled,
-          providerId: "intent-router.deterministic.rules",
-        });
-      })
-      .catch(() => {
-        console.error(
-          "[core-host] Command Router product mode configuration failed.",
-        );
-      });
-    return;
-  }
-
-  const chatAnswerProductModeConfiguration =
-    parseChatAnswerProductModeConfigurationMessage(rawMessage);
-  if (chatAnswerProductModeConfiguration) {
-    inboundQueue = inboundQueue
-      .then(() => {
-        runtime.configureChatAnswerProductMode(
-          chatAnswerRuntimeBinding.applyProductModeConfiguration(
-            chatAnswerProductModeConfiguration,
-          ),
-        );
-      })
-      .catch(() => {
-        console.error(
-          "[core-host] Chat Answer product mode configuration failed.",
-        );
-      });
-    return;
-  }
-
-  const chatAnswerProviderConfiguration =
-    parseChatAnswerProviderConfigurationMessage(rawMessage);
-  if (chatAnswerProviderConfiguration) {
-    inboundQueue = inboundQueue
-      .then(() => {
-        chatAnswerRuntimeBinding.applyProviderConfiguration(
-          chatAnswerProviderConfiguration,
-        );
-      })
-      .catch(() => {
-        console.error("[core-host] Chat Answer provider configuration failed.");
-      });
-    return;
-  }
-
-  const heavyPlannerConfiguration =
-    parseHeavyPlannerProviderConfigurationMessage(rawMessage);
-  if (heavyPlannerConfiguration) {
-    inboundQueue = inboundQueue
-      .then(() => {
-        plannerRuntimeBinding.applyProviderConfiguration(
-          heavyPlannerConfiguration,
-        );
-      })
-      .catch(() => {
-        console.error(
-          "[core-host] Heavy Planner provider configuration failed.",
-        );
-      });
-    return;
-  }
-
-  const providerConfiguration =
-    parseVoiceProviderConfigurationMessage(rawMessage);
-  if (providerConfiguration) {
-    inboundQueue = inboundQueue
-      .then(async () => {
-        await voiceComposition.configureProvider(providerConfiguration);
-      })
-      .catch(() => {
-        console.error("[core-host] Voice provider configuration failed.");
-      });
-    return;
-  }
-
-  const parsed = CoreInboundMessageSchema.safeParse(rawMessage);
-  if (!parsed.success) {
+  const parsedMessage = parseCoreHostMessage(rawMessage);
+  if (!parsedMessage.accepted) {
     console.error("[core-host] Rejected invalid supervisor message.");
     return;
   }
+  if (parsedMessage.message.kind !== "core-inbound") {
+    inboundQueue = inboundQueue
+      .then(async () => {
+        await runtimeConfigurationController.applyMessage(parsedMessage.message);
+      })
+      .catch(() => {
+        console.error("[core-host] Runtime configuration failed.");
+      });
+    return;
+  }
+
+  const parsed = parsedMessage.message.message;
 
   inboundQueue = inboundQueue
     .then(async () => {
-      if (parsed.data.kind === "voice-audio") {
-        await voiceEngine.acceptAudioFrame(parsed.data.frame);
+      if (parsed.kind === "voice-audio") {
+        await voiceEngine.acceptAudioFrame(parsed.frame);
         return;
       }
-      const result = await runtime.handle(parsed.data.envelope);
+      const result = await runtime.handle(parsed.envelope);
       send({
         kind: "result",
         envelope: result,
