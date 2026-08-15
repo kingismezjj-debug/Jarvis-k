@@ -52,9 +52,7 @@ import {
   MemorySnapshot,
   OcrRecognitionRequestSchema,
   OcrRecognitionResultSchema,
-  PluginInvocationRequestSchema,
   PluginInvocationResult,
-  PluginInvocationResultSchema,
   PluginListResultSchema,
   LocalPluginEnabledStateSetRequestSchema,
   LocalPluginEnabledStateSetResultSchema,
@@ -630,6 +628,7 @@ export class CoreRuntime {
       localPluginStateRepository: this.localPluginStateRepository,
       ensureLocalPluginStateRepositoryInitialized: () =>
         this.ensureLocalPluginStateRepositoryInitialized(),
+      now: this.now,
     });
     this.voiceResolutionService = new VoiceResolutionService({
       voiceCommandAliasRepository: this.voiceCommandAliasRepository,
@@ -1563,44 +1562,33 @@ export class CoreRuntime {
       }
 
       case "agent.invokePlugin": {
-        if (!this.pluginRuntime) {
+        const outcome = await this.pluginInvocationService.invoke({
+          requestId: envelope.command.payload.requestId,
+          pluginId: envelope.command.payload.pluginId,
+          capability: envelope.command.payload.capability,
+          input: envelope.command.payload.input,
+          dryRun: envelope.command.payload.dryRun,
+        });
+        if (outcome.result) {
+          return this.success(envelope, {
+            result: outcome.result,
+          });
+        }
+        if (outcome.errorClass === "input_invalid") {
+          return this.failure(envelope, {
+            code: "PLUGIN_INPUT_INVALID",
+            message:
+              "Plugin invocation blocked because the plugin request failed contract validation.",
+            retryable: false,
+          });
+        }
+        if (outcome.errorClass === "unavailable") {
           return this.pluginsUnavailable(envelope);
         }
-        try {
-          const request = PluginInvocationRequestSchema.parse(
-            envelope.command.payload,
-          );
-          const gate =
-            await this.pluginInvocationService.evaluateInvocationGate({
-              pluginId: request.pluginId,
-              capability: request.capability,
-            });
-          if (!gate.allowed) {
-            const completedAt = this.now().toISOString();
-            return this.success(envelope, {
-              result: PluginInvocationResultSchema.parse({
-                requestId: request.requestId,
-                pluginId: request.pluginId,
-                capability: request.capability,
-                status: "denied",
-                resultCode: gate.resultCode,
-                invokedAt: completedAt,
-                completedAt,
-                directActionAttempted: false,
-                credentialExposed: false,
-                rawPluginOutputPersisted: false,
-              }),
-            });
-          }
-          return this.success(envelope, {
-            result: PluginInvocationResultSchema.parse(
-              await this.pluginRuntime.invoke(request),
-            ),
-          });
-        } catch {
+        if (!outcome.ok) {
           return this.failure(envelope, {
             code: "PLUGIN_RUNTIME_FAILED",
-            message: "Plugin runtime failed.",
+            message: outcome.summary,
             retryable: true,
           });
         }

@@ -110,6 +110,7 @@ function service(input: {
     pluginRuntime: input.runtime ?? new Runtime(),
     localPluginStateRepository: input.localState,
     ensureLocalPluginStateRepositoryInitialized: async () => {},
+    now: () => new Date("2026-08-14T00:00:00.000Z"),
   });
 }
 
@@ -128,6 +129,13 @@ describe("PluginInvocationService", () => {
     expect(outcome.ok).toBe(false);
     expect(outcome.errorClass).toBe("not_found");
     expect(outcome.resultCode).toBe("PLUGIN_NOT_FOUND");
+    expect(outcome.result).toMatchObject({
+      status: "denied",
+      resultCode: "PLUGIN_NOT_FOUND",
+      directActionAttempted: false,
+      credentialExposed: false,
+      rawPluginOutputPersisted: false,
+    });
   });
 
   it("classifies missing capabilities", async () => {

@@ -23,6 +23,7 @@ export interface PluginInvocationServiceOptions {
   pluginRuntime?: PluginRuntime | undefined;
   localPluginStateRepository?: PluginInvocationLocalStateRepository | undefined;
   ensureLocalPluginStateRepositoryInitialized: () => Promise<void>;
+  now?: (() => Date) | undefined;
 }
 
 export type PluginInvocationGateResult =
@@ -80,6 +81,7 @@ export class PluginInvocationService {
     | PluginInvocationLocalStateRepository
     | undefined;
   private readonly ensureLocalPluginStateRepositoryInitialized: () => Promise<void>;
+  private readonly now: () => Date;
 
   public constructor(options: PluginInvocationServiceOptions) {
     this.pluginRegistry = options.pluginRegistry;
@@ -87,6 +89,7 @@ export class PluginInvocationService {
     this.localPluginStateRepository = options.localPluginStateRepository;
     this.ensureLocalPluginStateRepositoryInitialized =
       options.ensureLocalPluginStateRepositoryInitialized;
+    this.now = options.now ?? (() => new Date());
   }
 
   public async evaluateInvocationGate(input: {
@@ -221,10 +224,23 @@ export class PluginInvocationService {
       capability: request.data.capability,
     });
     if (!gate.allowed) {
+      const completedAt = this.now().toISOString();
       return {
         ok: false,
         verified: false,
         request: request.data,
+        result: PluginInvocationResultSchema.parse({
+          requestId: request.data.requestId,
+          pluginId: request.data.pluginId,
+          capability: request.data.capability,
+          status: "denied",
+          resultCode: gate.resultCode,
+          invokedAt: completedAt,
+          completedAt,
+          directActionAttempted: false,
+          credentialExposed: false,
+          rawPluginOutputPersisted: false,
+        }),
         summary: gate.summary,
         resultCode: gate.resultCode,
         errorClass: gate.errorClass ?? this.errorClassForResultCode(gate.resultCode),

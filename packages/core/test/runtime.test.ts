@@ -3104,6 +3104,57 @@ describe("CoreRuntime", () => {
     });
   });
 
+  it("routes direct plugin invocation denials through the shared invocation service without calling runtime invoke", async () => {
+    class CountingPluginRuntime extends FakePluginRuntime {
+      public invokeCount = 0;
+
+      public override async invoke(
+        request: PluginInvocationRequest,
+      ): Promise<PluginInvocationResult> {
+        this.invokeCount += 1;
+        return super.invoke(request);
+      }
+    }
+
+    const localStateRepository = new InMemoryLocalPluginStateRepository();
+    const pluginRuntime = new CountingPluginRuntime([
+      "cn.example.hello-readonly",
+    ]);
+    const { runtime } = createRuntimeWithPluginTaskRuntime(
+      new InMemoryTaskRepository(),
+      new FakeLocalTemplatePluginRegistry(),
+      pluginRuntime,
+      undefined,
+      localStateRepository,
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.invokePlugin",
+        payload: {
+          requestId: "plugin-request-denied",
+          pluginId: "cn.example.hello-readonly",
+          capability: "hello.lookup",
+          input: {
+            name: "Jarvis",
+          },
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data : undefined).toMatchObject({
+      result: {
+        status: "denied",
+        resultCode: "PLUGIN_PERMISSION_DENIED",
+        directActionAttempted: false,
+        credentialExposed: false,
+        rawPluginOutputPersisted: false,
+      },
+    });
+    expect(pluginRuntime.invokeCount).toBe(0);
+  });
+
   it("projects plugin management status without executing local manifest-only plugins", async () => {
     const { runtime } = createRuntimeWithPluginTaskRuntime(
       new InMemoryTaskRepository(),
@@ -4813,6 +4864,54 @@ describe("CoreRuntime", () => {
     expect(task?.events.map((event) => event.type)).toContain(
       "verification_completed",
     );
+  });
+
+  it("does not report task runtime success when repository completion writes fail", async () => {
+    class FailingCompletionTaskRepository extends InMemoryTaskRepository {
+      public override async updateTask(
+        input: Parameters<InMemoryTaskRepository["updateTask"]>[0],
+      ): Promise<Task> {
+        if (input.state === "completed") {
+          throw new Error("repository completion write failed");
+        }
+        return super.updateTask(input);
+      }
+    }
+
+    const taskRepository = new FailingCompletionTaskRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          return {
+            status: "completed",
+            reasonCode: "ALLOWLISTED_TARGET_OPENED",
+            label: "notepad",
+            verificationStatus: "verified",
+            verificationSummary: "notepad process verification passed",
+          };
+        },
+      },
+      taskRepository,
+    );
+    await runtime.hydrateTasks();
+
+    await expect(
+      runtime.handle(
+        createCommandEnvelope({
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "text",
+            text: "open notepad",
+          },
+        }),
+      ),
+    ).rejects.toThrow("repository completion write failed");
+
+    const [task] = [...taskRepository.tasks.values()];
+    expect(task?.state).toBe("running");
   });
 
   it("runs voice-sourced Notepad opens through Task Runtime without confirmation", async () => {
