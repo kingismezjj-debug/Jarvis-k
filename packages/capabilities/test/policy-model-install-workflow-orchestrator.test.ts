@@ -6,6 +6,13 @@ import {
   PolicyModelInstallWorkflowOrchestrator
 } from "../src";
 import type { DeviceCapability, ModelManifest } from "@jarvis-k/contracts";
+import type {
+  ModelOperationSupervisor,
+  ModelOperationStartInput,
+  ModelOperationUpdateInput,
+  ResourceRequest,
+  ResourceScheduler
+} from "../src/ports";
 
 describe("PolicyModelInstallWorkflowOrchestrator", () => {
   it("prepares an install workflow without fetching artifacts", async () => {
@@ -89,6 +96,50 @@ describe("PolicyModelInstallWorkflowOrchestrator", () => {
       phase: "blocked",
       reasons: ["RESOURCE_MEMORY_UNAVAILABLE"]
     });
+  });
+
+  it("releases acquired resource leases after preparation succeeds", async () => {
+    const scheduler = new TrackingResourceScheduler();
+    const orchestrator = new PolicyModelInstallWorkflowOrchestrator({
+      installationPlanner: new PolicyModelInstallationPlanner(),
+      operationSupervisor: new InMemoryModelOperationSupervisor(),
+      resourceScheduler: scheduler
+    });
+
+    await expect(
+      orchestrator.prepare({
+        manifest: manifest({
+          minMemoryBytes: gib(1)
+        }),
+        device: device()
+      })
+    ).resolves.toMatchObject({
+      phase: "queued"
+    });
+
+    expect(scheduler.acquireCalls).toBe(1);
+    expect(scheduler.releaseCalls).toBe(1);
+  });
+
+  it("releases acquired leases before reporting downstream operation failures", async () => {
+    const scheduler = new TrackingResourceScheduler();
+    const orchestrator = new PolicyModelInstallWorkflowOrchestrator({
+      installationPlanner: new PolicyModelInstallationPlanner(),
+      operationSupervisor: new FailingUpdateOperationSupervisor(),
+      resourceScheduler: scheduler
+    });
+
+    await expect(
+      orchestrator.prepare({
+        manifest: manifest({
+          minMemoryBytes: gib(1)
+        }),
+        device: device()
+      })
+    ).rejects.toThrow("UPDATE_FAILED");
+
+    expect(scheduler.acquireCalls).toBe(1);
+    expect(scheduler.releaseCalls).toBe(1);
   });
 
   it("sanitizes unexpected preparation errors", async () => {
@@ -178,4 +229,68 @@ function device(
 
 function gib(value: number): number {
   return value * 1024 * 1024 * 1024;
+}
+
+class TrackingResourceScheduler implements ResourceScheduler {
+  public acquireCalls = 0;
+  public releaseCalls = 0;
+
+  public async acquire(_input: ResourceRequest) {
+    this.acquireCalls += 1;
+    return {
+      leaseId: "lease-test",
+      capability: "speech_to_text" as const,
+      modelId: "vendor/local-stt-small",
+      createdAt: "2026-07-31T00:00:00.000Z",
+      release: async () => {
+        this.releaseCalls += 1;
+      }
+    };
+  }
+
+  public async diagnostics() {
+    return {
+      checkedAt: "2026-07-31T00:00:00.000Z",
+      totalMemoryBytes: gib(32),
+      availableMemoryBytes: gib(16),
+      leasedMemoryBytes: 0,
+      totalVramBytes: gib(8),
+      availableVramBytes: gib(8),
+      leasedVramBytes: 0,
+      activeLeaseCount: 0,
+      exclusiveGpuLeaseActive: false
+    };
+  }
+}
+
+class FailingUpdateOperationSupervisor implements ModelOperationSupervisor {
+  public async start(
+    input: ModelOperationStartInput
+  ) {
+    return {
+      operationId: "model-op-failing-update",
+      modelId: input.modelId,
+      capability: input.capability,
+      phase: input.phase ?? "queued",
+      createdAt: "2026-07-31T00:00:00.000Z",
+      updatedAt: "2026-07-31T00:00:00.000Z",
+      reasons: []
+    };
+  }
+
+  public async update(_input: ModelOperationUpdateInput) {
+    throw new Error("UPDATE_FAILED");
+  }
+
+  public async cancel() {
+    throw new Error("not used");
+  }
+
+  public async get() {
+    return undefined;
+  }
+
+  public async list() {
+    return [];
+  }
 }
