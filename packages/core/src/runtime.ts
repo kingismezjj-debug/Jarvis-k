@@ -4391,40 +4391,34 @@ export class CoreRuntime {
   }> {
     const repository = this.taskRepository;
     const taskDispatch = this.taskDispatchService;
-    const pluginRuntime = this.pluginRuntime;
-    if (!repository || !taskDispatch || !pluginRuntime) {
+    if (!repository || !taskDispatch) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
         summary:
-          "Task Runtime could not execute plugin.invoke because its repository or Plugin Runtime is unavailable.",
+          "Task Runtime could not execute plugin.invoke because its repository is unavailable.",
       };
     }
 
-    const request = PluginInvocationRequestSchema.safeParse({
+    const invocation = await this.pluginInvocationService.invoke({
       requestId: createId("plugin-request"),
       pluginId: input.pluginId,
       capability: input.capability,
       input: input.pluginInput,
       dryRun: false,
     });
-    if (!request.success) {
+    if (!invocation.request) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
-        summary:
-          "Task Runtime blocked plugin.invoke because the plugin request failed contract validation.",
+        summary: invocation.summary,
       };
     }
-    const gate = await this.pluginInvocationService.evaluateInvocationGate({
-      pluginId: request.data.pluginId,
-      capability: request.data.capability,
-    });
-    if (!gate.allowed) {
+    if (!invocation.ok && invocation.executionSemantics === "not_executed") {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
-        summary: gate.summary,
+        summary: invocation.summary,
       };
     }
 
@@ -4433,7 +4427,7 @@ export class CoreRuntime {
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-      stepTitle: `Invoke plugin capability: ${request.data.capability}`,
+      stepTitle: `Invoke plugin capability: ${invocation.request.capability}`,
       createdMessage:
         "Task created from deterministic rules route for a read-only plugin invocation.",
     });
@@ -4448,51 +4442,18 @@ export class CoreRuntime {
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    let pluginResult: PluginInvocationResult;
-    try {
-      pluginResult = PluginInvocationResultSchema.parse(
-        await pluginRuntime.invoke(request.data),
-      );
-    } catch {
-      const resultSummary =
-        "Plugin invocation failed output validation before sanitized UI projection.";
-      await taskDispatch.completeVerification({
-        taskId,
-        stepId,
-        verificationStatus: "verification_failed",
-        resultSummary,
-        failureReason: "PLUGIN_OUTPUT_INVALID",
-      });
-      await this.refreshTasksFromRepository();
-      return {
-        dispatchStatus: "blocked",
-        plan: this.blockFinalBrainPlan(input.basePlan),
-        summary: resultSummary,
-      };
-    }
-
-    const verified =
-      pluginResult.status === "completed" &&
-      pluginResult.directActionAttempted === false &&
-      pluginResult.credentialExposed === false &&
-      pluginResult.rawPluginOutputPersisted === false;
-    const resultSummary = this.pluginInvocationService.summarizeInvocationResult(
-      pluginResult,
-      verified,
-    );
-
     await taskDispatch.completeVerification({
       taskId,
       stepId,
-      verificationStatus: verified ? "verified" : "verification_failed",
-      resultSummary,
-      failureReason: verified ? undefined : pluginResult.resultCode,
+      verificationStatus: invocation.ok ? "verified" : "verification_failed",
+      resultSummary: invocation.summary,
+      failureReason: invocation.ok ? undefined : invocation.resultCode,
     });
     await this.refreshTasksFromRepository();
 
     return {
-      dispatchStatus: verified ? "completed" : "blocked",
-      plan: verified
+      dispatchStatus: invocation.ok ? "completed" : "blocked",
+      plan: invocation.ok
         ? this.completeBrainPlan([
             ...input.basePlan,
             {
@@ -4502,8 +4463,8 @@ export class CoreRuntime {
             },
           ])
         : this.blockFinalBrainPlan(input.basePlan),
-      summary: resultSummary,
-      pluginResult,
+      summary: invocation.summary,
+      ...(invocation.result ? { pluginResult: invocation.result } : {}),
     };
   }
 
