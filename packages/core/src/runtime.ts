@@ -138,6 +138,10 @@ import type { VoiceActionResult, VoiceEnginePort } from "@jarvis-k/voice";
 import type { TaskRepository } from "./task-runtime";
 import { TaskDispatchService } from "./task-dispatch-service";
 import {
+  PluginInvocationService,
+  canEnableLocalPluginState,
+} from "./plugin-invocation-service";
+import {
   VoiceCommandResolver,
   type VoiceCommandResolverPluginCapability,
 } from "./voice-command-resolver";
@@ -569,6 +573,7 @@ export class CoreRuntime {
     CoreCommandRouterProductModeOptions | undefined;
   private localPluginStateRepositoryInitialized = false;
   private readonly taskDispatchService: TaskDispatchService | undefined;
+  private readonly pluginInvocationService: PluginInvocationService;
   private readonly pendingUserRouteAliasProposals = new Map<
     string,
     UserRouteAliasLearningProposal
@@ -622,6 +627,13 @@ export class CoreRuntime {
             repository: this.taskRepository,
             now: this.now,
           });
+    this.pluginInvocationService = new PluginInvocationService({
+      pluginRegistry: this.pluginRegistry,
+      pluginRuntime: this.pluginRuntime,
+      localPluginStateRepository: this.localPluginStateRepository,
+      ensureLocalPluginStateRepositoryInitialized: () =>
+        this.ensureLocalPluginStateRepositoryInitialized(),
+    });
   }
 
   public async hydrateCapabilities(): Promise<void> {
@@ -1529,10 +1541,11 @@ export class CoreRuntime {
           const request = PluginInvocationRequestSchema.parse(
             envelope.command.payload,
           );
-          const gate = await this.evaluatePluginInvocationGate({
-            pluginId: request.pluginId,
-            capability: request.capability,
-          });
+          const gate =
+            await this.pluginInvocationService.evaluateInvocationGate({
+              pluginId: request.pluginId,
+              capability: request.capability,
+            });
           if (!gate.allowed) {
             const completedAt = this.now().toISOString();
             return this.success(envelope, {
@@ -4627,23 +4640,6 @@ export class CoreRuntime {
     }
   }
 
-  private summarizePluginInvocationResult(
-    result: PluginInvocationResult,
-    verified: boolean,
-  ): string {
-    if (!verified) {
-      return `Plugin invocation was blocked or unverified: ${result.resultCode}.`;
-    }
-    const firstItem = result.output?.items[0];
-    const firstField = firstItem?.fields[0];
-    const fieldSummary =
-      firstItem && firstField
-        ? ` ${firstItem.title}: ${firstField.label} ${String(firstField.value)}.`
-        : "";
-    const summary = `Plugin Runtime invoked ${result.capability}; sanitized output verified. ${result.output?.summary ?? "No plugin output summary."}${fieldSummary}`;
-    return summary.length <= 500 ? summary : `${summary.slice(0, 497)}...`;
-  }
-
   private async createBrainToolProductLoop(input: {
     source: "text" | "voice";
     decision: BrainRouterDecision;
@@ -4768,119 +4764,6 @@ export class CoreRuntime {
     );
   }
 
-  private async evaluatePluginInvocationGate(input: {
-    pluginId: string;
-    capability: string;
-  }): Promise<
-    | {
-        allowed: true;
-        summary: string;
-      }
-    | {
-        allowed: false;
-        resultCode:
-          | "PLUGIN_NOT_FOUND"
-          | "PLUGIN_CAPABILITY_NOT_FOUND"
-          | "PLUGIN_PERMISSION_DENIED"
-          | "PLUGIN_RUNTIME_UNAVAILABLE";
-        summary: string;
-      }
-  > {
-    if (!this.pluginRegistry || !this.pluginRuntime) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_RUNTIME_UNAVAILABLE",
-        summary:
-          "Plugin invocation blocked because the Plugin Registry or Runtime is unavailable.",
-      };
-    }
-
-    const manifest = await this.pluginRegistry.getPlugin(input.pluginId);
-    if (!manifest) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_NOT_FOUND",
-        summary:
-          "Plugin invocation blocked because the requested plugin is not registered.",
-      };
-    }
-
-    if (
-      !manifest.capabilities.some(
-        (capability) => capability.name === input.capability,
-      )
-    ) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_CAPABILITY_NOT_FOUND",
-        summary:
-          "Plugin invocation blocked because the requested capability is not declared by the plugin manifest.",
-      };
-    }
-
-    const executablePluginIds = new Set(
-      this.pluginRuntime.listExecutablePluginIds
-        ? await this.pluginRuntime.listExecutablePluginIds()
-        : [],
-    );
-    if (!executablePluginIds.has(input.pluginId)) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_RUNTIME_UNAVAILABLE",
-        summary:
-          "Plugin invocation blocked because no controlled runtime is available for this plugin.",
-      };
-    }
-
-    const localReadOnlyPluginIds = new Set(
-      this.pluginRuntime.listLocalReadOnlyPluginIds
-        ? await this.pluginRuntime.listLocalReadOnlyPluginIds()
-        : [],
-    );
-    if (!localReadOnlyPluginIds.has(input.pluginId)) {
-      return {
-        allowed: true,
-        summary: "Bundled read-only plugin runtime allowed.",
-      };
-    }
-
-    if (!canEnableLocalPluginState(manifest)) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_PERMISSION_DENIED",
-        summary:
-          "Local read-only plugin invocation blocked because the manifest does not satisfy the no-permission read-only policy.",
-      };
-    }
-    if (!this.localPluginStateRepository) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_PERMISSION_DENIED",
-        summary:
-          "Local read-only plugin invocation blocked because the local plugin state store is unavailable.",
-      };
-    }
-
-    await this.ensureLocalPluginStateRepositoryInitialized();
-    const state = await this.localPluginStateRepository.getState(
-      input.pluginId,
-    );
-    if (state?.enabled !== true) {
-      return {
-        allowed: false,
-        resultCode: "PLUGIN_PERMISSION_DENIED",
-        summary:
-          "Local read-only plugin invocation blocked because the plugin is not enabled in the local state store.",
-      };
-    }
-
-    return {
-      allowed: true,
-      summary:
-        "Local read-only plugin invocation allowed by manifest policy and persisted enabled state.",
-    };
-  }
-
   private async dispatchTaskRuntimePluginInvoke(input: {
     envelope: CommandEnvelope;
     source: "text" | "voice";
@@ -4922,7 +4805,7 @@ export class CoreRuntime {
           "Task Runtime blocked plugin.invoke because the plugin request failed contract validation.",
       };
     }
-    const gate = await this.evaluatePluginInvocationGate({
+    const gate = await this.pluginInvocationService.evaluateInvocationGate({
       pluginId: request.data.pluginId,
       capability: request.data.capability,
     });
@@ -4982,7 +4865,7 @@ export class CoreRuntime {
       pluginResult.directActionAttempted === false &&
       pluginResult.credentialExposed === false &&
       pluginResult.rawPluginOutputPersisted === false;
-    const resultSummary = this.summarizePluginInvocationResult(
+    const resultSummary = this.pluginInvocationService.summarizeInvocationResult(
       pluginResult,
       verified,
     );
@@ -8224,16 +8107,6 @@ function assessPluginManagementRisk(
       ...(!executable ? ["THIRD_PARTY_EXECUTION_DISABLED"] : []),
     ],
   };
-}
-
-function canEnableLocalPluginState(manifest: PluginManifest): boolean {
-  return (
-    manifest.permissions.length === 0 &&
-    manifest.capabilities.every(
-      (capability) =>
-        capability.readOnly === true && capability.risk === "read_only",
-    )
-  );
 }
 
 function pluginCapabilityRiskTier(
