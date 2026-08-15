@@ -33,6 +33,7 @@ export function readAppCompositionSource() {
     "features/model-management/model-operation-list.tsx",
     "features/plugins/plugin-management-view.tsx",
     "features/plugins/plugin-projection-panel.tsx",
+    "features/settings/settings-general-panel.tsx",
     "features/tasks/task-timeline.tsx",
   ]);
 }

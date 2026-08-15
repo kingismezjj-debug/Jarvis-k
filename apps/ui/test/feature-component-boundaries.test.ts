@@ -15,6 +15,7 @@ const featureComponents = [
   "features/model-management/model-operation-list.tsx",
   "features/plugins/plugin-management-view.tsx",
   "features/plugins/plugin-projection-panel.tsx",
+  "features/settings/settings-general-panel.tsx",
   "features/memory/memory-center.tsx",
   "features/tasks/task-timeline.tsx",
 ];

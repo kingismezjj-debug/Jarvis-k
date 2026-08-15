@@ -96,6 +96,7 @@ import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
+import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { cn } from "@/lib/utils";
 import {
@@ -3649,130 +3650,57 @@ export default function App() {
                   themes={builtInSkinThemes}
                 />
 
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.settings.general}
-                    </h3>
-                    <Badge className="rounded-md text-[10px]" variant="outline">
-                      {copy.label.local}
-                    </Badge>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label={copy.metric.coreHealth}
-                      value={snapshot?.health ?? connection}
-                      tone="success"
-                    />
-                    <Metric
-                      label={copy.metric.runtimeMode}
-                      value={runtimeMode}
-                      tone="accent"
-                    />
-                    <Metric
-                      label={copy.metric.transport}
-                      value="IPC"
-                      tone="accent"
-                    />
-                    <Metric
-                      label={copy.metric.inspector}
-                      value={
-                        inspectorOpen ? copy.value.shown : copy.value.hidden
-                      }
-                    />
-                    <Metric
-                      label={copy.metric.sequence}
-                      value={String(snapshot?.sequenceId ?? 0).padStart(4, "0")}
-                    />
-                    <Metric
-                      label={copy.label.ttsService}
-                      value={
-                        ttsServiceStatus?.configured
-                          ? copy.label.voiceServiceConfigured
-                          : copy.label.voiceServiceMissing
-                      }
-                      tone={
-                        ttsServiceStatus?.configured ? "success" : "warning"
-                      }
-                    />
-                  </dl>
-                  <label className="mt-3 flex items-center justify-between gap-3 border-y py-2 text-[11px]">
-                    <span className="min-w-0">
-                      <span className="block font-medium">{alphaCopy.tts}</span>
-                      <span className="mt-0.5 block text-muted-foreground">
-                        {localTtsEnabled
-                          ? alphaCopy.ttsEnabled
-                          : alphaCopy.ttsDisabled}
-                      </span>
-                    </span>
-                    <input
-                      aria-label={alphaCopy.tts}
-                      checked={localTtsEnabled}
-                      className="size-4 accent-primary"
-                      data-testid="settings-local-tts-toggle"
-                      onChange={(event) => {
-                        setLocalTtsEnabled(event.target.checked);
-                        if (!event.target.checked) stopLocalTts();
-                        if (event.target.checked) {
-                          setLocalTtsStatus(
-                            brainResult?.dispatchStatus === "completed"
-                              ? "eligible"
-                              : "disabled",
-                          );
-                        }
-                      }}
-                      type="checkbox"
-                    />
-                  </label>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      className="h-8 rounded-md px-2.5 text-xs"
-                      data-testid="settings-toggle-inspector"
-                      onClick={() => {
-                        setInspectorOpen((open) => !open);
-                        notifyAction(
-                          inspectorOpen
-                            ? copy.action.inspectorHidden
-                            : copy.action.inspectorShown,
-                          "accent",
+                <SettingsGeneralPanel
+                  actions={{
+                    probeCore: () => {
+                      void trackAction("Probe Core", async () => {
+                        const probed = await probeCore();
+                        const refreshedCapabilities =
+                          await refreshCapabilities();
+                        const refreshedMemory = await refreshMemoryHealth();
+                        const refreshedModels = await refreshModelGovernance();
+                        return (
+                          probed &&
+                          refreshedCapabilities &&
+                          refreshedMemory &&
+                          refreshedModels
                         );
-                      }}
-                      type="button"
-                      variant="outline"
-                    >
-                      <PanelLeft className="size-3.5" />
-                      {copy.label.inspector}
-                    </Button>
-                    <Button
-                      className="h-8 rounded-md px-2.5 text-xs"
-                      data-testid="settings-probe-core"
-                      disabled={sending}
-                      onClick={() =>
-                        void trackAction("Probe Core", async () => {
-                          const probed = await probeCore();
-                          const refreshedCapabilities =
-                            await refreshCapabilities();
-                          const refreshedMemory = await refreshMemoryHealth();
-                          const refreshedModels =
-                            await refreshModelGovernance();
-                          return (
-                            probed &&
-                            refreshedCapabilities &&
-                            refreshedMemory &&
-                            refreshedModels
-                          );
-                        })
+                      });
+                    },
+                    setLocalTtsEnabled: (enabled) => {
+                      setLocalTtsEnabled(enabled);
+                      if (!enabled) stopLocalTts();
+                      if (enabled) {
+                        setLocalTtsStatus(
+                          brainResult?.dispatchStatus === "completed"
+                            ? "eligible"
+                            : "disabled",
+                        );
                       }
-                      type="button"
-                      variant="outline"
-                    >
-                      <RefreshCw
-                        className={cn("size-3.5", sending && "animate-spin")}
-                      />
-                      {copy.label.probe}
-                    </Button>
-                  </div>
-                </section>
+                    },
+                    toggleInspector: () => {
+                      setInspectorOpen((open) => !open);
+                      notifyAction(
+                        inspectorOpen
+                          ? copy.action.inspectorHidden
+                          : copy.action.inspectorShown,
+                        "accent",
+                      );
+                    },
+                  }}
+                  alphaCopy={alphaCopy}
+                  copy={copy}
+                  viewModel={{
+                    connection,
+                    coreHealth: snapshot?.health ?? connection,
+                    inspectorOpen,
+                    localTtsEnabled,
+                    runtimeMode,
+                    sending,
+                    sequenceId: snapshot?.sequenceId ?? 0,
+                    ttsServiceConfigured: ttsServiceStatus?.configured === true,
+                  }}
+                />
 
                 <section className="min-w-0">
                   <div className="mb-3 flex items-center justify-between">
