@@ -80,6 +80,11 @@ export function MemoryCenter({
     viewModel.selectedRisk === "all" &&
     viewModel.selectedSort === "updated_desc" &&
     viewModel.memoryQuery.trim().length === 0;
+  const filteredUserControlledMemories = viewModel.filteredMemories;
+  const userControlledMemoryActiveKindLabel = viewModel.activeKindLabel;
+  const userControlledMemoryActiveRiskLabel = viewModel.activeRiskLabel;
+  const userControlledMemoryActiveSortLabel = viewModel.activeSortLabel;
+  const userControlledMemorySearchState = viewModel.searchState;
 
   return (
     <section className="min-w-0">
@@ -125,24 +130,39 @@ export function MemoryCenter({
           label="Preferences"
           value={viewModel.preferenceMemoryCount}
         />
-        <MemorySummaryCard
-          label="Low risk"
-          testId="user-controlled-memory-low-risk-count"
-          value={viewModel.lowRiskMemoryCount}
-          valueClassName="text-success"
-        />
-        <MemorySummaryCard
-          label="Medium risk"
-          testId="user-controlled-memory-medium-risk-count"
-          value={viewModel.mediumRiskMemoryCount}
-          valueClassName="text-warning"
-        />
-        <MemorySummaryCard
-          label="High risk"
-          testId="user-controlled-memory-high-risk-count"
-          value={viewModel.highRiskMemoryCount}
-          valueClassName="text-destructive"
-        />
+        <div
+          className="rounded-md border bg-card px-3 py-3"
+          data-testid="user-controlled-memory-low-risk-count"
+        >
+          <p className="text-[10px] uppercase text-muted-foreground">
+            Low risk
+          </p>
+          <p className="mt-1 text-lg font-semibold text-success">
+            {viewModel.lowRiskMemoryCount}
+          </p>
+        </div>
+        <div
+          className="rounded-md border bg-card px-3 py-3"
+          data-testid="user-controlled-memory-medium-risk-count"
+        >
+          <p className="text-[10px] uppercase text-muted-foreground">
+            Medium risk
+          </p>
+          <p className="mt-1 text-lg font-semibold text-warning">
+            {viewModel.mediumRiskMemoryCount}
+          </p>
+        </div>
+        <div
+          className="rounded-md border bg-card px-3 py-3"
+          data-testid="user-controlled-memory-high-risk-count"
+        >
+          <p className="text-[10px] uppercase text-muted-foreground">
+            High risk
+          </p>
+          <p className="mt-1 text-lg font-semibold text-destructive">
+            {viewModel.highRiskMemoryCount}
+          </p>
+        </div>
       </div>
 
       <div
@@ -226,7 +246,7 @@ export function MemoryCenter({
           className="text-[11px] text-muted-foreground md:col-span-2"
           data-testid="user-controlled-memory-filter-summary"
         >
-          Showing {viewModel.filteredMemories.length} of{" "}
+          Showing {filteredUserControlledMemories.length} of{" "}
           {viewModel.records.length} user-controlled memories.
         </p>
         <div
@@ -234,16 +254,16 @@ export function MemoryCenter({
           data-testid="user-controlled-memory-active-view-criteria"
         >
           <Badge className="rounded-md text-[10px]" variant="outline">
-            Kind: {viewModel.activeKindLabel}
+            Kind: {userControlledMemoryActiveKindLabel}
           </Badge>
           <Badge className="rounded-md text-[10px]" variant="outline">
-            Risk: {viewModel.activeRiskLabel}
+            Risk: {userControlledMemoryActiveRiskLabel}
           </Badge>
           <Badge className="rounded-md text-[10px]" variant="outline">
-            Sort: {viewModel.activeSortLabel}
+            Sort: {userControlledMemoryActiveSortLabel}
           </Badge>
           <Badge className="rounded-md text-[10px]" variant="outline">
-            Search: {viewModel.searchState}
+            Search: {userControlledMemorySearchState}
           </Badge>
         </div>
       </div>
@@ -303,15 +323,33 @@ export function MemoryCenter({
           className="mt-3 flex flex-wrap gap-2 border-t pt-3"
           data-testid="user-controlled-memory-retention-controls-disabled"
         >
-          <DisabledMemoryControl testId="user-controlled-memory-session-only-toggle">
+          <Button
+            className="h-8 rounded-md px-2 text-[11px]"
+            data-testid="user-controlled-memory-session-only-toggle"
+            disabled
+            type="button"
+            variant="outline"
+          >
             Session-only memory disabled
-          </DisabledMemoryControl>
-          <DisabledMemoryControl testId="user-controlled-memory-expiration-control">
+          </Button>
+          <Button
+            className="h-8 rounded-md px-2 text-[11px]"
+            data-testid="user-controlled-memory-expiration-control"
+            disabled
+            type="button"
+            variant="outline"
+          >
             Expiration disabled
-          </DisabledMemoryControl>
-          <DisabledMemoryControl testId="user-controlled-memory-retention-mutation-control">
+          </Button>
+          <Button
+            className="h-8 rounded-md px-2 text-[11px]"
+            data-testid="user-controlled-memory-retention-mutation-control"
+            disabled
+            type="button"
+            variant="outline"
+          >
             Retention mutation disabled
-          </DisabledMemoryControl>
+          </Button>
         </div>
         <p
           className="mt-3 text-[10px] text-muted-foreground"
@@ -402,8 +440,8 @@ export function MemoryCenter({
         className="mt-5 divide-y divide-border border-y"
         data-testid="user-controlled-memory-list"
       >
-        {viewModel.filteredMemories.length > 0 ? (
-          viewModel.filteredMemories.map((memory) => {
+        {filteredUserControlledMemories.length > 0 ? (
+          filteredUserControlledMemories.map((memory) => {
             const deletePending =
               viewModel.deletePendingKey ===
               formatUserControlledMemoryKey(memory);
@@ -552,25 +590,5 @@ function MemorySummaryCard({
       <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
       <p className={cn("mt-1 text-lg font-semibold", valueClassName)}>{value}</p>
     </div>
-  );
-}
-
-function DisabledMemoryControl({
-  children,
-  testId,
-}: {
-  children: string;
-  testId: string;
-}) {
-  return (
-    <Button
-      className="h-8 rounded-md px-2 text-[11px]"
-      data-testid={testId}
-      disabled
-      type="button"
-      variant="outline"
-    >
-      {children}
-    </Button>
   );
 }
