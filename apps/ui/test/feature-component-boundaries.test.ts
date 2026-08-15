@@ -31,6 +31,11 @@ const featureComponents = [
   "features/memory/memory-boundary-panel.tsx",
   "features/memory/memory-center.tsx",
   "features/tasks/task-timeline.tsx",
+  "features/voice/voice-alias-confirmation.tsx",
+  "features/voice/voice-capture-controls.tsx",
+  "features/voice/voice-control-panel.tsx",
+  "features/voice/voice-status.tsx",
+  "features/voice/voice-transcript-panel.tsx",
 ];
 
 describe("UI feature component boundaries", () => {
@@ -216,6 +221,35 @@ describe("UI feature component boundaries", () => {
     expect(source).not.toContain("startListening");
     expect(source).not.toContain("openVoiceSettings(");
     expect(source).not.toContain("openTtsSettings(");
+  });
+
+  it("keeps the voice control panel passive and delegated to App actions", () => {
+    const appSource = readSource("App.tsx");
+    const voiceSources = [
+      readSource("features/voice/voice-alias-confirmation.tsx"),
+      readSource("features/voice/voice-capture-controls.tsx"),
+      readSource("features/voice/voice-control-panel.tsx"),
+      readSource("features/voice/voice-status.tsx"),
+      readSource("features/voice/voice-transcript-panel.tsx"),
+      readSource("features/voice/voice-view-model.ts"),
+    ].join("\n");
+
+    expect(appSource).toContain("<VoiceControlPanel");
+    expect(appSource).toContain("const ptt = usePttCapture");
+    expect(appSource).toContain("startCapture: () =>");
+    expect(appSource).toContain("stopCapture: (reason) =>");
+    expect(appSource).toContain("removeVoiceAlias: (aliasId)");
+    expect(appSource).toContain("removeRouteAlias: (aliasId)");
+
+    expect(voiceSources).not.toContain("usePttCapture");
+    expect(voiceSources).not.toContain("window.jarvis");
+    expect(voiceSources).not.toContain("navigator.mediaDevices");
+    expect(voiceSources).not.toContain("getUserMedia");
+    expect(voiceSources).not.toContain("speechSynthesis");
+    expect(voiceSources).not.toContain("sendCommand(");
+    expect(voiceSources).not.toContain("confirmVoiceCommandCorrection");
+    expect(voiceSources).not.toContain("confirmUserRouteAlias");
+    expect(voiceSources).not.toContain("useEffect");
   });
 
   it("keeps model governance settings display-only on mount", () => {
