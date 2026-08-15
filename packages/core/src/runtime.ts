@@ -140,6 +140,10 @@ import {
 } from "./plugin-invocation-service";
 import { VoiceResolutionService } from "./voice-resolution-service";
 import { ChatDispatchService } from "./chat-dispatch-service";
+import {
+  CommandRoutingService,
+  type CommandRoutingOutcome as CoreBrainRoutingOutcome,
+} from "./command-routing-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -526,11 +530,6 @@ type ResolvedUserPreferenceMemoryRequest = Pick<
   "key" | "label" | "value" | "summary"
 >;
 
-interface CoreBrainRoutingOutcome {
-  decision: BrainRouterDecision;
-  selection: BrainRouterSelectionReport;
-}
-
 interface CoreBrainPlanningOutcome {
   selection: BrainPlannerSelectionReport;
   result?: BrainPlannerResult;
@@ -571,6 +570,7 @@ export class CoreRuntime {
   private readonly pluginInvocationService: PluginInvocationService;
   private readonly voiceResolutionService: VoiceResolutionService;
   private readonly chatDispatchService: ChatDispatchService;
+  private readonly commandRoutingService: CommandRoutingService;
   private readonly pendingUserRouteAliasProposals = new Map<
     string,
     UserRouteAliasLearningProposal
@@ -641,6 +641,27 @@ export class CoreRuntime {
       options: this.chatAnswer,
       preferenceRepository: this.userPreferenceMemoryRepository,
       now: this.now,
+    });
+    this.commandRoutingService = new CommandRoutingService({
+      productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
+      fixtureProviderId: COMMAND_ROUTER_FIXTURE_PROVIDER_ID,
+      rulesFallbackProviderId: "brain.rules",
+      getProductMode: () => this.commandRouterProductMode,
+      isFixtureReplayEnabled: () => this.isCommandRouterFixtureReplayEnabled(),
+      routeUserRouteAliasByRules: (text) =>
+        this.routeUserRouteAliasByRules(text),
+      routeVoiceCommandAliasByRules: (text) =>
+        this.routeVoiceCommandAliasByRules(text),
+      routeWithProvider: (input) => this.routeBrainIntentWithProvider(input),
+      routeByRules: (text) => this.routeBrainIntentByRules(text),
+      routeForProductMode: (text) =>
+        this.routeBrainIntentForCommandRouterProductMode(text),
+      applyProductModeSafety: (decision) =>
+        this.applyCommandRouterProductModeSafetyToDecision(decision),
+      createRouterSelection: (input) => this.brainRouterSelection(input),
+      brainRouterProviderId: () => this.brainRouterProviderId(),
+      confidenceBand: (confidence) =>
+        this.brainRouterConfidenceBand(confidence),
     });
   }
 
@@ -2940,97 +2961,7 @@ export class CoreRuntime {
     conversationId?: string;
     correlationId?: string;
   }): Promise<CoreBrainRoutingOutcome> {
-    const userRouteAliasOutcome = await this.routeUserRouteAliasByRules(
-      input.text,
-    );
-    if (userRouteAliasOutcome) {
-      return userRouteAliasOutcome;
-    }
-    const voiceCommandAliasOutcome = await this.routeVoiceCommandAliasByRules(
-      input.text,
-    );
-    if (voiceCommandAliasOutcome) {
-      return voiceCommandAliasOutcome;
-    }
-    if (this.commandRouterProductMode?.enabled === true) {
-      const commandRouterProviderId = this.commandRouterProductMode.providerId;
-      const fixtureReplayEnabled = this.isCommandRouterFixtureReplayEnabled();
-      if (
-        !fixtureReplayEnabled &&
-        commandRouterProviderId !== undefined &&
-        commandRouterProviderId !== COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID
-      ) {
-        const providerOutcome = await this.routeBrainIntentWithProvider(input);
-        if (providerOutcome?.decision !== undefined) {
-          return {
-            decision: this.applyCommandRouterProductModeSafetyToDecision(
-              providerOutcome.decision,
-            ),
-            selection: providerOutcome.selection,
-          };
-        }
-        const decision = this.routeBrainIntentForCommandRouterProductMode(
-          input.text,
-        );
-        return {
-          decision,
-          selection:
-            providerOutcome?.selection ??
-            this.brainRouterSelection({
-              selectedProviderId: commandRouterProviderId,
-              fallbackProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
-              status: "fallback",
-              reasonCode: "PROVIDER_UNAVAILABLE",
-              failureClass: "PROVIDER_UNAVAILABLE",
-              confidenceBand: "none",
-              usedRulesFallback: true,
-            }),
-        };
-      }
-      const decision = this.routeBrainIntentForCommandRouterProductMode(
-        input.text,
-      );
-      return {
-        decision,
-        selection: this.brainRouterSelection({
-          selectedProviderId:
-            fixtureReplayEnabled
-              ? COMMAND_ROUTER_FIXTURE_PROVIDER_ID
-              : (this.commandRouterProductMode.providerId ??
-                COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID),
-          status: decision.intent === "blocked" ? "blocked" : "accepted",
-          reasonCode:
-            decision.intent === "blocked"
-              ? "UNSAFE_OR_BLOCKED"
-              : "PROVIDER_ACCEPTED",
-          failureClass:
-            decision.intent === "blocked" ? "UNSAFE_OR_BLOCKED" : "none",
-          confidenceBand: this.brainRouterConfidenceBand(decision.confidence),
-          usedRulesFallback: true,
-        }),
-      };
-    }
-    const providerOutcome = await this.routeBrainIntentWithProvider(input);
-    if (providerOutcome?.decision !== undefined) {
-      return {
-        decision: providerOutcome.decision,
-        selection: providerOutcome.selection,
-      };
-    }
-    return {
-      decision: this.routeBrainIntentByRules(input.text),
-      selection:
-        providerOutcome?.selection ??
-        this.brainRouterSelection({
-          selectedProviderId: this.brainRouterProviderId(),
-          fallbackProviderId: "brain.rules",
-          status: "unavailable",
-          reasonCode: "PROVIDER_UNAVAILABLE",
-          failureClass: "PROVIDER_UNAVAILABLE",
-          confidenceBand: "none",
-          usedRulesFallback: true,
-        }),
-    };
+    return this.commandRoutingService.route(input);
   }
 
   private async routeUserRouteAliasByRules(
