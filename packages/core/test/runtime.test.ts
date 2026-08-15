@@ -103,6 +103,7 @@ import {
   type UserRouteAliasRepository,
   type VoiceCommandAliasRepository,
 } from "../src/runtime";
+import { createPlannerDraftDigestFromTask } from "../src/planner/planner-draft-service";
 import type {
   TaskCreateInput,
   TaskEventCreateInput,
@@ -7106,9 +7107,10 @@ describe("CoreRuntime", () => {
       title: "Review Minimal Plan",
       state: "awaiting_confirmation",
       routeSource: "intent-router.deterministic.rules",
-      verificationSummary:
-        "Minimal Planner (planner.deterministic.rules) saved a bounded plan draft; no tool execution was attempted.",
     });
+    expect(tasks[0]?.verificationSummary).toMatch(
+      /^Planner draft v1\/[a-f0-9]{16} saved from planner\.deterministic\.rules; approval required; no tool execution was attempted\.$/u,
+    );
     expect(tasks[0]?.steps.length).toBeGreaterThanOrEqual(2);
     expect(tasks[0]?.steps.every((step) => step.state === "pending")).toBe(
       true,
@@ -7390,6 +7392,15 @@ describe("CoreRuntime", () => {
       toolId: "browser.open",
       toolInput: {},
     });
+    const [browserDraft] = await taskRepository.listTasks();
+    await taskRepository.updateTask({
+      id: task.id,
+      state: "awaiting_confirmation",
+      updatedAt: createdAt,
+      verificationSummary: `Planner draft v1/${createPlannerDraftDigestFromTask(
+        browserDraft ?? task,
+      )} saved from planner.deterministic.rules; approval required; no tool execution was attempted.`,
+    });
 
     const approved = await runtime.handle(
       createCommandEnvelope({
@@ -7530,6 +7541,15 @@ describe("CoreRuntime", () => {
       toolInput: {
         target: "powershell",
       },
+    });
+    const [localAppDraft] = await taskRepository.listTasks();
+    await taskRepository.updateTask({
+      id: task.id,
+      state: "awaiting_confirmation",
+      updatedAt: createdAt,
+      verificationSummary: `Planner draft v1/${createPlannerDraftDigestFromTask(
+        localAppDraft ?? task,
+      )} saved from planner.deterministic.rules; approval required; no tool execution was attempted.`,
     });
 
     const approved = await runtime.handle(

@@ -1,121 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type {
   BrainPlannerResult,
-  BrainRouterDecision,
-  BrainRouterSelectionReport,
-  Task,
-  TaskEvent,
-  TaskState,
-  TaskStep,
-  TaskStepState,
-  TaskStepVerificationStatus,
+  BrainPlannerSelectionReport,
 } from "@jarvis-k/contracts";
 import { PlannerStatusProjector } from "../src/planner/planner-status-projector";
-import type {
-  TaskCreateInput,
-  TaskEventCreateInput,
-  TaskRepository,
-  TaskStepCreateInput,
-} from "../src/task-runtime";
-
-class InMemoryTaskRepository implements TaskRepository {
-  public readonly tasks = new Map<string, Task>();
-
-  public async initialize(): Promise<void> {}
-  public async recoverRunningTasksAsInterrupted(): Promise<void> {}
-
-  public async createTask(input: TaskCreateInput): Promise<Task> {
-    const task: Task = {
-      ...input,
-      routeSource: input.routeSource ?? "unknown",
-      steps: [],
-      events: [],
-    };
-    this.tasks.set(task.id, task);
-    return task;
-  }
-
-  public async updateTask(input: {
-    id: string;
-    state: TaskState;
-    updatedAt: string;
-    startedAt?: string;
-    completedAt?: string;
-    verificationSummary?: string;
-  }): Promise<Task> {
-    const task = this.requireTask(input.id);
-    const updated = { ...task, ...input };
-    this.tasks.set(input.id, updated);
-    return updated;
-  }
-
-  public async createStep(input: TaskStepCreateInput): Promise<TaskStep> {
-    const task = this.requireTask(input.taskId);
-    const step: TaskStep = { ...input };
-    task.steps.push(step);
-    return step;
-  }
-
-  public async updateStep(input: {
-    id: string;
-    taskId: string;
-    state: TaskStepState;
-    verificationStatus: TaskStepVerificationStatus;
-  }): Promise<TaskStep> {
-    const task = this.requireTask(input.taskId);
-    const index = task.steps.findIndex((step) => step.id === input.id);
-    if (index < 0) {
-      throw new Error("step not found");
-    }
-    const updated = { ...task.steps[index], ...input };
-    task.steps[index] = updated;
-    return updated;
-  }
-
-  public async createEvent(input: TaskEventCreateInput): Promise<TaskEvent> {
-    const task = this.requireTask(input.taskId);
-    const event: TaskEvent = { ...input };
-    task.events.push(event);
-    return event;
-  }
-
-  public async listTasks(): Promise<Task[]> {
-    return [...this.tasks.values()];
-  }
-
-  private requireTask(id: string): Task {
-    const task = this.tasks.get(id);
-    if (!task) {
-      throw new Error("task not found");
-    }
-    return task;
-  }
-}
 
 const basePlan = [
   { id: "intake", title: "Receive command", status: "completed" as const },
   { id: "route", title: "Route intent: chat.answer", status: "completed" as const },
   { id: "dispatch", title: "Dispatch bounded capability", status: "pending" as const },
 ];
-
-const decision: BrainRouterDecision = {
-  intent: "chat.answer",
-  confidence: 1,
-  requiresApproval: false,
-  slots: {},
-  reason: "Fixture decision.",
-};
-
-const selection: BrainRouterSelectionReport = {
-  selectedProviderId: "intent-router.deterministic.rules",
-  fallbackProviderId: "brain.rules",
-  status: "fallback",
-  reasonCode: "CONFIDENCE_LOW",
-  failureClass: "CONFIDENCE_LOW",
-  confidenceBand: "low",
-  usedRulesFallback: true,
-  directActionAttempted: false,
-};
 
 function plannerResult(overrides: Partial<BrainPlannerResult> = {}): BrainPlannerResult {
   return {
@@ -146,34 +40,75 @@ function plannerResult(overrides: Partial<BrainPlannerResult> = {}): BrainPlanne
   };
 }
 
-describe("PlannerStatusProjector", () => {
-  it("projects planned drafts and persists awaiting-confirmation tasks", async () => {
-    const repository = new InMemoryTaskRepository();
-    let persistedCallbacks = 0;
-    const projector = new PlannerStatusProjector({
-      repository,
-      now: () => new Date("2026-08-14T00:00:00.000Z"),
-    });
+function selection(
+  status: "planned" | "clarify" | "blocked",
+): BrainPlannerSelectionReport {
+  return {
+    providerId: "planner.deterministic.rules",
+    status,
+    reasonCode:
+      status === "clarify"
+        ? "CLARIFY_REQUIRED"
+        : status === "blocked"
+          ? "UNSAFE_PLAN"
+          : "COMPLEX_REQUEST",
+    failureClass:
+      status === "clarify"
+        ? "CLARIFY_REQUIRED"
+        : status === "blocked"
+          ? "UNSAFE_PLAN"
+          : "none",
+    usedPlanner: true,
+    usedRulesFallback: false,
+    directActionAttempted: false,
+  };
+}
 
-    const projection = await projector.project({
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+describe("PlannerStatusProjector", () => {
+  it("does not accept repository, lifecycle, clock, or id dependencies", () => {
+    expect(PlannerStatusProjector.length).toBe(0);
+  });
+
+  it("returns deterministic output for identical planned inputs", () => {
+    const projector = new PlannerStatusProjector();
+    const input = {
       planning: {
-        selection: {
-          providerId: "planner.deterministic.rules",
-          status: "planned",
-          reasonCode: "COMPLEX_REQUEST",
-          failureClass: "none",
-          usedPlanner: true,
-          usedRulesFallback: false,
-          directActionAttempted: false,
-        },
+        selection: selection("planned"),
         result: plannerResult(),
       },
       basePlan,
-      source: "text",
-      decision,
-      onDraftPersisted: async () => {
-        persistedCallbacks += 1;
+    };
+
+    expect(projector.project(input)).toEqual(projector.project(clone(input)));
+  });
+
+  it("does not mutate the input object", () => {
+    const projector = new PlannerStatusProjector();
+    const input = {
+      planning: {
+        selection: selection("planned"),
+        result: plannerResult(),
       },
+      basePlan,
+    };
+    const before = clone(input);
+
+    projector.project(input);
+
+    expect(input).toEqual(before);
+  });
+
+  it("projects planned drafts without persistence side effects", () => {
+    const projection = new PlannerStatusProjector().project({
+      planning: {
+        selection: selection("planned"),
+        result: plannerResult(),
+      },
+      basePlan,
     });
 
     expect(projection).toMatchObject({
@@ -188,38 +123,14 @@ describe("PlannerStatusProjector", () => {
       "planned-1",
       "confirmation",
     ]);
-    expect(persistedCallbacks).toBe(1);
-    const [task] = await repository.listTasks();
-    expect(task).toMatchObject({
-      title: "Review Minimal Plan",
-      state: "awaiting_confirmation",
-      routeSource: "intent-router.deterministic.rules",
-    });
-    expect(task?.steps).toHaveLength(1);
-    expect(task?.events.map((event) => event.type)).toEqual([
-      "created",
-      "state_changed",
-    ]);
   });
 
-  it("projects clarify requests as blocked without persistence", async () => {
-    const repository = new InMemoryTaskRepository();
-    const projector = new PlannerStatusProjector({
-      repository,
-      now: () => new Date("2026-08-14T00:00:00.000Z"),
-    });
+  it("projects clarify and blocked outcomes as blocked plans", () => {
+    const projector = new PlannerStatusProjector();
 
-    const projection = await projector.project({
+    const clarify = projector.project({
       planning: {
-        selection: {
-          providerId: "heavy-planner.fixture",
-          status: "clarify",
-          reasonCode: "CLARIFY_REQUIRED",
-          failureClass: "CLARIFY_REQUIRED",
-          usedPlanner: true,
-          usedRulesFallback: false,
-          directActionAttempted: false,
-        },
+        selection: selection("clarify"),
         result: plannerResult({
           status: "clarify",
           reasonCode: "CLARIFY_REQUIRED",
@@ -228,44 +139,32 @@ describe("PlannerStatusProjector", () => {
         }),
       },
       basePlan,
-      source: "text",
-      decision,
+    });
+    const blocked = projector.project({
+      planning: {
+        selection: selection("blocked"),
+        result: plannerResult({
+          status: "blocked",
+          reasonCode: "UNSAFE_PLAN",
+          failureClass: "UNSAFE_PLAN",
+        }),
+      },
+      basePlan,
     });
 
-    expect(projection).toMatchObject({
+    expect(clarify).toMatchObject({
       dispatchStatus: "blocked",
       summary: "Which project?",
     });
-    expect(projection?.plan.find((step) => step.id === "dispatch")?.status).toBe(
+    expect(blocked).toMatchObject({
+      dispatchStatus: "blocked",
+      summary: "Heavy Planner blocked this request before execution.",
+    });
+    expect(clarify?.plan.find((step) => step.id === "dispatch")?.status).toBe(
       "blocked",
     );
-    expect(await repository.listTasks()).toHaveLength(0);
-  });
-
-  it("still returns a needs-approval projection when task storage is unavailable", async () => {
-    const projector = new PlannerStatusProjector({
-      repository: undefined,
-      now: () => new Date("2026-08-14T00:00:00.000Z"),
-    });
-
-    const projection = await projector.project({
-      planning: {
-        selection: {
-          providerId: "planner.deterministic.rules",
-          status: "planned",
-          reasonCode: "COMPLEX_REQUEST",
-          failureClass: "none",
-          usedPlanner: true,
-          usedRulesFallback: false,
-          directActionAttempted: false,
-        },
-        result: plannerResult(),
-      },
-      basePlan,
-      source: "text",
-      decision,
-    });
-
-    expect(projection?.dispatchStatus).toBe("needs_approval");
+    expect(blocked?.plan.find((step) => step.id === "dispatch")?.status).toBe(
+      "blocked",
+    );
   });
 });

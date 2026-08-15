@@ -70,6 +70,38 @@ describe("PlannerExecutionCoordinator", () => {
     });
   });
 
+  it("does not invoke action executors for plugin steps", async () => {
+    let calls = 0;
+    const coordinator = createCoordinator({
+      executor: {
+        async openBrowser() {
+          calls += 1;
+          throw new Error("must not open browser");
+        },
+        async openLocalApp() {
+          calls += 1;
+          throw new Error("must not open app");
+        },
+        async searchFilesystem() {
+          calls += 1;
+          throw new Error("must not search filesystem");
+        },
+      },
+    });
+
+    const result = await coordinator.executeStep(
+      createStep({ pluginId: "readonly.example" }),
+      "plugin.invoke",
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      verificationStatus: "verification_failed",
+      failureReason: "PLANNER_STEP_NOT_EXECUTABLE_IN_L3",
+    });
+    expect(calls).toBe(0);
+  });
+
   it("fails browser.open before executor calls when target is missing", async () => {
     let browserCalls = 0;
     const coordinator = createCoordinator({
@@ -156,5 +188,35 @@ describe("PlannerExecutionCoordinator", () => {
       failureReason: "LOCAL_APP_TARGET_NOT_ALLOWLISTED",
     });
     expect(appCalls).toBe(0);
+  });
+
+  it("does not treat local app execution as verified without executor verification", async () => {
+    const coordinator = createCoordinator({
+      executor: {
+        async openBrowser() {
+          throw new Error("must not open browser");
+        },
+        async openLocalApp(request) {
+          return {
+            status: "completed",
+            reasonCode: "ALLOWLISTED_TARGET_OPENED",
+            label: request.target,
+          };
+        },
+      },
+      resolveKnownLocalApp: (target) =>
+        target.toLowerCase() === "notepad" ? "notepad" : undefined,
+    });
+
+    const result = await coordinator.executeStep(
+      createStep({ target: "notepad" }),
+      "localApp.open",
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      verificationStatus: "unverified",
+      failureReason: "ALLOWLISTED_TARGET_OPENED",
+    });
   });
 });

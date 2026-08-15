@@ -9,6 +9,7 @@ import type {
   TaskStepVerificationStatus,
 } from "@jarvis-k/contracts";
 import { PlannerApprovalService } from "../src/planner/planner-approval-service";
+import { createPlannerDraftDigestFromTask } from "../src/planner/planner-draft-service";
 import type {
   TaskCreateInput,
   TaskEventCreateInput,
@@ -144,7 +145,14 @@ async function createDraft(
     });
   }
   const [created] = await repository.listTasks();
-  return created ?? task;
+  const draft = created ?? task;
+  const digest = createPlannerDraftDigestFromTask(draft);
+  return repository.updateTask({
+    id: draft.id,
+    state: draft.state,
+    updatedAt: draft.updatedAt,
+    verificationSummary: `Planner draft v1/${digest} saved from planner.provider.fixture; approval required; no tool execution was attempted.`,
+  });
 }
 
 describe("PlannerApprovalService", () => {
@@ -181,6 +189,24 @@ describe("PlannerApprovalService", () => {
   it("rejects non-awaiting-confirmation approvals", async () => {
     const { repository, service } = createService();
     await createDraft(repository, { state: "queued" });
+
+    const result = await service.approve({
+      taskId: "task-planner-draft",
+      executeStep: async () => {
+        throw new Error("must not execute");
+      },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "TASK_APPROVAL_NOT_ALLOWED",
+      retryable: false,
+    });
+  });
+
+  it("rejects cancelled planner drafts before execution", async () => {
+    const { repository, service } = createService();
+    await createDraft(repository, { state: "cancelled" });
 
     const result = await service.approve({
       taskId: "task-planner-draft",
@@ -254,6 +280,35 @@ describe("PlannerApprovalService", () => {
       "verification_completed",
       "verification_completed",
     ]);
+  });
+
+  it("fails closed when the persisted plan digest no longer matches steps", async () => {
+    const { repository, service } = createService();
+    await createDraft(repository);
+    const task = repository.tasks.get("task-planner-draft");
+    if (!task?.steps[0]) {
+      throw new Error("expected draft step");
+    }
+    task.steps[0] = {
+      ...task.steps[0],
+      title: "1. Tampered step [memory.status]",
+    };
+    let calls = 0;
+
+    const result = await service.approve({
+      taskId: "task-planner-draft",
+      executeStep: async () => {
+        calls += 1;
+        throw new Error("must not execute");
+      },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "TASK_APPROVAL_DIGEST_MISMATCH",
+      retryable: false,
+    });
+    expect(calls).toBe(0);
   });
 
   it("fails closed and cancels remaining steps after the first failed step", async () => {

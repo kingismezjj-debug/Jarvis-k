@@ -1,5 +1,7 @@
 import { createId, Task, TaskStep, TaskStepVerificationStatus } from "@jarvis-k/contracts";
+import { TaskLifecycleService } from "../task-lifecycle-service";
 import type { TaskRepository } from "../task-runtime";
+import { plannerDraftDigestMatches } from "./planner-draft-service";
 
 export interface PlannerStepExecutionResult {
   ok: boolean;
@@ -43,7 +45,17 @@ export type PlannerApproveResult =
   | PlannerTaskControlFailure;
 
 export class PlannerApprovalService {
-  public constructor(private readonly options: PlannerApprovalServiceOptions) {}
+  private readonly lifecycle: TaskLifecycleService | undefined;
+
+  public constructor(private readonly options: PlannerApprovalServiceOptions) {
+    this.lifecycle =
+      options.repository === undefined
+        ? undefined
+        : new TaskLifecycleService({
+            repository: options.repository,
+            now: options.now,
+          });
+  }
 
   public async cancel(input: {
     taskId: string;
@@ -83,6 +95,7 @@ export class PlannerApprovalService {
     }
 
     const cancelledAt = this.options.now().toISOString();
+    this.lifecycle?.assertTransition(task.state, "cancelled");
     for (const step of task.steps) {
       if (step.state !== "pending" && step.state !== "running") {
         continue;
@@ -168,8 +181,18 @@ export class PlannerApprovalService {
         retryable: false,
       };
     }
+    if (!plannerDraftDigestMatches(task)) {
+      return {
+        ok: false,
+        code: "TASK_APPROVAL_DIGEST_MISMATCH",
+        message:
+          "Planner draft approval failed closed because the persisted plan version or digest does not match the current task steps.",
+        retryable: false,
+      };
+    }
 
     const startedAt = this.options.now().toISOString();
+    this.lifecycle?.assertTransition("awaiting_confirmation", "running");
     await repository.updateTask({
       id: task.id,
       state: "running",
@@ -244,6 +267,10 @@ export class PlannerApprovalService {
       failedStepCount === 0
         ? `Planner draft approval completed ${executedStepCount} bounded step(s) with verified or not-applicable results.`
         : `Planner draft approval stopped after ${executedStepCount} bounded step(s); ${failedStepCount} step failed closed.`;
+    this.lifecycle?.assertTransition(
+      "running",
+      failedStepCount === 0 ? "completed" : "failed",
+    );
     const updated = await repository.updateTask({
       id: task.id,
       state: failedStepCount === 0 ? "completed" : "failed",

@@ -147,6 +147,7 @@ import {
   DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
   DeterministicPlannerService,
 } from "./planner/deterministic-planner-service";
+import { PlannerDraftService } from "./planner/planner-draft-service";
 import { PlannerApprovalService } from "./planner/planner-approval-service";
 import { PlannerExecutionCoordinator } from "./planner/planner-execution-coordinator";
 import { PlannerStatusProjector } from "./planner/planner-status-projector";
@@ -472,6 +473,7 @@ export class CoreRuntime {
   private readonly routeAliasMemoryService: RouteAliasMemoryService;
   private readonly deterministicPlannerService: DeterministicPlannerService;
   private readonly providerPlannerService: ProviderPlannerService;
+  private readonly plannerDraftService: PlannerDraftService;
   private readonly plannerApprovalService: PlannerApprovalService;
   private readonly plannerExecutionCoordinator: PlannerExecutionCoordinator;
   private readonly plannerStatusProjector: PlannerStatusProjector;
@@ -570,6 +572,11 @@ export class CoreRuntime {
       allowedToolIds: BRAIN_PLANNER_ALLOWED_TOOL_IDS,
       rulesFallbackProviderId: "brain.rules",
     });
+    this.plannerDraftService = new PlannerDraftService({
+      repository: this.taskRepository,
+      now: this.now,
+      allowedToolIds: BRAIN_PLANNER_ALLOWED_TOOL_IDS,
+    });
     this.plannerApprovalService = new PlannerApprovalService({
       repository: this.taskRepository,
       now: this.now,
@@ -592,10 +599,7 @@ export class CoreRuntime {
       displayKnownLocalApp: (label) =>
         this.commandRouterKnownLocalAppDisplayName(label),
     });
-    this.plannerStatusProjector = new PlannerStatusProjector({
-      repository: this.taskRepository,
-      now: this.now,
-    });
+    this.plannerStatusProjector = new PlannerStatusProjector();
     this.commandRoutingService = new CommandRoutingService({
       productModeProviderId: COMMAND_ROUTER_PRODUCT_MODE_PROVIDER_ID,
       fixtureProviderId: COMMAND_ROUTER_FIXTURE_PROVIDER_ID,
@@ -3367,18 +3371,39 @@ export class CoreRuntime {
     memoryRecall?: CoreMemoryRecallObservation;
   }> {
     const basePlan = this.brainPlan(input.decision.intent);
-    const plannerDispatch = await this.plannerStatusProjector.project({
+    if (
+      input.planning.selection.status === "planned" &&
+      input.planning.result?.plan &&
+      this.taskRepository
+    ) {
+      const draft = await this.plannerDraftService.createDraft({
+        source:
+          input.envelope.command.type === "agent.runBrainCommand"
+            ? input.envelope.command.payload.source
+            : "text",
+        intent: input.decision.intent,
+        plannerResult: input.planning.result,
+      });
+      if (!draft.ok) {
+        return {
+          dispatchStatus: "blocked",
+          plan: this.blockFinalBrainPlan([
+            ...basePlan,
+            {
+              id: "planner-draft",
+              title: "Persist planner draft",
+              status: "blocked",
+            },
+          ]),
+          summary: draft.message,
+        };
+      }
+      await this.refreshTasksFromRepository();
+      this.publishSnapshot(input.envelope.correlationId);
+    }
+    const plannerDispatch = this.plannerStatusProjector.project({
       planning: input.planning,
       basePlan,
-      source:
-        input.envelope.command.type === "agent.runBrainCommand"
-          ? input.envelope.command.payload.source
-          : "text",
-      decision: input.decision,
-      onDraftPersisted: async () => {
-        await this.refreshTasksFromRepository();
-        this.publishSnapshot(input.envelope.correlationId);
-      },
     });
     if (plannerDispatch) {
       return plannerDispatch;
