@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createCoreHostVoiceComposition,
-  parseVoiceProviderConfigurationMessage,
 } from "../src/composition/voice-composition";
+import {
+  parseVoiceProviderConfigurationMessage,
+} from "../src/host/host-message-schema";
 
 const scheduler = {
   setTimeout: (callback: () => void, delayMs: number) =>

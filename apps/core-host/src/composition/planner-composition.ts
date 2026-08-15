@@ -3,23 +3,11 @@ import type { HeavyPlannerProvider } from "@jarvis-k/capabilities";
 import type { CoreBrainPlannerOptions } from "@jarvis-k/core";
 import {
   OPENAI_HEAVY_PLANNER_PROVIDER_ID,
-  type OpenAiHeavyPlannerCredential,
 } from "@jarvis-k/inference-adapter-openai-planner";
 import {
   GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID,
-  type GlmRuntimeHeavyPlannerCredential,
 } from "@jarvis-k/inference-adapter-glm-runtime";
 import type { RuntimeConfig } from "../config/runtime-config";
-
-export type CoreHostHeavyPlannerProviderConfiguration =
-  | {
-      provider: "openai";
-      credentials: OpenAiHeavyPlannerCredential;
-    }
-  | {
-      provider: "glm";
-      credentials: GlmRuntimeHeavyPlannerCredential;
-    };
 
 export type CoreHostActiveHeavyPlanner =
   | {
@@ -60,37 +48,6 @@ export function createCoreHostPlannerComposition(
           providerId: "planner.deterministic.rules",
           escalateIntents: [],
         },
-  };
-}
-
-export function parseHeavyPlannerProviderConfigurationMessage(
-  message: unknown,
-): CoreHostHeavyPlannerProviderConfiguration | null {
-  if (
-    !isRecord(message) ||
-    message.kind !== "heavy-planner-provider.configure" ||
-    !isRecord(message.configuration) ||
-    !isRecord(message.configuration.credentials)
-  ) {
-    return null;
-  }
-  const provider = message.configuration.provider;
-  if (provider !== "openai" && provider !== "glm") {
-    return null;
-  }
-  const apiKey = message.configuration.credentials.apiKey;
-  if (
-    typeof apiKey !== "string" ||
-    apiKey.trim().length < 8 ||
-    apiKey.length > (provider === "glm" ? 1024 : 512)
-  ) {
-    return null;
-  }
-  return {
-    provider,
-    credentials: {
-      apiKey: apiKey.trim(),
-    },
   };
 }
 
@@ -142,8 +99,4 @@ function selectActiveHeavyPlanner(
         networkWindowApproved:
           runtimeConfig.glmRuntimeHeavyPlannerOneWindowApproved,
       };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

@@ -48,7 +48,6 @@ import {
   DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT,
   DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
   DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
-  type OpenAiCompatibleChatAnswerRuntimeCredential,
 } from "@jarvis-k/inference-adapter-glm-chat-answer-runtime";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import { FileSystemModelLifecycleManager } from "./file-system-model-lifecycle";
@@ -78,43 +77,23 @@ import {
 import { createCoreHostPluginComposition } from "./composition/plugin-composition";
 import {
   createCoreHostPlannerComposition,
-  parseHeavyPlannerProviderConfigurationMessage,
 } from "./composition/planner-composition";
-import {
-  createCoreHostVoiceComposition,
-  parseVoiceProviderConfigurationMessage,
-} from "./composition/voice-composition";
+import { createCoreHostVoiceComposition } from "./composition/voice-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
+import {
+  parseChatAnswerProductModeConfigurationMessage,
+  parseChatAnswerProviderConfigurationMessage,
+  parseCommandRouterProductModeConfigurationMessage,
+  parseHeavyPlannerProviderConfigurationMessage,
+  parseVoiceProviderConfigurationMessage,
+  type CoreHostChatAnswerProviderConfiguration,
+} from "./host/host-message-schema";
 
 function send(message: CoreOutboundMessage): void {
   if (process.send) {
     process.send(message);
   }
-}
-
-type CoreHostChatAnswerProviderConfiguration = {
-  provider: typeof DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID;
-  credentials: OpenAiCompatibleChatAnswerRuntimeCredential;
-};
-
-function parseCommandRouterProductModeConfigurationMessage(
-  message: unknown,
-): { enabled: boolean } | null {
-  if (
-    !isRecord(message) ||
-    message.kind !== "command-router-product-mode.configure" ||
-    message.providerId !== "intent-router.deterministic.rules" ||
-    message.mode !== "production_rules" ||
-    message.directActionEnabled !== false ||
-    message.realQwenRuntimeEnabled !== false ||
-    message.networkAccessApproved !== false
-  ) {
-    return null;
-  }
-  return {
-    enabled: message.enabled === true,
-  };
 }
 
 const CONTROLLED_CHAT_ANSWER_REAL_RUNTIME_UTTERANCE =
@@ -709,88 +688,3 @@ void Promise.all([
   runtime.hydrateTasks(),
   runtime.hydrateCapabilities(),
 ]).finally(() => runtime.announceReady());
-
-function parseChatAnswerProductModeConfigurationMessage(message: unknown): {
-  enabled: boolean;
-  credential?: OpenAiCompatibleChatAnswerRuntimeCredential;
-} | null {
-  if (
-    !isRecord(message) ||
-    message.kind !== "chat-answer-product-mode.configure" ||
-    message.providerId !== DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID ||
-    message.profileId !== DEEPSEEK_CHAT_ANSWER_RUNTIME_256_PROFILE_ID
-  ) {
-    return null;
-  }
-  if (message.enabled !== true) {
-    if (
-      message.runtimeLocked !== true ||
-      message.credentialIncluded !== false
-    ) {
-      return null;
-    }
-    return { enabled: false };
-  }
-  if (
-    message.credentialIncluded === true &&
-    message.runtimeLocked === false &&
-    isRecord(message.configuration) &&
-    message.configuration.provider ===
-      DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID &&
-    isRecord(message.configuration.credentials)
-  ) {
-    const apiKey = message.configuration.credentials.apiKey;
-    if (
-      typeof apiKey !== "string" ||
-      apiKey.trim().length < 8 ||
-      apiKey.length > 512
-    ) {
-      return null;
-    }
-    return {
-      enabled: true,
-      credential: {
-        apiKey: apiKey.trim(),
-      },
-    };
-  }
-  if (message.runtimeLocked !== true || message.credentialIncluded !== false) {
-    return null;
-  }
-  return {
-    enabled: true,
-  };
-}
-
-function parseChatAnswerProviderConfigurationMessage(
-  message: unknown,
-): CoreHostChatAnswerProviderConfiguration | null {
-  if (
-    !isRecord(message) ||
-    message.kind !== "chat-answer-provider.configure" ||
-    !isRecord(message.configuration) ||
-    message.configuration.provider !==
-      DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID ||
-    !isRecord(message.configuration.credentials)
-  ) {
-    return null;
-  }
-  const apiKey = message.configuration.credentials.apiKey;
-  if (
-    typeof apiKey !== "string" ||
-    apiKey.trim().length < 8 ||
-    apiKey.length > 512
-  ) {
-    return null;
-  }
-  return {
-    provider: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
-    credentials: {
-      apiKey: apiKey.trim(),
-    },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}

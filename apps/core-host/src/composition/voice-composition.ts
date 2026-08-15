@@ -9,24 +9,7 @@ import { XunfeiRtasrProvider } from "@jarvis-k/voice-adapter-xunfei";
 import { VolcengineAsrProvider } from "@jarvis-k/voice-adapter-volcengine";
 import { NodeWebSocketFactory } from "../node-websocket-factory";
 import { VolcengineNodeWebSocketFactory } from "../volcengine-node-websocket-factory";
-
-export type CoreHostVoiceProviderConfiguration =
-  | {
-      provider: "xunfei";
-      language: "zh" | "en";
-      credentials: {
-        appId: string;
-        apiKey: string;
-      };
-    }
-  | {
-      provider: "volcengine";
-      language: "zh" | "en";
-      credentials: {
-        apiKey: string;
-        resourceId: string;
-      };
-    };
+import type { CoreHostVoiceProviderConfiguration } from "../host/host-message-schema";
 
 export interface CoreHostVoiceCompositionInput {
   readonly smokeVoiceEnabled: boolean;
@@ -95,69 +78,6 @@ export function createCoreHostVoiceComposition(
       );
     },
   };
-}
-
-export function parseVoiceProviderConfigurationMessage(
-  message: unknown,
-): CoreHostVoiceProviderConfiguration | null {
-  if (!isRecord(message) || message.kind !== "voice-provider.configure") {
-    return null;
-  }
-  const configuration = message.configuration;
-  if (!isRecord(configuration)) {
-    return null;
-  }
-  const credentials = configuration.credentials;
-  const language = configuration.language === "en" ? "en" : "zh";
-  if (configuration.provider === "xunfei") {
-    if (
-      !isRecord(credentials) ||
-      typeof credentials.appId !== "string" ||
-      typeof credentials.apiKey !== "string"
-    ) {
-      return null;
-    }
-    const appId = credentials.appId.trim();
-    const apiKey = credentials.apiKey.trim();
-    if (appId.length === 0 || apiKey.length === 0) {
-      return null;
-    }
-    return {
-      provider: "xunfei",
-      language,
-      credentials: {
-        appId,
-        apiKey,
-      },
-    };
-  }
-  if (configuration.provider === "volcengine") {
-    if (!isRecord(credentials) || typeof credentials.apiKey !== "string") {
-      return null;
-    }
-    const apiKey = credentials.apiKey.trim();
-    const resourceId =
-      typeof credentials.resourceId === "string" &&
-      credentials.resourceId.trim().length > 0
-        ? credentials.resourceId.trim()
-        : "volc.seedasr.sauc.duration";
-    if (
-      apiKey.length === 0 ||
-      resourceId.length > 128 ||
-      !/^volc\.[a-z0-9_.-]+$/i.test(resourceId)
-    ) {
-      return null;
-    }
-    return {
-      provider: "volcengine",
-      language,
-      credentials: {
-        apiKey,
-        resourceId,
-      },
-    };
-  }
-  return null;
 }
 
 const unavailableProvider = {
@@ -249,8 +169,4 @@ function createSmokeTestProvider(input: {
       };
     },
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

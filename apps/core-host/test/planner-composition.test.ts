@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { loadRuntimeConfig } from "../src/config/runtime-config";
 import {
   createCoreHostPlannerComposition,
-  parseHeavyPlannerProviderConfigurationMessage,
 } from "../src/composition/planner-composition";
+import {
+  parseHeavyPlannerProviderConfigurationMessage,
+} from "../src/host/host-message-schema";
 
 describe("Core Host planner composition", () => {
   it("keeps deterministic planner fallback when heavy planner is off", () => {
