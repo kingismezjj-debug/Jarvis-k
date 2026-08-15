@@ -19,11 +19,7 @@ import {
   BrainRouterSelectionReport,
   BrainRouterSelectionReportSchema,
   BrainPlannerRequestSchema,
-  ChatAnswerRequestSchema,
-  ChatAnswerPreferenceProjection,
-  ChatAnswerPreferenceProjectionSchema,
   ChatAnswerResult,
-  ChatAnswerResultSchema,
   CapabilitySnapshot,
   CapabilitySnapshotSchema,
   CommandEnvelope,
@@ -143,6 +139,7 @@ import {
   canEnableLocalPluginState,
 } from "./plugin-invocation-service";
 import { VoiceResolutionService } from "./voice-resolution-service";
+import { ChatDispatchService } from "./chat-dispatch-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -573,6 +570,7 @@ export class CoreRuntime {
   private readonly taskDispatchService: TaskDispatchService | undefined;
   private readonly pluginInvocationService: PluginInvocationService;
   private readonly voiceResolutionService: VoiceResolutionService;
+  private readonly chatDispatchService: ChatDispatchService;
   private readonly pendingUserRouteAliasProposals = new Map<
     string,
     UserRouteAliasLearningProposal
@@ -637,6 +635,12 @@ export class CoreRuntime {
       voiceCommandAliasRepository: this.voiceCommandAliasRepository,
       pluginRegistry: this.pluginRegistry,
       resolver: this.voiceCommandResolver,
+    });
+    this.chatDispatchService = new ChatDispatchService({
+      provider: this.chatAnswerProvider,
+      options: this.chatAnswer,
+      preferenceRepository: this.userPreferenceMemoryRepository,
+      now: this.now,
     });
   }
 
@@ -1825,6 +1829,7 @@ export class CoreRuntime {
   }): void {
     this.chatAnswerProvider = input.provider;
     this.chatAnswer = input.options;
+    this.chatDispatchService.configure(input);
   }
 
   public configureCommandRouterProductMode(
@@ -3438,9 +3443,9 @@ export class CoreRuntime {
   private routeBrainIntentByRules(text: string): BrainRouterDecision {
     const normalized = text.trim().toLowerCase();
     const forcedChatAnswerUtterances =
-      this.chatAnswer?.forcedChatAnswerUtterances?.map((value) =>
-        value.trim().toLowerCase(),
-      ) ?? [];
+      this.chatDispatchService
+        .forcedChatAnswerUtterances()
+        .map((value) => value.trim().toLowerCase());
     if (forcedChatAnswerUtterances.includes(normalized)) {
       return this.brainDecision({
         intent: "chat.answer",
@@ -4312,232 +4317,7 @@ export class CoreRuntime {
     summary: string;
     chatAnswer?: ChatAnswerResult;
   }> {
-    const providerId =
-      this.chatAnswer?.providerId ?? "chat-answer.unconfigured";
-    const preferenceProjection =
-      await this.resolveChatAnswerPreferenceProjection();
-    if (this.chatAnswer === undefined) {
-      const result = this.unavailableChatAnswer(
-        providerId,
-        "PROVIDER_UNAVAILABLE",
-        "PROVIDER_UNAVAILABLE",
-        preferenceProjection,
-      );
-      return {
-        dispatchStatus: "degraded",
-        plan: this.blockFinalBrainPlan(input.basePlan),
-        summary:
-          "Chat answer generation is unavailable; deterministic rules remain active.",
-        chatAnswer: result,
-      };
-    }
-    if (!this.chatAnswer?.enabled || !this.chatAnswerProvider) {
-      const result = this.unavailableChatAnswer(
-        providerId,
-        "PROVIDER_UNAVAILABLE",
-        "PROVIDER_UNAVAILABLE",
-        preferenceProjection,
-      );
-      return {
-        dispatchStatus: "degraded",
-        plan: this.blockFinalBrainPlan(input.basePlan),
-        summary:
-          "Chat answer generation is unavailable; deterministic fallback remains active.",
-        chatAnswer: result,
-      };
-    }
-
-    let result: ChatAnswerResult;
-    try {
-      const request = ChatAnswerRequestSchema.parse({
-        providerId,
-        utterance: input.text,
-        source: input.source,
-        routedAt: this.now().toISOString(),
-        routerDecision: input.decision,
-        preferenceProjection,
-      });
-      const rawResult = await this.chatAnswerProvider.answer(request);
-      const parsedResult = ChatAnswerResultSchema.safeParse(rawResult);
-      if (
-        !parsedResult.success ||
-        parsedResult.data.providerId !== providerId
-      ) {
-        result = this.unavailableChatAnswer(
-          providerId,
-          "INVALID_OUTPUT",
-          "PROVIDER_RESULT_INVALID",
-          preferenceProjection,
-        );
-      } else {
-        result = ChatAnswerResultSchema.parse({
-          ...parsedResult.data,
-          preferenceProjection,
-        });
-      }
-    } catch {
-      result = this.unavailableChatAnswer(
-        providerId,
-        "PROVIDER_FAILED",
-        "PROVIDER_EXECUTION_FAILED",
-        preferenceProjection,
-      );
-    }
-
-    if (result.status === "answered" && result.answer) {
-      return {
-        dispatchStatus: "completed",
-        plan: this.completeBrainPlan([
-          ...input.basePlan,
-          {
-            id: "chat-answer",
-            title: "Prepare bounded answer",
-            status: "completed",
-          },
-        ]),
-        summary: result.answer,
-        chatAnswer: result,
-      };
-    }
-    if (result.status === "clarify" && result.clarifyQuestion) {
-      return {
-        dispatchStatus: "blocked",
-        plan: this.blockFinalBrainPlan([
-          ...input.basePlan,
-          {
-            id: "chat-answer",
-            title: "Request clarification",
-            status: "blocked",
-          },
-        ]),
-        summary: result.clarifyQuestion,
-        chatAnswer: result,
-      };
-    }
-    if (result.status === "blocked") {
-      return {
-        dispatchStatus: "blocked",
-        plan: this.blockFinalBrainPlan(input.basePlan),
-        summary:
-          "Chat answer generation blocked this request before producing an answer.",
-        chatAnswer: result,
-      };
-    }
-    return {
-      dispatchStatus: "degraded",
-      plan: this.blockFinalBrainPlan(input.basePlan),
-      summary:
-        "Chat answer generation is unavailable; deterministic fallback remains active.",
-      chatAnswer: result,
-    };
-  }
-
-  private unavailableChatAnswer(
-    providerId: string,
-    reasonCode: "PROVIDER_UNAVAILABLE" | "INVALID_OUTPUT" | "PROVIDER_FAILED",
-    failureClass:
-      | "PROVIDER_UNAVAILABLE"
-      | "PROVIDER_RESULT_INVALID"
-      | "PROVIDER_EXECUTION_FAILED",
-    preferenceProjection?: ChatAnswerPreferenceProjection,
-  ): ChatAnswerResult {
-    return ChatAnswerResultSchema.parse({
-      providerId,
-      status: "unavailable",
-      reasonCode,
-      failureClass,
-      fallbackUsed: true,
-      directActionAttempted: false,
-      rawProviderResponsePersisted: false,
-      credentialExposed: false,
-      ...(preferenceProjection ? { preferenceProjection } : {}),
-      answeredAt: this.now().toISOString(),
-    });
-  }
-
-  private async resolveChatAnswerPreferenceProjection(): Promise<ChatAnswerPreferenceProjection> {
-    if (!this.userPreferenceMemoryRepository) {
-      return ChatAnswerPreferenceProjectionSchema.parse({
-        status: "not_configured",
-        appliesTo: "chat.answer",
-        source: "none",
-        rawContentExposed: false,
-        vectorRetrievalUsed: false,
-        providerNeutral: true,
-      });
-    }
-    try {
-      await this.userPreferenceMemoryRepository.initialize();
-      const preferences = (
-        await this.userPreferenceMemoryRepository.listPreferences()
-      ).filter(
-        (record) => record.enabled && record.appliesTo === "ui_projection_only",
-      );
-      const responseLanguagePreference = preferences.find(
-        (record) => record.key === "response_language" && record.value === "zh",
-      );
-      const responseLengthPreference = preferences.find(
-        (record) =>
-          record.key === "response_length" &&
-          (record.value === "short" || record.value === "detailed"),
-      );
-      const responseStylePreference = preferences.find(
-        (record) =>
-          record.key === "response_style" &&
-          (record.value === "concise" ||
-            record.value === "friendly" ||
-            record.value === "technical"),
-      );
-      if (
-        !responseLanguagePreference &&
-        !responseLengthPreference &&
-        !responseStylePreference
-      ) {
-        return ChatAnswerPreferenceProjectionSchema.parse({
-          status: "none",
-          appliesTo: "chat.answer",
-          source: "none",
-          rawContentExposed: false,
-          vectorRetrievalUsed: false,
-          providerNeutral: true,
-        });
-      }
-      return ChatAnswerPreferenceProjectionSchema.parse({
-        status: "applied",
-        appliesTo: "chat.answer",
-        ...(responseLanguagePreference
-          ? { preferredResponseLanguage: "zh" as const }
-          : {}),
-        ...(responseLengthPreference
-          ? {
-              preferredResponseLength: responseLengthPreference.value as
-                | "short"
-                | "detailed",
-            }
-          : {}),
-        ...(responseStylePreference
-          ? {
-              preferredResponseStyle: responseStylePreference.value as
-                | "concise"
-                | "friendly"
-                | "technical",
-            }
-          : {}),
-        source: "user_preference_memory",
-        rawContentExposed: false,
-        vectorRetrievalUsed: false,
-        providerNeutral: true,
-      });
-    } catch {
-      return ChatAnswerPreferenceProjectionSchema.parse({
-        status: "unavailable",
-        appliesTo: "chat.answer",
-        source: "none",
-        rawContentExposed: false,
-        vectorRetrievalUsed: false,
-        providerNeutral: true,
-      });
-    }
+    return this.chatDispatchService.dispatch(input);
   }
 
   private async createBrainToolProductLoop(input: {
