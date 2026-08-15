@@ -136,6 +136,7 @@ import {
 } from "@jarvis-k/memory";
 import type { VoiceActionResult, VoiceEnginePort } from "@jarvis-k/voice";
 import type { TaskRepository } from "./task-runtime";
+import { TaskDispatchService } from "./task-dispatch-service";
 import {
   VoiceCommandResolver,
   type VoiceCommandResolverPluginCapability,
@@ -567,6 +568,7 @@ export class CoreRuntime {
   private commandRouterProductMode:
     CoreCommandRouterProductModeOptions | undefined;
   private localPluginStateRepositoryInitialized = false;
+  private readonly taskDispatchService: TaskDispatchService | undefined;
   private readonly pendingUserRouteAliasProposals = new Map<
     string,
     UserRouteAliasLearningProposal
@@ -613,6 +615,13 @@ export class CoreRuntime {
     private readonly userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
   ) {
     this.startedAt = this.now().toISOString();
+    this.taskDispatchService =
+      this.taskRepository === undefined
+        ? undefined
+        : new TaskDispatchService({
+            repository: this.taskRepository,
+            now: this.now,
+          });
   }
 
   public async hydrateCapabilities(): Promise<void> {
@@ -4887,8 +4896,9 @@ export class CoreRuntime {
     pluginResult?: PluginInvocationResult;
   }> {
     const repository = this.taskRepository;
+    const taskDispatch = this.taskDispatchService;
     const pluginRuntime = this.pluginRuntime;
-    if (!repository || !pluginRuntime) {
+    if (!repository || !taskDispatch || !pluginRuntime) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
@@ -4924,57 +4934,22 @@ export class CoreRuntime {
       };
     }
 
-    const taskId = createId("task");
-    const stepId = createId("step");
-    const createdAt = this.now().toISOString();
-    await repository.createTask({
-      id: taskId,
+    const { taskId, stepId } = await taskDispatch.createQueuedTask({
       title: "Invoke Read-only Plugin",
-      state: "queued",
-      createdAt,
-      updatedAt: createdAt,
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createStep({
-      id: stepId,
-      taskId,
-      title: `Invoke plugin capability: ${request.data.capability}`,
-      state: "pending",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message:
+      stepTitle: `Invoke plugin capability: ${request.data.capability}`,
+      createdMessage:
         "Task created from deterministic rules route for a read-only plugin invocation.",
-      createdAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    const runningAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "running",
-      updatedAt: runningAt,
-      startedAt: runningAt,
-    });
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: "running",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.markRunning({
       taskId,
       stepId,
-      type: "step_started",
       message: "Plugin Runtime read-only invocation requested.",
-      createdAt: runningAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
@@ -4985,32 +4960,14 @@ export class CoreRuntime {
         await pluginRuntime.invoke(request.data),
       );
     } catch {
-      const failedAt = this.now().toISOString();
       const resultSummary =
         "Plugin invocation failed output validation before sanitized UI projection.";
-      await repository.updateStep({
-        id: stepId,
-        taskId,
-        state: "failed",
-        verificationStatus: "verification_failed",
-        completedAt: failedAt,
-        resultSummary,
-        failureReason: "PLUGIN_OUTPUT_INVALID",
-      });
-      await repository.updateTask({
-        id: taskId,
-        state: "failed",
-        updatedAt: failedAt,
-        completedAt: failedAt,
-        verificationSummary: resultSummary,
-      });
-      await repository.createEvent({
-        id: createId("task-event"),
+      await taskDispatch.completeVerification({
         taskId,
         stepId,
-        type: "verification_failed",
-        message: resultSummary,
-        createdAt: failedAt,
+        verificationStatus: "verification_failed",
+        resultSummary,
+        failureReason: "PLUGIN_OUTPUT_INVALID",
       });
       await this.refreshTasksFromRepository();
       return {
@@ -5025,35 +4982,17 @@ export class CoreRuntime {
       pluginResult.directActionAttempted === false &&
       pluginResult.credentialExposed === false &&
       pluginResult.rawPluginOutputPersisted === false;
-    const completedAt = this.now().toISOString();
     const resultSummary = this.summarizePluginInvocationResult(
       pluginResult,
       verified,
     );
 
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: verified ? "completed" : "failed",
-      verificationStatus: verified ? "verified" : "verification_failed",
-      completedAt,
-      resultSummary,
-      ...(verified ? {} : { failureReason: pluginResult.resultCode }),
-    });
-    await repository.updateTask({
-      id: taskId,
-      state: verified ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: resultSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.completeVerification({
       taskId,
       stepId,
-      type: verified ? "verification_completed" : "verification_failed",
-      message: resultSummary,
-      createdAt: completedAt,
+      verificationStatus: verified ? "verified" : "verification_failed",
+      resultSummary,
+      failureReason: verified ? undefined : pluginResult.resultCode,
     });
     await this.refreshTasksFromRepository();
 
@@ -5086,8 +5025,9 @@ export class CoreRuntime {
     summary: string;
   }> {
     const repository = this.taskRepository;
+    const taskDispatch = this.taskDispatchService;
     const executor = this.brainActionExecutor;
-    if (!repository || !executor?.searchFilesystem) {
+    if (!repository || !taskDispatch || !executor?.searchFilesystem) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
@@ -5096,56 +5036,21 @@ export class CoreRuntime {
       };
     }
 
-    const taskId = createId("task");
-    const stepId = createId("step");
-    const createdAt = this.now().toISOString();
-    await repository.createTask({
-      id: taskId,
+    const { taskId, stepId } = await taskDispatch.createQueuedTask({
       title: "Search Filesystem",
-      state: "queued",
-      createdAt,
-      updatedAt: createdAt,
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createStep({
-      id: stepId,
-      taskId,
-      title: "Search allowed local files",
-      state: "pending",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message: "Task created from deterministic rules route.",
-      createdAt,
+      stepTitle: "Search allowed local files",
+      createdMessage: "Task created from deterministic rules route.",
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    const runningAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "running",
-      updatedAt: runningAt,
-      startedAt: runningAt,
-    });
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: "running",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.markRunning({
       taskId,
       stepId,
-      type: "step_started",
       message: "Desktop Host observe-only filesystem search requested.",
-      createdAt: runningAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
@@ -5158,36 +5063,18 @@ export class CoreRuntime {
         ? (actionResult.verificationStatus ?? "verified")
         : "verification_failed";
     const verified = verificationStatus === "verified";
-    const completedAt = this.now().toISOString();
     const resultSummary =
       actionResult.verificationSummary ??
       (verified
         ? `${actionResult.matchCount ?? 0} sanitized filesystem candidate(s) found.`
         : `Filesystem search not verified: ${actionResult.reasonCode}.`);
 
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: verified ? "completed" : "failed",
-      verificationStatus,
-      completedAt,
-      resultSummary,
-      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
-    });
-    await repository.updateTask({
-      id: taskId,
-      state: verified ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: resultSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.completeVerification({
       taskId,
       stepId,
-      type: verified ? "verification_completed" : "verification_failed",
-      message: resultSummary,
-      createdAt: completedAt,
+      verificationStatus,
+      resultSummary,
+      failureReason: verified ? undefined : actionResult.reasonCode,
     });
     await this.refreshTasksFromRepository();
 
@@ -5214,8 +5101,9 @@ export class CoreRuntime {
     summary: string;
   }> {
     const repository = this.taskRepository;
+    const taskDispatch = this.taskDispatchService;
     const executor = this.brainActionExecutor;
-    if (!repository || !executor?.writeNotepadText) {
+    if (!repository || !taskDispatch || !executor?.writeNotepadText) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
@@ -5233,57 +5121,22 @@ export class CoreRuntime {
       };
     }
 
-    const taskId = createId("task");
-    const stepId = createId("step");
-    const createdAt = this.now().toISOString();
-    await repository.createTask({
-      id: taskId,
+    const { taskId, stepId } = await taskDispatch.createQueuedTask({
       title: "Write Text In Notepad",
-      state: "queued",
-      createdAt,
-      updatedAt: createdAt,
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createStep({
-      id: stepId,
-      taskId,
-      title: "Write bounded text into Notepad",
-      state: "pending",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message:
+      stepTitle: "Write bounded text into Notepad",
+      createdMessage:
         "Task created from deterministic rules route for a bounded Notepad write.",
-      createdAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    const runningAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "running",
-      updatedAt: runningAt,
-      startedAt: runningAt,
-    });
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: "running",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.markRunning({
       taskId,
       stepId,
-      type: "step_started",
       message: "Desktop Host Notepad write requested.",
-      createdAt: runningAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
@@ -5297,36 +5150,18 @@ export class CoreRuntime {
         ? (actionResult.verificationStatus ?? "unverified")
         : "verification_failed";
     const verified = verificationStatus === "verified";
-    const completedAt = this.now().toISOString();
     const resultSummary =
       actionResult.verificationSummary ??
       (verified
         ? `Notepad write verification passed for ${boundedText.length} character(s).`
         : `Notepad write verification failed: ${actionResult.reasonCode}.`);
 
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: verified ? "completed" : "failed",
-      verificationStatus,
-      completedAt,
-      resultSummary,
-      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
-    });
-    await repository.updateTask({
-      id: taskId,
-      state: verified ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: resultSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.completeVerification({
       taskId,
       stepId,
-      type: verified ? "verification_completed" : "verification_failed",
-      message: resultSummary,
-      createdAt: completedAt,
+      verificationStatus,
+      resultSummary,
+      failureReason: verified ? undefined : actionResult.reasonCode,
     });
     await this.refreshTasksFromRepository();
 
@@ -5354,9 +5189,10 @@ export class CoreRuntime {
     summary: string;
   }> {
     const repository = this.taskRepository;
+    const taskDispatch = this.taskDispatchService;
     const executor = this.brainActionExecutor;
     const appLabel = this.commandRouterRealLocalAppLaunchLabel(input.target);
-    if (!repository || !executor?.controlKnownAppWindow) {
+    if (!repository || !taskDispatch || !executor?.controlKnownAppWindow) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
@@ -5373,59 +5209,24 @@ export class CoreRuntime {
       };
     }
 
-    const taskId = createId("task");
-    const stepId = createId("step");
-    const createdAt = this.now().toISOString();
     const appName = this.commandRouterKnownLocalAppDisplayName(appLabel);
     const actionName = this.commandRouterWindowActionDisplayName(input.action);
     const actionVerb = this.commandRouterWindowActionVerb(input.action);
-    await repository.createTask({
-      id: taskId,
+    const { taskId, stepId } = await taskDispatch.createQueuedTask({
       title: `${actionName} ${appName} Window`,
-      state: "queued",
-      createdAt,
-      updatedAt: createdAt,
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createStep({
-      id: stepId,
-      taskId,
-      title: `${actionName} known local app window: ${appLabel}`,
-      state: "pending",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message: "Task created from deterministic rules route.",
-      createdAt,
+      stepTitle: `${actionName} known local app window: ${appLabel}`,
+      createdMessage: "Task created from deterministic rules route.",
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    const runningAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "running",
-      updatedAt: runningAt,
-      startedAt: runningAt,
-    });
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: "running",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.markRunning({
       taskId,
       stepId,
-      type: "step_started",
       message: `Desktop Host ${input.action} requested for ${appName}.`,
-      createdAt: runningAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
@@ -5439,36 +5240,18 @@ export class CoreRuntime {
         ? (actionResult.verificationStatus ?? "unverified")
         : "verification_failed";
     const verified = verificationStatus === "verified";
-    const completedAt = this.now().toISOString();
     const resultSummary =
       actionResult.verificationSummary ??
       (verified
         ? `${appName} window ${input.action} verified.`
         : `${appName} window ${input.action} not verified: ${actionResult.reasonCode}.`);
 
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: verified ? "completed" : "failed",
-      verificationStatus,
-      completedAt,
-      resultSummary,
-      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
-    });
-    await repository.updateTask({
-      id: taskId,
-      state: verified ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: resultSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.completeVerification({
       taskId,
       stepId,
-      type: verified ? "verification_completed" : "verification_failed",
-      message: resultSummary,
-      createdAt: completedAt,
+      verificationStatus,
+      resultSummary,
+      failureReason: verified ? undefined : actionResult.reasonCode,
     });
     await this.refreshTasksFromRepository();
 
@@ -5495,8 +5278,9 @@ export class CoreRuntime {
     summary: string;
   }> {
     const repository = this.taskRepository;
+    const taskDispatch = this.taskDispatchService;
     const executor = this.brainActionExecutor;
-    if (!repository || !executor) {
+    if (!repository || !taskDispatch || !executor) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
@@ -5505,57 +5289,22 @@ export class CoreRuntime {
       };
     }
 
-    const taskId = createId("task");
-    const stepId = createId("step");
-    const createdAt = this.now().toISOString();
-    await repository.createTask({
-      id: taskId,
+    const { taskId, stepId } = await taskDispatch.createQueuedTask({
       title: "Open Browser URL",
-      state: "queued",
-      createdAt,
-      updatedAt: createdAt,
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createStep({
-      id: stepId,
-      taskId,
-      title: "Open safe browser URL",
-      state: "pending",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message: "Task created from deterministic rules route.",
-      createdAt,
+      stepTitle: "Open safe browser URL",
+      createdMessage: "Task created from deterministic rules route.",
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    const runningAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "running",
-      updatedAt: runningAt,
-      startedAt: runningAt,
-    });
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: "running",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.markRunning({
       taskId,
       stepId,
-      type: "step_started",
       message:
         "Desktop Host browser launch requested for a policy-verified URL.",
-      createdAt: runningAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
@@ -5566,36 +5315,18 @@ export class CoreRuntime {
         ? (actionResult.verificationStatus ?? "verified")
         : "verification_failed";
     const verified = verificationStatus === "verified";
-    const completedAt = this.now().toISOString();
     const resultSummary =
       actionResult.verificationSummary ??
       (verified
         ? `${actionResult.label} URL policy verified.`
         : `Browser URL launch not verified: ${actionResult.reasonCode}.`);
 
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: verified ? "completed" : "failed",
-      verificationStatus,
-      completedAt,
-      resultSummary,
-      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
-    });
-    await repository.updateTask({
-      id: taskId,
-      state: verified ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: resultSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.completeVerification({
       taskId,
       stepId,
-      type: verified ? "verification_completed" : "verification_failed",
-      message: resultSummary,
-      createdAt: completedAt,
+      verificationStatus,
+      resultSummary,
+      failureReason: verified ? undefined : actionResult.reasonCode,
     });
     await this.refreshTasksFromRepository();
 
@@ -5622,9 +5353,10 @@ export class CoreRuntime {
     summary: string;
   }> {
     const repository = this.taskRepository;
+    const taskDispatch = this.taskDispatchService;
     const executor = this.brainActionExecutor;
     const appLabel = this.commandRouterRealLocalAppLaunchLabel(input.target);
-    if (!repository || !executor) {
+    if (!repository || !taskDispatch || !executor) {
       return {
         dispatchStatus: "blocked",
         plan: this.blockFinalBrainPlan(input.basePlan),
@@ -5641,57 +5373,22 @@ export class CoreRuntime {
       };
     }
 
-    const taskId = createId("task");
-    const stepId = createId("step");
-    const createdAt = this.now().toISOString();
     const appName = this.commandRouterKnownLocalAppDisplayName(appLabel);
-    await repository.createTask({
-      id: taskId,
+    const { taskId, stepId } = await taskDispatch.createQueuedTask({
       title: `Open ${appName}`,
-      state: "queued",
-      createdAt,
-      updatedAt: createdAt,
       source: input.source,
       intent: input.decision.intent,
       routeSource: "intent-router.deterministic.rules",
-    });
-    await repository.createStep({
-      id: stepId,
-      taskId,
-      title: `Launch known local app: ${appLabel}`,
-      state: "pending",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
-      taskId,
-      type: "created",
-      message: "Task created from deterministic rules route.",
-      createdAt,
+      stepTitle: `Launch known local app: ${appLabel}`,
+      createdMessage: "Task created from deterministic rules route.",
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
-    const runningAt = this.now().toISOString();
-    await repository.updateTask({
-      id: taskId,
-      state: "running",
-      updatedAt: runningAt,
-      startedAt: runningAt,
-    });
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: "running",
-      verificationStatus: "pending",
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.markRunning({
       taskId,
       stepId,
-      type: "step_started",
       message: `Desktop Host launch requested for ${appName}.`,
-      createdAt: runningAt,
     });
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
@@ -5702,36 +5399,18 @@ export class CoreRuntime {
         ? (actionResult.verificationStatus ?? "unverified")
         : "verification_failed";
     const verified = verificationStatus === "verified";
-    const completedAt = this.now().toISOString();
     const resultSummary =
       actionResult.verificationSummary ??
       (verified
         ? `${appName} launch verified.`
         : `${appName} launch not verified: ${actionResult.reasonCode}.`);
 
-    await repository.updateStep({
-      id: stepId,
-      taskId,
-      state: verified ? "completed" : "failed",
-      verificationStatus,
-      completedAt,
-      resultSummary,
-      ...(verified ? {} : { failureReason: actionResult.reasonCode }),
-    });
-    await repository.updateTask({
-      id: taskId,
-      state: verified ? "completed" : "failed",
-      updatedAt: completedAt,
-      completedAt,
-      verificationSummary: resultSummary,
-    });
-    await repository.createEvent({
-      id: createId("task-event"),
+    await taskDispatch.completeVerification({
       taskId,
       stepId,
-      type: verified ? "verification_completed" : "verification_failed",
-      message: resultSummary,
-      createdAt: completedAt,
+      verificationStatus,
+      resultSummary,
+      failureReason: verified ? undefined : actionResult.reasonCode,
     });
     await this.refreshTasksFromRepository();
 
