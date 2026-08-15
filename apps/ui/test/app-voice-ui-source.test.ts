@@ -841,8 +841,9 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('data-testid="voice-command-alias-refresh"');
     expect(appSource).toContain('data-testid="voice-command-alias"');
     expect(appSource).toContain('data-testid="voice-command-alias-delete"');
-    expect(appSource).toContain("voiceCommandAliases.map");
-    expect(appSource).toContain("handleDeleteVoiceCommandAlias(alias.id)");
+    expect(appSource).toContain("viewModel.voiceAliases.map");
+    expect(appSource).toContain("removeVoiceAlias: (aliasId)");
+    expect(appSource).toContain("handleDeleteVoiceCommandAlias(aliasId)");
     expect(appSource).toContain("refreshVoiceCommandAliases");
   });
 

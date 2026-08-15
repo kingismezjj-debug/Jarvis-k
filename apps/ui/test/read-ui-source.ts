@@ -50,5 +50,12 @@ export function readAppCompositionSource() {
     "features/settings/settings-general-panel.tsx",
     "features/settings/voice-settings-panel.tsx",
     "features/tasks/task-timeline.tsx",
+    "features/voice/types.ts",
+    "features/voice/voice-alias-confirmation.tsx",
+    "features/voice/voice-capture-controls.tsx",
+    "features/voice/voice-control-panel.tsx",
+    "features/voice/voice-status.tsx",
+    "features/voice/voice-transcript-panel.tsx",
+    "features/voice/voice-view-model.ts",
   ]);
 }

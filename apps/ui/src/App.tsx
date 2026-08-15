@@ -43,7 +43,6 @@ import {
   formatEventTime,
   formatGib,
   formatPttCommandError,
-  formatVoiceCorrectionSlots,
   isSecondaryVoiceStopError,
 } from "@/app/formatters";
 import { persistUiLanguage, readInitialLanguage } from "@/app/ui-language";
@@ -90,6 +89,13 @@ import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governan
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { VoiceSettingsPanel } from "@/features/settings/voice-settings-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
+import { VoiceControlPanel } from "@/features/voice/voice-control-panel";
+import {
+  buildVoiceDiagnostics,
+  formatVoiceAudioPercent,
+  selectVoiceLanguageMismatch,
+  selectVoiceServiceLanguage,
+} from "@/features/voice/voice-view-model";
 import { cn } from "@/lib/utils";
 import {
   selectLocalTtsLanguage,
@@ -590,14 +596,32 @@ export default function App() {
         )
       : (snapshot?.messages ?? []);
   const voiceTranscript = snapshot?.voice.transcript?.text ?? "";
-  const voiceServiceLanguage =
-    voiceServiceStatus?.language === "en"
-      ? copy.settings.english
-      : copy.settings.chinese;
-  const voiceLanguageMismatch =
-    uiLanguage === "zh" && voiceServiceStatus?.language === "en";
-  const voiceRms = `${Math.round(ptt.audioDiagnostics.rms * 100)}%`;
-  const voicePeak = `${Math.round(ptt.audioDiagnostics.peak * 100)}%`;
+  const voiceServiceLanguage = selectVoiceServiceLanguage(
+    voiceServiceStatus,
+    copy,
+  );
+  const voiceLanguageMismatch = selectVoiceLanguageMismatch(
+    uiLanguage,
+    voiceServiceStatus,
+  );
+  const voiceRms = formatVoiceAudioPercent(ptt.audioDiagnostics.rms);
+  const voicePeak = formatVoiceAudioPercent(ptt.audioDiagnostics.peak);
+  const voiceDiagnosticsMetrics = buildVoiceDiagnostics({
+    active: ptt.active,
+    captureNotice: voiceCaptureNotice,
+    captureState: ptt.state,
+    copy,
+    engineState: snapshot?.voice.state ?? "disabled",
+    framesSent: ptt.audioDiagnostics.framesSent,
+    languageMismatch: voiceLanguageMismatch,
+    mode: snapshot?.voice.mode ?? "manual",
+    peak: voicePeak,
+    permission: snapshot?.voice.permission ?? "unknown",
+    rms: voiceRms,
+    serviceConfigured: voiceServiceStatus?.configured === true,
+    serviceLanguage: voiceServiceLanguage,
+    sessionId: snapshot?.voice.sessionId,
+  });
   const runtimeMode =
     snapshot?.capabilities?.runtimeMode.replace("_", " ") ?? "unknown";
   const gpuCount = snapshot?.capabilities?.device.gpus.length ?? 0;
@@ -2003,344 +2027,60 @@ export default function App() {
               </div>
             </ScrollArea>
           ) : activeView === "voice" ? (
-            <ScrollArea className="min-h-0 flex-1">
-              <div
-                className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(0,1fr)_320px]"
-                data-testid="voice-view"
-              >
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Voice</h3>
-                    <Badge className="rounded-md text-[10px]" variant="outline">
-                      {snapshot?.voice.permission ?? "unknown"}
-                    </Badge>
-                  </div>
-                  <div className="rounded-md border bg-card px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <Button
-                        aria-label="Push to talk from voice view"
-                        aria-pressed={ptt.active}
-                        className={cn(
-                          "size-11 rounded-md",
-                          ptt.active &&
-                            "bg-destructive text-destructive-foreground",
-                        )}
-                        data-testid="voice-view-push-to-talk"
-                        disabled={!coreOnline || textOnlyAcceptanceMode}
-                        onContextMenu={(event) => event.preventDefault()}
-                        onPointerCancel={() => {
-                          if (textOnlyAcceptanceMode) return;
-                          void ptt.stop("user-cancel");
-                        }}
-                        onPointerDown={(event) => {
-                          if (textOnlyAcceptanceMode) return;
-                          event.currentTarget.setPointerCapture(
-                            event.pointerId,
-                          );
-                          void ptt.start();
-                        }}
-                        onPointerUp={(event) => {
-                          if (textOnlyAcceptanceMode) return;
-                          if (
-                            event.currentTarget.hasPointerCapture(
-                              event.pointerId,
-                            )
-                          ) {
-                            event.currentTarget.releasePointerCapture(
-                              event.pointerId,
-                            );
-                          }
-                          void ptt.stop("release");
-                        }}
-                        size="icon-lg"
-                        type="button"
-                        variant={ptt.active ? "default" : "outline"}
-                      >
-                        {textOnlyAcceptanceMode ? (
-                          <MicOff className="size-4" />
-                        ) : (
-                          <Mic2 className="size-4" />
-                        )}
-                      </Button>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium uppercase text-muted-foreground">
-                          {snapshot?.voice.mode ?? "manual"} /{" "}
-                          {snapshot?.voice.state ?? "idle"}
-                        </p>
-                        <p className="mt-1 truncate text-sm">
-                          {voiceTranscript || copy.label.noTranscript}
-                        </p>
-                        {voiceLanguageMismatch && (
-                          <p
-                            className="mt-1 text-[11px] leading-4 text-warning"
-                            data-testid="voice-language-warning"
-                          >
-                            {copy.label.voiceLanguageMismatch}
-                          </p>
-                        )}
-                        {voiceCaptureNotice && (
-                          <p
-                            className="mt-1 text-[11px] leading-4 text-warning"
-                            data-testid="voice-capture-notice"
-                          >
-                            {voiceCaptureNotice}
-                          </p>
-                        )}
-                        {voiceCaptureErrorDetail && (
-                          <p
-                            className="mt-1 text-[11px] leading-4 text-muted-foreground"
-                            data-testid="voice-capture-error-detail"
-                          >
-                            {voiceCaptureErrorDetail}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    className="mt-5 rounded-md border bg-card px-4 py-4"
-                    data-testid="voice-command-aliases"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-semibold">
-                          Voice command aliases
-                        </h3>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {voiceCommandAliases.length} saved
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            aria-label="Refresh voice command aliases"
-                            className="size-8 rounded-md"
-                            data-testid="voice-command-alias-refresh"
-                            onClick={() =>
-                              void handleRefreshVoiceCommandAliases()
-                            }
-                            size="icon-sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <RefreshCw className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Refresh aliases</TooltipContent>
-                      </Tooltip>
-                    </div>
-                    {voiceCommandAliases.length > 0 ? (
-                      <div className="divide-y divide-border border-y">
-                        {voiceCommandAliases.map((alias) => (
-                          <div
-                            className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]"
-                            data-testid="voice-command-alias"
-                            key={alias.id}
-                          >
-                            <div className="min-w-0">
-                              <p
-                                className="truncate text-xs font-semibold"
-                                data-testid="voice-command-alias-raw"
-                              >
-                                {alias.rawAlias}
-                              </p>
-                              <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                                {alias.intent} /{" "}
-                                {formatVoiceCorrectionSlots(alias.slots)}
-                              </p>
-                              <p className="mt-1 text-[10px] uppercase text-muted-foreground">
-                                {alias.confirmedAt}
-                              </p>
-                            </div>
-                            <Button
-                              className="h-8 rounded-md px-2 text-[11px]"
-                              data-testid="voice-command-alias-delete"
-                              disabled={sending}
-                              onClick={() =>
-                                void handleDeleteVoiceCommandAlias(alias.id)
-                              }
-                              type="button"
-                              variant="outline"
-                            >
-                              <Trash2 className="mr-1.5 size-3" />
-                              Delete
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p
-                        className="border-t pt-3 text-xs text-muted-foreground"
-                        data-testid="voice-command-alias-empty"
-                      >
-                        No confirmed voice aliases yet.
-                      </p>
-                    )}
-                  </div>
-                  <div
-                    className="mt-5 rounded-md border bg-card px-4 py-4"
-                    data-testid="user-route-aliases"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-semibold">
-                          User route aliases
-                        </h3>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {userRouteAliases.length} saved
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            aria-label="Refresh user route aliases"
-                            className="size-8 rounded-md"
-                            data-testid="user-route-alias-refresh"
-                            onClick={() => void handleRefreshUserRouteAliases()}
-                            size="icon-sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <RefreshCw className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Refresh route aliases</TooltipContent>
-                      </Tooltip>
-                    </div>
-                    {userRouteAliases.length > 0 ? (
-                      <div className="divide-y divide-border border-y">
-                        {userRouteAliases.map((alias) => (
-                          <div
-                            className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]"
-                            data-testid="user-route-alias"
-                            key={alias.id}
-                          >
-                            <div className="min-w-0">
-                              <p
-                                className="truncate text-xs font-semibold"
-                                data-testid="user-route-alias-label"
-                              >
-                                {alias.label}
-                              </p>
-                              <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                                {alias.intent} / {alias.targetHostname}
-                              </p>
-                              <p
-                                className="mt-1 truncate text-[11px] text-muted-foreground"
-                                data-testid="user-route-alias-url"
-                              >
-                                {alias.targetUrl}
-                              </p>
-                            </div>
-                            <Button
-                              className="h-8 rounded-md px-2 text-[11px]"
-                              data-testid="user-route-alias-delete"
-                              disabled={sending}
-                              onClick={() =>
-                                void handleDeleteUserRouteAlias(alias.id)
-                              }
-                              type="button"
-                              variant="outline"
-                            >
-                              <Trash2 className="mr-1.5 size-3" />
-                              Delete
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p
-                        className="border-t pt-3 text-xs text-muted-foreground"
-                        data-testid="user-route-alias-empty"
-                      >
-                        No confirmed route aliases yet.
-                      </p>
-                    )}
-                  </div>
-                </section>
-
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.label.diagnostics}
-                    </h3>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Open voice settings from voice view"
-                          className="size-8 rounded-md"
-                          data-testid="voice-view-settings"
-                          disabled={textOnlyAcceptanceMode}
-                          onClick={() =>
-                            textOnlyAcceptanceMode
-                              ? undefined
-                              : void trackAction(
-                                  "Open voice settings",
-                                  openVoiceSettings,
-                                  copy.action.voiceSettingsOpened,
-                                )
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Settings className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Voice service settings</TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label={copy.label.voiceService}
-                      value={
-                        voiceServiceStatus?.configured
-                          ? copy.label.voiceServiceConfigured
-                          : copy.label.voiceServiceMissing
-                      }
-                      tone={
-                        voiceServiceStatus?.configured ? "success" : "warning"
-                      }
-                    />
-                    <Metric
-                      label={copy.label.voiceRecognitionLanguage}
-                      value={voiceServiceLanguage}
-                      tone={voiceLanguageMismatch ? "warning" : undefined}
-                    />
-                    <Metric
-                      label={copy.metric.micCapture}
-                      value={ptt.state}
-                      tone={
-                        ptt.active
-                          ? "success"
-                          : ptt.captureNotice
-                            ? "warning"
-                            : undefined
-                      }
-                    />
-                    <Metric
-                      label={copy.metric.voiceEngine}
-                      value={snapshot?.voice.state ?? "disabled"}
-                      tone="warning"
-                    />
-                    <Metric
-                      label={copy.metric.micPermission}
-                      value={snapshot?.voice.permission ?? "unknown"}
-                    />
-                    <Metric
-                      label={copy.metric.voiceFrames}
-                      value={String(ptt.audioDiagnostics.framesSent)}
-                    />
-                    <Metric label={copy.metric.voiceRms} value={voiceRms} />
-                    <Metric label={copy.metric.voicePeak} value={voicePeak} />
-                    <Metric
-                      label={copy.metric.session}
-                      value={snapshot?.voice.sessionId?.slice(-12) ?? "idle"}
-                    />
-                  </dl>
-                </section>
-              </div>
-            </ScrollArea>
+            <VoiceControlPanel
+              actions={{
+                openSettings: () => {
+                  if (textOnlyAcceptanceMode) return;
+                  void trackAction(
+                    "Open voice settings",
+                    openVoiceSettings,
+                    copy.action.voiceSettingsOpened,
+                  );
+                },
+                refreshRouteAliases: () => {
+                  void handleRefreshUserRouteAliases();
+                },
+                refreshVoiceAliases: () => {
+                  void handleRefreshVoiceCommandAliases();
+                },
+                removeRouteAlias: (aliasId) => {
+                  void handleDeleteUserRouteAlias(aliasId);
+                },
+                removeVoiceAlias: (aliasId) => {
+                  void handleDeleteVoiceCommandAlias(aliasId);
+                },
+                startCapture: () => {
+                  void ptt.start();
+                },
+                stopCapture: (reason) => {
+                  void ptt.stop(reason);
+                },
+              }}
+              viewModel={{
+                aliases: {
+                  routeAliases: userRouteAliases,
+                  voiceAliases: voiceCommandAliases,
+                },
+                capture: {
+                  active: ptt.active,
+                  captureErrorDetail: voiceCaptureErrorDetail,
+                  captureNotice: voiceCaptureNotice,
+                  coreOnline,
+                  languageMismatch: voiceLanguageMismatch,
+                  mode: snapshot?.voice.mode ?? "manual",
+                  permission: snapshot?.voice.permission ?? "unknown",
+                  state: snapshot?.voice.state ?? "idle",
+                  textOnlyAcceptanceMode,
+                  transcript: voiceTranscript,
+                },
+                copy,
+                sending,
+                status: {
+                  metrics: voiceDiagnosticsMetrics,
+                  settingsDisabled: textOnlyAcceptanceMode,
+                },
+              }}
+            />
           ) : activeView === "settings" ? (
             <ScrollArea className="min-h-0 flex-1">
               <div
