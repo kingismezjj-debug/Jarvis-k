@@ -2,15 +2,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Check,
   ExternalLink,
-  Mic2,
-  MicOff,
-  PanelLeft,
   Pencil,
-  Plug,
   Plus,
   RefreshCw,
-  Settings,
-  Trash2,
   X,
 } from "lucide-react";
 import type {
@@ -26,8 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -48,6 +40,13 @@ import {
 import { persistUiLanguage, readInitialLanguage } from "@/app/ui-language";
 import { usePluginCenter } from "@/app/use-plugin-center";
 import { useUserControlledMemoryView } from "@/app/use-user-controlled-memory-view";
+import {
+  AppBrandHeader,
+  AppTextOnlyBanner,
+  AppViewHeader,
+} from "@/app/app-header";
+import { AppNavigation } from "@/app/app-navigation";
+import { AppShell } from "@/app/app-shell";
 import {
   buildSanitizedUserControlledMemorySnapshot,
   formatUserControlledMemoryKey,
@@ -70,7 +69,6 @@ import type {
   UserControlledMemoryRiskFilter,
   UserControlledMemorySort,
 } from "@/app/types";
-import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
 import { ActivityView } from "@/features/activity/activity-view";
 import { AppearanceSettingsPanel } from "@/features/appearance/appearance-settings-panel";
@@ -1483,212 +1481,332 @@ export default function App() {
   }
 
   return (
-    <div
-      className="flex h-screen min-h-[620px] min-w-[920px] flex-col overflow-hidden bg-background text-foreground"
-      data-testid="jarvis-app"
-      data-skin-theme={skinTheme}
-      data-ui-language={uiLanguage}
-      data-voice-permission={snapshot?.voice.permission ?? "unknown"}
-      data-voice-state={snapshot?.voice.state ?? "idle"}
-      data-voice-transcript={snapshot?.voice.transcript?.text ?? ""}
-      data-voice-transcript-final={
-        snapshot?.voice.transcript?.isFinal ? "true" : "false"
+    <AppShell
+      header={
+        <AppBrandHeader
+          connection={connection}
+          copy={copy}
+          coreOnline={coreOnline}
+        />
       }
+      inspector={
+        <RuntimeInspectorPanel
+          actions={{
+            disableMemoryAlpha: () => {
+              void handleDisableMemoryAlpha();
+            },
+            exportMemorySnapshot: () => {
+              void handleExportMemorySnapshot();
+            },
+            importMemorySnapshot: () => {
+              void handleImportMemorySnapshot();
+            },
+            probeCore: () => {
+              void trackAction("Probe Core", async () => {
+                const probed = await probeCore();
+                const refreshedCapabilities = await refreshCapabilities();
+                const refreshedMemory = await refreshMemoryHealth();
+                const refreshedModels = await refreshModelGovernance();
+                return (
+                  probed &&
+                  refreshedCapabilities &&
+                  refreshedMemory &&
+                  refreshedModels
+                );
+              });
+            },
+            refreshMemoryAlpha: () => {
+              void trackAction(
+                "Refresh Memory alpha",
+                refreshMemoryAlphaStatus,
+                copy.action.memoryAlphaRefreshed,
+              );
+            },
+            refreshModelGovernance: () => {
+              void trackAction(
+                "Refresh model governance",
+                refreshModelGovernance,
+                copy.action.modelGovernanceRefreshed,
+              );
+            },
+            runFixtureEmbeddingProbe: () => {
+              void handleRunFixtureEmbeddingProbe();
+            },
+            runFixtureIntentProbe: () => {
+              void handleRunFixtureIntentProbe();
+            },
+            runFixtureOcrProbe: () => {
+              void handleRunFixtureOcrProbe();
+            },
+            runFixtureRerankProbe: () => {
+              void handleRunFixtureRerankProbe();
+            },
+            runMemoryAlphaProbe: () => {
+              void handleMemoryAlphaProbe();
+            },
+            setMemoryAlphaProbeDraft,
+            setMemorySnapshotDraft,
+          }}
+          copy={copy}
+          sending={sending}
+          viewModel={{
+            coreInstanceId: snapshot?.coreInstanceId,
+            coreOnline,
+            memoryAlphaMetrics: [
+              {
+                label: copy.metric.alphaState,
+                value: memoryAlpha?.state ?? "unknown",
+                tone:
+                  memoryAlpha?.state === "active"
+                    ? "success"
+                    : memoryAlpha?.state === "degraded"
+                      ? "warning"
+                      : undefined,
+              },
+              {
+                label: copy.metric.tracked,
+                value: `${memoryAlpha?.trackedMessageCount ?? 0}/${memoryAlpha?.maxMessageCount ?? 5}`,
+              },
+              {
+                label: copy.metric.rollback,
+                value: memoryAlpha?.rollbackStatus ?? "not_started",
+                tone:
+                  memoryAlpha?.rollbackStatus === "degraded"
+                    ? "warning"
+                    : memoryAlpha?.rollbackStatus === "passed"
+                      ? "success"
+                      : undefined,
+              },
+              {
+                label: copy.metric.deleted,
+                value: String(memoryAlpha?.rollbackDeletedCount ?? 0),
+              },
+              {
+                label: copy.metric.reason,
+                value: memoryAlphaReason,
+              },
+              {
+                label: copy.metric.probe,
+                value: memoryAlphaProbeSummary,
+              },
+              {
+                label: copy.metric.probeDims,
+                value: String(memoryAlphaRecallProbe?.queryDimensions ?? 0),
+              },
+              {
+                label: copy.metric.failure,
+                value: memoryAlphaRecallProbe?.failureClass ?? "none",
+                tone: memoryAlphaRecallProbe?.failureClass
+                  ? "warning"
+                  : undefined,
+              },
+            ],
+            memoryAlphaProbeDraft,
+            memorySnapshotDraft,
+            modelGovernanceMetrics: [
+              {
+                label: copy.metric.candidates,
+                value: String(modelCandidates.length),
+              },
+              {
+                label: copy.metric.manifests,
+                value: String(modelManifests.length),
+              },
+              {
+                label: copy.metric.providers,
+                value: String(inferenceProviders.length),
+              },
+              {
+                label: copy.metric.available,
+                value: String(availableInferenceProviderCount),
+                tone: "success",
+              },
+              {
+                label: copy.metric.fixture,
+                value: fixtureEmbeddingProvider?.status ?? "unconfigured",
+                tone: fixtureEmbeddingAvailable ? "success" : "warning",
+              },
+              {
+                label: copy.metric.intentRouter,
+                value: intentRouterProvider?.status ?? "unconfigured",
+                tone: intentRouterAvailable ? "success" : "warning",
+              },
+              {
+                label: copy.metric.ocr,
+                value: ocrProvider?.status ?? "unconfigured",
+                tone: ocrProviderAvailable ? "success" : "warning",
+              },
+              {
+                label: copy.metric.reranker,
+                value: rerankerProvider?.status ?? "unconfigured",
+                tone: rerankerProviderAvailable ? "success" : "warning",
+              },
+              {
+                label: copy.metric.required,
+                value: String(requiredProviderConfigurationCount),
+                tone: "warning",
+              },
+              {
+                label: copy.metric.installable,
+                value: String(installableModelCount),
+                tone: "success",
+              },
+              {
+                label: copy.metric.blocked,
+                value: String(blockedModelCount),
+                tone: "warning",
+              },
+              {
+                label: copy.metric.operations,
+                value: String(modelOperations.length),
+              },
+              {
+                label: copy.metric.activeOps,
+                value: String(activeModelOperationCount),
+                tone: "warning",
+              },
+              {
+                label: copy.metric.resourceMem,
+                value: resourceMemoryGiB,
+              },
+              {
+                label: copy.metric.resourceVram,
+                value: resourceVramGiB,
+              },
+              {
+                label: copy.metric.resourceLeases,
+                value: String(resourceDiagnostics?.activeLeaseCount ?? 0),
+              },
+              {
+                label: copy.metric.localModels,
+                value: String(modelInventory.length),
+              },
+              {
+                label: copy.metric.downloadable,
+                value: String(downloadableCandidateCount),
+              },
+              {
+                label: copy.metric.loaded,
+                value: String(loadedModelCount),
+                tone: "accent",
+              },
+              {
+                label: copy.metric.vectorDims,
+                value: fixtureEmbeddingProbe
+                  ? String(fixtureEmbeddingProbe.dimensions)
+                  : "idle",
+              },
+              {
+                label: copy.metric.vectors,
+                value: fixtureEmbeddingProbe
+                  ? String(fixtureEmbeddingProbe.vectorCount)
+                  : "idle",
+              },
+              {
+                label: copy.metric.inference,
+                value: fixtureEmbeddingProbe?.operationPhase ?? "idle",
+                tone:
+                  fixtureEmbeddingProbe?.operationPhase === "completed"
+                    ? "success"
+                    : undefined,
+              },
+              {
+                label: copy.metric.intent,
+                value: fixtureIntentProbe?.intent ?? "idle",
+              },
+              {
+                label: copy.metric.route,
+                value: fixtureIntentProbe?.operationPhase ?? "idle",
+                tone:
+                  fixtureIntentProbe?.operationPhase === "completed"
+                    ? "success"
+                    : undefined,
+              },
+              {
+                label: copy.metric.ocrText,
+                value: fixtureOcrProbe?.text ?? "idle",
+              },
+              {
+                label: copy.metric.ocrBlocks,
+                value: fixtureOcrProbe
+                  ? String(fixtureOcrProbe.blockCount)
+                  : "idle",
+              },
+              {
+                label: copy.metric.ocrOps,
+                value: fixtureOcrProbe?.operationPhase ?? "idle",
+                tone:
+                  fixtureOcrProbe?.operationPhase === "completed"
+                    ? "success"
+                    : undefined,
+              },
+              {
+                label: copy.metric.topDoc,
+                value: fixtureRerankProbe?.topDocumentId ?? "idle",
+              },
+              {
+                label: copy.metric.reranked,
+                value: fixtureRerankProbe
+                  ? String(fixtureRerankProbe.resultCount)
+                  : "idle",
+              },
+              {
+                label: copy.metric.rerankOps,
+                value: fixtureRerankProbe?.operationPhase ?? "idle",
+                tone:
+                  fixtureRerankProbe?.operationPhase === "completed"
+                    ? "success"
+                    : undefined,
+              },
+            ],
+            recentEvents,
+            systemStatus: {
+              accelerationBackends,
+              connection,
+              gpuCount,
+              memoryAlphaState: memoryAlpha?.state,
+              runtimeMode,
+              snapshot,
+              voiceFramesSent: ptt.audioDiagnostics.framesSent,
+              voicePeak,
+              voiceRms,
+            },
+          }}
+        />
+      }
+      inspectorOpen={inspectorOpen}
+      navigation={
+        <AppNavigation
+          activeView={activeView}
+          copy={copy}
+          coreOnline={coreOnline}
+          inspectorOpen={inspectorOpen}
+          items={visiblePrimaryNavigation}
+          onSelectView={handleSelectView}
+          onStartPtt={() => {
+            void ptt.start();
+          }}
+          onStopPtt={(reason) => {
+            void ptt.stop(reason);
+          }}
+          onToggleInspector={() => setInspectorOpen((open) => !open)}
+          ptt={{ active: ptt.active, state: ptt.state }}
+          textOnlyAcceptanceMode={textOnlyAcceptanceMode}
+        />
+      }
+      skinTheme={skinTheme}
+      textOnlyBanner={
+        textOnlyAcceptanceMode ? <AppTextOnlyBanner copy={copy} /> : undefined
+      }
+      uiLanguage={uiLanguage}
+      voicePermission={snapshot?.voice.permission ?? "unknown"}
+      voiceState={snapshot?.voice.state ?? "idle"}
+      voiceTranscript={snapshot?.voice.transcript?.text ?? ""}
+      voiceTranscriptFinal={snapshot?.voice.transcript?.isFinal ?? false}
     >
-      <header className="flex h-[68px] shrink-0 items-center justify-between border-b bg-card px-5">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-            JK
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-[21px] font-bold leading-6">JARVIS-K</h1>
-            <p className="text-[11px] leading-4 text-muted-foreground">
-              {copy.appSubtitle}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            className="h-7 rounded-md px-2.5 text-[11px]"
-            variant="secondary"
-          >
-            {copy.label.protocol}
-          </Badge>
-          <Badge
-            className="h-7 rounded-md border-border px-2.5 text-[11px]"
-            data-testid="core-status"
-            variant="outline"
-          >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                coreOnline ? "bg-success" : "bg-warning",
-              )}
-            />
-            {connection.toUpperCase()}
-          </Badge>
-        </div>
-      </header>
-
-      {textOnlyAcceptanceMode && (
-        <div
-          className="flex h-9 shrink-0 items-center gap-2 border-b bg-muted px-5 text-xs text-muted-foreground"
-          data-testid="text-only-acceptance-status"
-          role="status"
-        >
-          <MicOff className="size-3.5" />
-          {copy.label.textOnlyAcceptance}
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "grid min-h-0 flex-1",
-          inspectorOpen
-            ? "grid-cols-[76px_minmax(0,1fr)_320px] max-[1080px]:grid-cols-[68px_minmax(0,1fr)]"
-            : "grid-cols-[76px_minmax(0,1fr)] max-[1080px]:grid-cols-[68px_minmax(0,1fr)]",
-        )}
-      >
-        <aside className="flex min-h-0 flex-col items-center justify-between border-r bg-card py-[18px]">
-          <nav className="flex flex-col gap-2" aria-label="Primary navigation">
-            {visiblePrimaryNavigation.map((item) => (
-              <NavigationButton
-                active={activeView === item.id}
-                item={item}
-                key={item.id}
-                label={copy.nav[item.id]}
-                onSelect={handleSelectView}
-              />
-            ))}
-          </nav>
-          <div className="flex flex-col gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={
-                    textOnlyAcceptanceMode
-                      ? copy.label.textOnlyAcceptance
-                      : copy.label.pushToTalk
-                  }
-                  aria-pressed={ptt.active}
-                  className={cn(
-                    "size-10 rounded-md",
-                    ptt.active && "bg-destructive text-destructive-foreground",
-                  )}
-                  data-capture-state={ptt.state}
-                  data-testid={
-                    textOnlyAcceptanceMode
-                      ? "text-only-voice-disabled"
-                      : "push-to-talk"
-                  }
-                  disabled={!coreOnline || textOnlyAcceptanceMode}
-                  onContextMenu={(event) => event.preventDefault()}
-                  onPointerCancel={() => {
-                    if (textOnlyAcceptanceMode) return;
-                    void ptt.stop("user-cancel");
-                  }}
-                  onPointerDown={(event) => {
-                    if (textOnlyAcceptanceMode) return;
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    void ptt.start();
-                  }}
-                  onPointerUp={(event) => {
-                    if (textOnlyAcceptanceMode) return;
-                    if (
-                      event.currentTarget.hasPointerCapture(event.pointerId)
-                    ) {
-                      event.currentTarget.releasePointerCapture(
-                        event.pointerId,
-                      );
-                    }
-                    void ptt.stop("release");
-                  }}
-                  size="icon-lg"
-                  type="button"
-                  variant={ptt.active ? "default" : "outline"}
-                >
-                  {textOnlyAcceptanceMode ? (
-                    <MicOff className="size-4" />
-                  ) : (
-                    <Mic2 className="size-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {textOnlyAcceptanceMode
-                  ? copy.label.textOnlyAcceptance
-                  : copy.label.pushToTalk}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={copy.label.toggleInspector}
-                  aria-pressed={inspectorOpen}
-                  data-testid="toggle-inspector"
-                  onClick={() => setInspectorOpen((open) => !open)}
-                  size="icon-lg"
-                  type="button"
-                  variant="ghost"
-                >
-                  <PanelLeft className="size-[18px]" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {inspectorOpen
-                  ? copy.label.hideInspector
-                  : copy.label.showInspector}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={copy.label.generalSettings}
-                  aria-pressed={activeView === "settings"}
-                  className={cn(
-                    "size-10 rounded-md text-muted-foreground",
-                    activeView === "settings" &&
-                      "bg-secondary text-primary hover:bg-secondary",
-                  )}
-                  data-testid="general-settings"
-                  onClick={() => handleSelectView("settings")}
-                  size="icon-lg"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Settings className="size-[18px]" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {copy.label.generalSettings}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </aside>
-
-        <main className="flex min-h-0 min-w-0 flex-col bg-background">
-          <div className="flex h-[70px] shrink-0 items-center justify-between border-b px-7">
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold">{viewTitle}</h2>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {viewSubtitle}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {lastAction && (
-                <Badge
-                  className={cn(
-                    "max-w-[260px] truncate rounded-md text-[10px]",
-                    lastAction.tone === "success" && "text-success",
-                    lastAction.tone === "warning" && "text-warning",
-                    lastAction.tone === "accent" && "text-accent",
-                  )}
-                  data-testid="last-action-status"
-                  variant="outline"
-                >
-                  {lastAction.label}
-                </Badge>
-              )}
+      <AppViewHeader
+        actions={
+          <>
               {renaming && activeConversation ? (
                 <form
                   className="flex items-center gap-1.5"
@@ -1794,14 +1912,13 @@ export default function App() {
                   </Tooltip>
                 </>
               )}
-              <Badge
-                className="rounded-md text-[10px] text-accent"
-                variant="secondary"
-              >
-                {copy.label.localContract}
-              </Badge>
-            </div>
-          </div>
+          </>
+        }
+        lastAction={lastAction}
+        localContractLabel={copy.label.localContract}
+        subtitle={viewSubtitle}
+        title={viewTitle}
+      />
 
           <div className="flex h-[48px] shrink-0 items-center gap-2 overflow-x-auto border-b px-6">
             {activeView === "conversation" ? (
@@ -2834,294 +2951,6 @@ export default function App() {
             sending={sending}
             value={draft}
           />
-        </main>
-
-        {inspectorOpen && (
-          <RuntimeInspectorPanel
-            actions={{
-              disableMemoryAlpha: () => {
-                void handleDisableMemoryAlpha();
-              },
-              exportMemorySnapshot: () => {
-                void handleExportMemorySnapshot();
-              },
-              importMemorySnapshot: () => {
-                void handleImportMemorySnapshot();
-              },
-              probeCore: () => {
-                void trackAction("Probe Core", async () => {
-                  const probed = await probeCore();
-                  const refreshedCapabilities = await refreshCapabilities();
-                  const refreshedMemory = await refreshMemoryHealth();
-                  const refreshedModels = await refreshModelGovernance();
-                  return (
-                    probed &&
-                    refreshedCapabilities &&
-                    refreshedMemory &&
-                    refreshedModels
-                  );
-                });
-              },
-              refreshMemoryAlpha: () => {
-                void trackAction(
-                  "Refresh Memory alpha",
-                  refreshMemoryAlphaStatus,
-                  copy.action.memoryAlphaRefreshed,
-                );
-              },
-              refreshModelGovernance: () => {
-                void trackAction(
-                  "Refresh model governance",
-                  refreshModelGovernance,
-                  copy.action.modelGovernanceRefreshed,
-                );
-              },
-              runFixtureEmbeddingProbe: () => {
-                void handleRunFixtureEmbeddingProbe();
-              },
-              runFixtureIntentProbe: () => {
-                void handleRunFixtureIntentProbe();
-              },
-              runFixtureOcrProbe: () => {
-                void handleRunFixtureOcrProbe();
-              },
-              runFixtureRerankProbe: () => {
-                void handleRunFixtureRerankProbe();
-              },
-              runMemoryAlphaProbe: () => {
-                void handleMemoryAlphaProbe();
-              },
-              setMemoryAlphaProbeDraft,
-              setMemorySnapshotDraft,
-            }}
-            copy={copy}
-            sending={sending}
-            viewModel={{
-              coreInstanceId: snapshot?.coreInstanceId,
-              coreOnline,
-              memoryAlphaMetrics: [
-                {
-                  label: copy.metric.alphaState,
-                  value: memoryAlpha?.state ?? "unknown",
-                  tone:
-                    memoryAlpha?.state === "active"
-                      ? "success"
-                      : memoryAlpha?.state === "degraded"
-                        ? "warning"
-                        : undefined,
-                },
-                {
-                  label: copy.metric.tracked,
-                  value: `${memoryAlpha?.trackedMessageCount ?? 0}/${memoryAlpha?.maxMessageCount ?? 5}`,
-                },
-                {
-                  label: copy.metric.rollback,
-                  value: memoryAlpha?.rollbackStatus ?? "not_started",
-                  tone:
-                    memoryAlpha?.rollbackStatus === "degraded"
-                      ? "warning"
-                      : memoryAlpha?.rollbackStatus === "passed"
-                        ? "success"
-                        : undefined,
-                },
-                {
-                  label: copy.metric.deleted,
-                  value: String(memoryAlpha?.rollbackDeletedCount ?? 0),
-                },
-                {
-                  label: copy.metric.reason,
-                  value: memoryAlphaReason,
-                },
-                {
-                  label: copy.metric.probe,
-                  value: memoryAlphaProbeSummary,
-                },
-                {
-                  label: copy.metric.probeDims,
-                  value: String(memoryAlphaRecallProbe?.queryDimensions ?? 0),
-                },
-                {
-                  label: copy.metric.failure,
-                  value: memoryAlphaRecallProbe?.failureClass ?? "none",
-                  tone: memoryAlphaRecallProbe?.failureClass
-                    ? "warning"
-                    : undefined,
-                },
-              ],
-              memoryAlphaProbeDraft,
-              memorySnapshotDraft,
-              modelGovernanceMetrics: [
-                {
-                  label: copy.metric.candidates,
-                  value: String(modelCandidates.length),
-                },
-                {
-                  label: copy.metric.manifests,
-                  value: String(modelManifests.length),
-                },
-                {
-                  label: copy.metric.providers,
-                  value: String(inferenceProviders.length),
-                },
-                {
-                  label: copy.metric.available,
-                  value: String(availableInferenceProviderCount),
-                  tone: "success",
-                },
-                {
-                  label: copy.metric.fixture,
-                  value: fixtureEmbeddingProvider?.status ?? "unconfigured",
-                  tone: fixtureEmbeddingAvailable ? "success" : "warning",
-                },
-                {
-                  label: copy.metric.intentRouter,
-                  value: intentRouterProvider?.status ?? "unconfigured",
-                  tone: intentRouterAvailable ? "success" : "warning",
-                },
-                {
-                  label: copy.metric.ocr,
-                  value: ocrProvider?.status ?? "unconfigured",
-                  tone: ocrProviderAvailable ? "success" : "warning",
-                },
-                {
-                  label: copy.metric.reranker,
-                  value: rerankerProvider?.status ?? "unconfigured",
-                  tone: rerankerProviderAvailable ? "success" : "warning",
-                },
-                {
-                  label: copy.metric.required,
-                  value: String(requiredProviderConfigurationCount),
-                  tone: "warning",
-                },
-                {
-                  label: copy.metric.installable,
-                  value: String(installableModelCount),
-                  tone: "success",
-                },
-                {
-                  label: copy.metric.blocked,
-                  value: String(blockedModelCount),
-                  tone: "warning",
-                },
-                {
-                  label: copy.metric.operations,
-                  value: String(modelOperations.length),
-                },
-                {
-                  label: copy.metric.activeOps,
-                  value: String(activeModelOperationCount),
-                  tone: "warning",
-                },
-                {
-                  label: copy.metric.resourceMem,
-                  value: resourceMemoryGiB,
-                },
-                {
-                  label: copy.metric.resourceVram,
-                  value: resourceVramGiB,
-                },
-                {
-                  label: copy.metric.resourceLeases,
-                  value: String(resourceDiagnostics?.activeLeaseCount ?? 0),
-                },
-                {
-                  label: copy.metric.localModels,
-                  value: String(modelInventory.length),
-                },
-                {
-                  label: copy.metric.downloadable,
-                  value: String(downloadableCandidateCount),
-                },
-                {
-                  label: copy.metric.loaded,
-                  value: String(loadedModelCount),
-                  tone: "accent",
-                },
-                {
-                  label: copy.metric.vectorDims,
-                  value: fixtureEmbeddingProbe
-                    ? String(fixtureEmbeddingProbe.dimensions)
-                    : "idle",
-                },
-                {
-                  label: copy.metric.vectors,
-                  value: fixtureEmbeddingProbe
-                    ? String(fixtureEmbeddingProbe.vectorCount)
-                    : "idle",
-                },
-                {
-                  label: copy.metric.inference,
-                  value: fixtureEmbeddingProbe?.operationPhase ?? "idle",
-                  tone:
-                    fixtureEmbeddingProbe?.operationPhase === "completed"
-                      ? "success"
-                      : undefined,
-                },
-                {
-                  label: copy.metric.intent,
-                  value: fixtureIntentProbe?.intent ?? "idle",
-                },
-                {
-                  label: copy.metric.route,
-                  value: fixtureIntentProbe?.operationPhase ?? "idle",
-                  tone:
-                    fixtureIntentProbe?.operationPhase === "completed"
-                      ? "success"
-                      : undefined,
-                },
-                {
-                  label: copy.metric.ocrText,
-                  value: fixtureOcrProbe?.text ?? "idle",
-                },
-                {
-                  label: copy.metric.ocrBlocks,
-                  value: fixtureOcrProbe
-                    ? String(fixtureOcrProbe.blockCount)
-                    : "idle",
-                },
-                {
-                  label: copy.metric.ocrOps,
-                  value: fixtureOcrProbe?.operationPhase ?? "idle",
-                  tone:
-                    fixtureOcrProbe?.operationPhase === "completed"
-                      ? "success"
-                      : undefined,
-                },
-                {
-                  label: copy.metric.topDoc,
-                  value: fixtureRerankProbe?.topDocumentId ?? "idle",
-                },
-                {
-                  label: copy.metric.reranked,
-                  value: fixtureRerankProbe
-                    ? String(fixtureRerankProbe.resultCount)
-                    : "idle",
-                },
-                {
-                  label: copy.metric.rerankOps,
-                  value: fixtureRerankProbe?.operationPhase ?? "idle",
-                  tone:
-                    fixtureRerankProbe?.operationPhase === "completed"
-                      ? "success"
-                      : undefined,
-                },
-              ],
-              recentEvents,
-              systemStatus: {
-                accelerationBackends,
-                connection,
-                gpuCount,
-                memoryAlphaState: memoryAlpha?.state,
-                runtimeMode,
-                snapshot,
-                voiceFramesSent: ptt.audioDiagnostics.framesSent,
-                voicePeak,
-                voiceRms,
-              },
-            }}
-          />
-        )}
-      </div>
-    </div>
+    </AppShell>
   );
 }

@@ -57,7 +57,7 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('| "plugins"');
     expect(appSource).toContain("const [activeView, setActiveView]");
     expect(appSource).toContain("handleSelectView");
-    expect(appSource).toContain("onSelect={handleSelectView}");
+    expect(appSource).toContain("onSelect={onSelectView}");
     expect(appSource).toContain("data-testid={`nav-${item.id}`}");
     expect(appSource).toContain('data-testid="tasks-view"');
     expect(appSource).toContain('data-testid="plugins-view"');
@@ -617,7 +617,7 @@ describe("voice UI wiring", () => {
   it("uses the lower-left gear as general settings", () => {
     expect(appSource).toContain("aria-label={copy.label.generalSettings}");
     expect(appSource).toContain('data-testid="general-settings"');
-    expect(appSource).toContain('onClick={() => handleSelectView("settings")}');
+    expect(appSource).toContain('onClick={() => onSelectView("settings")}');
     expect(appSource).toContain('data-testid="settings-open-voice-settings"');
     expect(appSource).toContain("Voice Settings");
     expect(appSource).toContain('data-testid="settings-toggle-inspector"');

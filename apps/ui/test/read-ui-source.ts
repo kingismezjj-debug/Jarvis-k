@@ -16,6 +16,9 @@ export function readAppCompositionSource() {
   return readUiSource([
     "App.tsx",
     "app/copy.ts",
+    "app/app-header.tsx",
+    "app/app-navigation.tsx",
+    "app/app-shell.tsx",
     "app/formatters.ts",
     "app/memory-view.ts",
     "app/navigation.ts",
