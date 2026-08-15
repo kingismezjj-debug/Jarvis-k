@@ -93,7 +93,7 @@ import { NavigationButton } from "@/components/assistant-shell/NavigationButton"
 import { Metric } from "@/components/shared/Metric";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryCenter } from "@/features/memory/memory-center";
-import { ModelOperationList } from "@/features/models/model-operation-list";
+import { ModelOperationList } from "@/features/model-management/model-operation-list";
 import { PluginProjectionPanel } from "@/features/plugins/plugin-projection-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { cn } from "@/lib/utils";

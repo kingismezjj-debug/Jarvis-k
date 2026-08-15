@@ -10,7 +10,7 @@ function readSource(relativePath: string) {
 
 const featureComponents = [
   "features/diagnostics/system-status-panel.tsx",
-  "features/models/model-operation-list.tsx",
+  "features/model-management/model-operation-list.tsx",
   "features/plugins/plugin-projection-panel.tsx",
   "features/memory/memory-center.tsx",
   "features/tasks/task-timeline.tsx",
