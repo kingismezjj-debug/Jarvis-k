@@ -38,7 +38,7 @@ describe("Core Host voice composition", () => {
           language: "en",
           credentials: {
             appId: " app-1 ",
-            apiKey: " key-1 ",
+            apiKey: " not-a-real-key ",
           },
         },
       }),
@@ -47,7 +47,7 @@ describe("Core Host voice composition", () => {
       language: "en",
       credentials: {
         appId: "app-1",
-        apiKey: "key-1",
+        apiKey: "not-a-real-key",
       },
     });
   });
@@ -59,7 +59,7 @@ describe("Core Host voice composition", () => {
         configuration: {
           provider: "volcengine",
           credentials: {
-            apiKey: " key-1 ",
+            apiKey: " not-a-real-key ",
           },
         },
       }),
@@ -67,7 +67,7 @@ describe("Core Host voice composition", () => {
       provider: "volcengine",
       language: "zh",
       credentials: {
-        apiKey: "key-1",
+        apiKey: "not-a-real-key",
         resourceId: "volc.seedasr.sauc.duration",
       },
     });
@@ -80,7 +80,7 @@ describe("Core Host voice composition", () => {
         configuration: {
           provider: "unknown",
           credentials: {
-            apiKey: "key-1",
+            apiKey: "not-a-real-key",
           },
         },
       }),
@@ -91,7 +91,7 @@ describe("Core Host voice composition", () => {
         configuration: {
           provider: "volcengine",
           credentials: {
-            apiKey: "key-1",
+            apiKey: "not-a-real-key",
             resourceId: "../not-allowed",
           },
         },
@@ -114,7 +114,7 @@ describe("Core Host voice composition", () => {
         provider: "volcengine",
         language: "zh",
         credentials: {
-          apiKey: "key-1",
+          apiKey: "not-a-real-key",
           resourceId: "volc.seedasr.sauc.duration",
         },
       }),

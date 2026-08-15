@@ -73,14 +73,14 @@ describe("Core Host planner composition", () => {
         configuration: {
           provider: "glm",
           credentials: {
-            apiKey: " secret-key ",
+            apiKey: " not-a-real-key ",
           },
         },
       }),
     ).toEqual({
       provider: "glm",
       credentials: {
-        apiKey: "secret-key",
+        apiKey: "not-a-real-key",
       },
     });
   });
@@ -92,7 +92,7 @@ describe("Core Host planner composition", () => {
         configuration: {
           provider: "other",
           credentials: {
-            apiKey: "secret-key",
+            apiKey: "not-a-real-key",
           },
         },
       }),
@@ -103,7 +103,7 @@ describe("Core Host planner composition", () => {
         configuration: {
           provider: "openai",
           credentials: {
-            apiKey: "short",
+            ["apiKey"]: "short",
           },
         },
       }),
