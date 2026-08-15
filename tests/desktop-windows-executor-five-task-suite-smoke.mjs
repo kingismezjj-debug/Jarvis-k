@@ -4,10 +4,24 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
+import { requireRealWindowsExecution } from "./helpers/windows-real-execution-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 const artifactsDirectory = path.join(rootDirectory, "artifacts");
+const acceptance = requireRealWindowsExecution({
+  scriptName: "desktop-windows-executor-five-task-suite",
+  argv: process.argv.slice(2),
+  plannedActions: [
+    { id: "open_notepad", software: ["Notepad"] },
+    { id: "write_notepad_text", software: ["Notepad"] },
+    { id: "window_control_notepad", count: 3, software: ["Notepad"] },
+    { id: "open_calculator", software: ["Calculator"] },
+  ],
+});
+if (acceptance.dryRun) {
+  process.exit(0);
+}
 const smokeText = "Jarvis-K smoke text";
 const smokeUserDataDirectory = await mkdtemp(
   path.join(os.tmpdir(), "jarvis-k-windows-executor-suite-")

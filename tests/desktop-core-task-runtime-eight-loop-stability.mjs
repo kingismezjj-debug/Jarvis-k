@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { requireRealWindowsExecution } from "./helpers/windows-real-execution-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
@@ -10,7 +11,23 @@ const metricsPath = path.join(
   artifactsDirectory,
   "jarvis-k-core-task-runtime-eight-loop-stability-metrics.json",
 );
-const iterations = Number.parseInt(process.env.JARVIS_K_STABILITY_RUNS ?? "10", 10);
+const acceptance = requireRealWindowsExecution({
+  scriptName: "acceptance:windows:real:stability",
+  argv: process.argv.slice(2),
+  requireExplicitIterations: true,
+  plannedActions: [
+    { id: "text_open_notepad", software: ["Notepad"] },
+    { id: "voice_open_notepad", software: ["Notepad"] },
+    { id: "write_notepad_text", software: ["Notepad"] },
+    { id: "open_allowlisted_browser_url", software: ["default browser"] },
+    { id: "search_local_file", software: [] },
+    { id: "invoke_readonly_plugin", software: [] },
+  ],
+});
+if (acceptance.dryRun) {
+  process.exit(0);
+}
+const iterations = acceptance.iterations;
 const nodeBin = process.execPath;
 
 const loops = [
@@ -26,8 +43,8 @@ const loops = [
   },
   {
     id: "voice_corrected_known_app",
-    label: "Incorrect voice app name corrected to VS Code",
-    args: ["tests/desktop-voice-task-runtime-known-app-correction-smoke.mjs"],
+    label: "Incorrect voice app name corrected to VS Code without executing it",
+    args: ["tests/voice-command-correction-resolver-smoke.mjs"],
   },
   {
     id: "write_notepad_text",
@@ -36,8 +53,8 @@ const loops = [
   },
   {
     id: "open_vscode",
-    label: "Open VS Code",
-    args: ["tests/desktop-task-runtime-notepad-smoke.mjs", "vscode"],
+    label: "VS Code route stays isolated from real stability execution",
+    args: ["tests/desktop-command-router-local-app-blocked-smoke.mjs"],
   },
   {
     id: "open_allowlisted_browser_url",

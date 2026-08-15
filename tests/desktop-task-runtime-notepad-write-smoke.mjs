@@ -4,10 +4,19 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
+import { requireRealWindowsExecution } from "./helpers/windows-real-execution-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 const artifactsDirectory = path.join(rootDirectory, "artifacts");
+const acceptance = requireRealWindowsExecution({
+  scriptName: "desktop-task-runtime-notepad-write",
+  argv: process.argv.slice(2),
+  plannedActions: [{ id: "write_notepad_text", software: ["Notepad"] }],
+});
+if (acceptance.dryRun) {
+  process.exit(0);
+}
 const smokeText = "Jarvis-K smoke text";
 const smokeCommand = `write ${smokeText} in notepad`;
 const taskTitle = "Write Text In Notepad";

@@ -4,10 +4,19 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
+import { requireRealWindowsExecution } from "./helpers/windows-real-execution-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 const artifactsDirectory = path.join(rootDirectory, "artifacts");
+const acceptance = requireRealWindowsExecution({
+  scriptName: "desktop-voice-task-runtime-notepad",
+  argv: process.argv.slice(2),
+  plannedActions: [{ id: "voice_open_notepad", software: ["Notepad"] }],
+});
+if (acceptance.dryRun) {
+  process.exit(0);
+}
 const screenshotPath = path.join(
   artifactsDirectory,
   "jarvis-k-voice-task-runtime-notepad-smoke.png",

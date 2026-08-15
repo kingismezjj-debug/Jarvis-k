@@ -4,11 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
+import { requireRealWindowsExecution } from "./helpers/windows-real-execution-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 const artifactsDirectory = path.join(rootDirectory, "artifacts");
-const knownAppTarget = process.argv[2] ?? "notepad";
+const cliArgs = process.argv.slice(2);
+const knownAppTarget = cliArgs.find((arg) => !arg.startsWith("--")) ?? "notepad";
 const knownApps = {
   notepad: {
     slug: "notepad",
@@ -36,6 +38,19 @@ const knownApps = {
 const knownApp = knownApps[knownAppTarget];
 if (!knownApp) {
   throw new Error(`Unsupported known app smoke target: ${knownAppTarget}`);
+}
+const acceptance = requireRealWindowsExecution({
+  scriptName: `desktop-task-runtime-${knownApp.slug}`,
+  argv: cliArgs,
+  plannedActions: [
+    {
+      id: `open_${knownApp.slug}`,
+      software: [knownApp.taskTitle.replace(/^Open /u, "")],
+    },
+  ],
+});
+if (acceptance.dryRun) {
+  process.exit(0);
 }
 const screenshotPath = path.join(
   artifactsDirectory,
@@ -264,8 +279,10 @@ try {
   }
   await stopNewProcessIds("electron", electronBefore);
   await stopNewProcessIds("node", nodeBefore);
-  await stopNewProcessIds(knownApp.processName, appBefore);
-  await stopProcessIds(newAppProcessIds);
+  if (knownApp.slug !== "vscode") {
+    await stopNewProcessIds(knownApp.processName, appBefore);
+    await stopProcessIds(newAppProcessIds);
+  }
   await waitForWindowsProcessCleanup();
   await removeSmokeDirectory();
 }

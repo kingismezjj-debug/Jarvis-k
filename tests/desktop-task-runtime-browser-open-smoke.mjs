@@ -4,11 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
+import { requireRealWindowsExecution } from "./helpers/windows-real-execution-guard.mjs";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 const artifactsDirectory = path.join(rootDirectory, "artifacts");
-const scenarioName = process.argv[2] ?? "allowed";
+const cliArgs = process.argv.slice(2);
+const scenarioName = cliArgs.find((arg) => !arg.startsWith("--")) ?? "allowed";
 const scenarios = {
   allowed: {
     slug: "allowed",
@@ -32,6 +34,17 @@ const scenarios = {
 const scenario = scenarios[scenarioName];
 if (!scenario) {
   throw new Error(`Unsupported browser smoke scenario: ${scenarioName}`);
+}
+const acceptance = requireRealWindowsExecution({
+  scriptName: `desktop-task-runtime-browser-open-${scenario.slug}`,
+  argv: cliArgs,
+  plannedActions:
+    scenario.expectedTaskState === "completed"
+      ? [{ id: "open_allowlisted_browser_url", software: ["default browser"] }]
+      : [{ id: "verify_blocked_browser_url", software: [] }],
+});
+if (acceptance.dryRun) {
+  process.exit(0);
 }
 
 const screenshotPath = path.join(
