@@ -18,6 +18,7 @@ const featureComponents = [
   "features/settings/chat-answer-settings-panel.tsx",
   "features/settings/command-router-settings-panel.tsx",
   "features/settings/settings-general-panel.tsx",
+  "features/settings/voice-settings-panel.tsx",
   "features/memory/memory-boundary-panel.tsx",
   "features/memory/memory-center.tsx",
   "features/tasks/task-timeline.tsx",
@@ -145,5 +146,17 @@ describe("UI feature component boundaries", () => {
     expect(source).not.toContain("apiKey");
     expect(source).not.toContain("secret");
     expect(source).not.toContain("healthCheck");
+  });
+
+  it("keeps voice settings passive until user action", () => {
+    const source = readSource("features/settings/voice-settings-panel.tsx");
+
+    expect(source).toContain('data-testid="settings-open-voice-settings"');
+    expect(source).toContain('data-testid="settings-open-tts-settings"');
+    expect(source).not.toContain("usePttCapture");
+    expect(source).not.toContain("getUserMedia");
+    expect(source).not.toContain("startListening");
+    expect(source).not.toContain("openVoiceSettings(");
+    expect(source).not.toContain("openTtsSettings(");
   });
 });

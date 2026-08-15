@@ -101,6 +101,7 @@ import { PluginManagementView } from "@/features/plugins/plugin-management-view"
 import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
 import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
+import { VoiceSettingsPanel } from "@/features/settings/voice-settings-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { cn } from "@/lib/utils";
 import {
@@ -3460,129 +3461,84 @@ export default function App() {
                     productModeEnabled: chatAnswerProductModeEnabled,
                   }}
                 />
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.settings.voice}
-                    </h3>
-                    <Badge className="rounded-md text-[10px]" variant="outline">
-                      {snapshot?.voice.permission ?? "unknown"}
-                    </Badge>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label={copy.label.voiceService}
-                      value={
-                        voiceServiceStatus?.configured
+                <VoiceSettingsPanel
+                  actions={{
+                    openTtsSettings: () => {
+                      if (textOnlyAcceptanceMode) {
+                        return;
+                      }
+                      void trackAction(
+                        "Open TTS settings",
+                        openTtsSettings,
+                        uiLanguage === "zh"
+                          ? "TTS 设置已打开"
+                          : "TTS settings opened",
+                      );
+                    },
+                    openVoiceSettings: () => {
+                      if (textOnlyAcceptanceMode) {
+                        return;
+                      }
+                      void trackAction(
+                        "Open voice settings",
+                        openVoiceSettings,
+                        copy.action.voiceSettingsOpened,
+                      );
+                    },
+                  }}
+                  copy={copy}
+                  viewModel={{
+                    captureErrorDetail: voiceCaptureErrorDetail,
+                    captureNotice: voiceCaptureNotice,
+                    languageMismatch: voiceLanguageMismatch,
+                    metrics: [
+                      {
+                        label: copy.label.voiceService,
+                        value: voiceServiceStatus?.configured
                           ? copy.label.voiceServiceConfigured
-                          : copy.label.voiceServiceMissing
-                      }
-                      tone={
-                        voiceServiceStatus?.configured ? "success" : "warning"
-                      }
-                    />
-                    <Metric
-                      label={copy.label.voiceRecognitionLanguage}
-                      value={voiceServiceLanguage}
-                      tone={voiceLanguageMismatch ? "warning" : undefined}
-                    />
-                    <Metric
-                      label={copy.metric.micCapture}
-                      value={ptt.state}
-                      tone={
-                        ptt.active
+                          : copy.label.voiceServiceMissing,
+                        tone: voiceServiceStatus?.configured
+                          ? "success"
+                          : "warning",
+                      },
+                      {
+                        label: copy.label.voiceRecognitionLanguage,
+                        value: voiceServiceLanguage,
+                        tone: voiceLanguageMismatch ? "warning" : undefined,
+                      },
+                      {
+                        label: copy.metric.micCapture,
+                        value: ptt.state,
+                        tone: ptt.active
                           ? "success"
                           : ptt.captureNotice
                             ? "warning"
-                            : undefined
-                      }
-                    />
-                    <Metric
-                      label={copy.metric.voiceEngine}
-                      value={snapshot?.voice.state ?? "disabled"}
-                      tone="warning"
-                    />
-                    <Metric
-                      label={copy.metric.voiceMode}
-                      value={snapshot?.voice.mode ?? "manual"}
-                    />
-                    <Metric
-                      label={copy.metric.micPermission}
-                      value={snapshot?.voice.permission ?? "unknown"}
-                    />
-                    <Metric
-                      label={copy.metric.voiceFrames}
-                      value={String(ptt.audioDiagnostics.framesSent)}
-                    />
-                  </dl>
-                  {voiceLanguageMismatch && (
-                    <p
-                      className="mt-2 text-[11px] leading-4 text-warning"
-                      data-testid="settings-voice-language-warning"
-                    >
-                      {copy.label.voiceLanguageMismatch}
-                    </p>
-                  )}
-                  {voiceCaptureNotice && (
-                    <p
-                      className="mt-2 text-[11px] leading-4 text-warning"
-                      data-testid="settings-voice-capture-notice"
-                    >
-                      {voiceCaptureNotice}
-                    </p>
-                  )}
-                  {voiceCaptureErrorDetail && (
-                    <p
-                      className="mt-2 text-[11px] leading-4 text-muted-foreground"
-                      data-testid="settings-voice-capture-error-detail"
-                    >
-                      {voiceCaptureErrorDetail}
-                    </p>
-                  )}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      className="h-8 rounded-md px-2.5 text-xs"
-                      data-testid="settings-open-voice-settings"
-                      disabled={textOnlyAcceptanceMode}
-                      onClick={() =>
-                        textOnlyAcceptanceMode
-                          ? undefined
-                          : void trackAction(
-                              "Open voice settings",
-                              openVoiceSettings,
-                              copy.action.voiceSettingsOpened,
-                            )
-                      }
-                      type="button"
-                      variant="secondary"
-                    >
-                      <Settings className="size-3.5" />
-                      {copy.settings.voiceSettings}
-                    </Button>
-                    <Button
-                      className="h-8 rounded-md px-2.5 text-xs"
-                      data-testid="settings-open-tts-settings"
-                      disabled={textOnlyAcceptanceMode}
-                      onClick={() =>
-                        textOnlyAcceptanceMode
-                          ? undefined
-                          : void trackAction(
-                              "Open TTS settings",
-                              openTtsSettings,
-                              uiLanguage === "zh"
-                                ? "TTS 设置已打开"
-                                : "TTS settings opened",
-                            )
-                      }
-                      type="button"
-                      variant="secondary"
-                    >
-                      <Volume2 className="size-3.5" />
-                      {uiLanguage === "zh" ? "TTS 设置" : "TTS Settings"}
-                    </Button>
-                  </div>
-                </section>
-
+                            : undefined,
+                      },
+                      {
+                        label: copy.metric.voiceEngine,
+                        value: snapshot?.voice.state ?? "disabled",
+                        tone: "warning",
+                      },
+                      {
+                        label: copy.metric.voiceMode,
+                        value: snapshot?.voice.mode ?? "manual",
+                      },
+                      {
+                        label: copy.metric.micPermission,
+                        value: snapshot?.voice.permission ?? "unknown",
+                      },
+                      {
+                        label: copy.metric.voiceFrames,
+                        value: String(ptt.audioDiagnostics.framesSent),
+                      },
+                    ],
+                    permission: snapshot?.voice.permission ?? "unknown",
+                    ttsSettingsLabel:
+                      uiLanguage === "zh" ? "TTS 设置" : "TTS Settings",
+                    voiceSettingsDisabled: textOnlyAcceptanceMode,
+                  }}
+                />
                 <section className="min-w-0">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold">
