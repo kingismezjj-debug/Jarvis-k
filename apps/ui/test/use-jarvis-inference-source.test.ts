@@ -7,6 +7,7 @@ const hookSource = [
   "jarvis-event-router.ts",
   "use-jarvis-memory-actions.ts",
   "use-jarvis-plugin-actions.ts",
+  "use-jarvis-voice-actions.ts",
   "use-model-governance.ts",
 ].map((fileName) =>
   readFileSync(

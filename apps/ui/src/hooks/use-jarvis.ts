@@ -6,7 +6,6 @@ import {
   CoreSnapshotSchema,
   ChatAnswerProductModeStatusSchema,
   QwenRuntimeControlStatusSchema,
-  VoiceCommandAliasRecordSchema,
   type AppCommand,
   type BrainCommandResult,
   type BrainCommandSource,
@@ -25,7 +24,6 @@ import {
   type UserControlledMemoryRecord,
   type UserRouteAliasRecord,
   type VoiceCommandAliasRecord,
-  type VoiceCommandCorrectionCandidate,
   type VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 import {
@@ -35,6 +33,7 @@ import {
 import { useJarvisEventBridge } from "./use-jarvis-event-bridge";
 import { useJarvisMemoryActions } from "./use-jarvis-memory-actions";
 import { useJarvisPluginActions } from "./use-jarvis-plugin-actions";
+import { useJarvisVoiceActions } from "./use-jarvis-voice-actions";
 import { useModelGovernance } from "./use-model-governance";
 
 type CoreConnection = "connecting" | "online" | "restarting" | "offline";
@@ -276,101 +275,23 @@ export function useJarvis() {
     [dispatchBrainCommand],
   );
 
-  const refreshVoiceCommandAliases = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-    const result = await window.jarvis.sendCommand({
-      type: "agent.listVoiceCommandAliases",
-      payload: {},
-    });
-    if (!result.ok) {
-      setError(result.error.message);
-      return false;
-    }
-    const aliases = (result.data as { aliases?: unknown } | undefined)
-      ?.aliases;
-    if (!Array.isArray(aliases)) {
-      setError("Core returned invalid voice alias data.");
-      return false;
-    }
-    const parsed = aliases.map((alias) =>
-      VoiceCommandAliasRecordSchema.safeParse(alias),
-    );
-    if (parsed.some((alias) => !alias.success)) {
-      setError("Core returned invalid voice alias data.");
-      return false;
-    }
-    setVoiceCommandAliases(
-      parsed.map((alias) => (alias.success ? alias.data : neverAlias())),
-    );
-    setError(null);
-    return true;
-  }, []);
-
-  const confirmVoiceCommandCorrection = useCallback(
-    async (candidate: VoiceCommandCorrectionCandidate) => {
-      const rawAlias = brainResult?.rawTranscript ?? brainResult?.text;
-      if (!rawAlias) {
-        setError("No voice correction is pending.");
-        return false;
-      }
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-
-      setSending(true);
-      try {
-        const confirmation = await window.jarvis.sendCommand({
-          type: "agent.confirmVoiceCommandCorrection",
-          payload: {
-            rawAlias,
-            normalizedTranscript: candidate.normalizedTranscript,
-            intent: candidate.intent,
-            slots: candidate.slots,
-          },
-        });
-        if (!confirmation.ok) {
-          setError(confirmation.error.message);
-          return false;
-        }
-      } finally {
-        setSending(false);
-      }
-
-      await refreshVoiceCommandAliases();
-      return dispatchBrainCommand(rawAlias, "voice");
-    },
-    [brainResult, dispatchBrainCommand, refreshVoiceCommandAliases],
-  );
-
-  const deleteVoiceCommandAlias = useCallback(
-    async (aliasId: string) => {
-      if (!window.jarvis) {
-        setError("Desktop bridge unavailable.");
-        return false;
-      }
-      setSending(true);
-      try {
-        const result = await window.jarvis.sendCommand({
-          type: "agent.deleteVoiceCommandAlias",
-          payload: { aliasId },
-        });
-        if (!result.ok) {
-          setError(result.error.message);
-          return false;
-        }
-        await refreshVoiceCommandAliases();
-        setError(null);
-        return true;
-      } finally {
-        setSending(false);
-      }
-    },
-    [refreshVoiceCommandAliases],
-  );
+  const {
+    confirmVoiceCommandCorrection,
+    deleteVoiceCommandAlias,
+    openTtsSettings,
+    openVoiceSettings,
+    refreshTtsServiceStatus,
+    refreshVoiceCommandAliases,
+    refreshVoiceServiceStatus,
+  } = useJarvisVoiceActions({
+    brainResult,
+    setError,
+    setSending,
+    setVoiceCommandAliases,
+    setVoiceServiceStatus,
+    setTtsServiceStatus,
+    dispatchBrainCommand,
+  });
 
   const {
     confirmUserRouteAlias,
@@ -525,67 +446,6 @@ export function useJarvis() {
       }),
     [sendCommand],
   );
-
-  const openVoiceSettings = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return;
-    }
-    try {
-      const status = await window.jarvis.openVoiceSettings();
-      setVoiceServiceStatus(status);
-      setTtsServiceStatus(await window.jarvis.getTtsServiceStatus());
-      setError(null);
-    } catch {
-      setError("Voice settings could not be opened.");
-    }
-  }, []);
-
-  const openTtsSettings = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return;
-    }
-    try {
-      const status = await window.jarvis.openTtsSettings();
-      setTtsServiceStatus(status);
-      setError(null);
-    } catch {
-      setError("TTS settings could not be opened.");
-    }
-  }, []);
-
-  const refreshVoiceServiceStatus = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-    try {
-      const status = await window.jarvis.getVoiceServiceStatus();
-      setVoiceServiceStatus(status);
-      setError(null);
-      return true;
-    } catch {
-      setError("Voice service status could not be read.");
-      return false;
-    }
-  }, []);
-
-  const refreshTtsServiceStatus = useCallback(async () => {
-    if (!window.jarvis) {
-      setError("Desktop bridge unavailable.");
-      return false;
-    }
-    try {
-      const status = await window.jarvis.getTtsServiceStatus();
-      setTtsServiceStatus(status);
-      setError(null);
-      return true;
-    } catch {
-      setError("TTS service status could not be read.");
-      return false;
-    }
-  }, []);
 
   const refreshChatAnswerProductModeStatus = useCallback(async () => {
     if (!window.jarvis) {
@@ -895,8 +755,4 @@ export function useJarvis() {
     voiceCommandAliases,
     voiceServiceStatus,
   };
-}
-
-function neverAlias(): VoiceCommandAliasRecord {
-  throw new Error("Unreachable invalid voice command alias.");
 }
