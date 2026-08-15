@@ -57,15 +57,6 @@ import {
 } from "@jarvis-k/inference-adapter-glm-chat-answer-runtime";
 import { SqliteMemoryRepository } from "@jarvis-k/memory-sqlite";
 import {
-  CompositePluginRegistry,
-  InMemoryPluginRegistry,
-  LocalReadOnlyPluginRuntime,
-  ManifestDirectoryDeveloperDiagnostics,
-  ManifestDirectoryPluginRegistry,
-  localTemplatePluginDefinitions,
-  samplePluginDefinitions,
-} from "@jarvis-k/plugin-sdk";
-import {
   type AsrProviderCallbacks,
   type AsrProviderPort,
   type AsrSessionPort,
@@ -92,7 +83,6 @@ import { NodeDeviceCapabilityProvider } from "./node-device-capability-provider"
 import { NodeWebSocketFactory } from "./node-websocket-factory";
 import { VolcengineNodeWebSocketFactory } from "./volcengine-node-websocket-factory";
 import { SqliteTaskRepository } from "./sqlite-task-repository";
-import { JsonLocalPluginStateRepository } from "./local-plugin-state-repository";
 import { JsonVoiceCommandAliasRepository } from "./voice-command-alias-repository";
 import { JsonUserRouteAliasRepository } from "./user-route-alias-repository";
 import { JsonUserPreferenceMemoryRepository } from "./user-preference-memory-repository";
@@ -101,6 +91,7 @@ import {
   LocalSmokeChatAnswerProvider,
   OneShotFixedUtteranceChatAnswerProvider,
 } from "./composition/chat-composition";
+import { createCoreHostPluginComposition } from "./composition/plugin-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
 
@@ -360,43 +351,18 @@ const rerankingProvider = fixtureInferenceEnabled
   : undefined;
 const localPluginManifestDirectories =
   storagePaths.localPluginManifestDirectories;
-const localPluginManifestDiscoveryEnabled =
-  runtimeConfig.localPluginManifestDiscoveryEnabled;
-const localPluginTemplateRuntimeEnabled =
-  localPluginManifestDiscoveryEnabled &&
-  localPluginManifestDirectories.length > 0;
-const localPluginTemplatePluginIds = localPluginTemplateRuntimeEnabled
-  ? localTemplatePluginDefinitions.map((definition) => definition.manifest.id)
-  : [];
-const pluginRuntimeDefinitions = localPluginTemplateRuntimeEnabled
-  ? [...samplePluginDefinitions, ...localTemplatePluginDefinitions]
-  : [...samplePluginDefinitions];
-const bundledPluginRegistry = new InMemoryPluginRegistry(
-  samplePluginDefinitions.map((definition) => definition.manifest),
-);
-const pluginRegistry =
-  localPluginManifestDirectories.length > 0
-    ? new CompositePluginRegistry([
-        bundledPluginRegistry,
-        new ManifestDirectoryPluginRegistry({
-          directories: localPluginManifestDirectories,
-          rootDirectory: process.cwd(),
-        }),
-      ])
-    : bundledPluginRegistry;
-const pluginRuntime = new LocalReadOnlyPluginRuntime({
-  definitions: pluginRuntimeDefinitions,
-  localReadOnlyPluginIds: localPluginTemplatePluginIds,
+const pluginComposition = createCoreHostPluginComposition({
+  manifestDiscoveryEnabled: runtimeConfig.localPluginManifestDiscoveryEnabled,
+  manifestDirectories: localPluginManifestDirectories,
+  statePath: storagePaths.localPluginStatePath,
+  rootDirectory: process.cwd(),
 });
+const pluginRegistry = pluginComposition.pluginRegistry;
+const pluginRuntime = pluginComposition.pluginRuntime;
 const localPluginManifestDiagnostics =
-  new ManifestDirectoryDeveloperDiagnostics({
-    directories: localPluginManifestDirectories,
-    enabled: localPluginManifestDiscoveryEnabled,
-    rootDirectory: process.cwd(),
-  });
-const localPluginStateRepository = new JsonLocalPluginStateRepository(
-  storagePaths.localPluginStatePath,
-);
+  pluginComposition.localPluginManifestDiagnostics;
+const localPluginStateRepository =
+  pluginComposition.localPluginStateRepository;
 const voiceCommandAliasRepository = new JsonVoiceCommandAliasRepository(
   storagePaths.voiceCommandAliasPath,
 );
