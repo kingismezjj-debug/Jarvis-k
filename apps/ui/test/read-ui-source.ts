@@ -26,6 +26,7 @@ export function readAppCompositionSource() {
     "app/use-user-controlled-memory-view.ts",
     "components/assistant-shell/NavigationButton.tsx",
     "components/shared/Metric.tsx",
+    "features/activity/activity-view.tsx",
     "features/diagnostics/system-status-panel.tsx",
     "features/memory/memory-center.tsx",
     "features/model-management/model-operation-list.tsx",

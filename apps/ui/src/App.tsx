@@ -91,6 +91,7 @@ import type {
 } from "@/app/types";
 import { NavigationButton } from "@/components/assistant-shell/NavigationButton";
 import { Metric } from "@/components/shared/Metric";
+import { ActivityView } from "@/features/activity/activity-view";
 import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
@@ -4752,167 +4753,55 @@ export default function App() {
             </ScrollArea>
           ) : (
             <ScrollArea className="min-h-0 flex-1">
-              <div
-                className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]"
-                data-testid="activity-view"
-              >
-                <section
-                  className="min-w-0"
-                  data-testid="activity-memory-alpha-spine"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.settings.memoryAlpha}
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        aria-label="Disable Memory alpha from activity"
-                        className="size-8 rounded-md"
-                        disabled={sending}
-                        onClick={() => void handleDisableMemoryAlpha()}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                      <Button
-                        aria-label="Refresh Memory alpha from activity"
-                        className="size-8 rounded-md"
-                        disabled={sending}
-                        onClick={() =>
-                          void trackAction(
-                            "Refresh Memory alpha",
-                            refreshMemoryAlphaStatus,
-                            copy.action.memoryAlphaRefreshed,
-                          )
-                        }
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <RefreshCw
-                          className={cn("size-3.5", sending && "animate-spin")}
-                        />
-                      </Button>
-                    </div>
-                  </div>
-                  <dl className="divide-y divide-border border-y text-[11px]">
-                    <Metric
-                      label={copy.metric.alphaState}
-                      value={memoryAlpha?.state ?? "unknown"}
-                    />
-                    <Metric
-                      label={copy.metric.tracked}
-                      value={`${memoryAlpha?.trackedMessageCount ?? 0}/${memoryAlpha?.maxMessageCount ?? 5}`}
-                    />
-                    <Metric
-                      label={copy.metric.rollback}
-                      value={memoryAlpha?.rollbackStatus ?? "not_started"}
-                    />
-                    <Metric
-                      label={copy.metric.reason}
-                      value={memoryAlphaReason}
-                    />
-                    <Metric
-                      label={copy.metric.probe}
-                      value={memoryAlphaProbeSummary}
-                    />
-                    <Metric
-                      label={copy.metric.failure}
-                      value={memoryAlphaRecallProbe?.failureClass ?? "none"}
-                    />
-                  </dl>
-                  <div className="mt-3 flex items-center gap-2">
-                    <Input
-                      aria-label="Activity Memory alpha recall probe"
-                      className="h-8 rounded-md bg-input/45 px-2.5 text-xs"
-                      data-testid="activity-memory-alpha-probe-input"
-                      onChange={(event) =>
-                        setMemoryAlphaProbeDraft(event.target.value)
-                      }
-                      placeholder={copy.label.recallProbePlaceholder}
-                      value={memoryAlphaProbeDraft}
-                    />
-                    <Button
-                      aria-label="Run activity Memory alpha recall probe"
-                      className="size-8 rounded-md"
-                      disabled={sending}
-                      onClick={() => void handleMemoryAlphaProbe()}
-                      size="icon-sm"
-                      type="button"
-                      variant="secondary"
-                    >
-                      <Activity className="size-3.5" />
-                    </Button>
-                  </div>
-                </section>
-
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      {copy.label.recentEvents}
-                    </h3>
-                    <Button
-                      aria-label="Probe Core from activity"
-                      className="size-8 rounded-md"
-                      disabled={sending}
-                      onClick={() =>
-                        void trackAction("Probe Core", async () => {
-                          const probed = await probeCore();
-                          const refreshedCapabilities =
-                            await refreshCapabilities();
-                          const refreshedMemory = await refreshMemoryHealth();
-                          const refreshedModels =
-                            await refreshModelGovernance();
-                          return (
-                            probed &&
-                            refreshedCapabilities &&
-                            refreshedMemory &&
-                            refreshedModels
-                          );
-                        })
-                      }
-                      size="icon-sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <RefreshCw
-                        className={cn("size-3.5", sending && "animate-spin")}
-                      />
-                    </Button>
-                  </div>
-                  <div
-                    className="space-y-4 border-y py-3"
-                    data-testid="activity-event-list"
-                  >
-                    {recentEvents.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        {copy.label.waitingForCoreEvents}
-                      </p>
-                    ) : (
-                      recentEvents.map((envelope) => (
-                        <div className="flex gap-2.5" key={envelope.eventId}>
-                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent" />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="truncate text-[11px] font-medium">
-                                {envelope.event.type}
-                              </p>
-                              <time className="shrink-0 text-[10px] text-muted-foreground">
-                                {formatEventTime(envelope.createdAt)}
-                              </time>
-                            </div>
-                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                              {eventLabel(envelope)}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-              </div>
+              <ActivityView
+                actions={{
+                  disableMemoryAlpha: () => {
+                    void handleDisableMemoryAlpha();
+                  },
+                  probeCore: () => {
+                    void trackAction("Probe Core", async () => {
+                      const probed = await probeCore();
+                      const refreshedCapabilities = await refreshCapabilities();
+                      const refreshedMemory = await refreshMemoryHealth();
+                      const refreshedModels = await refreshModelGovernance();
+                      return (
+                        probed &&
+                        refreshedCapabilities &&
+                        refreshedMemory &&
+                        refreshedModels
+                      );
+                    });
+                  },
+                  refreshMemoryAlpha: () => {
+                    void trackAction(
+                      "Refresh Memory alpha",
+                      refreshMemoryAlphaStatus,
+                      copy.action.memoryAlphaRefreshed,
+                    );
+                  },
+                  runMemoryAlphaProbe: () => {
+                    void handleMemoryAlphaProbe();
+                  },
+                  setMemoryAlphaProbeDraft,
+                }}
+                copy={copy}
+                sending={sending}
+                viewModel={{
+                  memoryAlpha: {
+                    draft: memoryAlphaProbeDraft,
+                    failureClass: memoryAlphaRecallProbe?.failureClass,
+                    maxMessageCount: memoryAlpha?.maxMessageCount ?? 5,
+                    probeSummary: memoryAlphaProbeSummary,
+                    reason: memoryAlphaReason,
+                    rollbackStatus:
+                      memoryAlpha?.rollbackStatus ?? "not_started",
+                    state: memoryAlpha?.state ?? "unknown",
+                    trackedMessageCount:
+                      memoryAlpha?.trackedMessageCount ?? 0,
+                  },
+                  recentEvents,
+                }}
+              />
             </ScrollArea>
           )}
 
