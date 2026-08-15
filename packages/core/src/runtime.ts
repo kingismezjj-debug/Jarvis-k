@@ -28,9 +28,6 @@ import {
   EmbeddingGenerationRequestSchema,
   EmbeddingGenerationResultSchema,
   EventEnvelope,
-  InferenceProviderConfigurationReportSchema,
-  InferenceProviderDescriptorSchema,
-  InferencePreflightReportSchema,
   IntentRoutingRequestSchema,
   IntentRoutingResultSchema,
   Message,
@@ -40,13 +37,8 @@ import {
   MemoryAlphaStatusSchema,
   MemoryHealth,
   MemoryHealthSchema,
-  ModelInstallabilityReportSchema,
-  ModelCandidateSchema,
-  ModelInventoryItemSchema,
-  ModelManifestSchema,
   ModelOperationSnapshot,
   ModelOperationSnapshotSchema,
-  ModelRuntimeAdapterDescriptorSchema,
   MemorySnapshot,
   OcrRecognitionRequestSchema,
   OcrRecognitionResultSchema,
@@ -63,7 +55,6 @@ import {
   RerankRequestSchema,
   RerankResultSchema,
   ResourceSchedulerDiagnostics,
-  ResourceSchedulerDiagnosticsSchema,
   SessionHistoryEntry,
   SessionHistoryEntrySchema,
   StructuredError,
@@ -147,6 +138,9 @@ import {
   DETERMINISTIC_MINIMAL_PLANNER_PROVIDER_ID,
   DeterministicPlannerService,
 } from "./planner/deterministic-planner-service";
+import { ModelInstallCoordinator } from "./model/model-install-coordinator";
+import { ModelOperationsService } from "./model/model-operations-service";
+import { ModelStatusService } from "./model/model-status-service";
 import { PlannerDraftService } from "./planner/planner-draft-service";
 import { PlannerApprovalService } from "./planner/planner-approval-service";
 import { PlannerExecutionCoordinator } from "./planner/planner-execution-coordinator";
@@ -471,6 +465,9 @@ export class CoreRuntime {
   private readonly memoryRecallService: MemoryRecallService;
   private readonly userPreferenceMemoryService: UserPreferenceMemoryService;
   private readonly routeAliasMemoryService: RouteAliasMemoryService;
+  private readonly modelStatusService: ModelStatusService;
+  private readonly modelOperationsService: ModelOperationsService;
+  private readonly modelInstallCoordinator: ModelInstallCoordinator;
   private readonly deterministicPlannerService: DeterministicPlannerService;
   private readonly providerPlannerService: ProviderPlannerService;
   private readonly plannerDraftService: PlannerDraftService;
@@ -559,6 +556,32 @@ export class CoreRuntime {
       voiceAliasRepository: this.voiceCommandAliasRepository,
       now: this.now,
     });
+    this.modelStatusService = new ModelStatusService({
+      capabilityProvider: this.capabilityProvider,
+      modelRegistry: this.modelRegistry,
+      modelCandidateRegistry: this.modelCandidateRegistry,
+      modelLifecycleManager: this.modelLifecycleManager,
+      modelRuntimeRegistry: this.modelRuntimeRegistry,
+      inferenceProviderRegistry: this.inferenceProviderRegistry,
+      inferenceExecutionPlanner: this.inferenceExecutionPlanner,
+      modelInstallationPlanner: this.modelInstallationPlanner,
+      modelOperationSupervisor: this.modelOperationSupervisor,
+      resourceScheduler: this.resourceScheduler,
+    });
+    this.modelOperationsService = new ModelOperationsService({
+      modelRegistry: this.modelRegistry,
+      inferenceExecutionPlanner: this.inferenceExecutionPlanner,
+      modelOperationSupervisor: this.modelOperationSupervisor,
+      onOperationUpdated: (operation, correlationId) =>
+        this.handleModelOperationUpdated(operation, correlationId),
+    });
+    this.modelInstallCoordinator = new ModelInstallCoordinator({
+      capabilityProvider: this.capabilityProvider,
+      modelRegistry: this.modelRegistry,
+      modelInstallWorkflowOrchestrator: this.modelInstallWorkflowOrchestrator,
+      onOperationUpdated: (operation, correlationId) =>
+        this.handleModelOperationUpdated(operation, correlationId),
+    });
     this.deterministicPlannerService = new DeterministicPlannerService({
       allowedToolIds: BRAIN_PLANNER_ALLOWED_TOOL_IDS,
       now: this.now,
@@ -624,13 +647,15 @@ export class CoreRuntime {
   }
 
   public async hydrateCapabilities(): Promise<void> {
-    if (!this.capabilityProvider) {
+    const result = await this.modelStatusService.inspectCapabilities();
+    if (!result.ok) {
+      if (result.error.code === "CAPABILITY_INSPECTION_FAILED") {
+        this.health = "degraded";
+      }
       return;
     }
     try {
-      this.capabilities = CapabilitySnapshotSchema.parse(
-        await this.capabilityProvider.inspect(),
-      );
+      this.capabilities = result.value;
     } catch {
       this.health = "degraded";
     }
@@ -824,205 +849,104 @@ export class CoreRuntime {
       }
 
       case "agent.getCapabilities": {
-        if (!this.capabilityProvider) {
-          return this.capabilitiesUnavailable(envelope);
+        const result = await this.modelStatusService.inspectCapabilities();
+        if (!result.ok) {
+          if (result.error.code === "CAPABILITY_INSPECTION_FAILED") {
+            this.health = "degraded";
+          }
+          return this.failure(envelope, result.error);
         }
-        try {
-          this.capabilities = CapabilitySnapshotSchema.parse(
-            await this.capabilityProvider.inspect(),
-          );
-          const snapshot = this.publishSnapshot(envelope.correlationId);
-          return this.success(envelope, {
-            capabilities: this.capabilities,
-            snapshot,
-          });
-        } catch {
-          this.health = "degraded";
-          return this.failure(envelope, {
-            code: "CAPABILITY_INSPECTION_FAILED",
-            message: "Unable to inspect local device capabilities.",
-            retryable: true,
-          });
-        }
+        this.capabilities = result.value;
+        const snapshot = this.publishSnapshot(envelope.correlationId);
+        return this.success(envelope, {
+          capabilities: this.capabilities,
+          snapshot,
+        });
       }
 
       case "agent.listModelManifests": {
-        if (!this.modelRegistry) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.listModelManifests({
+          ...(envelope.command.payload.capability
+            ? { capability: envelope.command.payload.capability }
+            : {}),
+          ...(envelope.command.payload.includeRedRisk === undefined
+            ? {}
+            : { includeRedRisk: envelope.command.payload.includeRedRisk }),
+        });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const manifests = await this.modelRegistry.listManifests({
-            ...(envelope.command.payload.capability
-              ? { capability: envelope.command.payload.capability }
-              : {}),
-            ...(envelope.command.payload.includeRedRisk === undefined
-              ? {}
-              : { includeRedRisk: envelope.command.payload.includeRedRisk }),
-          });
-          return this.success(envelope, {
-            manifests: manifests.map((manifest) =>
-              ModelManifestSchema.parse(manifest),
-            ),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_REGISTRY_FAILED",
-            message: "Unable to list model manifests.",
-            retryable: true,
-          });
-        }
+        return this.success(envelope, result.value);
       }
 
       case "agent.listModelCandidates": {
-        if (!this.modelCandidateRegistry) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.listModelCandidates({
+          ...(envelope.command.payload.capability
+            ? { capability: envelope.command.payload.capability }
+            : {}),
+          ...(envelope.command.payload.includeRedRisk === undefined
+            ? {}
+            : { includeRedRisk: envelope.command.payload.includeRedRisk }),
+        });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const candidates = await this.modelCandidateRegistry.listCandidates({
-            ...(envelope.command.payload.capability
-              ? { capability: envelope.command.payload.capability }
-              : {}),
-            ...(envelope.command.payload.includeRedRisk === undefined
-              ? {}
-              : {
-                  includeRedRisk: envelope.command.payload.includeRedRisk,
-                }),
-          });
-          return this.success(envelope, {
-            candidates: candidates.map((candidate) =>
-              ModelCandidateSchema.parse(candidate),
-            ),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_CANDIDATES_FAILED",
-            message: "Unable to list model candidates.",
-            retryable: true,
-          });
-        }
+        return this.success(envelope, result.value);
       }
 
       case "agent.listModelInventory": {
-        if (!this.modelLifecycleManager) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.listModelInventory();
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const inventory = await this.modelLifecycleManager.listInventory();
-          return this.success(envelope, {
-            inventory: inventory.map((item) =>
-              ModelInventoryItemSchema.parse(item),
-            ),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_INVENTORY_FAILED",
-            message: "Unable to list local model inventory.",
-            retryable: true,
-          });
-        }
+        return this.success(envelope, result.value);
       }
 
       case "agent.listModelRuntimeAdapters": {
-        if (!this.modelRuntimeRegistry) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.listModelRuntimeAdapters();
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const descriptors = await this.modelRuntimeRegistry.listDescriptors();
-          return this.success(envelope, {
-            runtimeAdapters: descriptors.map((descriptor) =>
-              ModelRuntimeAdapterDescriptorSchema.parse(descriptor),
-            ),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_RUNTIME_REGISTRY_FAILED",
-            message: "Unable to list model runtime adapters.",
-            retryable: true,
-          });
-        }
+        return this.success(envelope, result.value);
       }
 
       case "agent.listInferenceProviders": {
-        if (!this.inferenceProviderRegistry) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.listInferenceProviders({
+          ...(envelope.command.payload.capability
+            ? { capability: envelope.command.payload.capability }
+            : {}),
+        });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const providers = await this.inferenceProviderRegistry.listProviders({
+        return this.success(envelope, result.value);
+      }
+
+      case "agent.listInferenceProviderRequirements": {
+        const result =
+          await this.modelStatusService.listInferenceProviderRequirements({
             ...(envelope.command.payload.capability
               ? { capability: envelope.command.payload.capability }
               : {}),
           });
-          return this.success(envelope, {
-            providers: providers.map((provider) =>
-              InferenceProviderDescriptorSchema.parse(provider),
-            ),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "INFERENCE_PROVIDER_REGISTRY_FAILED",
-            message: "Unable to list inference providers.",
-            retryable: true,
-          });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-      }
-
-      case "agent.listInferenceProviderRequirements": {
-        if (!this.inferenceProviderRegistry) {
-          return this.modelsUnavailable(envelope);
-        }
-        try {
-          const reports =
-            await this.inferenceProviderRegistry.listConfigurationRequirements({
-              ...(envelope.command.payload.capability
-                ? { capability: envelope.command.payload.capability }
-                : {}),
-            });
-          return this.success(envelope, {
-            reports: reports.map((report) =>
-              InferenceProviderConfigurationReportSchema.parse(report),
-            ),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "INFERENCE_PROVIDER_REQUIREMENTS_FAILED",
-            message: "Unable to list inference provider requirements.",
-            retryable: true,
-          });
-        }
+        return this.success(envelope, result.value);
       }
 
       case "agent.previewInferenceExecution": {
-        if (!this.modelRegistry || !this.inferenceExecutionPlanner) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.previewInferenceExecution({
+          capability: envelope.command.payload.capability,
+          modelId: envelope.command.payload.modelId,
+          ...(envelope.command.payload.exclusiveGpu === undefined
+            ? {}
+            : { exclusiveGpu: envelope.command.payload.exclusiveGpu }),
+        });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const manifest = await this.modelRegistry.getManifest(
-            envelope.command.payload.modelId,
-          );
-          if (!manifest) {
-            return this.failure(envelope, {
-              code: "MODEL_MANIFEST_NOT_FOUND",
-              message: "Model manifest was not found.",
-              retryable: false,
-            });
-          }
-          const report = await this.inferenceExecutionPlanner.preview({
-            capability: envelope.command.payload.capability,
-            manifest: ModelManifestSchema.parse(manifest),
-            ...(envelope.command.payload.exclusiveGpu === undefined
-              ? {}
-              : { exclusiveGpu: envelope.command.payload.exclusiveGpu }),
-          });
-          return this.success(envelope, {
-            report: InferencePreflightReportSchema.parse(report),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "INFERENCE_PREFLIGHT_FAILED",
-            message: "Unable to preview inference execution.",
-            retryable: true,
-          });
-        }
+        return this.success(envelope, result.value);
       }
 
       case "agent.generateEmbeddings": {
@@ -1097,160 +1021,86 @@ export class CoreRuntime {
       }
 
       case "agent.listModelOperations": {
-        if (!this.modelOperationSupervisor) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.listModelOperations({
+          ...(envelope.command.payload.modelId === undefined
+            ? {}
+            : { modelId: envelope.command.payload.modelId }),
+          ...(envelope.command.payload.activeOnly === undefined
+            ? {}
+            : { activeOnly: envelope.command.payload.activeOnly }),
+          ...(envelope.command.payload.limit === undefined
+            ? {}
+            : { limit: envelope.command.payload.limit }),
+        });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          const operations = await this.modelOperationSupervisor.list({
-            ...(envelope.command.payload.modelId === undefined
-              ? {}
-              : { modelId: envelope.command.payload.modelId }),
-            ...(envelope.command.payload.activeOnly === undefined
-              ? {}
-              : { activeOnly: envelope.command.payload.activeOnly }),
-            ...(envelope.command.payload.limit === undefined
-              ? {}
-              : { limit: envelope.command.payload.limit }),
-          });
-          this.replaceModelOperations(operations);
-          const snapshot = this.publishSnapshot(envelope.correlationId);
-          return this.success(envelope, {
-            operations: this.modelOperations.map((operation) =>
-              ModelOperationSnapshotSchema.parse(operation),
-            ),
-            snapshot,
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_OPERATIONS_FAILED",
-            message: "Unable to list model operations.",
-            retryable: true,
-          });
-        }
+        this.replaceModelOperations(result.value.operations);
+        const snapshot = this.publishSnapshot(envelope.correlationId);
+        return this.success(envelope, {
+          operations: this.modelOperations.map((operation) =>
+            ModelOperationSnapshotSchema.parse(operation),
+          ),
+          snapshot,
+        });
       }
 
       case "agent.getResourceDiagnostics": {
-        if (!this.resourceScheduler) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelStatusService.getResourceDiagnostics();
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        try {
-          this.resourceDiagnostics = ResourceSchedulerDiagnosticsSchema.parse(
-            await this.resourceScheduler.diagnostics(),
-          );
-          const snapshot = this.publishSnapshot(envelope.correlationId);
-          return this.success(envelope, {
-            resourceDiagnostics: this.resourceDiagnostics,
-            snapshot,
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "RESOURCE_DIAGNOSTICS_FAILED",
-            message: "Unable to inspect model resource diagnostics.",
-            retryable: true,
-          });
-        }
+        this.resourceDiagnostics = result.value.resourceDiagnostics;
+        const snapshot = this.publishSnapshot(envelope.correlationId);
+        return this.success(envelope, {
+          resourceDiagnostics: this.resourceDiagnostics,
+          snapshot,
+        });
       }
 
       case "agent.previewModelInstallability": {
-        if (!this.modelRegistry || !this.modelInstallationPlanner) {
-          return this.modelsUnavailable(envelope);
-        }
-        if (!this.capabilityProvider) {
-          return this.capabilitiesUnavailable(envelope);
-        }
-        try {
-          const manifest = await this.modelRegistry.getManifest(
-            envelope.command.payload.modelId,
-          );
-          if (!manifest) {
-            return this.failure(envelope, {
-              code: "MODEL_MANIFEST_NOT_FOUND",
-              message: "Model manifest was not found.",
-              retryable: false,
-            });
-          }
-          this.capabilities = CapabilitySnapshotSchema.parse(
-            await this.capabilityProvider.inspect(),
-          );
-          const report = await this.modelInstallationPlanner.preview({
-            manifest: ModelManifestSchema.parse(manifest),
-            device: this.capabilities.device,
+        const result = await this.modelStatusService.previewModelInstallability(
+          {
+            modelId: envelope.command.payload.modelId,
             ...(envelope.command.payload.allowYellowRisk === undefined
               ? {}
-              : {
-                  allowYellowRisk: envelope.command.payload.allowYellowRisk,
-                }),
+              : { allowYellowRisk: envelope.command.payload.allowYellowRisk }),
             ...(envelope.command.payload.allowUnknownRisk === undefined
               ? {}
               : {
                   allowUnknownRisk: envelope.command.payload.allowUnknownRisk,
                 }),
-          });
-          return this.success(envelope, {
-            report: ModelInstallabilityReportSchema.parse(report),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_INSTALLABILITY_FAILED",
-            message: "Unable to preview model installability.",
-            retryable: true,
-          });
+          },
+        );
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
+        this.capabilities = result.value.capabilities;
+        return this.success(envelope, { report: result.value.report });
       }
 
       case "agent.prepareModelInstall": {
-        if (!this.modelRegistry || !this.modelInstallWorkflowOrchestrator) {
-          return this.modelsUnavailable(envelope);
+        const result = await this.modelInstallCoordinator.prepare({
+          modelId: envelope.command.payload.modelId,
+          correlationId: envelope.correlationId,
+          ...(envelope.command.payload.allowYellowRisk === undefined
+            ? {}
+            : { allowYellowRisk: envelope.command.payload.allowYellowRisk }),
+          ...(envelope.command.payload.allowUnknownRisk === undefined
+            ? {}
+            : { allowUnknownRisk: envelope.command.payload.allowUnknownRisk }),
+          ...(envelope.command.payload.exclusiveGpu === undefined
+            ? {}
+            : { exclusiveGpu: envelope.command.payload.exclusiveGpu }),
+        });
+        if (!result.ok) {
+          return this.failure(envelope, result.error);
         }
-        if (!this.capabilityProvider) {
-          return this.capabilitiesUnavailable(envelope);
-        }
-        try {
-          const manifest = await this.modelRegistry.getManifest(
-            envelope.command.payload.modelId,
-          );
-          if (!manifest) {
-            return this.failure(envelope, {
-              code: "MODEL_MANIFEST_NOT_FOUND",
-              message: "Model manifest was not found.",
-              retryable: false,
-            });
-          }
-          this.capabilities = CapabilitySnapshotSchema.parse(
-            await this.capabilityProvider.inspect(),
-          );
-          const operation = await this.modelInstallWorkflowOrchestrator.prepare(
-            {
-              manifest: ModelManifestSchema.parse(manifest),
-              device: this.capabilities.device,
-              ...(envelope.command.payload.allowYellowRisk === undefined
-                ? {}
-                : {
-                    allowYellowRisk: envelope.command.payload.allowYellowRisk,
-                  }),
-              ...(envelope.command.payload.allowUnknownRisk === undefined
-                ? {}
-                : {
-                    allowUnknownRisk: envelope.command.payload.allowUnknownRisk,
-                  }),
-              ...(envelope.command.payload.exclusiveGpu === undefined
-                ? {}
-                : { exclusiveGpu: envelope.command.payload.exclusiveGpu }),
-            },
-          );
-          const parsed = ModelOperationSnapshotSchema.parse(operation);
-          this.handleModelOperationUpdated(parsed, envelope.correlationId);
-          return this.success(envelope, {
-            operation: parsed,
-            snapshot: this.getSnapshot(),
-          });
-        } catch {
-          return this.failure(envelope, {
-            code: "MODEL_INSTALL_PREPARE_FAILED",
-            message: "Unable to prepare model install workflow.",
-            retryable: true,
-          });
-        }
+        this.capabilities = result.value.capabilities;
+        return this.success(envelope, {
+          operation: result.value.operation,
+          snapshot: this.getSnapshot(),
+        });
       }
 
       case "agent.listPlugins": {
@@ -2853,7 +2703,7 @@ export class CoreRuntime {
     let operation: ModelOperationSnapshot | undefined;
     try {
       if (this.modelRegistry && this.inferenceExecutionPlanner) {
-        operation = await this.startModelOperation(
+        operation = await this.modelOperationsService.startOperation(
           {
             modelId,
             capability: "intent_router",
@@ -2861,13 +2711,17 @@ export class CoreRuntime {
           },
           input.correlationId,
         );
-        const manifest = await this.modelRegistry.getManifest(modelId);
-        if (!manifest) {
-          await this.updateModelOperation(
+        const preflight =
+          await this.modelStatusService.previewInferenceExecution({
+            capability: "intent_router",
+            modelId,
+          });
+        if (!preflight.ok) {
+          await this.modelOperationsService.updateOperation(
             operation,
             {
               phase: "blocked",
-              reasons: ["Brain fast router model manifest was not found."],
+              reasons: [preflight.error.message],
             },
             input.correlationId,
           );
@@ -2883,12 +2737,9 @@ export class CoreRuntime {
             }),
           };
         }
-        const report = await this.inferenceExecutionPlanner.preview({
-          capability: "intent_router",
-          manifest: ModelManifestSchema.parse(manifest),
-        });
+        const report = preflight.value.report;
         if (!report.allowed) {
-          await this.updateModelOperation(
+          await this.modelOperationsService.updateOperation(
             operation,
             {
               phase: "blocked",
@@ -2910,7 +2761,7 @@ export class CoreRuntime {
         }
       }
 
-      operation = await this.updateModelOperation(
+      operation = await this.modelOperationsService.updateOperation(
         operation,
         {
           phase: "executing",
@@ -2936,7 +2787,7 @@ export class CoreRuntime {
       });
       const parsedResult = IntentRoutingResultSchema.safeParse(rawResult);
       if (!parsedResult.success) {
-        await this.updateModelOperation(
+        await this.modelOperationsService.updateOperation(
           operation,
           {
             phase: "failed",
@@ -2957,7 +2808,7 @@ export class CoreRuntime {
         };
       }
       const result = parsedResult.data;
-      await this.updateModelOperation(
+      await this.modelOperationsService.updateOperation(
         operation,
         {
           phase: "completed",
@@ -3058,7 +2909,7 @@ export class CoreRuntime {
         }),
       };
     } catch {
-      await this.updateModelOperation(
+      await this.modelOperationsService.updateOperation(
         operation,
         {
           phase: "failed",
@@ -5449,143 +5300,17 @@ export class CoreRuntime {
       failureMessage: string;
     },
   ): Promise<CommandResult> {
-    if (!this.modelRegistry || !this.inferenceExecutionPlanner) {
-      return this.modelsUnavailable(envelope);
-    }
-
-    let operation: ModelOperationSnapshot | undefined;
-    try {
-      operation = await this.startModelOperation(
-        {
-          modelId: input.modelId,
-          capability: input.capability,
-          phase: "prechecking",
-        },
-        envelope.correlationId,
-      );
-      const manifest = await this.modelRegistry.getManifest(input.modelId);
-      if (!manifest) {
-        operation = await this.updateModelOperation(
-          operation,
-          {
-            phase: "blocked",
-            reasons: ["Model manifest was not found."],
-          },
-          envelope.correlationId,
-        );
-        return this.failure(envelope, {
-          code: "MODEL_MANIFEST_NOT_FOUND",
-          message: "Model manifest was not found.",
-          retryable: false,
-          ...(operation
-            ? { details: { operationId: operation.operationId } }
-            : {}),
-        });
-      }
-
-      const report = await this.inferenceExecutionPlanner.preview({
-        capability: input.capability,
-        manifest: ModelManifestSchema.parse(manifest),
-      });
-      if (!report.allowed) {
-        operation = await this.updateModelOperation(
-          operation,
-          {
-            phase: "blocked",
-            reasons: report.reasons,
-          },
-          envelope.correlationId,
-        );
-        return this.failure(envelope, {
-          code: "INFERENCE_PREFLIGHT_BLOCKED",
-          message: "Inference preflight blocked execution.",
-          retryable: false,
-          details: {
-            capability: report.capability,
-            modelId: report.modelId,
-            reasons: report.reasons,
-            ...(operation ? { operationId: operation.operationId } : {}),
-          },
-        });
-      }
-
-      operation = await this.updateModelOperation(
-        operation,
-        {
-          phase: "executing",
-          reasons: [`${input.capability} inference preflight passed.`],
-        },
-        envelope.correlationId,
-      );
-      const result = input.parseResult(await input.execute());
-      operation = await this.updateModelOperation(
-        operation,
-        {
-          phase: "completed",
-          reasons: [input.completedReason],
-        },
-        envelope.correlationId,
-      );
-      return this.success(envelope, {
-        result,
-        ...(operation ? { operation } : {}),
-      });
-    } catch {
-      await this.updateModelOperation(
-        operation,
-        {
-          phase: "failed",
-          reasons: [input.failureMessage],
-          error: {
-            code: input.failureCode,
-            message: input.failureMessage,
-            retryable: true,
-          },
-        },
-        envelope.correlationId,
-      );
-      return this.failure(envelope, {
-        code: input.failureCode,
-        message: input.failureMessage,
-        retryable: true,
-      });
-    }
-  }
-
-  private async startModelOperation(
-    input: {
-      modelId: string;
-      capability: ModelOperationSnapshot["capability"];
-      phase: ModelOperationSnapshot["phase"];
-    },
-    correlationId?: string,
-  ): Promise<ModelOperationSnapshot | undefined> {
-    if (!this.modelOperationSupervisor) {
-      return undefined;
-    }
-    const operation = await this.modelOperationSupervisor.start(input);
-    this.handleModelOperationUpdated(operation, correlationId);
-    return operation;
-  }
-
-  private async updateModelOperation(
-    operation: ModelOperationSnapshot | undefined,
-    input: {
-      phase: ModelOperationSnapshot["phase"];
-      reasons?: string[];
-      error?: StructuredError;
-    },
-    correlationId?: string,
-  ): Promise<ModelOperationSnapshot | undefined> {
-    if (!operation || !this.modelOperationSupervisor) {
-      return operation;
-    }
-    const updated = await this.modelOperationSupervisor.update({
-      operationId: operation.operationId,
+    const result = await this.modelOperationsService.executeInferenceOperation({
       ...input,
+      correlationId: envelope.correlationId,
     });
-    this.handleModelOperationUpdated(updated, correlationId);
-    return updated;
+    if (!result.ok) {
+      return this.failure(envelope, result.error);
+    }
+    return this.success(envelope, {
+      result: result.value.result,
+      ...(result.value.operation ? { operation: result.value.operation } : {}),
+    });
   }
 
   private publishSnapshot(correlationId?: string): CoreSnapshot {
