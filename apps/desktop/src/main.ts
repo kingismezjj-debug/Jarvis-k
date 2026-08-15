@@ -13,27 +13,13 @@ import {
   IPC_EVENT_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
-  IPC_VOICE_SETTINGS_OPEN_CHANNEL,
-  IPC_VOICE_SETTINGS_STATUS_CHANNEL,
-  IPC_VOICE_AUDIO_CHANNEL,
   PROTOCOL_VERSION,
   createCommandRouterQwenProductRoutingActivationStatus,
   QwenRuntimeControlActionSchema,
   QwenRuntimeControlSetResult,
   QwenRuntimeControlStatus,
-  type TtsServiceStatus,
-  type TtsSynthesisResult,
-  type VoiceServiceStatus,
   createId
 } from "@jarvis-k/contracts";
-import {
-  SecureVoiceProviderStore,
-  type VoiceProviderConfiguration
-} from "./secure-voice-provider-store";
-import {
-  SecureTtsProviderStore,
-  type TtsProviderConfiguration
-} from "./secure-tts-provider-store";
 import {
   SecureHeavyPlannerProviderStore,
   type HeavyPlannerProviderConfiguration,
@@ -49,27 +35,18 @@ import {
   selectedHeavyPlannerProvider
 } from "./desktop-runtime-policy";
 import { CoreSupervisor } from "./supervisor";
-import { handleVoiceAudioIpc } from "./voice-audio-ipc";
-import {
-  VOICE_PROVIDER_SETTINGS_CLEAR_CHANNEL,
-  VOICE_PROVIDER_SETTINGS_CLOSE_CHANNEL,
-  VOICE_PROVIDER_SETTINGS_SAVE_CHANNEL,
-  VOICE_PROVIDER_SETTINGS_STATUS_CHANNEL,
-  type VoiceProviderSettingsInput,
-  type VoiceProviderSettingsResult
-} from "./voice-settings-ipc";
-import { createVoiceSettingsWindow } from "./voice-settings-window";
 import { createMainWindow } from "./windows/main-window";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc";
 import { SettingsService } from "./settings/settings-service";
 import { registerSecureStoreIpc } from "./ipc/register-secure-store-ipc";
 import { SecureStoreService } from "./secure-store/secure-store-service";
+import { VoiceController } from "./voice/voice-controller";
+import { registerVoiceIpc } from "./ipc/register-voice-ipc";
 
 let mainWindow: BrowserWindow | null = null;
-let voiceSettingsWindow: BrowserWindow | null = null;
 let supervisor: CoreSupervisor | null = null;
-let voiceProviderStore: SecureVoiceProviderStore | null = null;
-let ttsProviderStore: SecureTtsProviderStore | null = null;
+let voiceController: VoiceController | null = null;
+let voiceIpcDisposer: (() => void) | null = null;
 let openAiHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
   null;
 let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
@@ -132,26 +109,6 @@ function getSecureStoreService(): SecureStoreService {
   return secureStoreService;
 }
 
-function getVoiceProviderStore(): SecureVoiceProviderStore {
-  if (!voiceProviderStore) {
-    voiceProviderStore = new SecureVoiceProviderStore(
-      path.join(app.getPath("userData"), "jarvis-k-voice-provider.json"),
-      getSecureStoreService().encryption()
-    );
-  }
-  return voiceProviderStore;
-}
-
-function getTtsProviderStore(): SecureTtsProviderStore {
-  if (!ttsProviderStore) {
-    ttsProviderStore = new SecureTtsProviderStore(
-      path.join(app.getPath("userData"), "jarvis-k-tts-provider.json"),
-      getSecureStoreService().encryption()
-    );
-  }
-  return ttsProviderStore;
-}
-
 function getHeavyPlannerProviderStore(
   provider: HeavyPlannerProviderName
 ): SecureHeavyPlannerProviderStore {
@@ -178,35 +135,6 @@ function getHeavyPlannerProviderStore(
     openAiHeavyPlannerProviderStore = store;
   }
   return store;
-}
-
-async function getVoiceProviderConfiguration(): Promise<VoiceProviderConfiguration | null> {
-  if (isStage5LocalAcceptanceNoSecureStore()) {
-    return null;
-  }
-  try {
-    return await getVoiceProviderStore().load();
-  } catch (error) {
-    process.stderr.write(
-      `[desktop] Voice provider configuration unavailable: ${
-        error instanceof Error ? error.message : "unknown error"
-      }\n`
-    );
-    return null;
-  }
-}
-
-async function getTtsProviderConfiguration(): Promise<TtsProviderConfiguration | null> {
-  try {
-    return await getTtsProviderStore().load();
-  } catch (error) {
-    process.stderr.write(
-      `[desktop] TTS provider configuration unavailable: ${
-        error instanceof Error ? error.message : "unknown error"
-      }\n`
-    );
-    return null;
-  }
 }
 
 async function getHeavyPlannerProviderConfiguration(): Promise<HeavyPlannerProviderConfiguration | null> {
@@ -509,422 +437,6 @@ async function setQwenRuntimeControlAction(
   };
 }
 
-async function getTtsServiceStatus(): Promise<TtsServiceStatus> {
-  try {
-    return await getTtsProviderStore().status();
-  } catch {
-    return {
-      configured: false,
-      secureStorageAvailable: getSecureStoreService().status().available
-    };
-  }
-}
-
-function parseTtsProviderSettingsInput(
-  value: unknown
-): TtsProviderConfiguration {
-  const raw =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {};
-  const provider = raw.provider === "doubao" ? "doubao" : "doubao";
-  const apiKey = typeof raw.apiKey === "string" ? raw.apiKey.trim() : "";
-  const voiceId =
-    typeof raw.voiceId === "string" && raw.voiceId.trim().length > 0
-      ? raw.voiceId.trim()
-      : "zh_female_xiaohe_uranus_bigtts";
-  const resourceId =
-    typeof raw.resourceId === "string" && raw.resourceId.trim().length > 0
-      ? raw.resourceId.trim()
-      : undefined;
-  if (apiKey.length === 0) {
-    throw new Error("API key is required.");
-  }
-  if (apiKey.length > 512 || voiceId.length > 128) {
-    throw new Error("Credential values are too long.");
-  }
-  if (resourceId && resourceId.length > 128) {
-    throw new Error("Resource ID is too long.");
-  }
-  return {
-    provider,
-    voiceId,
-    ...(resourceId ? { resourceId } : {}),
-    credentials: {
-      apiKey
-    }
-  };
-}
-
-async function saveTtsProviderSettings(
-  event: Electron.IpcMainInvokeEvent,
-  rawInput: unknown
-): Promise<{ ok: boolean; message?: string; status: TtsServiceStatus }> {
-  if (!isVoiceSettingsSender(event)) {
-    return {
-      ok: false,
-      message: "TTS settings are unavailable.",
-      status: await getTtsServiceStatus()
-    };
-  }
-  try {
-    const input = parseTtsProviderSettingsInput(rawInput);
-    await getTtsProviderStore().save(input);
-    return {
-      ok: true,
-      status: await getTtsServiceStatus()
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message:
-        error instanceof Error ? error.message : "TTS settings could not be saved.",
-      status: await getTtsServiceStatus()
-    };
-  }
-}
-
-async function clearTtsProviderSettings(
-  event: Electron.IpcMainInvokeEvent
-): Promise<{ ok: boolean; message?: string; status: TtsServiceStatus }> {
-  if (!isVoiceSettingsSender(event)) {
-    return {
-      ok: false,
-      message: "TTS settings are unavailable.",
-      status: await getTtsServiceStatus()
-    };
-  }
-  try {
-    await getTtsProviderStore().clear();
-    return {
-      ok: true,
-      status: await getTtsServiceStatus()
-    };
-  } catch {
-    return {
-      ok: false,
-      message: "TTS settings could not be cleared.",
-      status: await getTtsServiceStatus()
-    };
-  }
-}
-
-function resolveDoubaoResourceId(voiceId: string, resourceId?: string): string {
-  if (resourceId) {
-    return resourceId;
-  }
-  if (/_moon_bigtts$/u.test(voiceId) || /^BV\d+(_24k)?_streaming$/u.test(voiceId)) {
-    return "seed-tts-1.0";
-  }
-  return "seed-tts-2.0";
-}
-
-function decodeDoubaoTtsResponse(rawText: string): Buffer {
-  const chunks: Buffer[] = [];
-  let sawAudio = false;
-  for (const rawLine of rawText.split(/\r?\n/)) {
-    const line = rawLine.trim().replace(/^data:\s*/, "");
-    if (!line || line === "[DONE]") {
-      continue;
-    }
-    if (!line.startsWith("{")) {
-      continue;
-    }
-    const data = JSON.parse(line) as {
-      code?: unknown;
-      status_code?: unknown;
-      StatusCode?: unknown;
-      message?: unknown;
-      status_text?: unknown;
-      data?: unknown;
-    };
-    const providerStatusCode = Number(
-      data.code ?? data.status_code ?? data.StatusCode ?? 0
-    );
-    if (providerStatusCode > 0 && providerStatusCode !== 20000000) {
-      const message =
-        typeof data.message === "string"
-          ? data.message
-          : typeof data.status_text === "string"
-            ? data.status_text
-            : "TTS provider rejected the request.";
-      throw new Error(
-        `Doubao TTS failed (${providerStatusCode}): ${message}`
-      );
-    }
-    if (typeof data.data === "string" && data.data.length > 0) {
-      chunks.push(Buffer.from(data.data, "base64"));
-      sawAudio = true;
-    }
-  }
-  if (!sawAudio) {
-    throw new Error("Doubao TTS response did not contain audio.");
-  }
-  return Buffer.concat(chunks);
-}
-
-async function synthesizeDoubaoTts(
-  text: string,
-  voiceId?: string
-): Promise<TtsSynthesisResult> {
-  const configuration = await getTtsProviderConfiguration();
-  if (!configuration) {
-    return {
-      ok: false,
-      code: "TTS_NOT_CONFIGURED",
-      message: "TTS provider is not configured."
-    };
-  }
-
-  const speaker = voiceId?.trim() || configuration.voiceId;
-  const resourceId = resolveDoubaoResourceId(
-    speaker,
-    configuration.resourceId
-  );
-  const requestId = `jarvis_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), 30_000);
-  try {
-    const response = await fetch(
-      "https://openspeech.bytedance.com/api/v3/tts/unidirectional",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Api-Key": configuration.credentials.apiKey,
-          "X-Api-Resource-Id": resourceId,
-          "X-Api-Request-Id": requestId
-        },
-        body: JSON.stringify({
-          user: { uid: "jarvis-k" },
-          req_params: {
-            text: text.slice(0, 800),
-            speaker,
-            audio_params: {
-              format: "mp3",
-              sample_rate: 24_000
-            }
-          }
-        }),
-        signal: controller.signal
-      }
-    );
-
-    if (!response.ok) {
-      await response.text().catch(() => "");
-      return {
-        ok: false,
-        code: "TTS_PROVIDER_REJECTED",
-        message: `Doubao TTS provider rejected the request (HTTP ${response.status}).`
-      };
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("audio/")) {
-      return {
-        ok: true,
-        audio: new Uint8Array(await response.arrayBuffer()),
-        contentType: "audio/mpeg",
-        provider: "doubao"
-      };
-    }
-
-    const rawText = await response.text();
-    try {
-      const audio = decodeDoubaoTtsResponse(rawText);
-      return {
-        ok: true,
-        audio: new Uint8Array(audio),
-        contentType: "audio/mpeg",
-        provider: "doubao"
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        code: "TTS_RESPONSE_INVALID",
-        message: "Doubao TTS returned no playable audio."
-      };
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      code: "TTS_NETWORK_FAILED",
-      message:
-        error instanceof Error && error.name === "AbortError"
-          ? "Doubao TTS request timed out."
-          : "Doubao TTS network request failed."
-    };
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-  }
-}
-
-async function synthesizeTtsFromIpc(
-  _event: unknown,
-  rawInput: unknown
-): Promise<TtsSynthesisResult> {
-  const raw =
-    typeof rawInput === "object" && rawInput !== null
-      ? (rawInput as Record<string, unknown>)
-      : {};
-  const text = typeof raw.text === "string" ? raw.text.trim() : "";
-  const voiceId =
-    typeof raw.voiceId === "string" ? raw.voiceId.trim() : undefined;
-  if (!text) {
-    return {
-      ok: false,
-      code: "TTS_REQUEST_REJECTED",
-      message: "TTS text is required."
-    };
-  }
-  return synthesizeDoubaoTts(text, voiceId);
-}
-
-async function getVoiceServiceStatus(): Promise<VoiceServiceStatus> {
-  if (isStage5LocalAcceptanceNoSecureStore()) {
-    return {
-      configured: false,
-      secureStorageAvailable: false
-    };
-  }
-  try {
-    return await getVoiceProviderStore().status();
-  } catch {
-    return {
-      configured: false,
-      secureStorageAvailable: getSecureStoreService().status().available
-    };
-  }
-}
-
-function openVoiceSettingsWindow(): void {
-  if (voiceSettingsWindow && !voiceSettingsWindow.isDestroyed()) {
-    voiceSettingsWindow.focus();
-    return;
-  }
-  voiceSettingsWindow = createVoiceSettingsWindow(mainWindow);
-  voiceSettingsWindow.on("closed", () => {
-    voiceSettingsWindow = null;
-  });
-}
-
-function isVoiceSettingsSender(event: Electron.IpcMainInvokeEvent): boolean {
-  return voiceSettingsWindow?.webContents.id === event.sender.id;
-}
-
-function parseVoiceProviderSettingsInput(
-  value: unknown
-): VoiceProviderSettingsInput {
-  const raw =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {};
-  const provider = raw.provider === "volcengine" ? "volcengine" : "xunfei";
-  const appId = typeof raw.appId === "string" ? raw.appId.trim() : "";
-  const apiKey = typeof raw.apiKey === "string" ? raw.apiKey.trim() : "";
-  const resourceId =
-    typeof raw.resourceId === "string" && raw.resourceId.trim().length > 0
-      ? raw.resourceId.trim()
-      : "volc.seedasr.sauc.duration";
-  const language = raw.language === "en" ? "en" : "zh";
-  if (provider === "xunfei" && appId.length === 0) {
-    throw new Error("AppID is required for Xunfei.");
-  }
-  if (apiKey.length === 0) {
-    throw new Error("APIKey is required.");
-  }
-  if (appId.length > 512 || apiKey.length > 512) {
-    throw new Error("Credential values are too long.");
-  }
-  if (
-    provider === "volcengine" &&
-    (resourceId.length > 128 || !/^volc\.[a-z0-9_.-]+$/i.test(resourceId))
-  ) {
-    throw new Error("Volcengine resource ID is invalid.");
-  }
-  return {
-    provider,
-    appId,
-    apiKey,
-    ...(provider === "volcengine" ? { resourceId } : {}),
-    language
-  };
-}
-
-async function saveVoiceProviderSettings(
-  event: Electron.IpcMainInvokeEvent,
-  rawInput: unknown
-): Promise<VoiceProviderSettingsResult> {
-  if (!isVoiceSettingsSender(event)) {
-    return {
-      ok: false,
-      message: "Voice settings are unavailable."
-    };
-  }
-  try {
-    const input = parseVoiceProviderSettingsInput(rawInput);
-    await getVoiceProviderStore().save(
-      input.provider === "volcengine"
-        ? {
-            provider: "volcengine",
-            language: input.language,
-            credentials: {
-              apiKey: input.apiKey,
-              resourceId:
-                input.resourceId ?? "volc.seedasr.sauc.duration"
-            }
-          }
-        : {
-            provider: "xunfei",
-            language: input.language,
-            credentials: {
-              appId: input.appId,
-              apiKey: input.apiKey
-            }
-          }
-    );
-    supervisor?.restart("voice-provider-configuration-changed");
-    return {
-      ok: true,
-      status: await getVoiceServiceStatus()
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Voice settings could not be saved.",
-      status: await getVoiceServiceStatus()
-    };
-  }
-}
-
-async function clearVoiceProviderSettings(
-  event: Electron.IpcMainInvokeEvent
-): Promise<VoiceProviderSettingsResult> {
-  if (!isVoiceSettingsSender(event)) {
-    return {
-      ok: false,
-      message: "Voice settings are unavailable."
-    };
-  }
-  try {
-    await getVoiceProviderStore().clear();
-    supervisor?.restart("voice-provider-configuration-cleared");
-    return {
-      ok: true,
-      status: await getVoiceServiceStatus()
-    };
-  } catch {
-    return {
-      ok: false,
-      message: "Voice settings could not be cleared.",
-      status: await getVoiceServiceStatus()
-    };
-  }
-}
-
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
@@ -948,9 +460,24 @@ if (!hasSingleInstanceLock) {
       "dist",
       "index.js"
     );
+    voiceController = new VoiceController({
+      userDataPath: app.getPath("userData"),
+      secureStoreService: getSecureStoreService(),
+      getMainWindow: () => mainWindow,
+      restartCore: (reason) => {
+        supervisor?.restart(reason);
+      },
+      enqueueVoiceAudio: (frame) => {
+        if (!supervisor) {
+          return { accepted: false, reason: "backpressure" };
+        }
+        return supervisor.enqueueVoiceAudio(frame);
+      }
+    });
     supervisor = new CoreSupervisor({
       coreEntry,
-      loadVoiceProviderConfiguration: getVoiceProviderConfiguration,
+      loadVoiceProviderConfiguration: () =>
+        voiceController!.loadVoiceProviderConfiguration(),
       loadHeavyPlannerProviderConfiguration:
         getHeavyPlannerProviderConfiguration,
       loadChatAnswerProviderConfiguration:
@@ -1006,21 +533,48 @@ if (!hasSingleInstanceLock) {
       }
       return supervisor.request(parsed.data);
     });
-    ipcMain.handle(IPC_VOICE_SETTINGS_STATUS_CHANNEL, () =>
-      getVoiceServiceStatus()
-    );
-    ipcMain.handle(IPC_VOICE_SETTINGS_OPEN_CHANNEL, async () => {
-      openVoiceSettingsWindow();
-      return getVoiceServiceStatus();
+    voiceIpcDisposer = registerVoiceIpc({
+      ipcMain,
+      voiceController
     });
     registerSecureStoreIpc({
       ipcMain,
       getMainWindow: () => mainWindow,
-      openTtsSettingsWindow: openVoiceSettingsWindow,
-      getTtsServiceStatus,
-      saveTtsProviderSettings,
-      clearTtsProviderSettings,
-      synthesizeTts: synthesizeTtsFromIpc
+      openTtsSettingsWindow: () =>
+        voiceController?.openVoiceSettingsWindow(),
+      getTtsServiceStatus: () =>
+        voiceController?.getTtsServiceStatus() ??
+        Promise.resolve({
+          configured: false,
+          secureStorageAvailable: false
+        }),
+      saveTtsProviderSettings: (event, rawInput) =>
+        voiceController?.saveTtsProviderSettings(event, rawInput) ??
+        Promise.resolve({
+          ok: false,
+          message: "TTS settings are unavailable.",
+          status: {
+            configured: false,
+            secureStorageAvailable: false
+          }
+        }),
+      clearTtsProviderSettings: (event) =>
+        voiceController?.clearTtsProviderSettings(event) ??
+        Promise.resolve({
+          ok: false,
+          message: "TTS settings are unavailable.",
+          status: {
+            configured: false,
+            secureStorageAvailable: false
+          }
+        }),
+      synthesizeTts: (event, rawInput) =>
+        voiceController?.synthesizeTtsFromIpc(event, rawInput) ??
+        Promise.resolve({
+          ok: false,
+          code: "TTS_NOT_CONFIGURED",
+          message: "TTS provider is not configured."
+        })
     });
     registerSettingsIpc({
       ipcMain,
@@ -1034,46 +588,6 @@ if (!hasSingleInstanceLock) {
       IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
       setQwenRuntimeControlAction
     );
-    ipcMain.handle(VOICE_PROVIDER_SETTINGS_STATUS_CHANNEL, (event) => {
-      if (!isVoiceSettingsSender(event)) {
-        return {
-          configured: false,
-          secureStorageAvailable: false
-        };
-      }
-      return getVoiceServiceStatus();
-    });
-    ipcMain.handle(
-      VOICE_PROVIDER_SETTINGS_SAVE_CHANNEL,
-      saveVoiceProviderSettings
-    );
-    ipcMain.handle(
-      VOICE_PROVIDER_SETTINGS_CLEAR_CHANNEL,
-      clearVoiceProviderSettings
-    );
-    ipcMain.on(VOICE_PROVIDER_SETTINGS_CLOSE_CHANNEL, (event) => {
-      if (voiceSettingsWindow?.webContents.id === event.sender.id) {
-        voiceSettingsWindow.close();
-      }
-    });
-    ipcMain.on(IPC_VOICE_AUDIO_CHANNEL, (event, rawFrame: unknown) => {
-      const currentWindow = mainWindow;
-      const currentSupervisor = supervisor;
-      if (
-        !currentWindow ||
-        currentWindow.isDestroyed() ||
-        !currentSupervisor
-      ) {
-        return;
-      }
-      handleVoiceAudioIpc({
-        senderId: event.sender.id,
-        expectedSenderId: currentWindow.webContents.id,
-        rawFrame,
-        enqueue: (frame) => currentSupervisor.enqueueVoiceAudio(frame)
-      });
-    });
-
     mainWindow = createMainWindow();
     mainWindow.on("closed", () => {
       mainWindow = null;
@@ -1088,6 +602,10 @@ if (!hasSingleInstanceLock) {
 }
 
 app.on("before-quit", () => {
+  voiceIpcDisposer?.();
+  voiceIpcDisposer = null;
+  voiceController?.dispose();
+  voiceController = null;
   supervisor?.stop();
 });
 
