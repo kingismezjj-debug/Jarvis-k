@@ -1,11 +1,9 @@
 import {
   CoreInboundMessageSchema,
-  BrainPlannerResultSchema,
   type CoreOutboundMessage,
 } from "@jarvis-k/contracts";
 import {
   type ChatAnswerProvider,
-  type HeavyPlannerProvider,
   fixtureModelManifests,
   recommendedModelCandidates,
   StaticModelRegistry,
@@ -19,7 +17,6 @@ import {
 } from "@jarvis-k/capabilities";
 import {
   CoreRuntime,
-  type CoreBrainPlannerOptions,
   type CoreChatAnswerOptions,
   type CoreBrainRouterOptions,
 } from "@jarvis-k/core";
@@ -41,12 +38,10 @@ import {
 import { QWEN_FAST_ROUTER_MODEL_ID } from "@jarvis-k/inference-adapter-qwen-router";
 import {
   OPENAI_HEAVY_PLANNER_PROVIDER_ID,
-  type OpenAiHeavyPlannerCredential,
 } from "@jarvis-k/inference-adapter-openai-planner";
 import {
   GLM_RUNTIME_HEAVY_PLANNER_MODEL_ID,
   GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID,
-  type GlmRuntimeHeavyPlannerCredential,
 } from "@jarvis-k/inference-adapter-glm-runtime";
 import {
   DEEPSEEK_CHAT_ANSWER_RUNTIME_256_PROFILE_ID,
@@ -82,6 +77,10 @@ import {
 } from "./composition/chat-composition";
 import { createCoreHostPluginComposition } from "./composition/plugin-composition";
 import {
+  createCoreHostPlannerComposition,
+  parseHeavyPlannerProviderConfigurationMessage,
+} from "./composition/planner-composition";
+import {
   createCoreHostVoiceComposition,
   parseVoiceProviderConfigurationMessage,
 } from "./composition/voice-composition";
@@ -93,42 +92,6 @@ function send(message: CoreOutboundMessage): void {
     process.send(message);
   }
 }
-
-class ConfigurableHeavyPlannerProvider implements HeavyPlannerProvider {
-  private current: HeavyPlannerProvider | undefined;
-
-  public constructor(private readonly providerId: string) {}
-
-  public configure(provider: HeavyPlannerProvider | undefined): void {
-    this.current = provider;
-  }
-
-  public async plan(
-    request: Parameters<HeavyPlannerProvider["plan"]>[0],
-  ): ReturnType<HeavyPlannerProvider["plan"]> {
-    if (!this.current) {
-      return BrainPlannerResultSchema.parse({
-        providerId: this.providerId,
-        status: "unavailable",
-        reasonCode: "PROVIDER_UNAVAILABLE",
-        failureClass: "PROVIDER_UNAVAILABLE",
-        directActionAttempted: false,
-        plannedAt: new Date().toISOString(),
-      });
-    }
-    return this.current.plan(request);
-  }
-}
-
-type CoreHostHeavyPlannerProviderConfiguration =
-  | {
-      provider: "openai";
-      credentials: OpenAiHeavyPlannerCredential;
-    }
-  | {
-      provider: "glm";
-      credentials: GlmRuntimeHeavyPlannerCredential;
-    };
 
 type CoreHostChatAnswerProviderConfiguration = {
   provider: typeof DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID;
@@ -349,41 +312,10 @@ const qwenFastRouterComposition = createCoreHostQwenFastRouterComposition({
 const qwenFastRouterDescriptor = qwenFastRouterComposition.descriptor;
 const qwenFastRouterConfigurationReport =
   qwenFastRouterComposition.configurationReport;
-const openAiHeavyPlannerEnabled = runtimeConfig.openAiHeavyPlannerEnabled;
-const openAiHeavyPlannerOneWindowApproved =
-  runtimeConfig.openAiHeavyPlannerOneWindowApproved;
-const glmRuntimeHeavyPlannerEnabled =
-  runtimeConfig.glmRuntimeHeavyPlannerEnabled;
-const glmRuntimeHeavyPlannerOneWindowApproved =
-  runtimeConfig.glmRuntimeHeavyPlannerOneWindowApproved;
-const activeHeavyPlanner:
-  | {
-      provider: "openai";
-      providerId: typeof OPENAI_HEAVY_PLANNER_PROVIDER_ID;
-      networkWindowApproved: boolean;
-    }
-  | {
-      provider: "glm";
-      providerId: typeof GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID;
-      networkWindowApproved: boolean;
-    }
-  | undefined =
-  openAiHeavyPlannerEnabled === glmRuntimeHeavyPlannerEnabled
-    ? undefined
-    : openAiHeavyPlannerEnabled
-      ? {
-          provider: "openai",
-          providerId: OPENAI_HEAVY_PLANNER_PROVIDER_ID,
-          networkWindowApproved: openAiHeavyPlannerOneWindowApproved,
-        }
-      : {
-          provider: "glm",
-          providerId: GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID,
-          networkWindowApproved: glmRuntimeHeavyPlannerOneWindowApproved,
-        };
-const configurableHeavyPlannerProvider = activeHeavyPlanner
-  ? new ConfigurableHeavyPlannerProvider(activeHeavyPlanner.providerId)
-  : undefined;
+const plannerComposition = createCoreHostPlannerComposition(runtimeConfig);
+const activeHeavyPlanner = plannerComposition.activeHeavyPlanner;
+const configurableHeavyPlannerProvider =
+  plannerComposition.configurableHeavyPlannerProvider;
 const fixtureOcrDescriptor = createFixtureOcrDescriptor({
   enabled: fixtureInferenceEnabled,
 });
@@ -452,17 +384,7 @@ const brainRouterOptions: CoreBrainRouterOptions | undefined =
         locale: runtimeConfig.language,
       }
     : undefined;
-const brainPlannerOptions: CoreBrainPlannerOptions | undefined =
-  activeHeavyPlanner
-    ? {
-        enabled: true,
-        providerId: activeHeavyPlanner.providerId,
-      }
-    : {
-        enabled: true,
-        providerId: "planner.deterministic.rules",
-        escalateIntents: [],
-      };
+const brainPlannerOptions = plannerComposition.brainPlannerOptions;
 const chatAnswerOptions: CoreChatAnswerOptions | undefined = activeChatAnswer
   ? {
       enabled: true,
@@ -863,37 +785,6 @@ function parseChatAnswerProviderConfigurationMessage(
   }
   return {
     provider: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
-    credentials: {
-      apiKey: apiKey.trim(),
-    },
-  };
-}
-
-function parseHeavyPlannerProviderConfigurationMessage(
-  message: unknown,
-): CoreHostHeavyPlannerProviderConfiguration | null {
-  if (
-    !isRecord(message) ||
-    message.kind !== "heavy-planner-provider.configure" ||
-    !isRecord(message.configuration) ||
-    !isRecord(message.configuration.credentials)
-  ) {
-    return null;
-  }
-  const provider = message.configuration.provider;
-  if (provider !== "openai" && provider !== "glm") {
-    return null;
-  }
-  const apiKey = message.configuration.credentials.apiKey;
-  if (
-    typeof apiKey !== "string" ||
-    apiKey.trim().length < 8 ||
-    apiKey.length > (provider === "glm" ? 1024 : 512)
-  ) {
-    return null;
-  }
-  return {
-    provider,
     credentials: {
       apiKey: apiKey.trim(),
     },
