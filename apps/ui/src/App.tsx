@@ -63,8 +63,6 @@ import {
   formatPttCommandError,
   formatVoiceCorrectionSlots,
   isSecondaryVoiceStopError,
-  isTaskApprovalEligible,
-  isTaskCancellationEligible,
 } from "@/app/formatters";
 import { persistUiLanguage, readInitialLanguage } from "@/app/ui-language";
 import { usePluginCenter } from "@/app/use-plugin-center";
@@ -97,6 +95,7 @@ import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/models/model-operation-list";
 import { PluginProjectionPanel } from "@/features/plugins/plugin-projection-panel";
+import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { cn } from "@/lib/utils";
 import {
   selectLocalTtsLanguage,
@@ -2348,150 +2347,19 @@ export default function App() {
                 className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
                 data-testid="tasks-view"
               >
-                <section className="min-w-0">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">{copy.view.tasks}</h3>
-                    <Badge className="rounded-md text-[10px]" variant="outline">
-                      {snapshot?.tasks.length ?? 0} TRACKED
-                    </Badge>
-                  </div>
-                  <div className="grid gap-3">
-                    {(snapshot?.tasks.length ?? 0) === 0 ? (
-                      <div className="border-y py-5 text-xs text-muted-foreground">
-                        {copy.label.noCoreTasks}
-                      </div>
-                    ) : (
-                      snapshot?.tasks.map((task) => (
-                        <article
-                          className="rounded-md border bg-card/40 p-3 text-xs"
-                          key={task.id}
-                          data-testid="task-card"
-                        >
-                          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate font-medium">
-                                {task.title}
-                              </div>
-                              <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                                <span>{task.routeSource}</span>
-                                {task.intent ? (
-                                  <span>{task.intent}</span>
-                                ) : null}
-                                {task.verificationSummary ? (
-                                  <span>{task.verificationSummary}</span>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <div className="text-right">
-                                <Badge
-                                  className="rounded-md text-[10px]"
-                                  variant="outline"
-                                >
-                                  {task.state}
-                                </Badge>
-                                <time className="mt-1 block text-[10px] text-muted-foreground">
-                                  {formatEventTime(task.updatedAt)}
-                                </time>
-                              </div>
-                              {isTaskApprovalEligible(task.state) ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      aria-label={`Approve ${task.title}`}
-                                      className="size-7 rounded-md"
-                                      data-testid="task-approve"
-                                      disabled={sending}
-                                      onClick={() =>
-                                        void handleApproveTask(
-                                          task.id,
-                                          task.title,
-                                        )
-                                      }
-                                      size="icon-sm"
-                                      type="button"
-                                      variant="ghost"
-                                    >
-                                      <Play className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    Approve and execute planner draft
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : null}
-                              {isTaskCancellationEligible(task.state) ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      aria-label={`Cancel ${task.title}`}
-                                      className="size-7 rounded-md"
-                                      data-testid="task-cancel"
-                                      disabled={sending}
-                                      onClick={() =>
-                                        void handleCancelTask(
-                                          task.id,
-                                          task.title,
-                                        )
-                                      }
-                                      size="icon-sm"
-                                      type="button"
-                                      variant="ghost"
-                                    >
-                                      <X className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    Cancel pending task
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          {task.steps.length > 0 ? (
-                            <div className="mt-3 grid gap-2 border-t pt-3">
-                              {task.steps.map((step) => (
-                                <div
-                                  className="grid grid-cols-[minmax(0,1fr)_110px_130px] items-center gap-2"
-                                  key={step.id}
-                                  data-testid="task-step"
-                                >
-                                  <span className="truncate">{step.title}</span>
-                                  <span className="truncate text-muted-foreground">
-                                    {step.state}
-                                  </span>
-                                  <span className="truncate text-right text-muted-foreground">
-                                    {step.verificationStatus}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-
-                          {task.events.length > 0 ? (
-                            <div className="mt-3 grid gap-1 border-t pt-3">
-                              {task.events.slice(-5).map((event) => (
-                                <div
-                                  className="grid grid-cols-[76px_minmax(0,1fr)] gap-2 text-[10px] text-muted-foreground"
-                                  key={event.id}
-                                  data-testid="task-event"
-                                >
-                                  <time>
-                                    {formatEventTime(event.createdAt)}
-                                  </time>
-                                  <span className="truncate">
-                                    {event.type}: {event.message}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-                        </article>
-                      ))
-                    )}
-                  </div>
-                </section>
+                <TaskTimeline
+                  actions={{
+                    approveTask: (taskId, title) => {
+                      void handleApproveTask(taskId, title);
+                    },
+                    cancelTask: (taskId, title) => {
+                      void handleCancelTask(taskId, title);
+                    },
+                  }}
+                  copy={copy}
+                  sending={sending}
+                  viewModel={{ tasks: snapshot?.tasks ?? [] }}
+                />
 
                 <ModelOperationList
                   actions={{
