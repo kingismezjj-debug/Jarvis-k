@@ -20,17 +20,37 @@ describe("Core Host provider-backed Chat Answer manual acceptance wiring", () =>
       ),
       "utf8"
     );
+  const runtimeConfigSource = () =>
+    readFileSync(
+      path.join(
+        process.cwd(),
+        "apps",
+        "core-host",
+        "src",
+        "config",
+        "runtime-config.ts"
+      ),
+      "utf8"
+    );
 
   it("keeps the DeepSeek product manual acceptance path explicitly gated", () => {
     const source = indexSource();
+    const configSource = runtimeConfigSource();
 
-    expect(source).toContain(
+    expect(configSource).toContain(
       'JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_PRODUCT_MANUAL_ACCEPTANCE'
     );
-    expect(source).toContain(
+    expect(configSource).toContain(
       'JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_EXPANDED_PRODUCT_LOOP'
     );
-    expect(source).toContain('JARVIS_K_ENABLE_CHAT_ANSWER_DEEPSEEK');
+    expect(configSource).toContain('JARVIS_K_ENABLE_CHAT_ANSWER_DEEPSEEK');
+    expect(source).toContain(
+      "runtimeConfig.providerBackedChatAnswerProductManualAcceptanceRequested"
+    );
+    expect(source).toContain(
+      "runtimeConfig.providerBackedChatAnswerExpandedProductLoopRequested"
+    );
+    expect(source).toContain("runtimeConfig.deepseekChatAnswerEnabled");
     expect(source).toContain("chat-answer-provider.configure");
     expect(source).toContain("DEEPSEEK_CHAT_ANSWER_RUNTIME_256_PROFILE_ID");
     expect(source).toContain("expandedProductLoopChatAnswerUtterances");

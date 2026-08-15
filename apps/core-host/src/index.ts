@@ -111,6 +111,7 @@ import {
   LocalSmokeChatAnswerProvider,
   OneShotFixedUtteranceChatAnswerProvider,
 } from "./composition/chat-composition";
+import { loadRuntimeConfig } from "./config/runtime-config";
 
 function send(message: CoreOutboundMessage): void {
   if (process.send) {
@@ -223,7 +224,7 @@ const smokeTestProvider = {
           soakCycle = frame.pcm[1] ?? 0;
         }
         if (
-          process.env.JARVIS_K_SMOKE_PROVIDER_FAULT === "1" &&
+          runtimeConfig.smokeProviderFaultEnabled &&
           recoveryCount === 0 &&
           frame.pcm[0] === 127
         ) {
@@ -269,27 +270,22 @@ const smokeTestProvider = {
 };
 
 let runtime: CoreRuntime;
+const runtimeConfig = loadRuntimeConfig(process.env);
 const scheduler = {
   setTimeout: (callback: () => void, delayMs: number) =>
     setTimeout(callback, delayMs),
   clearTimeout: (handle: unknown) => clearTimeout(handle as NodeJS.Timeout),
 };
 const configurableProvider = new ConfigurableAsrProvider(unavailableProvider);
-const fixtureChatAnswerEnabled =
-  process.env.JARVIS_K_ENABLE_FIXTURE_CHAT_ANSWER === "1";
+const fixtureChatAnswerEnabled = runtimeConfig.fixtureChatAnswerEnabled;
 const providerBackedChatAnswerProductManualAcceptanceRequested =
-  process.env
-    .JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_PRODUCT_MANUAL_ACCEPTANCE ===
-  "1";
+  runtimeConfig.providerBackedChatAnswerProductManualAcceptanceRequested;
 const providerBackedChatAnswerExpandedProductLoopRequested =
-  process.env
-    .JARVIS_K_ENABLE_PROVIDER_BACKED_CHAT_ANSWER_EXPANDED_PRODUCT_LOOP === "1";
-const deepseekChatAnswerEnabled =
-  process.env.JARVIS_K_ENABLE_CHAT_ANSWER_DEEPSEEK === "1";
+  runtimeConfig.providerBackedChatAnswerExpandedProductLoopRequested;
+const deepseekChatAnswerEnabled = runtimeConfig.deepseekChatAnswerEnabled;
 const chatAnswerTextOnlyAcceptanceRequested =
-  process.env.JARVIS_K_ENABLE_CHAT_ANSWER_TEXT_ONLY_ACCEPTANCE === "1";
-const localSmokeChatAnswerEnabled =
-  process.env.JARVIS_K_ENABLE_LOCAL_SMOKE_CHAT_ANSWER === "1";
+  runtimeConfig.chatAnswerTextOnlyAcceptanceRequested;
+const localSmokeChatAnswerEnabled = runtimeConfig.localSmokeChatAnswerEnabled;
 const textOnlyAcceptanceMemoryDisabled =
   shouldDisableCoreHostMemoryForChatAnswerTextOnlyAcceptance({
     enabled: chatAnswerTextOnlyAcceptanceRequested,
@@ -308,11 +304,11 @@ const resourceScheduler = new InMemoryResourceScheduler({
   inspectDevice: async () => (await capabilityProvider.inspect()).device,
 });
 const localEmbeddingComposition = createCoreHostLocalEmbeddingComposition({
-  env: process.env,
+  env: runtimeConfig.env,
   resourceScheduler,
 });
 const providerVectorWriteModelIds = areMemoryProviderVectorWriteGatesEnabled(
-  process.env,
+  runtimeConfig.env,
   localEmbeddingComposition.embeddingProvider,
 )
   ? [LOCAL_EMBEDDING_MODEL_ID]
@@ -345,11 +341,9 @@ const modelLifecycleManager = new FileSystemModelLifecycleManager({
   },
 });
 const modelRuntimeRegistry = localEmbeddingComposition.modelRuntimeRegistry;
-const fixtureInferenceEnabled =
-  process.env.JARVIS_K_ENABLE_FIXTURE_INFERENCE === "1";
-const brainRouterModelId = process.env.JARVIS_K_BRAIN_ROUTER_MODEL_ID?.trim();
-const qwenFastRouterEnabled =
-  process.env.JARVIS_K_ENABLE_QWEN_FAST_ROUTER === "1";
+const fixtureInferenceEnabled = runtimeConfig.fixtureInferenceEnabled;
+const brainRouterModelId = runtimeConfig.brainRouterModelId;
+const qwenFastRouterEnabled = runtimeConfig.qwenFastRouterEnabled;
 const qwenFastRouterModelId = brainRouterModelId ?? QWEN_FAST_ROUTER_MODEL_ID;
 const fixtureEmbeddingProviderDescriptor =
   createFixtureEmbeddingProviderDescriptor({
@@ -373,7 +367,7 @@ const rerankingProvider = fixtureInferenceEnabled
   : undefined;
 const localPluginManifestDirectories = resolveLocalPluginManifestDirectories();
 const localPluginManifestDiscoveryEnabled =
-  process.env.JARVIS_K_ENABLE_LOCAL_PLUGIN_MANIFESTS === "1";
+  runtimeConfig.localPluginManifestDiscoveryEnabled;
 const localPluginTemplateRuntimeEnabled =
   localPluginManifestDiscoveryEnabled &&
   localPluginManifestDirectories.length > 0;
@@ -490,14 +484,13 @@ const qwenFastRouterComposition = createCoreHostQwenFastRouterComposition({
 const qwenFastRouterDescriptor = qwenFastRouterComposition.descriptor;
 const qwenFastRouterConfigurationReport =
   qwenFastRouterComposition.configurationReport;
-const openAiHeavyPlannerEnabled =
-  process.env.JARVIS_K_ENABLE_HEAVY_PLANNER_OPENAI === "1";
+const openAiHeavyPlannerEnabled = runtimeConfig.openAiHeavyPlannerEnabled;
 const openAiHeavyPlannerOneWindowApproved =
-  process.env.JARVIS_K_HEAVY_PLANNER_OPENAI_ONE_WINDOW_APPROVED === "1";
+  runtimeConfig.openAiHeavyPlannerOneWindowApproved;
 const glmRuntimeHeavyPlannerEnabled =
-  process.env.JARVIS_K_ENABLE_HEAVY_PLANNER_GLM === "1";
+  runtimeConfig.glmRuntimeHeavyPlannerEnabled;
 const glmRuntimeHeavyPlannerOneWindowApproved =
-  process.env.JARVIS_K_HEAVY_PLANNER_GLM_ONE_WINDOW_APPROVED === "1";
+  runtimeConfig.glmRuntimeHeavyPlannerOneWindowApproved;
 const activeHeavyPlanner:
   | {
       provider: "openai";
@@ -567,7 +560,7 @@ const inferenceExecutionPlanner = new PolicyInferenceExecutionPlanner({
 });
 const memoryAlphaImplementation = sqliteMemoryRepository
   ? createCoreHostMemoryAlphaImplementation({
-      env: process.env,
+      env: runtimeConfig.env,
       memoryRepository: sqliteMemoryRepository,
       ...(localEmbeddingComposition.embeddingProvider === undefined
         ? {}
@@ -575,10 +568,9 @@ const memoryAlphaImplementation = sqliteMemoryRepository
     })
   : undefined;
 const voiceEngine = new VoiceEngine({
-  provider:
-    process.env.JARVIS_K_SMOKE_VOICE === "1"
-      ? smokeTestProvider
-      : configurableProvider,
+  provider: runtimeConfig.smokeVoiceEnabled
+    ? smokeTestProvider
+    : configurableProvider,
   eventSink: {
     publish: (event) => runtime.handleVoiceEvent(event),
   },
@@ -591,14 +583,14 @@ const voiceEngine = new VoiceEngine({
   scheduler,
 });
 const brainActionExecutor = new BrainActionAllowlistAdapter({
-  disabled: process.env.JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS === "1",
+  disabled: runtimeConfig.brainOpenActionsDisabled,
 });
 const brainRouterOptions: CoreBrainRouterOptions | undefined =
   brainRouterModelId
     ? {
-        enabled: process.env.JARVIS_K_ENABLE_BRAIN_ROUTER !== "0",
+        enabled: runtimeConfig.brainRouterEnabled,
         modelId: brainRouterModelId,
-        locale: process.env.JARVIS_K_LANGUAGE === "en" ? "en" : "zh",
+        locale: runtimeConfig.language,
       }
     : undefined;
 const brainPlannerOptions: CoreBrainPlannerOptions | undefined =

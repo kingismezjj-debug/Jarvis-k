@@ -6,6 +6,10 @@ const source = readFileSync(
   path.resolve(import.meta.dirname, "..", "src", "index.ts"),
   "utf8"
 );
+const runtimeConfigSource = readFileSync(
+  path.resolve(import.meta.dirname, "..", "src", "config", "runtime-config.ts"),
+  "utf8"
+);
 
 describe("Core Host Qwen fast-router wiring", () => {
   it("registers the Qwen fast-router diagnostic provider without runtime execution", () => {
@@ -14,7 +18,8 @@ describe("Core Host Qwen fast-router wiring", () => {
     expect(source).toContain("qwenFastRouterComposition");
     expect(source).toContain("qwenFastRouterDescriptor");
     expect(source).toContain("qwenFastRouterConfigurationReport");
-    expect(source).toContain('process.env.JARVIS_K_ENABLE_QWEN_FAST_ROUTER === "1"');
+    expect(runtimeConfigSource).toContain("JARVIS_K_ENABLE_QWEN_FAST_ROUTER");
+    expect(source).toContain("runtimeConfig.qwenFastRouterEnabled");
     expect(source).toContain("artifactDigestApproved: false");
     expect(source).toContain("modelLifecycleReady: false");
     expect(source).toContain("selectionPolicyReady: true");
