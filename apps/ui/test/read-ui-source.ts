@@ -1,0 +1,27 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+export function readUiSource(relativeFiles: string[]) {
+  return relativeFiles
+    .map((file) =>
+      readFileSync(
+        path.resolve(import.meta.dirname, "..", "src", ...file.split("/")),
+        "utf8",
+      ),
+    )
+    .join("\n");
+}
+
+export function readAppCompositionSource() {
+  return readUiSource([
+    "App.tsx",
+    "app/copy.ts",
+    "app/formatters.ts",
+    "app/memory-view.ts",
+    "app/navigation.ts",
+    "app/skin-themes.ts",
+    "app/types.ts",
+    "app/ui-language.ts",
+    "components/shared/Metric.tsx",
+  ]);
+}

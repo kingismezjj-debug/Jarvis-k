@@ -2,10 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const appSource = readFileSync(
-  path.resolve(import.meta.dirname, "..", "src", "App.tsx"),
-  "utf8",
-);
+import { readAppCompositionSource } from "./read-ui-source";
+
+const appSource = readAppCompositionSource();
 
 const cssSource = readFileSync(
   path.resolve(import.meta.dirname, "..", "src", "index.css"),
