@@ -1,29 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  Activity,
   Bot,
   Check,
-  CheckCircle2,
   CircleAlert,
-  Database,
-  Download,
   ExternalLink,
-  ListTodo,
-  MessageSquare,
   Mic2,
   MicOff,
   PanelLeft,
   Pencil,
   Plug,
-  Play,
   Plus,
   RefreshCw,
   RotateCcw,
   Send,
   Settings,
-  Square,
   Trash2,
-  Upload,
   Volume2,
   VolumeX,
   X,
@@ -54,7 +45,6 @@ import { stage5Copy, uiCopy } from "@/app/copy";
 import {
   activeModelOperationPhases,
   commandRouterAllowedRealLocalAppTarget,
-  eventLabel,
   formatActionError,
   formatConfidence,
   formatEventTime,
@@ -92,12 +82,12 @@ import { NavigationButton } from "@/components/assistant-shell/NavigationButton"
 import { Metric } from "@/components/shared/Metric";
 import { ActivityView } from "@/features/activity/activity-view";
 import { AppearanceSettingsPanel } from "@/features/appearance/appearance-settings-panel";
-import { SystemStatusPanel } from "@/features/diagnostics/system-status-panel";
 import { MemoryBoundaryPanel } from "@/features/memory/memory-boundary-panel";
 import { buildMemoryBoundaryViewModel } from "@/features/memory/memory-boundary-view-model";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
+import { RuntimeInspectorPanel } from "@/features/runtime-inspector/runtime-inspector-panel";
 import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
 import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
 import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governance-settings-panel";
@@ -3767,566 +3757,289 @@ export default function App() {
         </main>
 
         {inspectorOpen && (
-          <aside
-            className="min-h-0 border-l bg-card max-[1080px]:hidden"
-            data-testid="runtime-inspector"
-          >
-            <div className="flex h-full min-h-0 flex-col px-[18px] py-5">
-              <SystemStatusPanel
-                actions={{
-                  probeCore: () => {
-                    void trackAction("Probe Core", async () => {
-                      const probed = await probeCore();
-                      const refreshedCapabilities = await refreshCapabilities();
-                      const refreshedMemory = await refreshMemoryHealth();
-                      const refreshedModels = await refreshModelGovernance();
-                      return (
-                        probed &&
-                        refreshedCapabilities &&
-                        refreshedMemory &&
-                        refreshedModels
-                      );
-                    });
-                  },
-                }}
-                copy={copy}
-                sending={sending}
-                viewModel={{
-                  accelerationBackends,
-                  connection,
-                  gpuCount,
-                  memoryAlphaState: memoryAlpha?.state,
-                  runtimeMode,
-                  snapshot,
-                  voiceFramesSent: ptt.audioDiagnostics.framesSent,
-                  voicePeak,
-                  voiceRms,
-                }}
-              />
-
-              <div className="mt-4 shrink-0" data-testid="model-governance">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">
-                    {copy.settings.modelGovernance}
-                  </h3>
-                  <div className="flex items-center gap-1.5">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Run fixture reranker"
-                          className="size-8 rounded-md"
-                          data-testid="run-fixture-reranker"
-                          disabled={sending}
-                          onClick={() => void handleRunFixtureRerankProbe()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <ListTodo className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Run fixture reranker</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Run fixture OCR"
-                          className="size-8 rounded-md"
-                          data-testid="run-fixture-ocr"
-                          disabled={sending}
-                          onClick={() => void handleRunFixtureOcrProbe()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Activity className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Run fixture OCR</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Run fixture intent routing"
-                          className="size-8 rounded-md"
-                          data-testid="run-fixture-intent"
-                          disabled={sending}
-                          onClick={() => void handleRunFixtureIntentProbe()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <MessageSquare className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Run fixture intent routing
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Run fixture embedding"
-                          className="size-8 rounded-md"
-                          data-testid="run-fixture-embedding"
-                          disabled={sending}
-                          onClick={() => void handleRunFixtureEmbeddingProbe()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Bot className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Run fixture embedding</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Refresh model governance"
-                          className="size-8 rounded-md"
-                          data-testid="refresh-model-governance"
-                          disabled={sending}
-                          onClick={() =>
-                            void trackAction(
-                              "Refresh model governance",
-                              refreshModelGovernance,
-                              copy.action.modelGovernanceRefreshed,
-                            )
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              "size-3.5",
-                              sending && "animate-spin",
-                            )}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Refresh model governance</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-                <dl className="divide-y divide-border border-y text-[11px]">
-                  <Metric
-                    label={copy.metric.candidates}
-                    value={String(modelCandidates.length)}
-                  />
-                  <Metric
-                    label={copy.metric.manifests}
-                    value={String(modelManifests.length)}
-                  />
-                  <Metric
-                    label={copy.metric.providers}
-                    value={String(inferenceProviders.length)}
-                  />
-                  <Metric
-                    label={copy.metric.available}
-                    value={String(availableInferenceProviderCount)}
-                    tone="success"
-                  />
-                  <Metric
-                    label={copy.metric.fixture}
-                    value={fixtureEmbeddingProvider?.status ?? "unconfigured"}
-                    tone={fixtureEmbeddingAvailable ? "success" : "warning"}
-                  />
-                  <Metric
-                    label={copy.metric.intentRouter}
-                    value={intentRouterProvider?.status ?? "unconfigured"}
-                    tone={intentRouterAvailable ? "success" : "warning"}
-                  />
-                  <Metric
-                    label={copy.metric.ocr}
-                    value={ocrProvider?.status ?? "unconfigured"}
-                    tone={ocrProviderAvailable ? "success" : "warning"}
-                  />
-                  <Metric
-                    label={copy.metric.reranker}
-                    value={rerankerProvider?.status ?? "unconfigured"}
-                    tone={rerankerProviderAvailable ? "success" : "warning"}
-                  />
-                  <Metric
-                    label={copy.metric.required}
-                    value={String(requiredProviderConfigurationCount)}
-                    tone="warning"
-                  />
-                  <Metric
-                    label={copy.metric.installable}
-                    value={String(installableModelCount)}
-                    tone="success"
-                  />
-                  <Metric
-                    label={copy.metric.blocked}
-                    value={String(blockedModelCount)}
-                    tone="warning"
-                  />
-                  <Metric
-                    label={copy.metric.operations}
-                    value={String(modelOperations.length)}
-                  />
-                  <Metric
-                    label={copy.metric.activeOps}
-                    value={String(activeModelOperationCount)}
-                    tone="warning"
-                  />
-                  <Metric
-                    label={copy.metric.resourceMem}
-                    value={resourceMemoryGiB}
-                  />
-                  <Metric
-                    label={copy.metric.resourceVram}
-                    value={resourceVramGiB}
-                  />
-                  <Metric
-                    label={copy.metric.resourceLeases}
-                    value={String(resourceDiagnostics?.activeLeaseCount ?? 0)}
-                  />
-                  <Metric
-                    label={copy.metric.localModels}
-                    value={String(modelInventory.length)}
-                  />
-                  <Metric
-                    label={copy.metric.downloadable}
-                    value={String(downloadableCandidateCount)}
-                  />
-                  <Metric
-                    label={copy.metric.loaded}
-                    value={String(loadedModelCount)}
-                    tone="accent"
-                  />
-                  <Metric
-                    label={copy.metric.vectorDims}
-                    value={
-                      fixtureEmbeddingProbe
-                        ? String(fixtureEmbeddingProbe.dimensions)
-                        : "idle"
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.vectors}
-                    value={
-                      fixtureEmbeddingProbe
-                        ? String(fixtureEmbeddingProbe.vectorCount)
-                        : "idle"
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.inference}
-                    value={fixtureEmbeddingProbe?.operationPhase ?? "idle"}
-                    tone={
-                      fixtureEmbeddingProbe?.operationPhase === "completed"
-                        ? "success"
-                        : undefined
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.intent}
-                    value={fixtureIntentProbe?.intent ?? "idle"}
-                  />
-                  <Metric
-                    label={copy.metric.route}
-                    value={fixtureIntentProbe?.operationPhase ?? "idle"}
-                    tone={
-                      fixtureIntentProbe?.operationPhase === "completed"
-                        ? "success"
-                        : undefined
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.ocrText}
-                    value={fixtureOcrProbe?.text ?? "idle"}
-                  />
-                  <Metric
-                    label={copy.metric.ocrBlocks}
-                    value={
-                      fixtureOcrProbe
-                        ? String(fixtureOcrProbe.blockCount)
-                        : "idle"
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.ocrOps}
-                    value={fixtureOcrProbe?.operationPhase ?? "idle"}
-                    tone={
-                      fixtureOcrProbe?.operationPhase === "completed"
-                        ? "success"
-                        : undefined
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.topDoc}
-                    value={fixtureRerankProbe?.topDocumentId ?? "idle"}
-                  />
-                  <Metric
-                    label={copy.metric.reranked}
-                    value={
-                      fixtureRerankProbe
-                        ? String(fixtureRerankProbe.resultCount)
-                        : "idle"
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.rerankOps}
-                    value={fixtureRerankProbe?.operationPhase ?? "idle"}
-                    tone={
-                      fixtureRerankProbe?.operationPhase === "completed"
-                        ? "success"
-                        : undefined
-                    }
-                  />
-                </dl>
-              </div>
-
-              <div className="mt-4 shrink-0" data-testid="memory-alpha-spine">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">
-                    {copy.settings.memoryAlpha}
-                  </h3>
-                  <div className="flex items-center gap-1.5">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Disable Memory alpha"
-                          className="size-8 rounded-md"
-                          data-testid="disable-memory-alpha"
-                          disabled={sending}
-                          onClick={() => void handleDisableMemoryAlpha()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Disable Memory alpha</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Refresh Memory alpha"
-                          className="size-8 rounded-md"
-                          data-testid="refresh-memory-alpha"
-                          disabled={sending}
-                          onClick={() =>
-                            void trackAction(
-                              "Refresh Memory alpha",
-                              refreshMemoryAlphaStatus,
-                              copy.action.memoryAlphaRefreshed,
-                            )
-                          }
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCw
-                            className={cn(
-                              "size-3.5",
-                              sending && "animate-spin",
-                            )}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Refresh Memory alpha</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-                <dl className="divide-y divide-border border-y text-[11px]">
-                  <Metric
-                    label={copy.metric.alphaState}
-                    value={memoryAlpha?.state ?? "unknown"}
-                    tone={
-                      memoryAlpha?.state === "active"
-                        ? "success"
-                        : memoryAlpha?.state === "degraded"
-                          ? "warning"
-                          : undefined
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.tracked}
-                    value={`${memoryAlpha?.trackedMessageCount ?? 0}/${memoryAlpha?.maxMessageCount ?? 5}`}
-                  />
-                  <Metric
-                    label={copy.metric.rollback}
-                    value={memoryAlpha?.rollbackStatus ?? "not_started"}
-                    tone={
-                      memoryAlpha?.rollbackStatus === "degraded"
+          <RuntimeInspectorPanel
+            actions={{
+              disableMemoryAlpha: () => {
+                void handleDisableMemoryAlpha();
+              },
+              exportMemorySnapshot: () => {
+                void handleExportMemorySnapshot();
+              },
+              importMemorySnapshot: () => {
+                void handleImportMemorySnapshot();
+              },
+              probeCore: () => {
+                void trackAction("Probe Core", async () => {
+                  const probed = await probeCore();
+                  const refreshedCapabilities = await refreshCapabilities();
+                  const refreshedMemory = await refreshMemoryHealth();
+                  const refreshedModels = await refreshModelGovernance();
+                  return (
+                    probed &&
+                    refreshedCapabilities &&
+                    refreshedMemory &&
+                    refreshedModels
+                  );
+                });
+              },
+              refreshMemoryAlpha: () => {
+                void trackAction(
+                  "Refresh Memory alpha",
+                  refreshMemoryAlphaStatus,
+                  copy.action.memoryAlphaRefreshed,
+                );
+              },
+              refreshModelGovernance: () => {
+                void trackAction(
+                  "Refresh model governance",
+                  refreshModelGovernance,
+                  copy.action.modelGovernanceRefreshed,
+                );
+              },
+              runFixtureEmbeddingProbe: () => {
+                void handleRunFixtureEmbeddingProbe();
+              },
+              runFixtureIntentProbe: () => {
+                void handleRunFixtureIntentProbe();
+              },
+              runFixtureOcrProbe: () => {
+                void handleRunFixtureOcrProbe();
+              },
+              runFixtureRerankProbe: () => {
+                void handleRunFixtureRerankProbe();
+              },
+              runMemoryAlphaProbe: () => {
+                void handleMemoryAlphaProbe();
+              },
+              setMemoryAlphaProbeDraft,
+              setMemorySnapshotDraft,
+            }}
+            copy={copy}
+            sending={sending}
+            viewModel={{
+              coreInstanceId: snapshot?.coreInstanceId,
+              coreOnline,
+              memoryAlphaMetrics: [
+                {
+                  label: copy.metric.alphaState,
+                  value: memoryAlpha?.state ?? "unknown",
+                  tone:
+                    memoryAlpha?.state === "active"
+                      ? "success"
+                      : memoryAlpha?.state === "degraded"
                         ? "warning"
-                        : memoryAlpha?.rollbackStatus === "passed"
-                          ? "success"
-                          : undefined
-                    }
-                  />
-                  <Metric
-                    label={copy.metric.deleted}
-                    value={String(memoryAlpha?.rollbackDeletedCount ?? 0)}
-                  />
-                  <Metric
-                    label={copy.metric.reason}
-                    value={memoryAlphaReason}
-                  />
-                  <Metric
-                    label={copy.metric.probe}
-                    value={memoryAlphaProbeSummary}
-                  />
-                  <Metric
-                    label={copy.metric.probeDims}
-                    value={String(memoryAlphaRecallProbe?.queryDimensions ?? 0)}
-                  />
-                  <Metric
-                    label={copy.metric.failure}
-                    value={memoryAlphaRecallProbe?.failureClass ?? "none"}
-                    tone={
-                      memoryAlphaRecallProbe?.failureClass
-                        ? "warning"
-                        : undefined
-                    }
-                  />
-                </dl>
-                <div className="mt-2 flex items-center gap-2">
-                  <Input
-                    aria-label="Memory alpha recall probe"
-                    className="h-8 rounded-md bg-input/45 px-2.5 text-[11px]"
-                    data-testid="memory-alpha-probe-input"
-                    onChange={(event) =>
-                      setMemoryAlphaProbeDraft(event.target.value)
-                    }
-                    placeholder={copy.label.recallProbePlaceholder}
-                    value={memoryAlphaProbeDraft}
-                  />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        aria-label="Run Memory alpha recall probe"
-                        className="size-8 rounded-md"
-                        data-testid="run-memory-alpha-probe"
-                        disabled={sending}
-                        onClick={() => void handleMemoryAlphaProbe()}
-                        size="icon-sm"
-                        type="button"
-                        variant="secondary"
-                      >
-                        <Activity className="size-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Run Memory alpha recall probe
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-
-              <div className="mt-4 shrink-0">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">
-                    {copy.label.memorySnapshot}
-                  </h3>
-                  <div className="flex items-center gap-1.5">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Export memory snapshot"
-                          className="size-8 rounded-md"
-                          data-testid="export-memory-snapshot"
-                          disabled={sending}
-                          onClick={() => void handleExportMemorySnapshot()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Download className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Export memory snapshot</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label="Import memory snapshot"
-                          className="size-8 rounded-md"
-                          data-testid="import-memory-snapshot"
-                          disabled={sending}
-                          onClick={() => void handleImportMemorySnapshot()}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Upload className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Import memory snapshot</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-                <Textarea
-                  aria-label={copy.label.memorySnapshotPlaceholder}
-                  className="h-[96px] resize-none rounded-md bg-input/45 font-mono text-[10px] leading-4"
-                  data-testid="memory-snapshot-json"
-                  onChange={(event) =>
-                    setMemorySnapshotDraft(event.target.value)
-                  }
-                  placeholder={copy.label.memorySnapshotPlaceholder}
-                  spellCheck={false}
-                  value={memorySnapshotDraft}
-                />
-              </div>
-
-              <div className="mt-5 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                  {copy.label.recentEvents}
-                </h3>
-                <span className="text-[10px] text-muted-foreground">
-                  {recentEvents.length} {copy.label.events}
-                </span>
-              </div>
-
-              <ScrollArea className="mt-4 min-h-0 flex-1">
-                <div className="space-y-4 pr-3" data-testid="event-list">
-                  {recentEvents.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      {copy.label.waitingForCoreEvents}
-                    </p>
-                  ) : (
-                    recentEvents.map((envelope) => (
-                      <div className="flex gap-2.5" key={envelope.eventId}>
-                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="truncate text-[11px] font-medium">
-                              {envelope.event.type}
-                            </p>
-                            <time className="shrink-0 text-[10px] text-muted-foreground">
-                              {formatEventTime(envelope.createdAt)}
-                            </time>
-                          </div>
-                          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                            {eventLabel(envelope)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-
-              <Separator className="my-4" />
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                {coreOnline ? (
-                  <CheckCircle2 className="size-3.5 text-success" />
-                ) : (
-                  <CircleAlert className="size-3.5 text-warning" />
-                )}
-                <span data-testid="core-instance">
-                  {snapshot?.coreInstanceId
-                    ? `instance ${snapshot.coreInstanceId.slice(-12)}`
-                    : "awaiting core instance"}
-                </span>
-              </div>
-            </div>
-          </aside>
+                        : undefined,
+                },
+                {
+                  label: copy.metric.tracked,
+                  value: `${memoryAlpha?.trackedMessageCount ?? 0}/${memoryAlpha?.maxMessageCount ?? 5}`,
+                },
+                {
+                  label: copy.metric.rollback,
+                  value: memoryAlpha?.rollbackStatus ?? "not_started",
+                  tone:
+                    memoryAlpha?.rollbackStatus === "degraded"
+                      ? "warning"
+                      : memoryAlpha?.rollbackStatus === "passed"
+                        ? "success"
+                        : undefined,
+                },
+                {
+                  label: copy.metric.deleted,
+                  value: String(memoryAlpha?.rollbackDeletedCount ?? 0),
+                },
+                {
+                  label: copy.metric.reason,
+                  value: memoryAlphaReason,
+                },
+                {
+                  label: copy.metric.probe,
+                  value: memoryAlphaProbeSummary,
+                },
+                {
+                  label: copy.metric.probeDims,
+                  value: String(memoryAlphaRecallProbe?.queryDimensions ?? 0),
+                },
+                {
+                  label: copy.metric.failure,
+                  value: memoryAlphaRecallProbe?.failureClass ?? "none",
+                  tone: memoryAlphaRecallProbe?.failureClass
+                    ? "warning"
+                    : undefined,
+                },
+              ],
+              memoryAlphaProbeDraft,
+              memorySnapshotDraft,
+              modelGovernanceMetrics: [
+                {
+                  label: copy.metric.candidates,
+                  value: String(modelCandidates.length),
+                },
+                {
+                  label: copy.metric.manifests,
+                  value: String(modelManifests.length),
+                },
+                {
+                  label: copy.metric.providers,
+                  value: String(inferenceProviders.length),
+                },
+                {
+                  label: copy.metric.available,
+                  value: String(availableInferenceProviderCount),
+                  tone: "success",
+                },
+                {
+                  label: copy.metric.fixture,
+                  value: fixtureEmbeddingProvider?.status ?? "unconfigured",
+                  tone: fixtureEmbeddingAvailable ? "success" : "warning",
+                },
+                {
+                  label: copy.metric.intentRouter,
+                  value: intentRouterProvider?.status ?? "unconfigured",
+                  tone: intentRouterAvailable ? "success" : "warning",
+                },
+                {
+                  label: copy.metric.ocr,
+                  value: ocrProvider?.status ?? "unconfigured",
+                  tone: ocrProviderAvailable ? "success" : "warning",
+                },
+                {
+                  label: copy.metric.reranker,
+                  value: rerankerProvider?.status ?? "unconfigured",
+                  tone: rerankerProviderAvailable ? "success" : "warning",
+                },
+                {
+                  label: copy.metric.required,
+                  value: String(requiredProviderConfigurationCount),
+                  tone: "warning",
+                },
+                {
+                  label: copy.metric.installable,
+                  value: String(installableModelCount),
+                  tone: "success",
+                },
+                {
+                  label: copy.metric.blocked,
+                  value: String(blockedModelCount),
+                  tone: "warning",
+                },
+                {
+                  label: copy.metric.operations,
+                  value: String(modelOperations.length),
+                },
+                {
+                  label: copy.metric.activeOps,
+                  value: String(activeModelOperationCount),
+                  tone: "warning",
+                },
+                {
+                  label: copy.metric.resourceMem,
+                  value: resourceMemoryGiB,
+                },
+                {
+                  label: copy.metric.resourceVram,
+                  value: resourceVramGiB,
+                },
+                {
+                  label: copy.metric.resourceLeases,
+                  value: String(resourceDiagnostics?.activeLeaseCount ?? 0),
+                },
+                {
+                  label: copy.metric.localModels,
+                  value: String(modelInventory.length),
+                },
+                {
+                  label: copy.metric.downloadable,
+                  value: String(downloadableCandidateCount),
+                },
+                {
+                  label: copy.metric.loaded,
+                  value: String(loadedModelCount),
+                  tone: "accent",
+                },
+                {
+                  label: copy.metric.vectorDims,
+                  value: fixtureEmbeddingProbe
+                    ? String(fixtureEmbeddingProbe.dimensions)
+                    : "idle",
+                },
+                {
+                  label: copy.metric.vectors,
+                  value: fixtureEmbeddingProbe
+                    ? String(fixtureEmbeddingProbe.vectorCount)
+                    : "idle",
+                },
+                {
+                  label: copy.metric.inference,
+                  value: fixtureEmbeddingProbe?.operationPhase ?? "idle",
+                  tone:
+                    fixtureEmbeddingProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined,
+                },
+                {
+                  label: copy.metric.intent,
+                  value: fixtureIntentProbe?.intent ?? "idle",
+                },
+                {
+                  label: copy.metric.route,
+                  value: fixtureIntentProbe?.operationPhase ?? "idle",
+                  tone:
+                    fixtureIntentProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined,
+                },
+                {
+                  label: copy.metric.ocrText,
+                  value: fixtureOcrProbe?.text ?? "idle",
+                },
+                {
+                  label: copy.metric.ocrBlocks,
+                  value: fixtureOcrProbe
+                    ? String(fixtureOcrProbe.blockCount)
+                    : "idle",
+                },
+                {
+                  label: copy.metric.ocrOps,
+                  value: fixtureOcrProbe?.operationPhase ?? "idle",
+                  tone:
+                    fixtureOcrProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined,
+                },
+                {
+                  label: copy.metric.topDoc,
+                  value: fixtureRerankProbe?.topDocumentId ?? "idle",
+                },
+                {
+                  label: copy.metric.reranked,
+                  value: fixtureRerankProbe
+                    ? String(fixtureRerankProbe.resultCount)
+                    : "idle",
+                },
+                {
+                  label: copy.metric.rerankOps,
+                  value: fixtureRerankProbe?.operationPhase ?? "idle",
+                  tone:
+                    fixtureRerankProbe?.operationPhase === "completed"
+                      ? "success"
+                      : undefined,
+                },
+              ],
+              recentEvents,
+              systemStatus: {
+                accelerationBackends,
+                connection,
+                gpuCount,
+                memoryAlphaState: memoryAlpha?.state,
+                runtimeMode,
+                snapshot,
+                voiceFramesSent: ptt.audioDiagnostics.framesSent,
+                voicePeak,
+                voiceRms,
+              },
+            }}
+          />
         )}
       </div>
     </div>

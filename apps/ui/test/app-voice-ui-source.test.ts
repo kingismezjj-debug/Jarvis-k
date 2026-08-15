@@ -805,11 +805,11 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('voiceEngine: "语音引擎"');
     expect(appSource).toContain('alphaState: "Alpha 状态"');
     expect(appSource).toContain('providers: "Provider"');
-    expect(appSource).toContain("label={copy.metric.coreHealth}");
-    expect(appSource).toContain("label={copy.metric.runtimeMode}");
-    expect(appSource).toContain("label={copy.metric.voiceEngine}");
-    expect(appSource).toContain("label={copy.metric.alphaState}");
-    expect(appSource).toContain("label={copy.metric.providers}");
+    expect(appSource).toContain("copy.metric.coreHealth");
+    expect(appSource).toContain("copy.metric.runtimeMode");
+    expect(appSource).toContain("copy.metric.voiceEngine");
+    expect(appSource).toContain("copy.metric.alphaState");
+    expect(appSource).toContain("copy.metric.providers");
     expect(appSource).toContain("copy.value.shown");
     expect(appSource).toContain("copy.value.hidden");
   });

@@ -15,6 +15,7 @@ const featureComponents = [
   "features/model-management/model-operation-list.tsx",
   "features/plugins/plugin-management-view.tsx",
   "features/plugins/plugin-projection-panel.tsx",
+  "features/runtime-inspector/runtime-inspector-panel.tsx",
   "features/settings/chat-answer-settings-panel.tsx",
   "features/settings/command-router-settings-panel.tsx",
   "features/settings/model-governance-settings-panel.tsx",
@@ -171,5 +172,19 @@ describe("UI feature component boundaries", () => {
     expect(source).not.toContain("loadModel");
     expect(source).not.toContain("acquireLease");
     expect(source).not.toContain("refreshModelGovernance");
+  });
+
+  it("keeps runtime inspector probe and refresh actions user-triggered", () => {
+    const source = readSource(
+      "features/runtime-inspector/runtime-inspector-panel.tsx",
+    );
+
+    expect(source).toContain('data-testid="runtime-inspector"');
+    expect(source).toContain('data-testid="refresh-model-governance"');
+    expect(source).toContain('data-testid="run-memory-alpha-probe"');
+    expect(source).not.toContain("useEffect");
+    expect(source).not.toContain("probeCore(");
+    expect(source).not.toContain("refreshModelGovernance(");
+    expect(source).not.toContain("handleRunFixture");
   });
 });
