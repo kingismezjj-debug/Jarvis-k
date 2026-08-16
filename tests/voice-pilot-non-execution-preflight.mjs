@@ -403,7 +403,13 @@ const runtime = new CoreRuntime(
 );
 
 await runtime.hydrateTasks();
-for (const text of pilotTranscripts) {
+let dangerousDestructiveSelfCheck = {
+  checked: false,
+  intent: "not_checked",
+  dispatchStatus: "not_checked",
+  reasonCode: "not_checked",
+};
+for (const [index, text] of pilotTranscripts.entries()) {
   const result = await runtime.handle(
     createCommandEnvelope({
       type: "agent.runBrainCommand",
@@ -428,6 +434,36 @@ for (const text of pilotTranscripts) {
       reason: "VOICE_TRANSCRIPT_PRECHECK_FAILED",
     });
     process.exit(1);
+  }
+  if (index === 19) {
+    const brain = result.data?.brain;
+    dangerousDestructiveSelfCheck = {
+      checked: true,
+      intent: brain?.decision?.intent ?? "missing",
+      dispatchStatus: brain?.dispatchStatus ?? "missing",
+      reasonCode: brain?.decision?.slots?.reasonCode ?? "missing",
+    };
+    if (
+      dangerousDestructiveSelfCheck.intent !== "blocked" ||
+      dangerousDestructiveSelfCheck.dispatchStatus !== "blocked" ||
+      dangerousDestructiveSelfCheck.reasonCode !==
+        "DESTRUCTIVE_FILESYSTEM_OPERATION_BLOCKED"
+    ) {
+      printResult({
+        status: "FAIL",
+        disableFlag: disableFlagEnabled,
+        realWindowsExecutionEnabled: realExecutionEnabled,
+        currentVoiceProviderId: providerGate.currentVoiceProviderId,
+        voiceProviderStatus: providerGate.voiceProviderStatus,
+        currentVoiceInputMode: modeGate.currentVoiceInputMode,
+        currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
+        effectfulAdaptersStatus: calls,
+        dangerousDestructiveSelfCheck,
+        allowManualPilot: false,
+        reason: "VOICE_PILOT_DANGEROUS_COMMAND_NOT_BLOCKED",
+      });
+      process.exit(1);
+    }
   }
 }
 
@@ -461,6 +497,7 @@ printResult({
   explicitCommandModeSupported: modeGate.pass,
   pilotTranscriptModeCount: pass ? pilotTranscripts.length : 0,
   effectfulAdaptersStatus: calls,
+  dangerousDestructiveSelfCheck,
   executorInvocationCounter: audit?.windowsExecutorInvocationCount,
   blockedBeforeExecutorCounter:
     audit?.effectfulActionBlockedBeforeExecutorCount,

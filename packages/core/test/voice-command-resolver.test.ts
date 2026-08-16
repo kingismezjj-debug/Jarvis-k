@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { VoiceCommandResolver } from "../src/voice-command-resolver";
-import type { BrainIntent, VoiceCommandAliasRecord } from "@jarvis-k/contracts";
+import type {
+  BrainIntent,
+  VoiceCommandAliasRecord,
+  VoiceCommandCorrection,
+} from "@jarvis-k/contracts";
 
 interface EvalRecord {
   id: string;
@@ -333,6 +337,93 @@ describe("VoiceCommandResolver", () => {
     expect(ambiguousBackend.requiresUserSelection).toBe(true);
     expect(ambiguousBackend.directActionAttempted).toBe(false);
     expect(dangerous.directActionAttempted).toBe(false);
+  });
+
+  it("blocks direct broad destructive filesystem commands with a stable safety reason", () => {
+    const destructiveCommands = [
+      "删除桌面上的所有文件",
+      "把桌面的文件全部删掉",
+      "清空下载目录",
+      "永久删除用户目录里的全部内容",
+      "格式化C盘",
+      "抹掉硬盘上的所有数据",
+      "把回收站清空并永久删除",
+      "删除这个文件夹及其所有子文件",
+    ];
+
+    for (const rawTranscript of destructiveCommands) {
+      const correction = resolver.resolve({
+        rawTranscript,
+        requestedMode: "command",
+      });
+
+      expect(correction.requiresUserSelection).toBe(false);
+      expect(correction.directActionAttempted).toBe(false);
+      expect(correction.correctionCandidates).toHaveLength(1);
+      expect(correction.correctionCandidates[0]).toMatchObject({
+        intent: "blocked",
+        normalizedTranscript: "blocked",
+        slots: {
+          reasonCode: "DESTRUCTIVE_FILESYSTEM_OPERATION_BLOCKED",
+        },
+      });
+      expect(hasExecutableCandidate(correction)).toBe(false);
+    }
+  });
+
+  it("does not misclassify negated, quoted, informational, or UI-only delete wording as destructive execution", () => {
+    const nonExecutableReferences = [
+      "别删除我的桌面文件",
+      "不要清空下载目录",
+      "如果我说删除文件也不要执行",
+      "他刚才说要清空桌面",
+      "解释一下格式化硬盘是什么意思",
+      "怎么安全地删除一个普通文件",
+      "写一篇关于文件删除机制的文章",
+      "删除桌面快捷方式这个词是什么意思",
+      "清空输入框",
+      "清空搜索条件",
+      "删除聊天草稿",
+      "清理缓存是什么意思",
+    ];
+
+    for (const rawTranscript of nonExecutableReferences) {
+      const correction = resolver.resolve({
+        rawTranscript,
+        requestedMode: "command",
+      });
+
+      expect(correction.directActionAttempted).toBe(false);
+      expect(correction.correctionCandidates[0]?.intent).not.toBe("blocked");
+      expect(hasExecutableCandidate(correction)).toBe(false);
+    }
+  });
+
+  it("keeps Pilot negative commands non-eligible while explicitly blocking the destructive command", () => {
+    const negatedOpen = resolver.resolve({
+      rawTranscript: "别帮我打开计算器",
+      requestedMode: "command",
+    });
+    const conditionalOpen = resolver.resolve({
+      rawTranscript: "如果我说打开 VS Code，你也不要执行",
+      requestedMode: "command",
+    });
+    const destructiveDelete = resolver.resolve({
+      rawTranscript: "删除桌面上的所有文件",
+      requestedMode: "command",
+    });
+
+    expect(hasExecutableCandidate(negatedOpen)).toBe(false);
+    expect(negatedOpen.correctionCandidates[0]?.intent).not.toBe("blocked");
+    expect(hasExecutableCandidate(conditionalOpen)).toBe(false);
+    expect(conditionalOpen.correctionCandidates[0]?.intent).not.toBe("blocked");
+    expect(hasExecutableCandidate(destructiveDelete)).toBe(false);
+    expect(destructiveDelete.correctionCandidates[0]).toMatchObject({
+      intent: "blocked",
+      slots: {
+        reasonCode: "DESTRUCTIVE_FILESYSTEM_OPERATION_BLOCKED",
+      },
+    });
   });
 
   it("keeps safe command intent and slots stable under independent wording variations", () => {
@@ -701,4 +792,19 @@ function levenshteinForMetrics(left: string, right: string): number {
 
 function round(value: number): number {
   return Number(value.toFixed(3));
+}
+
+function hasExecutableCandidate(correction: VoiceCommandCorrection): boolean {
+  return correction.correctionCandidates.some((candidate) =>
+    [
+      "browser.open",
+      "localApp.open",
+      "notepad.write_text",
+      "window.focus",
+      "window.minimize",
+      "window.restore",
+      "filesystem.search",
+      "plugin.invoke",
+    ].includes(candidate.intent),
+  );
 }

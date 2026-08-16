@@ -885,6 +885,19 @@ describe("voice UI wiring", () => {
     expect(appSource).not.toContain('?? "verification_failed"');
   });
 
+  it("projects blocked brain dispatches through status and summary without verified wording", () => {
+    expect(appSource).toContain('data-testid="brain-dispatch-panel"');
+    expect(appSource).toContain("{brainResult.dispatchStatus}");
+    expect(appSource).toContain('data-testid="brain-summary"');
+    expect(appSource).toContain("{brainResult.summary}");
+    expect(appSource).not.toContain(
+      'brainResult.dispatchStatus === "completed" ? "verified"',
+    );
+    expect(appSource).not.toContain(
+      'brainResult.dispatchStatus === "blocked" ? "verification_failed"',
+    );
+  });
+
   it("renders Stage 5 Product Alpha history, safe retry, and local TTS controls", () => {
     expect(appSource).toContain("stage5Copy");
     expect(appSource).toContain("产品 Alpha");

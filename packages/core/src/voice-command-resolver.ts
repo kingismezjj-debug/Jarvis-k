@@ -181,6 +181,8 @@ const BUILTIN_COMMANDS: readonly CandidateTemplate[] = [
 
 const AMBIGUOUS_MARGIN = 0.04;
 const AUTO_ACCEPT_CONFIDENCE = 0.82;
+const DESTRUCTIVE_FILESYSTEM_BLOCK_REASON =
+  "DESTRUCTIVE_FILESYSTEM_OPERATION_BLOCKED";
 
 export class VoiceCommandResolver {
   public resolve(input: VoiceCommandResolverInput): VoiceCommandCorrection {
@@ -241,7 +243,7 @@ export class VoiceCommandResolver {
             confidence: 0.99,
             correctionSource: "slot_grammar",
             label: "Block dangerous command",
-            slots: {},
+            slots: { reasonCode: DESTRUCTIVE_FILESYSTEM_BLOCK_REASON },
           },
         ],
         requiresUserSelection: false,
@@ -479,7 +481,7 @@ function slotGrammarCandidates(
       label: "Block dangerous command",
       normalizedTranscript: "blocked",
       intent: "blocked",
-      slots: {},
+      slots: { reasonCode: DESTRUCTIVE_FILESYSTEM_BLOCK_REASON },
       aliases: [text],
       confidence: 0.99,
     });
@@ -1037,14 +1039,49 @@ function stripAnyPrefix(text: string, prefixes: readonly string[]): string | und
 
 function looksDangerousCommand(text: string): boolean {
   const normalized = normalizeLoose(text);
-  return /(\u5220\u9664\u6240\u6709\u6587\u4ef6|\u6e05\u7a7a\u684c\u9762|\u7ed9\u5ba2\u6237\u53d1\u90ae\u4ef6|\u4ed8\u6b3e|\u8d2d\u4e70|\u672a\u77e5\u94fe\u63a5)/u.test(
+  if (
+    /(\u7ed9\u5ba2\u6237\u53d1\u90ae\u4ef6|\u4ed8\u6b3e|\u8d2d\u4e70|\u672a\u77e5\u94fe\u63a5)/u.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+  return looksDestructiveFilesystemCommand(text);
+}
+
+function looksDestructiveFilesystemCommand(text: string): boolean {
+  const normalized = normalizeLoose(text);
+  if (looksQuotedOrNegated(text) || looksNonActionDestructiveReference(text)) {
+    return false;
+  }
+  const hasDestructiveAction =
+    /(\u5220\u9664|\u5220\u6389|\u6e05\u7a7a|\u62b9\u6389|\u79fb\u9664\u5168\u90e8|\u79fb\u9664\u6240\u6709|\u683c\u5f0f\u5316|\u6c38\u4e45\u5220\u9664|delete|remove|wipe|erase|format|clear)/iu.test(
+      normalized,
+    );
+  if (!hasDestructiveAction) {
+    return false;
+  }
+  const hasLocalDataTarget =
+    /(\u6240\u6709\u6587\u4ef6|\u5168\u90e8\u6587\u4ef6|\u684c\u9762(?:\u4e0a\u7684)?(?:\u6587\u4ef6)?|\u4e0b\u8f7d(?:\u76ee\u5f55|\u6587\u4ef6\u5939)?|\u7528\u6237\u76ee\u5f55|\u7cfb\u7edf\u76ee\u5f55|c\u76d8|c:\\|[a-z]:\\|\u78c1\u76d8|\u786c\u76d8|\u56de\u6536\u7ad9|\u8fd9\u4e2a\u6587\u4ef6\u5939|\u5b50\u6587\u4ef6|\u6240\u6709\u6570\u636e|\u5168\u90e8\u5185\u5bb9)/iu.test(
+      normalized,
+    );
+  const hasBroadOrIrreversibleScope =
+    /(\u6240\u6709|\u5168\u90e8|\u5168\u90fd|\u6574\u4e2a|\u6574\u76d8|\u9012\u5f52|\u53ca\u5176\u6240\u6709|\u91cc\u7684\u5168\u90e8|\u4e0a\u7684\u6240\u6709|\u6c38\u4e45|\u5f7b\u5e95|\u683c\u5f0f\u5316|\u6e05\u7a7a|all|everything|recursive|permanent)/iu.test(
+      normalized,
+    );
+  return hasLocalDataTarget && hasBroadOrIrreversibleScope;
+}
+
+function looksNonActionDestructiveReference(text: string): boolean {
+  const normalized = normalizeLoose(text);
+  return /(\u600e\u4e48|\u5982\u4f55|\u89e3\u91ca|\u4ec0\u4e48\u610f\u601d|\u8fd9\u4e2a\u8bcd|\u5199\u4e00\u7bc7|\u5173\u4e8e|\u673a\u5236|\u6587\u7ae0|\u5b89\u5168\u5730|\u8f93\u5165\u6846|\u641c\u7d22\u6761\u4ef6|\u804a\u5929\u8349\u7a3f|\u6e05\u7406\u7f13\u5b58|how to|what does|explain|article)/iu.test(
     normalized,
   );
 }
 
 function looksQuotedOrNegated(text: string): boolean {
   const normalized = normalizeLoose(text);
-  return /(\u4e0d\u8981|\u522b\u5e2e\u6211|\u522b\u6253\u5f00|\u522b\u5199|\u522b\u628a|\u522b\u8bb0|\u6ca1\u6709\u8ba9\u4f60|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6\u8bf4|\u5979\u8bf4|\u5982\u679c\u6211\u8bf4|\u5f15\u7528|\u7ba1\u7406\u5458\u6743\u9650)/u.test(
+  return /(\u4e0d\u8981|\u522b\u5e2e\u6211|\u522b\u6253\u5f00|\u522b\u5199|\u522b\u628a|\u522b\u8bb0|\u522b\u5220\u9664|\u522b\u6e05\u7a7a|\u4e0d\u8981\u5220\u9664|\u4e0d\u8981\u6e05\u7a7a|\u6ca1\u6709\u8ba9\u4f60|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6.*\u8bf4|\u5979.*\u8bf4|\u5982\u679c\u6211\u8bf4|\u5f15\u7528|\u7ba1\u7406\u5458\u6743\u9650)/u.test(
     normalized,
   );
 }

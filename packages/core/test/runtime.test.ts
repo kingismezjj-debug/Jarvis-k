@@ -7027,7 +7027,7 @@ describe("CoreRuntime", () => {
       "删除桌面上的所有文件",
     ];
 
-    for (const text of pilotTranscripts) {
+    for (const [index, text] of pilotTranscripts.entries()) {
       const result = await runtime.handle(
         createCommandEnvelope({
           type: "agent.runBrainCommand",
@@ -7046,6 +7046,20 @@ describe("CoreRuntime", () => {
       );
       expect(brain.voiceInputMode).toBe("command");
       expect(brain.voiceInputModeSource).toBe("explicit_ui");
+      if (index === 17 || index === 18) {
+        expect(brain.decision.intent).not.toBe("localApp.open");
+        expect(brain.dispatchStatus).not.toBe("completed");
+      }
+      if (index === 19) {
+        expect(brain.decision).toMatchObject({
+          intent: "blocked",
+          slots: {
+            reasonCode: "DESTRUCTIVE_FILESYSTEM_OPERATION_BLOCKED",
+          },
+        });
+        expect(brain.dispatchStatus).toBe("blocked");
+        expect(brain.summary.toLowerCase()).toContain("blocked");
+      }
       if (
         brain.decision.intent === "localApp.open" ||
         brain.decision.intent === "browser.open" ||
@@ -7098,6 +7112,12 @@ describe("CoreRuntime", () => {
           providerId: "xunfei",
         },
       });
+      if (sample.asr.rawTranscript === pilotTranscripts[19]) {
+        expect(sample.resolver).toMatchObject({
+          blocked: true,
+          outcomeClass: "blocked",
+        });
+      }
     }
     for (const task of runtime.getSnapshot().tasks) {
       expect(task.state).toBe("failed");
