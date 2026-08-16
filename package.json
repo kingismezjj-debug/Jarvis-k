@@ -59,6 +59,7 @@
     "validate:voice-command:zh-cn-v1.1": "node scripts/validate-voice-command-zh-cn-v1-1-dataset.mjs",
     "benchmark:voice-command:zh-cn-v1.1": "npm run build:contracts && npm run build:core && node scripts/evaluate-voice-command-zh-cn-v1-1.mjs --split=dev",
     "benchmark:voice-command:zh-cn-v1.1:all": "npm run build:contracts && npm run build:core && node scripts/evaluate-voice-command-zh-cn-v1-1.mjs --split=all --allow-locked-test",
+    "review:voice-regression-export": "npm run build:contracts && node scripts/review-voice-regression-export.mjs",
     "typecheck": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:sensitive-artifacts": "node scripts/check-sensitive-artifacts.mjs",
