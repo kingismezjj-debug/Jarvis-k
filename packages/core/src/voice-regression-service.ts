@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   type BrainIntent,
   type VoiceCommandCorrection,
@@ -11,13 +12,20 @@ import {
   type VoiceRegressionFeedbackStatus,
   type VoiceRegressionRecord,
   VoiceRegressionRecordSchema,
+  type VoiceRegressionSample,
+  VoiceRegressionSampleSchema,
   createId,
 } from "@jarvis-k/contracts";
 
+import {
+  redactVoiceRegressionSlots,
+  redactVoiceRegressionText,
+  scanVoiceRegressionSensitiveText,
+} from "./voice-regression-redactor";
+
 const RESOLVER_VERSION = "voice-command-resolver.deterministic.v1";
 const MAX_RECORDS = 10_000;
-const SENSITIVE_SLOT_KEY_PATTERN =
-  /(?:credential|password|passwd|secret|token|api[_-]?key|authorization|cookie|content|file|path|text|query)/iu;
+const MAX_PENDING_SAMPLES = 50;
 
 export interface VoiceRegressionRepository {
   initialize(): Promise<void>;
@@ -43,10 +51,6 @@ export interface VoiceRegressionCaptureInput {
   providerConfidence?: number | undefined;
   asrLatencyMs?: number | undefined;
   resolverLatencyMs?: number | undefined;
-  feedbackStatus?: VoiceRegressionFeedbackStatus | undefined;
-  selectedCandidateIndex?: number | undefined;
-  correctedText?: string | undefined;
-  intendedIntent?: BrainIntent | undefined;
   context?:
     | {
         activeCapabilityId?: string | undefined;
@@ -58,6 +62,9 @@ export interface VoiceRegressionCaptureInput {
 
 export class VoiceRegressionService {
   private initialized = false;
+  private readonly pendingSamples = new Map<string, VoiceRegressionSample>();
+  private readonly pendingSampleKeys = new Map<string, string>();
+  private readonly completedSampleKeys = new Set<string>();
 
   public constructor(
     private readonly repository: VoiceRegressionRepository | undefined,
@@ -86,6 +93,7 @@ export class VoiceRegressionService {
     confirmation?: "explicit_ui_confirmation" | undefined;
   }): Promise<VoiceRegressionCollectionStatus> {
     if (!this.repository) {
+      this.clearPendingSamples();
       return this.status({
         consentLevel: "off",
         recordCount: 0,
@@ -100,6 +108,9 @@ export class VoiceRegressionService {
     }
     await this.ensureInitialized();
     await this.repository.setConsentLevel(input.consentLevel);
+    if (input.consentLevel === "off") {
+      this.clearPendingSamples();
+    }
     return this.status({
       consentLevel: input.consentLevel,
       recordCount: await this.repository.countRecords(),
@@ -109,80 +120,83 @@ export class VoiceRegressionService {
 
   public async captureResolution(
     input: VoiceRegressionCaptureInput,
-  ): Promise<{ recorded: boolean; record?: VoiceRegressionRecord }> {
+  ): Promise<{ pending: boolean; sample?: VoiceRegressionSample }> {
     if (!this.repository) {
-      return { recorded: false };
+      return { pending: false };
     }
     await this.ensureInitialized();
     if ((await this.repository.getConsentLevel()) !== "local_text") {
-      return { recorded: false };
+      return { pending: false };
     }
+    const sample = this.createPendingSample(input);
+    if (!sample) {
+      return { pending: false };
+    }
+    const sampleKey = createSampleKey(sample);
+    if (this.completedSampleKeys.has(sampleKey)) {
+      return { pending: false };
+    }
+    const existingId = this.pendingSampleKeys.get(sampleKey);
+    if (existingId) {
+      const existing = this.pendingSamples.get(existingId);
+      return existing ? { pending: true, sample: existing } : { pending: false };
+    }
+    this.pendingSamples.set(sample.id, sample);
+    this.pendingSampleKeys.set(sampleKey, sample.id);
+    this.evictOldPendingSamples();
+    return { pending: true, sample };
+  }
+
+  public listPendingSamples(options?: {
+    limit?: number | undefined;
+  }): VoiceRegressionSample[] {
+    const samples = [...this.pendingSamples.values()].reverse();
+    return samples.slice(0, options?.limit ?? samples.length);
+  }
+
+  public async savePendingSample(input: {
+    sampleId: string;
+    status: VoiceRegressionFeedbackStatus;
+    selectedCandidateIndex?: number | undefined;
+    correctedText?: string | undefined;
+    intendedIntent?: BrainIntent | undefined;
+  }): Promise<VoiceRegressionRecord | undefined> {
+    if (!this.repository) {
+      return undefined;
+    }
+    await this.ensureInitialized();
+    const sample = this.pendingSamples.get(input.sampleId);
+    if (!sample) {
+      return undefined;
+    }
+    const feedback = this.createFeedback(input);
     const record = VoiceRegressionRecordSchema.parse({
-      id: createId("voice-regression"),
-      schemaVersion: 1,
-      createdAt: this.now().toISOString(),
-      consentLevel: "local_text",
-      locale: "zh-CN",
-      mode: input.mode ?? input.correction.inputMode,
-      asr: {
-        providerId: sanitizeProviderId(input.asrProviderId),
-        rawTranscript: input.correction.rawTranscript,
-        ...(input.providerConfidence === undefined
-          ? {}
-          : { providerConfidence: input.providerConfidence }),
-        isFinal: true,
-        ...(input.asrLatencyMs === undefined
-          ? {}
-          : { latencyMs: input.asrLatencyMs }),
-      },
-      resolver: {
-        version: RESOLVER_VERSION,
-        normalizedText: input.correction.normalizedTranscript,
-        outcomeClass: classifyOutcome(input.correction),
-        candidates: input.correction.correctionCandidates.slice(0, 5).map(
-          (candidate) => {
-            const sanitized = sanitizeSlots(candidate.slots);
-            return {
-              intent: candidate.intent,
-              safeSlots: sanitized.slots,
-              confidence: candidate.confidence,
-              source: candidate.correctionSource,
-            };
-          },
-        ),
-        clarificationRequired: input.correction.requiresUserSelection,
-        blocked:
-          input.correction.correctionCandidates[0]?.intent === "blocked",
-        latencyMs: input.resolverLatencyMs ?? 0,
-      },
-      feedback: {
-        status:
-          input.feedbackStatus ??
-          (input.correction.requiresUserSelection ? "abandoned" : "accepted"),
-        ...(input.selectedCandidateIndex === undefined
-          ? {}
-          : { selectedCandidateIndex: input.selectedCandidateIndex }),
-        ...(input.correctedText === undefined
-          ? {}
-          : { correctedText: input.correctedText }),
-        ...(input.intendedIntent === undefined
-          ? {}
-          : { intendedIntent: input.intendedIntent }),
-      },
-      context: sanitizeContext(input.context),
+      ...sample,
+      feedback,
       privacy: {
-        redactions: input.correction.correctionCandidates
-          .flatMap((candidate) => sanitizeSlots(candidate.slots).redactions)
-          .filter(unique)
-          .slice(0, 32),
-        containsAudio: false,
-        uploadAllowed: false,
+        ...sample.privacy,
+        redactions: unique([
+          ...sample.privacy.redactions,
+          ...extractFeedbackRedactions(feedback),
+        ]),
       },
     });
-    return {
-      recorded: true,
-      record: await this.repository.appendRecord(record),
-    };
+    assertNoSensitiveExport(JSON.stringify(record));
+    const persisted = await this.repository.appendRecord(record);
+    this.removePendingSample(sample.id);
+    this.completedSampleKeys.add(createSampleKey(sample));
+    return persisted;
+  }
+
+  public discardPendingSample(sampleId: string): boolean {
+    return this.removePendingSample(sampleId);
+  }
+
+  public clearPendingSamples(): number {
+    const count = this.pendingSamples.size;
+    this.pendingSamples.clear();
+    this.pendingSampleKeys.clear();
+    return count;
   }
 
   public async listRecords(options?: {
@@ -210,18 +224,7 @@ export class VoiceRegressionService {
     await this.ensureInitialized();
     return this.repository.updateFeedback({
       recordId: input.recordId,
-      feedback: VoiceRegressionFeedbackSchema.parse({
-        status: input.status,
-        ...(input.selectedCandidateIndex === undefined
-          ? {}
-          : { selectedCandidateIndex: input.selectedCandidateIndex }),
-        ...(input.correctedText === undefined
-          ? {}
-          : { correctedText: input.correctedText }),
-        ...(input.intendedIntent === undefined
-          ? {}
-          : { intendedIntent: input.intendedIntent }),
-      }),
+      feedback: this.createFeedback(input),
     });
   }
 
@@ -243,6 +246,15 @@ export class VoiceRegressionService {
 
   public async exportRecords(): Promise<VoiceRegressionExport> {
     const records = await this.listRecords({ limit: MAX_RECORDS });
+    for (const record of records) {
+      VoiceRegressionRecordSchema.parse(record);
+      assertNoSensitiveExport(JSON.stringify(record));
+    }
+    const jsonl =
+      records.length === 0
+        ? ""
+        : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
+    assertNoSensitiveExport(jsonl);
     return VoiceRegressionExportSchema.parse({
       schemaVersion: 1,
       exportedAt: this.now().toISOString(),
@@ -250,8 +262,11 @@ export class VoiceRegressionService {
       localOnly: true,
       uploadAllowed: false,
       containsAudio: false,
+      format: "jsonl",
+      digestSha256: createHash("sha256").update(jsonl, "utf8").digest("hex"),
       recordCount: records.length,
       records,
+      jsonl,
     });
   }
 
@@ -275,6 +290,8 @@ export class VoiceRegressionService {
       localAudioCollectionSupported: false,
       localAudioConsentLevel: "unsupported",
       recordCount: input.recordCount,
+      pendingCount: this.pendingSamples.size,
+      retentionMaxRecords: MAX_RECORDS,
       localOnly: true,
       uploadAllowed: false,
       audioRetained: false,
@@ -282,11 +299,127 @@ export class VoiceRegressionService {
       storage: input.storage,
     });
   }
+
+  private createPendingSample(
+    input: VoiceRegressionCaptureInput,
+  ): VoiceRegressionSample | undefined {
+    const rawTranscript = redactVoiceRegressionText(
+      input.correction.rawTranscript,
+    );
+    const normalizedText = redactVoiceRegressionText(
+      input.correction.normalizedTranscript,
+    );
+    if (!rawTranscript.ok || !normalizedText.ok) {
+      return undefined;
+    }
+    const redactions = [
+      ...rawTranscript.redactions.map((label) => `raw:${label}`),
+      ...normalizedText.redactions.map((label) => `normalized:${label}`),
+    ];
+    const candidates = [];
+    for (const candidate of input.correction.correctionCandidates.slice(0, 5)) {
+      const safeSlots = redactVoiceRegressionSlots(candidate.slots);
+      if (!safeSlots.ok) {
+        return undefined;
+      }
+      redactions.push(...safeSlots.redactions);
+      candidates.push({
+        intent: candidate.intent,
+        safeSlots: safeSlots.value,
+        confidence: candidate.confidence,
+        source: candidate.correctionSource,
+      });
+    }
+    const sample = VoiceRegressionSampleSchema.parse({
+      id: createId("voice-regression-sample"),
+      schemaVersion: 1,
+      createdAt: this.now().toISOString(),
+      consentLevel: "local_text",
+      locale: "zh-CN",
+      mode: input.mode ?? input.correction.inputMode,
+      asr: {
+        providerId: sanitizeProviderId(input.asrProviderId),
+        rawTranscript: rawTranscript.value,
+        ...(input.providerConfidence === undefined
+          ? {}
+          : { providerConfidence: input.providerConfidence }),
+        isFinal: true,
+        ...(input.asrLatencyMs === undefined
+          ? {}
+          : { latencyMs: input.asrLatencyMs }),
+      },
+      resolver: {
+        version: RESOLVER_VERSION,
+        normalizedText: normalizedText.value,
+        outcomeClass: classifyOutcome(input.correction),
+        candidates,
+        clarificationRequired: input.correction.requiresUserSelection,
+        blocked:
+          input.correction.correctionCandidates[0]?.intent === "blocked",
+        latencyMs: input.resolverLatencyMs ?? 0,
+      },
+      context: sanitizeContext(input.context),
+      privacy: {
+        redactions: unique(redactions),
+        containsAudio: false,
+        uploadAllowed: false,
+      },
+    });
+    assertNoSensitiveExport(JSON.stringify(sample));
+    return sample;
+  }
+
+  private createFeedback(input: {
+    status: VoiceRegressionFeedbackStatus;
+    selectedCandidateIndex?: number | undefined;
+    correctedText?: string | undefined;
+    intendedIntent?: BrainIntent | undefined;
+  }): VoiceRegressionRecord["feedback"] {
+    const correctedText =
+      input.correctedText === undefined
+        ? undefined
+        : redactVoiceRegressionText(input.correctedText);
+    if (correctedText && !correctedText.ok) {
+      throw new Error("VOICE_REGRESSION_SENSITIVE_FEEDBACK");
+    }
+    return VoiceRegressionFeedbackSchema.parse({
+      status: input.status,
+      ...(input.selectedCandidateIndex === undefined
+        ? {}
+        : { selectedCandidateIndex: input.selectedCandidateIndex }),
+      ...(correctedText === undefined ? {} : { correctedText: correctedText.value }),
+      ...(input.intendedIntent === undefined
+        ? {}
+        : { intendedIntent: input.intendedIntent }),
+    });
+  }
+
+  private evictOldPendingSamples(): void {
+    while (this.pendingSamples.size > MAX_PENDING_SAMPLES) {
+      const oldestId = this.pendingSamples.keys().next().value as
+        | string
+        | undefined;
+      if (!oldestId) {
+        return;
+      }
+      this.removePendingSample(oldestId);
+    }
+  }
+
+  private removePendingSample(sampleId: string): boolean {
+    const sample = this.pendingSamples.get(sampleId);
+    if (!sample) {
+      return false;
+    }
+    this.pendingSamples.delete(sampleId);
+    this.pendingSampleKeys.delete(createSampleKey(sample));
+    return true;
+  }
 }
 
 function classifyOutcome(
   correction: VoiceCommandCorrection,
-): VoiceRegressionRecord["resolver"]["outcomeClass"] {
+): VoiceRegressionSample["resolver"]["outcomeClass"] {
   if (correction.correctionCandidates[0]?.intent === "blocked") {
     return "blocked";
   }
@@ -321,36 +454,33 @@ function sanitizeContext(input: VoiceRegressionCaptureInput["context"]) {
   };
 }
 
-function sanitizeSlots(slots: Record<string, unknown>): {
-  slots: Record<string, unknown>;
-  redactions: string[];
-} {
-  const safeSlots: Record<string, unknown> = {};
-  const redactions: string[] = [];
-  for (const [key, value] of Object.entries(slots)) {
-    if (SENSITIVE_SLOT_KEY_PATTERN.test(key)) {
-      safeSlots[key] = "[redacted]";
-      redactions.push(`slot:${key}`);
-      continue;
-    }
-    if (typeof value === "string") {
-      safeSlots[key] = value.slice(0, 200);
-      continue;
-    }
-    if (
-      typeof value === "number" ||
-      typeof value === "boolean" ||
-      value === null
-    ) {
-      safeSlots[key] = value;
-      continue;
-    }
-    safeSlots[key] = "[redacted]";
-    redactions.push(`slot:${key}`);
-  }
-  return { slots: safeSlots, redactions };
+function createSampleKey(sample: VoiceRegressionSample): string {
+  return JSON.stringify({
+    mode: sample.mode,
+    rawTranscript: sample.asr.rawTranscript,
+    normalizedText: sample.resolver.normalizedText,
+    outcomeClass: sample.resolver.outcomeClass,
+    candidates: sample.resolver.candidates.map((candidate) => ({
+      intent: candidate.intent,
+      safeSlots: candidate.safeSlots,
+      source: candidate.source,
+    })),
+  });
 }
 
-function unique(value: string, index: number, values: string[]): boolean {
-  return values.indexOf(value) === index;
+function extractFeedbackRedactions(
+  feedback: VoiceRegressionRecord["feedback"],
+): string[] {
+  return feedback.correctedText?.includes("[redacted") ? ["feedback"] : [];
+}
+
+function assertNoSensitiveExport(text: string): void {
+  const findings = scanVoiceRegressionSensitiveText(text);
+  if (findings.length > 0) {
+    throw new Error(`VOICE_REGRESSION_SENSITIVE_CONTENT:${findings.join(",")}`);
+  }
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)].slice(0, 32);
 }

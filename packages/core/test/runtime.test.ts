@@ -16,6 +16,7 @@ import {
   type VoiceCommandAliasRecord,
   type VoiceRegressionConsentLevel,
   type VoiceRegressionRecord,
+  type VoiceRegressionSample,
   type VoiceEvent,
   type VoiceMode,
   type VoicePermissionState,
@@ -5296,10 +5297,11 @@ describe("CoreRuntime", () => {
       uploadAllowed: false,
       audioRetained: false,
       recordCount: 0,
+      pendingCount: 0,
     });
   });
 
-  it("captures local text voice regression records only after explicit consent", async () => {
+  it("captures local text voice regression samples only after consent and persists only after feedback", async () => {
     const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
     const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
       {
@@ -5356,9 +5358,22 @@ describe("CoreRuntime", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(voiceRegressionRepository.records).toHaveLength(1);
-    const [record] = voiceRegressionRepository.records;
-    expect(record).toMatchObject({
+    expect(voiceRegressionRepository.records).toHaveLength(0);
+    const pending = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionPendingSamples",
+        payload: { limit: 5 },
+      }),
+    );
+    expect(pending.ok).toBe(true);
+    const samples =
+      pending.ok
+        ? (pending.data as { samples?: VoiceRegressionSample[] } | undefined)
+            ?.samples
+        : undefined;
+    expect(samples).toHaveLength(1);
+    const sample = samples?.[0];
+    expect(sample).toMatchObject({
       consentLevel: "local_text",
       locale: "zh-CN",
       mode: "command",
@@ -5372,10 +5387,6 @@ describe("CoreRuntime", () => {
         clarificationRequired: false,
         blocked: false,
       },
-      feedback: {
-        status: "accepted",
-        selectedCandidateIndex: 0,
-      },
       context: {
         activeView: "voice",
       },
@@ -5384,11 +5395,29 @@ describe("CoreRuntime", () => {
         uploadAllowed: false,
       },
     });
-    expect(record?.resolver.candidates[0]).toMatchObject({
+    expect(sample?.resolver.candidates[0]).toMatchObject({
       intent: "localApp.open",
       safeSlots: {
         target: "vscode",
       },
+    });
+
+    const persisted = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.saveVoiceRegressionPendingSample",
+        payload: {
+          sampleId: sample!.id,
+          status: "accepted",
+          selectedCandidateIndex: 0,
+        },
+      }),
+    );
+    expect(persisted.ok).toBe(true);
+    expect(voiceRegressionRepository.records).toHaveLength(1);
+    const [record] = voiceRegressionRepository.records;
+    expect(record?.feedback).toMatchObject({
+      status: "accepted",
+      selectedCandidateIndex: 0,
     });
 
     const listed = await runtime.handle(
@@ -5407,7 +5436,7 @@ describe("CoreRuntime", () => {
 
     const feedback = await runtime.handle(
       createCommandEnvelope({
-        type: "agent.submitVoiceRegressionFeedback",
+      type: "agent.submitVoiceRegressionFeedback",
         payload: {
           recordId: record!.id,
           status: "corrected",

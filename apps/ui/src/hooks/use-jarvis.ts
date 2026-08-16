@@ -18,6 +18,7 @@ import {
   type UserRouteAliasRecord,
   type VoiceCommandAliasRecord,
   type VoiceRegressionCollectionStatus,
+  type VoiceRegressionSample,
   type VoiceRegressionRecord,
   type VoiceServiceStatus,
 } from "@jarvis-k/contracts";
@@ -91,6 +92,7 @@ export function useJarvis() {
   const {
     voiceCommandAliases,
     voiceRegressionExportText,
+    voiceRegressionPendingSamples,
     voiceRegressionRecords,
     voiceRegressionStatus,
     voiceServiceStatus,
@@ -147,6 +149,15 @@ export function useJarvis() {
   const setVoiceRegressionRecords = useCallback(
     (records: VoiceRegressionRecord[]) => {
       dispatchVoiceState({ type: "voiceRegressionRecords.set", records });
+    },
+    [],
+  );
+  const setVoiceRegressionPendingSamples = useCallback(
+    (samples: VoiceRegressionSample[]) => {
+      dispatchVoiceState({
+        type: "voiceRegressionPendingSamples.set",
+        samples,
+      });
     },
     [],
   );
@@ -395,8 +406,10 @@ export function useJarvis() {
   });
 
   const {
+    clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
     confirmVoiceCommandCorrection,
+    discardVoiceRegressionPendingSample,
     deleteVoiceRegressionRecord,
     deleteVoiceCommandAlias,
     exportVoiceRegressionRecords,
@@ -404,9 +417,11 @@ export function useJarvis() {
     openVoiceSettings,
     refreshTtsServiceStatus,
     refreshVoiceCommandAliases,
+    refreshVoiceRegressionPendingSamples,
     refreshVoiceRegressionCollectionStatus,
     refreshVoiceRegressionRecords,
     refreshVoiceServiceStatus,
+    saveVoiceRegressionPendingSample,
     setVoiceRegressionLocalTextCollection,
     submitVoiceRegressionFeedback,
   } = useJarvisVoiceActions({
@@ -415,6 +430,7 @@ export function useJarvis() {
     setSending,
     setVoiceCommandAliases,
     setVoiceRegressionExportText,
+    setVoiceRegressionPendingSamples,
     setVoiceRegressionRecords,
     setVoiceRegressionStatus,
     setVoiceServiceStatus,
@@ -475,6 +491,7 @@ export function useJarvis() {
       void refreshUserControlledMemories();
       void refreshUserRouteAliases();
       void refreshVoiceRegressionCollectionStatus();
+      void refreshVoiceRegressionPendingSamples();
       void refreshVoiceRegressionRecords();
       return;
     }
@@ -489,6 +506,7 @@ export function useJarvis() {
       void refreshUserControlledMemories();
       void refreshUserRouteAliases();
       void refreshVoiceRegressionCollectionStatus();
+      void refreshVoiceRegressionPendingSamples();
       void refreshVoiceRegressionRecords();
     };
     window.addEventListener("focus", handleWindowFocus);
@@ -501,6 +519,7 @@ export function useJarvis() {
     void refreshUserControlledMemories();
     void refreshUserRouteAliases();
     void refreshVoiceRegressionCollectionStatus();
+    void refreshVoiceRegressionPendingSamples();
     void refreshVoiceRegressionRecords();
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
@@ -515,6 +534,7 @@ export function useJarvis() {
     refreshUserRouteAliases,
     refreshVoiceCommandAliases,
     refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionPendingSamples,
     refreshVoiceRegressionRecords,
     refreshVoiceServiceStatus,
     snapshotReady,
@@ -573,10 +593,12 @@ export function useJarvis() {
     setLocalPluginEnabledState,
     retryBrainCommand,
     rollbackBrainResult,
+    clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
     confirmVoiceCommandCorrection,
     confirmUserRouteAlias,
     deleteUserControlledMemory,
+    discardVoiceRegressionPendingSample,
     deleteVoiceRegressionRecord,
     deleteVoiceCommandAlias,
     deleteUserRouteAlias,
@@ -595,6 +617,7 @@ export function useJarvis() {
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
     setQwenRuntimeControlAction,
+    saveVoiceRegressionPendingSample,
     setVoiceRegressionLocalTextCollection,
     submitVoiceRegressionFeedback,
     sending,
@@ -604,6 +627,7 @@ export function useJarvis() {
     userRouteAliases,
     voiceCommandAliases,
     voiceRegressionExportText,
+    voiceRegressionPendingSamples,
     voiceRegressionRecords,
     voiceRegressionStatus,
     voiceServiceStatus,

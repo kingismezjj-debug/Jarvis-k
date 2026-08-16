@@ -3,12 +3,14 @@ import type {
   VoiceCommandAliasRecord,
   VoiceRegressionCollectionStatus,
   VoiceRegressionRecord,
+  VoiceRegressionSample,
   VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 
 export interface JarvisVoiceState {
   voiceCommandAliases: VoiceCommandAliasRecord[];
   voiceRegressionExportText: string | null;
+  voiceRegressionPendingSamples: VoiceRegressionSample[];
   voiceRegressionRecords: VoiceRegressionRecord[];
   voiceRegressionStatus: VoiceRegressionCollectionStatus | null;
   voiceServiceStatus: VoiceServiceStatus | null;
@@ -18,6 +20,7 @@ export interface JarvisVoiceState {
 export const initialJarvisVoiceState: JarvisVoiceState = {
   voiceCommandAliases: [],
   voiceRegressionExportText: null,
+  voiceRegressionPendingSamples: [],
   voiceRegressionRecords: [],
   voiceRegressionStatus: null,
   voiceServiceStatus: null,
@@ -27,6 +30,10 @@ export const initialJarvisVoiceState: JarvisVoiceState = {
 export type JarvisVoiceAction =
   | { type: "voiceAliases.set"; aliases: VoiceCommandAliasRecord[] }
   | { type: "voiceRegressionExport.set"; exportText: string | null }
+  | {
+      type: "voiceRegressionPendingSamples.set";
+      samples: VoiceRegressionSample[];
+    }
   | { type: "voiceRegressionRecords.set"; records: VoiceRegressionRecord[] }
   | {
       type: "voiceRegressionStatus.set";
@@ -47,6 +54,8 @@ export function jarvisVoiceReducer(
       return { ...state, voiceCommandAliases: action.aliases };
     case "voiceRegressionExport.set":
       return { ...state, voiceRegressionExportText: action.exportText };
+    case "voiceRegressionPendingSamples.set":
+      return { ...state, voiceRegressionPendingSamples: action.samples };
     case "voiceRegressionRecords.set":
       return { ...state, voiceRegressionRecords: action.records };
     case "voiceRegressionStatus.set":

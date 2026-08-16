@@ -674,7 +674,7 @@ export type VoiceRegressionFeedback = z.infer<
   typeof VoiceRegressionFeedbackSchema
 >;
 
-export const VoiceRegressionRecordSchema = z
+export const VoiceRegressionSampleSchema = z
   .object({
     id: z.string().min(1).max(128),
     schemaVersion: z.literal(1),
@@ -707,7 +707,6 @@ export const VoiceRegressionRecordSchema = z
         latencyMs: z.number().nonnegative(),
       })
       .strict(),
-    feedback: VoiceRegressionFeedbackSchema,
     context: z
       .object({
         activeCapabilityId: z.string().trim().min(1).max(128).optional(),
@@ -727,6 +726,14 @@ export const VoiceRegressionRecordSchema = z
       .strict(),
   })
   .strict();
+
+export type VoiceRegressionSample = z.infer<
+  typeof VoiceRegressionSampleSchema
+>;
+
+export const VoiceRegressionRecordSchema = VoiceRegressionSampleSchema.extend({
+  feedback: VoiceRegressionFeedbackSchema,
+}).strict();
 export type VoiceRegressionRecord = z.infer<
   typeof VoiceRegressionRecordSchema
 >;
@@ -739,6 +746,8 @@ export const VoiceRegressionCollectionStatusSchema = z
     localAudioCollectionSupported: z.literal(false),
     localAudioConsentLevel: z.literal("unsupported"),
     recordCount: z.number().int().nonnegative(),
+    pendingCount: z.number().int().nonnegative(),
+    retentionMaxRecords: z.number().int().positive(),
     localOnly: z.literal(true),
     uploadAllowed: z.literal(false),
     audioRetained: z.literal(false),
@@ -758,8 +767,11 @@ export const VoiceRegressionExportSchema = z
     localOnly: z.literal(true),
     uploadAllowed: z.literal(false),
     containsAudio: z.literal(false),
+    format: z.literal("jsonl"),
+    digestSha256: z.string().regex(/^[a-f0-9]{64}$/u),
     recordCount: z.number().int().nonnegative(),
     records: z.array(VoiceRegressionRecordSchema).max(10_000),
+    jsonl: z.string(),
   })
   .strict();
 export type VoiceRegressionExport = z.infer<
@@ -1569,6 +1581,38 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
         limit: z.number().int().min(1).max(500).optional(),
       })
       .strict(),
+  }),
+  z.object({
+    type: z.literal("agent.listVoiceRegressionPendingSamples"),
+    payload: z
+      .object({
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .strict(),
+  }),
+  z.object({
+    type: z.literal("agent.saveVoiceRegressionPendingSample"),
+    payload: z
+      .object({
+        sampleId: z.string().trim().min(1).max(128),
+        status: VoiceRegressionFeedbackStatusSchema,
+        selectedCandidateIndex: z.number().int().min(0).max(4).optional(),
+        correctedText: z.string().trim().min(1).max(500).optional(),
+        intendedIntent: BrainIntentSchema.optional(),
+      })
+      .strict(),
+  }),
+  z.object({
+    type: z.literal("agent.discardVoiceRegressionPendingSample"),
+    payload: z
+      .object({
+        sampleId: z.string().trim().min(1).max(128),
+      })
+      .strict(),
+  }),
+  z.object({
+    type: z.literal("agent.clearVoiceRegressionPendingSamples"),
+    payload: EmptyPayloadSchema,
   }),
   z.object({
     type: z.literal("agent.submitVoiceRegressionFeedback"),

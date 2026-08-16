@@ -8,10 +8,13 @@ import type { VoiceCaptureActions, VoiceRegressionViewModel } from "./types";
 export type VoiceRegressionPanelProps = {
   actions: Pick<
     VoiceCaptureActions,
+    | "clearRegressionPendingSamples"
     | "clearRegressionRecords"
+    | "discardRegressionPendingSample"
     | "deleteRegressionRecord"
     | "exportRegressionRecords"
     | "refreshRegressionRecords"
+    | "saveRegressionPendingSample"
     | "setRegressionLocalTextCollection"
     | "submitRegressionFeedback"
   >;
@@ -26,6 +29,34 @@ export function VoiceRegressionPanel({
 }: VoiceRegressionPanelProps) {
   const status = viewModel.status;
   const enabled = status?.consentLevel === "local_text";
+  const confirmEnable = () => {
+    if (enabled) {
+      actions.setRegressionLocalTextCollection(false);
+      return;
+    }
+    const accepted = window.confirm(
+      "Enable local text-only ASR regression collection? Raw ASR text, resolver candidates, minimal context, and your explicit feedback are stored only on this device. Audio and upload remain disabled.",
+    );
+    if (accepted) {
+      actions.setRegressionLocalTextCollection(true);
+    }
+  };
+  const confirmClear = () => {
+    const accepted = window.confirm(
+      "Delete all saved local ASR regression records from this device?",
+    );
+    if (accepted) {
+      actions.clearRegressionRecords();
+    }
+  };
+  const correctPendingSample = (sampleId: string) => {
+    const correctedText = window.prompt("Correct transcript", "");
+    const trimmed = correctedText?.trim();
+    if (!trimmed) {
+      return;
+    }
+    actions.saveRegressionPendingSample(sampleId, "corrected", trimmed);
+  };
 
   return (
     <section className="mt-5 min-w-0 border-t pt-5">
@@ -45,7 +76,7 @@ export function VoiceRegressionPanel({
         <Button
           className="h-8 rounded-md px-3 text-xs"
           disabled={sending}
-          onClick={() => actions.setRegressionLocalTextCollection(!enabled)}
+          onClick={confirmEnable}
           type="button"
           variant={enabled ? "secondary" : "default"}
         >
@@ -77,7 +108,7 @@ export function VoiceRegressionPanel({
           aria-label="Clear ASR regression records"
           className="size-8 rounded-md"
           disabled={sending || viewModel.records.length === 0}
-          onClick={actions.clearRegressionRecords}
+          onClick={confirmClear}
           size="icon-sm"
           type="button"
           variant="ghost"
@@ -88,6 +119,11 @@ export function VoiceRegressionPanel({
 
       <dl className="mb-3 divide-y divide-border border-y text-[11px]">
         <MetricRow label="records" value={String(status?.recordCount ?? 0)} />
+        <MetricRow label="pending" value={String(status?.pendingCount ?? 0)} />
+        <MetricRow
+          label="max records"
+          value={String(status?.retentionMaxRecords ?? 0)}
+        />
         <MetricRow
           label="retention"
           value={status?.retentionPolicy ?? "user_managed"}
@@ -100,6 +136,76 @@ export function VoiceRegressionPanel({
       </dl>
 
       <div className="space-y-3">
+        {viewModel.pendingSamples.slice(0, 5).map((sample) => (
+          <article
+            className="border-t pt-3 text-xs"
+            key={sample.id}
+            data-testid="voice-regression-pending-sample"
+          >
+            <div className="mb-2 min-w-0">
+              <p className="truncate font-semibold">
+                {sample.asr.rawTranscript}
+              </p>
+              <p className="truncate text-muted-foreground">
+                {sample.resolver.normalizedText}
+              </p>
+            </div>
+            <div className="mb-2 flex flex-wrap gap-2">
+              <Badge className="rounded-md text-[10px]" variant="outline">
+                PENDING
+              </Badge>
+              <Badge className="rounded-md text-[10px]" variant="outline">
+                {sample.resolver.outcomeClass}
+              </Badge>
+              <Badge className="rounded-md text-[10px]" variant="outline">
+                {sample.privacy.containsAudio ? "AUDIO" : "TEXT"}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="h-7 rounded-md px-2 text-[11px]"
+                disabled={sending}
+                onClick={() =>
+                  actions.saveRegressionPendingSample(sample.id, "accepted")
+                }
+                type="button"
+                variant="outline"
+              >
+                Accept
+              </Button>
+              <Button
+                className="h-7 rounded-md px-2 text-[11px]"
+                disabled={sending}
+                onClick={() => correctPendingSample(sample.id)}
+                type="button"
+                variant="outline"
+              >
+                Correct
+              </Button>
+              <Button
+                className="h-7 rounded-md px-2 text-[11px]"
+                disabled={sending}
+                onClick={() =>
+                  actions.saveRegressionPendingSample(sample.id, "rejected")
+                }
+                type="button"
+                variant="outline"
+              >
+                Reject
+              </Button>
+              <Button
+                className="h-7 rounded-md px-2 text-[11px]"
+                disabled={sending}
+                onClick={() => actions.discardRegressionPendingSample(sample.id)}
+                type="button"
+                variant="ghost"
+              >
+                Discard
+              </Button>
+            </div>
+          </article>
+        ))}
+
         {viewModel.records.slice(0, 5).map((record) => (
           <article
             className="border-t pt-3 text-xs"

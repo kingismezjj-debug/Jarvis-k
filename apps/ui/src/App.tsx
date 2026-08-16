@@ -110,7 +110,9 @@ export default function App() {
     confirmVoiceCommandCorrection,
     connection,
     createConversation,
+    clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
+    discardVoiceRegressionPendingSample,
     deleteVoiceRegressionRecord,
     deleteUserRouteAlias,
     deleteVoiceCommandAlias,
@@ -152,6 +154,7 @@ export default function App() {
     refreshUserControlledMemories = async () => false,
     refreshUserRouteAliases,
     refreshVoiceCommandAliases,
+    refreshVoiceRegressionPendingSamples,
     refreshVoiceRegressionCollectionStatus,
     refreshVoiceRegressionRecords,
     renameConversation,
@@ -169,6 +172,7 @@ export default function App() {
     setCommandRouterProductModeEnabled,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
+    saveVoiceRegressionPendingSample,
     setVoiceRegressionLocalTextCollection,
     submitVoiceRegressionFeedback,
     sending,
@@ -178,6 +182,7 @@ export default function App() {
     userRouteAliases,
     voiceCommandAliases,
     voiceRegressionExportText,
+    voiceRegressionPendingSamples,
     voiceRegressionRecords,
     voiceRegressionStatus,
     voiceServiceStatus,
@@ -1807,8 +1812,14 @@ export default function App() {
                 refreshVoiceAliases: () => {
                   void handleRefreshVoiceCommandAliases();
                 },
+                clearRegressionPendingSamples: () => {
+                  void clearVoiceRegressionPendingSamples();
+                },
                 clearRegressionRecords: () => {
                   void clearVoiceRegressionRecords();
+                },
+                discardRegressionPendingSample: (sampleId) => {
+                  void discardVoiceRegressionPendingSample(sampleId);
                 },
                 deleteRegressionRecord: (recordId) => {
                   void deleteVoiceRegressionRecord(recordId);
@@ -1818,7 +1829,19 @@ export default function App() {
                 },
                 refreshRegressionRecords: () => {
                   void refreshVoiceRegressionCollectionStatus();
+                  void refreshVoiceRegressionPendingSamples();
                   void refreshVoiceRegressionRecords();
+                },
+                saveRegressionPendingSample: (
+                  sampleId,
+                  status,
+                  correctedText,
+                ) => {
+                  void saveVoiceRegressionPendingSample(
+                    sampleId,
+                    status,
+                    correctedText,
+                  );
                 },
                 removeRouteAlias: (aliasId) => {
                   void handleDeleteUserRouteAlias(aliasId);
@@ -1859,6 +1882,7 @@ export default function App() {
                 copy,
                 regression: {
                   exportText: voiceRegressionExportText,
+                  pendingSamples: voiceRegressionPendingSamples,
                   records: voiceRegressionRecords,
                   status: voiceRegressionStatus,
                 },

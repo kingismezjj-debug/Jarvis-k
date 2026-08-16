@@ -10,6 +10,7 @@ import type {
   TtsServiceStatus,
   VoiceRegressionCollectionStatus,
   VoiceRegressionRecord,
+  VoiceRegressionSample,
   VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 import {
@@ -85,7 +86,13 @@ describe("jarvis UI state reducers", () => {
     const regressionStatus = {
       consentLevel: "local_text",
       recordCount: 1,
+      pendingCount: 1,
     } as VoiceRegressionCollectionStatus;
+    const regressionSample = {
+      id: "voice-regression-sample_1",
+      asr: { rawTranscript: "鎵撳紑璁颁簨鏈?" },
+      privacy: { containsAudio: false, uploadAllowed: false },
+    } as VoiceRegressionSample;
     const regressionRecord = {
       id: "voice-regression_1",
       asr: { rawTranscript: "打开记事本" },
@@ -103,7 +110,11 @@ describe("jarvis UI state reducers", () => {
       type: "voiceRegressionStatus.set",
       status: regressionStatus,
     });
-    const withRegressionRecords = jarvisVoiceReducer(withRegressionStatus, {
+    const withRegressionPending = jarvisVoiceReducer(withRegressionStatus, {
+      type: "voiceRegressionPendingSamples.set",
+      samples: [regressionSample],
+    });
+    const withRegressionRecords = jarvisVoiceReducer(withRegressionPending, {
       type: "voiceRegressionRecords.set",
       records: [regressionRecord],
     });
@@ -118,6 +129,9 @@ describe("jarvis UI state reducers", () => {
     expect(withTts.voiceServiceStatus).toBe(voiceStatus);
     expect(withTts.ttsServiceStatus).toBe(ttsStatus);
     expect(withRegressionStatus.voiceRegressionStatus).toBe(regressionStatus);
+    expect(withRegressionPending.voiceRegressionPendingSamples).toEqual([
+      regressionSample,
+    ]);
     expect(withRegressionRecords.voiceRegressionRecords).toEqual([
       regressionRecord,
     ]);

@@ -3,6 +3,7 @@ import type {
   VoiceCommandAliasRecord,
   VoiceRegressionCollectionStatus,
   VoiceRegressionRecord,
+  VoiceRegressionSample,
 } from "@jarvis-k/contracts";
 
 import type { uiCopy } from "@/app/copy";
@@ -41,6 +42,7 @@ export type VoiceStatusViewModel = {
 
 export type VoiceRegressionViewModel = {
   exportText: string | null;
+  pendingSamples: VoiceRegressionSample[];
   records: VoiceRegressionRecord[];
   status: VoiceRegressionCollectionStatus | null;
 };
@@ -63,9 +65,17 @@ export type VoiceCaptureActions = {
   startCapture(): void;
   stopCapture(reason: "release" | "user-cancel"): void;
   clearRegressionRecords(): void;
+  clearRegressionPendingSamples(): void;
   deleteRegressionRecord(recordId: string): void;
+  discardRegressionPendingSample(sampleId: string): void;
   exportRegressionRecords(): void;
+  refreshRegressionPendingSamples(): void;
   refreshRegressionRecords(): void;
+  saveRegressionPendingSample(
+    sampleId: string,
+    status: "accepted" | "corrected" | "rejected" | "abandoned",
+    correctedText?: string,
+  ): void;
   setRegressionLocalTextCollection(enabled: boolean): void;
   submitRegressionFeedback(
     recordId: string,

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type {
   VoiceRegressionConsentLevel,
@@ -99,7 +100,8 @@ describe("VoiceRegressionService", () => {
       audioRetained: false,
       storage: "local_json",
     });
-    expect(captured.recorded).toBe(false);
+    expect(captured.pending).toBe(false);
+    expect(service.listPendingSamples()).toHaveLength(0);
     expect(repository.records).toHaveLength(0);
   });
 
@@ -152,15 +154,22 @@ describe("VoiceRegressionService", () => {
       },
     });
 
-    expect(captured.recorded).toBe(true);
-    expect(captured.record?.asr).toMatchObject({
+    expect(captured.pending).toBe(true);
+    expect(repository.records).toHaveLength(0);
+    expect(service.listPendingSamples()).toHaveLength(1);
+    const saved = await service.savePendingSample({
+      sampleId: captured.sample?.id ?? "",
+      status: "accepted",
+      selectedCandidateIndex: 0,
+    });
+    expect(saved?.asr).toMatchObject({
       providerId: "xunfei",
       rawTranscript: "\u6253\u5f00\u8bb0\u4e8b\u672c",
       providerConfidence: 0.82,
       isFinal: true,
       latencyMs: 123,
     });
-    expect(captured.record?.resolver).toMatchObject({
+    expect(saved?.resolver).toMatchObject({
       version: "voice-command-resolver.deterministic.v1",
       normalizedText: "\u6253\u5f00\u8bb0\u4e8b\u672c",
       outcomeClass: "candidate",
@@ -168,16 +177,17 @@ describe("VoiceRegressionService", () => {
       blocked: false,
       latencyMs: 6,
     });
-    expect(captured.record?.resolver.candidates[0]?.safeSlots).toEqual({
+    expect(saved?.resolver.candidates[0]?.safeSlots).toEqual({
       target: "notepad",
       text: "[redacted]",
       apiToken: "[redacted]",
     });
-    expect(captured.record?.privacy).toEqual({
+    expect(saved?.privacy).toEqual({
       redactions: ["slot:text", "slot:apiToken"],
       containsAudio: false,
       uploadAllowed: false,
     });
+    expect(repository.records).toHaveLength(1);
   });
 
   it("supports local view, feedback, deletion, clearing, and export", async () => {
@@ -193,7 +203,13 @@ describe("VoiceRegressionService", () => {
       correction: correctionFixture(),
       resolverLatencyMs: 3,
     });
-    const id = captured.record?.id ?? "";
+    expect(captured.pending).toBe(true);
+    const saved = await service.savePendingSample({
+      sampleId: captured.sample?.id ?? "",
+      status: "accepted",
+      selectedCandidateIndex: 0,
+    });
+    const id = saved?.id ?? "";
 
     await expect(
       service.submitFeedback({
@@ -210,15 +226,88 @@ describe("VoiceRegressionService", () => {
       },
     });
     await expect(service.listRecords()).resolves.toHaveLength(1);
-    await expect(service.exportRecords()).resolves.toMatchObject({
+    const exported = await service.exportRecords();
+    expect(exported).toMatchObject({
       provenance: "USER_INITIATED_LOCAL_VOICE_REGRESSION_EXPORT",
       localOnly: true,
       uploadAllowed: false,
       containsAudio: false,
+      format: "jsonl",
       recordCount: 1,
     });
+    expect(exported.digestSha256).toBe(
+      createHash("sha256").update(exported.jsonl, "utf8").digest("hex"),
+    );
+    expect(exported.jsonl).toContain(id);
     await expect(service.deleteRecord(id)).resolves.toBe(true);
     await expect(service.clearRecords()).resolves.toBe(0);
+  });
+
+  it("discards pending samples without persisting abandoned records", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    const service = new VoiceRegressionService(repository, fixedNow);
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+
+    const captured = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+
+    expect(captured.pending).toBe(true);
+    expect(service.discardPendingSample(captured.sample?.id ?? "")).toBe(true);
+    expect(service.listPendingSamples()).toHaveLength(0);
+    expect(repository.records).toHaveLength(0);
+  });
+
+  it("deduplicates repeated final resolver outputs until feedback is saved", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    const service = new VoiceRegressionService(repository, fixedNow);
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+
+    const first = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+    const second = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+
+    expect(first.sample?.id).toBe(second.sample?.id);
+    expect(service.listPendingSamples()).toHaveLength(1);
+    await service.savePendingSample({
+      sampleId: first.sample?.id ?? "",
+      status: "accepted",
+    });
+    const third = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+    expect(third.pending).toBe(false);
+    expect(repository.records).toHaveLength(1);
+  });
+
+  it("clears pending samples when consent is disabled", async () => {
+    const service = new VoiceRegressionService(
+      new InMemoryVoiceRegressionRepository(),
+      fixedNow,
+    );
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    await service.captureResolution({ correction: correctionFixture() });
+    expect(service.listPendingSamples()).toHaveLength(1);
+
+    await service.setConsent({ consentLevel: "off" });
+
+    expect(service.listPendingSamples()).toHaveLength(0);
+    await expect(service.getStatus()).resolves.toMatchObject({
+      consentLevel: "off",
+      pendingCount: 0,
+    });
   });
 });
 

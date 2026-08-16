@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   VoiceRegressionCollectionStatusSchema,
   VoiceRegressionExportSchema,
+  VoiceRegressionSampleSchema,
   VoiceRegressionRecordSchema,
   VoiceCommandAliasRecordSchema,
   type BrainCommandResult,
@@ -9,6 +10,7 @@ import {
   type VoiceCommandAliasRecord,
   type VoiceCommandCorrectionCandidate,
   type VoiceRegressionCollectionStatus,
+  type VoiceRegressionSample,
   type VoiceRegressionRecord,
   type VoiceServiceStatus,
 } from "@jarvis-k/contracts";
@@ -19,6 +21,7 @@ interface UseJarvisVoiceActionsOptions {
   setSending(value: boolean): void;
   setVoiceCommandAliases(aliases: VoiceCommandAliasRecord[]): void;
   setVoiceRegressionExportText(exportText: string | null): void;
+  setVoiceRegressionPendingSamples(samples: VoiceRegressionSample[]): void;
   setVoiceRegressionRecords(records: VoiceRegressionRecord[]): void;
   setVoiceRegressionStatus(
     status: VoiceRegressionCollectionStatus | null,
@@ -34,6 +37,7 @@ export function useJarvisVoiceActions({
   setSending,
   setVoiceCommandAliases,
   setVoiceRegressionExportText,
+  setVoiceRegressionPendingSamples,
   setVoiceRegressionRecords,
   setVoiceRegressionStatus,
   setVoiceServiceStatus,
@@ -199,6 +203,39 @@ export function useJarvisVoiceActions({
     return true;
   }, [setError, setVoiceRegressionRecords]);
 
+  const refreshVoiceRegressionPendingSamples = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    const result = await window.jarvis.sendCommand({
+      type: "agent.listVoiceRegressionPendingSamples",
+      payload: { limit: 50 },
+    });
+    if (!result.ok) {
+      setError(result.error.message);
+      return false;
+    }
+    const samples = (result.data as { samples?: unknown } | undefined)
+      ?.samples;
+    if (!Array.isArray(samples)) {
+      setError("Core returned invalid pending voice regression samples.");
+      return false;
+    }
+    const parsed = samples.map((sample) =>
+      VoiceRegressionSampleSchema.safeParse(sample),
+    );
+    if (parsed.some((sample) => !sample.success)) {
+      setError("Core returned invalid pending voice regression samples.");
+      return false;
+    }
+    setVoiceRegressionPendingSamples(
+      parsed.map((sample) => (sample.success ? sample.data : neverSample())),
+    );
+    setError(null);
+    return true;
+  }, [setError, setVoiceRegressionPendingSamples]);
+
   const setVoiceRegressionLocalTextCollection = useCallback(
     async (enabled: boolean) => {
       if (!window.jarvis) {
@@ -228,6 +265,7 @@ export function useJarvisVoiceActions({
           return false;
         }
         setVoiceRegressionStatus(parsed.data);
+        await refreshVoiceRegressionPendingSamples();
         await refreshVoiceRegressionRecords();
         setError(null);
         return true;
@@ -237,6 +275,7 @@ export function useJarvisVoiceActions({
     },
     [
       refreshVoiceRegressionRecords,
+      refreshVoiceRegressionPendingSamples,
       setError,
       setSending,
       setVoiceRegressionStatus,
@@ -275,6 +314,109 @@ export function useJarvisVoiceActions({
     ],
   );
 
+  const saveVoiceRegressionPendingSample = useCallback(
+    async (
+      sampleId: string,
+      status: "accepted" | "corrected" | "rejected" | "abandoned",
+      correctedText?: string,
+    ) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      setSending(true);
+      try {
+        const result = await window.jarvis.sendCommand({
+          type: "agent.saveVoiceRegressionPendingSample",
+          payload: {
+            sampleId,
+            status,
+            ...(correctedText === undefined ? {} : { correctedText }),
+          },
+        });
+        if (!result.ok) {
+          setError(result.error.message);
+          return false;
+        }
+        await refreshVoiceRegressionCollectionStatus();
+        await refreshVoiceRegressionPendingSamples();
+        await refreshVoiceRegressionRecords();
+        setError(null);
+        return true;
+      } finally {
+        setSending(false);
+      }
+    },
+    [
+      refreshVoiceRegressionCollectionStatus,
+      refreshVoiceRegressionPendingSamples,
+      refreshVoiceRegressionRecords,
+      setError,
+      setSending,
+    ],
+  );
+
+  const discardVoiceRegressionPendingSample = useCallback(
+    async (sampleId: string) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      setSending(true);
+      try {
+        const result = await window.jarvis.sendCommand({
+          type: "agent.discardVoiceRegressionPendingSample",
+          payload: { sampleId },
+        });
+        if (!result.ok) {
+          setError(result.error.message);
+          return false;
+        }
+        await refreshVoiceRegressionCollectionStatus();
+        await refreshVoiceRegressionPendingSamples();
+        setError(null);
+        return true;
+      } finally {
+        setSending(false);
+      }
+    },
+    [
+      refreshVoiceRegressionCollectionStatus,
+      refreshVoiceRegressionPendingSamples,
+      setError,
+      setSending,
+    ],
+  );
+
+  const clearVoiceRegressionPendingSamples = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    setSending(true);
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.clearVoiceRegressionPendingSamples",
+        payload: {},
+      });
+      if (!result.ok) {
+        setError(result.error.message);
+        return false;
+      }
+      await refreshVoiceRegressionCollectionStatus();
+      await refreshVoiceRegressionPendingSamples();
+      setError(null);
+      return true;
+    } finally {
+      setSending(false);
+    }
+  }, [
+    refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionPendingSamples,
+    setError,
+    setSending,
+  ]);
+
   const clearVoiceRegressionRecords = useCallback(async () => {
     if (!window.jarvis) {
       setError("Desktop bridge unavailable.");
@@ -292,6 +434,7 @@ export function useJarvisVoiceActions({
       }
       setVoiceRegressionExportText(null);
       await refreshVoiceRegressionCollectionStatus();
+      await refreshVoiceRegressionPendingSamples();
       await refreshVoiceRegressionRecords();
       setError(null);
       return true;
@@ -301,6 +444,7 @@ export function useJarvisVoiceActions({
   }, [
     refreshVoiceRegressionCollectionStatus,
     refreshVoiceRegressionRecords,
+    refreshVoiceRegressionPendingSamples,
     setError,
     setSending,
     setVoiceRegressionExportText,
@@ -422,8 +566,10 @@ export function useJarvisVoiceActions({
   }, [setError, setTtsServiceStatus]);
 
   return {
+    clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
     confirmVoiceCommandCorrection,
+    discardVoiceRegressionPendingSample,
     deleteVoiceRegressionRecord,
     deleteVoiceCommandAlias,
     exportVoiceRegressionRecords,
@@ -432,8 +578,10 @@ export function useJarvisVoiceActions({
     refreshTtsServiceStatus,
     refreshVoiceCommandAliases,
     refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionPendingSamples,
     refreshVoiceRegressionRecords,
     refreshVoiceServiceStatus,
+    saveVoiceRegressionPendingSample,
     setVoiceRegressionLocalTextCollection,
     submitVoiceRegressionFeedback,
   };
@@ -445,4 +593,8 @@ function neverAlias(): VoiceCommandAliasRecord {
 
 function neverRecord(): VoiceRegressionRecord {
   throw new Error("Unreachable invalid voice regression record.");
+}
+
+function neverSample(): VoiceRegressionSample {
+  throw new Error("Unreachable invalid voice regression sample.");
 }

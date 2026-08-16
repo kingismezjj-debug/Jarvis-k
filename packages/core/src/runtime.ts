@@ -72,7 +72,6 @@ import {
   VoiceCommand,
   VoiceCommandCorrection,
   VoiceEvent,
-  type VoiceRegressionFeedbackStatus,
   createId,
 } from "@jarvis-k/contracts";
 import {
@@ -829,6 +828,22 @@ export class CoreRuntime {
 
       case "agent.listVoiceRegressionRecords": {
         return this.listVoiceRegressionRecords(envelope);
+      }
+
+      case "agent.listVoiceRegressionPendingSamples": {
+        return this.listVoiceRegressionPendingSamples(envelope);
+      }
+
+      case "agent.saveVoiceRegressionPendingSample": {
+        return this.saveVoiceRegressionPendingSample(envelope);
+      }
+
+      case "agent.discardVoiceRegressionPendingSample": {
+        return this.discardVoiceRegressionPendingSample(envelope);
+      }
+
+      case "agent.clearVoiceRegressionPendingSamples": {
+        return this.clearVoiceRegressionPendingSamples(envelope);
       }
 
       case "agent.submitVoiceRegressionFeedback": {
@@ -1765,7 +1780,6 @@ export class CoreRuntime {
       await this.captureVoiceRegressionResolution({
         voiceCorrection,
         resolverLatencyMs: voiceResolverLatencyMs,
-        feedbackStatus: aliasLearning.ok ? "accepted" : "rejected",
       });
       return aliasLearning;
     }
@@ -1787,7 +1801,6 @@ export class CoreRuntime {
       await this.captureVoiceRegressionResolution({
         voiceCorrection,
         resolverLatencyMs: voiceResolverLatencyMs,
-        feedbackStatus: preferenceMemory.ok ? "accepted" : "rejected",
       });
       return preferenceMemory;
     }
@@ -1904,9 +1917,6 @@ export class CoreRuntime {
     await this.captureVoiceRegressionResolution({
       voiceCorrection,
       resolverLatencyMs: voiceResolverLatencyMs,
-      feedbackStatus: dispatched.dispatchStatus === "blocked"
-        ? "rejected"
-        : "accepted",
     });
     this.publishSnapshot(envelope.correlationId);
     return this.success(envelope, { brain: brainResult });
@@ -1915,7 +1925,6 @@ export class CoreRuntime {
   private async captureVoiceRegressionResolution(input: {
     voiceCorrection: VoiceCommandCorrection | undefined;
     resolverLatencyMs: number | undefined;
-    feedbackStatus: VoiceRegressionFeedbackStatus;
   }): Promise<void> {
     if (!input.voiceCorrection) {
       return;
@@ -1923,19 +1932,12 @@ export class CoreRuntime {
     try {
       const captureInput: VoiceRegressionCaptureInput = {
         correction: input.voiceCorrection,
-        feedbackStatus: input.feedbackStatus,
         context: {
           activeView: "voice",
         },
       };
       if (input.resolverLatencyMs !== undefined) {
         captureInput.resolverLatencyMs = input.resolverLatencyMs;
-      }
-      if (
-        !input.voiceCorrection.requiresUserSelection &&
-        input.voiceCorrection.correctionCandidates.length > 0
-      ) {
-        captureInput.selectedCandidateIndex = 0;
       }
       await this.voiceRegressionService.captureResolution(captureInput);
     } catch {
@@ -2022,7 +2024,6 @@ export class CoreRuntime {
     await this.captureVoiceRegressionResolution({
       voiceCorrection: input.voiceCorrection,
       resolverLatencyMs: input.resolverLatencyMs,
-      feedbackStatus: "abandoned",
     });
     this.publishSnapshot(input.envelope.correlationId);
     return this.success(input.envelope, { brain: brainResult });
@@ -2482,6 +2483,123 @@ export class CoreRuntime {
         retryable: true,
       });
     }
+  }
+
+  private async listVoiceRegressionPendingSamples(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.listVoiceRegressionPendingSamples") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression pending listing received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      const samples = this.voiceRegressionService.listPendingSamples({
+        limit: envelope.command.payload.limit,
+      });
+      return this.success(envelope, {
+        samples,
+        count: samples.length,
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_PENDING_LIST_FAILED",
+        message: "Voice regression pending samples could not be listed.",
+        retryable: true,
+      });
+    }
+  }
+
+  private async saveVoiceRegressionPendingSample(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.saveVoiceRegressionPendingSample") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression pending save received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      const record = await this.voiceRegressionService.savePendingSample({
+        sampleId: envelope.command.payload.sampleId,
+        status: envelope.command.payload.status,
+        selectedCandidateIndex: envelope.command.payload.selectedCandidateIndex,
+        correctedText: envelope.command.payload.correctedText,
+        intendedIntent: envelope.command.payload.intendedIntent,
+      });
+      if (!record) {
+        return this.failure(envelope, {
+          code: "VOICE_REGRESSION_PENDING_NOT_FOUND",
+          message: "Voice regression pending sample was not found.",
+          retryable: false,
+        });
+      }
+      return this.success(envelope, {
+        record,
+        persisted: true,
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_PENDING_SAVE_FAILED",
+        message: "Voice regression pending sample could not be saved.",
+        retryable: false,
+      });
+    }
+  }
+
+  private async discardVoiceRegressionPendingSample(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.discardVoiceRegressionPendingSample") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression pending discard received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      return this.success(envelope, {
+        discarded: this.voiceRegressionService.discardPendingSample(
+          envelope.command.payload.sampleId,
+        ),
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_PENDING_DISCARD_FAILED",
+        message: "Voice regression pending sample could not be discarded.",
+        retryable: false,
+      });
+    }
+  }
+
+  private async clearVoiceRegressionPendingSamples(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.clearVoiceRegressionPendingSamples") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression pending clear received an invalid command.",
+        retryable: false,
+      });
+    }
+    return this.success(envelope, {
+      clearedCount: this.voiceRegressionService.clearPendingSamples(),
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
   }
 
   private async submitVoiceRegressionFeedback(
