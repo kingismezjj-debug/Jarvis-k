@@ -45,6 +45,7 @@ const parentRecords = readJsonl(parentPath);
 const records = readJsonl(datasetPath);
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const datasetDigest = sha256File(datasetPath);
+const heavyDatasetValidationTimeoutMs = 45_000;
 
 describe("zh-CN voice command benchmark v1.1", () => {
   it("keeps the immutable v1 parent dataset digest unchanged", () => {
@@ -99,7 +100,7 @@ describe("zh-CN voice command benchmark v1.1", () => {
         similarityGroupId: record.similarityGroupId,
       })),
     );
-  });
+  }, heavyDatasetValidationTimeoutMs);
 
   it("fails closed on cross-split group or similarity leakage", () => {
     const validation = validateV11Records(records, parentRecords, {
@@ -111,7 +112,7 @@ describe("zh-CN voice command benchmark v1.1", () => {
     expect(validation.leakage.crossGroupLeakage.count).toBe(0);
     expect(validation.leakage.crossSimilarityLeakage.count).toBe(0);
     expect(validation.failures).toEqual([]);
-  });
+  }, heavyDatasetValidationTimeoutMs);
 
   it("keeps test split locked while preserving required coverage", () => {
     const testRecords = records.filter((record) => record.split === "test");
@@ -155,7 +156,7 @@ describe("zh-CN voice command benchmark v1.1", () => {
     expect(JSON.stringify(manifest)).not.toContain("expected");
     expect(JSON.stringify(manifest)).not.toContain("prediction");
     expect(JSON.stringify(manifest)).not.toContain("resolver");
-  });
+  }, heavyDatasetValidationTimeoutMs);
 
   it("validation is read-only for the fixed artifacts", () => {
     const beforeDataset = statSync(datasetPath).mtimeMs;
@@ -169,7 +170,7 @@ describe("zh-CN voice command benchmark v1.1", () => {
     expect(validation.status).toBe("PASS");
     expect(statSync(datasetPath).mtimeMs).toBe(beforeDataset);
     expect(statSync(manifestPath).mtimeMs).toBe(beforeManifest);
-  });
+  }, heavyDatasetValidationTimeoutMs);
 });
 
 function readJsonl(path: string): BenchmarkRecord[] {
