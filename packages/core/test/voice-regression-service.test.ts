@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   VoiceRegressionConsentLevel,
   VoiceRegressionRecord,
@@ -363,23 +363,228 @@ describe("VoiceRegressionService", () => {
       pendingCount: 0,
     });
   });
+
+  it("does not scan trusted ids, timestamps, and numeric metrics as user text", async () => {
+    const randomUuid = vi
+      .spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValue("1234-5678-9012-1234-567890123456");
+    try {
+      const repository = new InMemoryVoiceRegressionRepository();
+      const service = new VoiceRegressionService(repository, fixedNow);
+      await service.setConsent({
+        consentLevel: "local_text",
+        confirmation: "explicit_ui_confirmation",
+      });
+
+      const captured = await service.captureResolution({
+        correction: correctionFixture({
+          rawTranscript: "open notepad",
+          normalizedTranscript: "open notepad",
+        }),
+        providerConfidence: 0.1234567890123456,
+        asrLatencyMs: 1234567890,
+        resolverLatencyMs: 5678901234,
+      });
+
+      expect(captured.pending).toBe(true);
+      expect(captured.sample?.id).toContain("1234-5678-9012");
+      await expect(
+        service.savePendingSample({
+          sampleId: captured.sample?.id ?? "",
+          status: "accepted",
+        }),
+      ).resolves.toMatchObject({
+        id: expect.stringContaining("1234-5678-9012"),
+        createdAt: "2026-08-16T00:00:00.000Z",
+      });
+    } finally {
+      randomUuid.mockRestore();
+    }
+  });
+
+  it("redacts phone numbers from raw and normalized transcripts before scanning", async () => {
+    const service = new VoiceRegressionService(
+      new InMemoryVoiceRegressionRepository(),
+      fixedNow,
+    );
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+
+    const captured = await service.captureResolution({
+      correction: correctionFixture({
+        rawTranscript: "please remember 138-1234-5678",
+        normalizedTranscript: "please remember 138-1234-5678",
+      }),
+    });
+
+    expect(captured.pending).toBe(true);
+    expect(captured.sample?.asr.rawTranscript).toContain("[redacted:phone]");
+    expect(captured.sample?.resolver.normalizedText).toContain(
+      "[redacted:phone]",
+    );
+    expect(JSON.stringify(captured.sample)).not.toContain("138-1234-5678");
+  });
+
+  it("redacts sensitive corrected feedback without dropping the pending sample", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    const service = new VoiceRegressionService(repository, fixedNow);
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    const captured = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+
+    const saved = await service.savePendingSample({
+      sampleId: captured.sample?.id ?? "",
+      status: "corrected",
+      correctedText: "correct phrase 138-1234-5678",
+    });
+
+    expect(saved?.feedback.correctedText).toBe(
+      "correct phrase [redacted:phone]",
+    );
+    expect(JSON.stringify(saved)).not.toContain("138-1234-5678");
+    expect(saved?.privacy.redactions).toContain("feedback");
+    expect(repository.records).toHaveLength(1);
+  });
+
+  it("redacts sensitive slot values before save and export", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    const service = new VoiceRegressionService(repository, fixedNow);
+    const sensitive = sensitiveSlotFixture();
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    const captured = await service.captureResolution({
+      correction: correctionFixture({
+        slots: {
+          target: "notepad",
+          bearer: sensitive.bearer,
+          jwt: sensitive.jwt,
+          email: sensitive.email,
+          win: sensitive.win,
+          unc: sensitive.unc,
+          url: sensitive.url,
+          ip: sensitive.ip,
+        },
+      }),
+    });
+
+    await service.savePendingSample({
+      sampleId: captured.sample?.id ?? "",
+      status: "accepted",
+    });
+    const exported = await service.exportRecords();
+
+    expect(exported.jsonl).not.toContain(sensitive.bearer);
+    expect(exported.jsonl).not.toContain(sensitive.jwt.split(".")[0]);
+    expect(exported.jsonl).not.toContain(sensitive.email);
+    expect(exported.jsonl).not.toContain(sensitive.win);
+    expect(exported.jsonl).not.toContain(sensitive.unc);
+    expect(exported.jsonl).not.toContain(sensitive.url.split("?")[1]);
+    expect(exported.jsonl).not.toContain(sensitive.ip);
+    expect(exported.jsonl).toContain("[redacted");
+  });
+
+  it("fails closed when exported candidate user content contains sensitive text", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    repository.records.push({
+      ...recordFixture("candidate-sensitive", "2026-08-16T00:00:00.000Z"),
+      resolver: {
+        ...recordFixture("candidate-sensitive", "2026-08-16T00:00:00.000Z")
+          .resolver,
+        candidates: [
+          {
+            intent: "localApp.open",
+            safeSlots: { reason: "call 138-1234-5678" },
+            confidence: 0.95,
+            source: "structured_candidate_selector",
+          },
+        ],
+      },
+    });
+    const service = new VoiceRegressionService(repository, fixedNow);
+
+    await expect(service.exportRecords()).rejects.toThrow(
+      "VOICE_REGRESSION_SENSITIVE_CONTENT:phone",
+    );
+  });
+
+  it("fails closed on illegal exported record fields before content scanning", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    repository.records.push({
+      ...recordFixture("extra-field", "2026-08-16T00:00:00.000Z"),
+      unexpectedField: "not allowed",
+    } as unknown as VoiceRegressionRecord);
+    const service = new VoiceRegressionService(repository, fixedNow);
+
+    await expect(service.exportRecords()).rejects.toThrow();
+  });
+
+  it("keeps a pending sample when repository save fails", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    repository.appendRecord = async () => {
+      throw new Error("WRITE_FAILED");
+    };
+    const service = new VoiceRegressionService(repository, fixedNow);
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    const captured = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+
+    await expect(
+      service.savePendingSample({
+        sampleId: captured.sample?.id ?? "",
+        status: "accepted",
+      }),
+    ).rejects.toThrow("WRITE_FAILED");
+
+    expect(service.listPendingSamples()).toHaveLength(1);
+    expect(repository.records).toHaveLength(0);
+  });
 });
 
 function fixedNow(): Date {
   return new Date("2026-08-16T00:00:00.000Z");
 }
 
-function correctionFixture(input?: { slots?: Record<string, unknown> }) {
+function sensitiveSlotFixture(): Record<string, string> {
   return {
-    rawTranscript: "\u6253\u5f00\u8bb0\u4e8b\u672c",
-    normalizedTranscript: "\u6253\u5f00\u8bb0\u4e8b\u672c",
+    bearer: `Bearer ${"abcdefghijklmnop"}`,
+    jwt: ["eyJaaaaaaaa", "bbbbbbbbb", "ccccccccc"].join("."),
+    email: ["fake", "example.test"].join("@"),
+    win: ["C:", "Fake", "secret.txt"].join("\\"),
+    unc: `\\\\${"server"}\\${"share"}\\secret.txt`,
+    url: `https://example.test/path?${"token"}=fake`,
+    ip: ["192", "168", "1", "1"].join("."),
+  };
+}
+
+function correctionFixture(input?: {
+  slots?: Record<string, unknown>;
+  rawTranscript?: string;
+  normalizedTranscript?: string;
+}) {
+  return {
+    rawTranscript: input?.rawTranscript ?? "\u6253\u5f00\u8bb0\u4e8b\u672c",
+    normalizedTranscript:
+      input?.normalizedTranscript ?? "\u6253\u5f00\u8bb0\u4e8b\u672c",
     inputMode: "command" as const,
     correctionSource: "slot_grammar" as const,
     correctionConfidence: 0.98,
     correctionCandidates: [
       {
         id: "open.notepad",
-        normalizedTranscript: "\u6253\u5f00\u8bb0\u4e8b\u672c",
+        normalizedTranscript:
+          input?.normalizedTranscript ?? "\u6253\u5f00\u8bb0\u4e8b\u672c",
         inputMode: "command" as const,
         intent: "localApp.open" as const,
         confidence: 0.98,

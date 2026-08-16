@@ -206,7 +206,7 @@ export class VoiceRegressionService {
         ]),
       },
     });
-    assertNoSensitiveExport(JSON.stringify(record));
+    assertNoSensitiveVoiceRegressionRecordContent(record);
     const persisted = await this.repository.appendRecord(record);
     await this.applyRetention();
     this.removePendingSample(sample.id);
@@ -280,14 +280,13 @@ export class VoiceRegressionService {
   public async exportRecords(): Promise<VoiceRegressionExport> {
     const records = await this.listRecords({ limit: MAX_RECORDS });
     for (const record of records) {
-      VoiceRegressionRecordSchema.parse(record);
-      assertNoSensitiveExport(JSON.stringify(record));
+      const parsed = VoiceRegressionRecordSchema.parse(record);
+      assertNoSensitiveVoiceRegressionRecordContent(parsed);
     }
     const jsonl =
       records.length === 0
         ? ""
         : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
-    assertNoSensitiveExport(jsonl);
     return VoiceRegressionExportSchema.parse({
       schemaVersion: 1,
       exportedAt: this.now().toISOString(),
@@ -424,7 +423,7 @@ export class VoiceRegressionService {
         uploadAllowed: false,
       },
     });
-    assertNoSensitiveExport(JSON.stringify(sample));
+    assertNoSensitiveVoiceRegressionSampleContent(sample);
     return sample;
   }
 
@@ -533,8 +532,49 @@ function extractFeedbackRedactions(
   return feedback.correctedText?.includes("[redacted") ? ["feedback"] : [];
 }
 
-function assertNoSensitiveExport(text: string): void {
-  const findings = scanVoiceRegressionSensitiveText(text);
+function assertNoSensitiveVoiceRegressionRecordContent(
+  record: VoiceRegressionRecord,
+): void {
+  assertNoSensitiveVoiceRegressionSampleContent(record);
+  assertNoSensitiveVoiceRegressionUserContent(
+    record.feedback.correctedText === undefined
+      ? []
+      : [record.feedback.correctedText],
+  );
+}
+
+function assertNoSensitiveVoiceRegressionSampleContent(
+  sample: VoiceRegressionSample,
+): void {
+  assertNoSensitiveVoiceRegressionUserContent([
+    sample.asr.rawTranscript,
+    sample.resolver.normalizedText,
+    ...sample.resolver.candidates.flatMap((candidate) =>
+      collectUserTextFromUnknown(candidate.safeSlots),
+    ),
+  ]);
+}
+
+function collectUserTextFromUnknown(value: unknown): string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectUserTextFromUnknown(entry));
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).flatMap(([key, entry]) => [
+      key,
+      ...collectUserTextFromUnknown(entry),
+    ]);
+  }
+  return [];
+}
+
+function assertNoSensitiveVoiceRegressionUserContent(texts: string[]): void {
+  const findings = unique(
+    texts.flatMap((text) => scanVoiceRegressionSensitiveText(text)),
+  );
   if (findings.length > 0) {
     throw new Error(`VOICE_REGRESSION_SENSITIVE_CONTENT:${findings.join(",")}`);
   }
