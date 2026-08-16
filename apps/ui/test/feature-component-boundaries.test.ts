@@ -226,10 +226,11 @@ describe("UI feature component boundaries", () => {
 
   it("keeps the voice control panel passive and delegated to App actions", () => {
     const appSource = readSource("App.tsx");
+    const voiceControlSource = readSource("features/voice/voice-control-panel.tsx");
     const voiceSources = [
       readSource("features/voice/voice-alias-confirmation.tsx"),
       readSource("features/voice/voice-capture-controls.tsx"),
-      readSource("features/voice/voice-control-panel.tsx"),
+      voiceControlSource,
       readSource("features/voice/voice-status.tsx"),
       readSource("features/voice/voice-transcript-panel.tsx"),
       readSource("features/voice/voice-view-model.ts"),
@@ -241,6 +242,15 @@ describe("UI feature component boundaries", () => {
     expect(appSource).toContain("stopCapture: (reason) =>");
     expect(appSource).toContain("removeVoiceAlias: (aliasId)");
     expect(appSource).toContain("removeRouteAlias: (aliasId)");
+    expect(voiceControlSource).toContain(
+      "clearRegressionPendingSamples:\n                actions.clearRegressionPendingSamples",
+    );
+    expect(voiceControlSource).toContain(
+      "discardRegressionPendingSample:\n                actions.discardRegressionPendingSample",
+    );
+    expect(voiceControlSource).toContain(
+      "saveRegressionPendingSample: actions.saveRegressionPendingSample",
+    );
 
     expect(voiceSources).not.toContain("usePttCapture");
     expect(voiceSources).not.toContain("window.jarvis");

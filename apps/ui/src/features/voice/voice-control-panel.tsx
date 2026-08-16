@@ -51,10 +51,15 @@ export function VoiceControlPanel({
           />
           <VoiceRegressionPanel
             actions={{
+              clearRegressionPendingSamples:
+                actions.clearRegressionPendingSamples,
               clearRegressionRecords: actions.clearRegressionRecords,
+              discardRegressionPendingSample:
+                actions.discardRegressionPendingSample,
               deleteRegressionRecord: actions.deleteRegressionRecord,
               exportRegressionRecords: actions.exportRegressionRecords,
               refreshRegressionRecords: actions.refreshRegressionRecords,
+              saveRegressionPendingSample: actions.saveRegressionPendingSample,
               setRegressionLocalTextCollection:
                 actions.setRegressionLocalTextCollection,
               submitRegressionFeedback: actions.submitRegressionFeedback,
