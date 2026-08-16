@@ -237,7 +237,11 @@ export class VoiceCommandResolver {
       });
     }
 
-    if (looksQuotedOrNegated(rawTranscript) && containsCommandVerb(rawTranscript)) {
+    if (
+      looksQuotedOrNegated(rawTranscript) &&
+      containsCommandVerb(rawTranscript) &&
+      !looksWriteCommandWithBenignSaveModifier(rawTranscript)
+    ) {
       return VoiceCommandCorrectionSchema.parse({
         rawTranscript,
         normalizedTranscript: rawTranscript,
@@ -251,13 +255,24 @@ export class VoiceCommandResolver {
       });
     }
 
-    const candidates = [
+    const grammarCandidates = slotGrammarCandidates(rawTranscript, input);
+    const hasWriteTextGrammarCandidate = grammarCandidates.some(
+      (candidate) => candidate.intent === "notepad.write_text",
+    );
+    const candidateTemplates = [
       ...aliasCandidates(input.aliases ?? []),
       ...routeAliasCandidates(input.routeAliases ?? []),
       ...BUILTIN_COMMANDS,
       ...pluginCandidates(input.pluginCapabilities ?? []),
-      ...slotGrammarCandidates(rawTranscript, input),
+      ...grammarCandidates,
     ]
+      .filter(
+        (template) =>
+          !hasWriteTextGrammarCandidate ||
+          template.intent === "notepad.write_text" ||
+          template.intent === "blocked",
+      );
+    const candidates = candidateTemplates
       .map((template) => scoreCandidate(rawTranscript, template))
       .filter((candidate) => candidate.confidence >= 0.55)
       .sort((left, right) => right.confidence - left.confidence);
@@ -434,7 +449,7 @@ function slotGrammarCandidates(
 ): CandidateTemplate[] {
   const text = rawTranscript.trim();
   const candidates: CandidateTemplate[] = [];
-  if (looksQuotedOrNegated(text)) {
+  if (looksQuotedOrNegated(text) && !looksWriteCommandWithBenignSaveModifier(text)) {
     return candidates;
   }
   if (looksDangerousCommand(text)) {
@@ -540,31 +555,17 @@ function slotGrammarCandidates(
       confidence: 0.93,
     });
   }
-  const writeText = stripPrefix(text, [
-    "\u5199\u5165",
-    "\u8f93\u5165",
-    "\u5199\u4e0a",
-    "\u6253\u5b57",
-    "type",
-  ]);
+  const writeText = extractNotepadWriteText(text);
   if (writeText) {
-    const value = stripCommandSuffix(writeText.trim(), [
-      "\u5e76\u4fdd\u7559\u7a97\u53e3",
-      "\u4e0d\u8981\u4fdd\u5b58",
-      "\u5728\u5149\u6807\u5904",
-      "\u4f5c\u4e3a\u4e00\u884c",
-    ]);
-    if (value.length > 0) {
-      candidates.push({
-        id: `slot.write.${normalizeLoose(value)}`,
-        label: `Write ${value}`,
-        normalizedTranscript: `write ${value}`,
-        intent: "notepad.write_text",
-        slots: { text: value },
-        aliases: [text],
-        confidence: 0.94,
-      });
-    }
+    candidates.push({
+      id: `slot.write.${normalizeLoose(writeText)}`,
+      label: `Write ${writeText}`,
+      normalizedTranscript: `write ${writeText}`,
+      intent: "notepad.write_text",
+      slots: { text: writeText },
+      aliases: [text],
+      confidence: 0.94,
+    });
   }
   const windowCandidate = windowControlCandidate(text);
   if (windowCandidate) {
@@ -798,6 +799,58 @@ function stripMemoryPrefix(query: string): string | undefined {
   ]);
 }
 
+function extractNotepadWriteText(text: string): string | undefined {
+  const stripped = stripPolitePrefix(text).trim();
+  const intoNotepad = stripped.match(
+    /^\u628a(?<content>.+?)(?:\u5199\u8fdb|\u5199\u5165|\u653e\u8fdb|\u8f93\u5165\u5230)\s*(?:\u8bb0\u4e8b\u672c|notepad)(?:\u91cc|\u4e2d)?$/iu,
+  );
+  if (intoNotepad?.groups?.content) {
+    return cleanWriteTextSlot(intoNotepad.groups.content);
+  }
+
+  const directWriteText = stripPrefix(stripped, [
+    "\u5199\u5165",
+    "\u8f93\u5165",
+    "\u5199\u4e0a",
+    "\u6253\u5b57",
+    "type",
+  ]);
+  if (directWriteText) return cleanWriteTextSlot(directWriteText);
+
+  const noteText = stripPrefix(stripped, [
+    "\u8bb0\u4e0b",
+    "\u8bb0\u4e00\u4e0b",
+    "\u5e2e\u6211\u8bb0\u4e0b",
+    "\u5e2e\u6211\u8bb0",
+    "\u5e2e\u6211\u8bb0\u5f55",
+    "\u5199\u4e0b",
+  ]);
+  if (noteText) return cleanWriteTextSlot(noteText);
+
+  if (normalizeLoose(stripped).startsWith(normalizeLoose("\u5199\u4e00\u884c"))) {
+    return cleanWriteTextSlot(stripped);
+  }
+  return undefined;
+}
+
+function cleanWriteTextSlot(value: string): string | undefined {
+  const cleaned = stripWrappingQuotes(
+    stripCommandSuffix(value.trim(), [
+      "\u5e76\u4fdd\u7559\u7a97\u53e3",
+      "\u4e0d\u8981\u4fdd\u5b58",
+      "\u5728\u5149\u6807\u5904",
+      "\u4f5c\u4e3a\u4e00\u884c",
+    ]),
+  ).trim();
+  return normalizeLoose(cleaned).length > 0 ? cleaned : undefined;
+}
+
+function stripWrappingQuotes(value: string): string {
+  return value
+    .replace(/^[\u201c\u201d"'\u300c\u300d\u300e\u300f]+/u, "")
+    .replace(/[\u201c\u201d"'\u300c\u300d\u300e\u300f]+$/u, "");
+}
+
 function canonicalKnownAppTarget(
   target: string,
   input: VoiceCommandResolverInput,
@@ -959,14 +1012,24 @@ function looksDangerousCommand(text: string): boolean {
 
 function looksQuotedOrNegated(text: string): boolean {
   const normalized = normalizeLoose(text);
-  return /(\u4e0d\u8981|\u522b\u5e2e\u6211|\u522b\u6253\u5f00|\u6ca1\u6709\u8ba9\u4f60|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6\u8bf4|\u5979\u8bf4|\u5982\u679c\u6211\u8bf4|\u5f15\u7528|\u7ba1\u7406\u5458\u6743\u9650)/u.test(
+  return /(\u4e0d\u8981|\u522b\u5e2e\u6211|\u522b\u6253\u5f00|\u522b\u5199|\u522b\u628a|\u522b\u8bb0|\u6ca1\u6709\u8ba9\u4f60|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6\u8bf4|\u5979\u8bf4|\u5982\u679c\u6211\u8bf4|\u5f15\u7528|\u7ba1\u7406\u5458\u6743\u9650)/u.test(
     normalized,
+  );
+}
+
+function looksWriteCommandWithBenignSaveModifier(text: string): boolean {
+  const normalized = normalizeLoose(text);
+  if (!normalized.includes("\u4e0d\u8981\u4fdd\u5b58")) return false;
+  if (!extractNotepadWriteText(text)) return false;
+  const withoutSaveModifier = normalized.replace(/\u4e0d\u8981\u4fdd\u5b58/gu, "");
+  return !/(\u4e0d\u8981|\u522b\u5e2e\u6211|\u522b\u6253\u5f00|\u522b\u5199|\u522b\u628a|\u522b\u8bb0|\u6ca1\u6709\u8ba9\u4f60|\u4ed6\u8bf4|\u5979\u8bf4|\u5982\u679c\u6211\u8bf4|\u5f15\u7528|\u7ba1\u7406\u5458\u6743\u9650)/u.test(
+    withoutSaveModifier,
   );
 }
 
 function containsCommandVerb(text: string): boolean {
   const normalized = normalizeLoose(text);
-  return /(\u6253\u5f00|\u641c\u7d22|\u67e5\u627e|\u5199\u5165|\u8f93\u5165|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70|open|search|type)/iu.test(
+  return /(\u6253\u5f00|\u641c\u7d22|\u67e5\u627e|\u5199\u5165|\u8f93\u5165|\u5199\u4e0b|\u8bb0\u4e0b|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70|open|search|type)/iu.test(
     normalized,
   );
 }

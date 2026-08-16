@@ -120,6 +120,84 @@ describe("VoiceCommandResolver", () => {
     });
   });
 
+  it("extracts bounded notepad write candidates without turning quoted commands into app opens", () => {
+    const note = resolver.resolve({
+      rawTranscript: "\u8bb0\u4e0b\u660e\u5929\u590d\u76d8\u7ed3\u679c",
+      requestedMode: "command",
+    });
+    const noteWithoutSave = resolver.resolve({
+      rawTranscript: "\u5e2e\u6211\u8bb0\u4e0b\u53d1\u5e03\u7a97\u53e3\u4e0d\u8981\u4fdd\u5b58",
+      requestedMode: "command",
+    });
+    const writtenQuotedCommand = resolver.resolve({
+      rawTranscript: "\u628a\u201c\u6253\u5f00\u8ba1\u7b97\u5668\u201d\u5199\u8fdb\u8bb0\u4e8b\u672c",
+      requestedMode: "command",
+    });
+    const writtenSingleQuotedCommand = resolver.resolve({
+      rawTranscript: "\u628a'\u6253\u5f00 VS Code'\u653e\u8fdb notepad",
+      requestedMode: "command",
+    });
+
+    expect(note.requiresUserSelection).toBe(false);
+    expect(note.correctionCandidates[0]).toMatchObject({
+      intent: "notepad.write_text",
+      slots: { text: "\u660e\u5929\u590d\u76d8\u7ed3\u679c" },
+    });
+    expect(noteWithoutSave.requiresUserSelection).toBe(false);
+    expect(noteWithoutSave.correctionCandidates[0]).toMatchObject({
+      intent: "notepad.write_text",
+      slots: { text: "\u53d1\u5e03\u7a97\u53e3" },
+    });
+    expect(writtenQuotedCommand.requiresUserSelection).toBe(false);
+    expect(writtenQuotedCommand.correctionCandidates[0]).toMatchObject({
+      intent: "notepad.write_text",
+      slots: { text: "\u6253\u5f00\u8ba1\u7b97\u5668" },
+    });
+    expect(writtenQuotedCommand.correctionCandidates[0]?.intent).not.toBe("localApp.open");
+    expect(writtenSingleQuotedCommand.correctionCandidates[0]).toMatchObject({
+      intent: "notepad.write_text",
+      slots: { text: "\u6253\u5f00 VS Code" },
+    });
+  });
+
+  it("keeps notepad write expansion bounded by negation, mode, target, conversation, and danger checks", () => {
+    const negated = resolver.resolve({
+      rawTranscript: "\u522b\u628a\u201c\u6253\u5f00\u8ba1\u7b97\u5668\u201d\u5199\u8fdb\u8bb0\u4e8b\u672c",
+      requestedMode: "command",
+    });
+    const reported = resolver.resolve({
+      rawTranscript: "\u4ed6\u8bf4\u628a\u201c\u6253\u5f00\u8ba1\u7b97\u5668\u201d\u5199\u8fdb\u8bb0\u4e8b\u672c",
+      requestedMode: "command",
+    });
+    const conversation = resolver.resolve({
+      rawTranscript: "\u6211\u60f3\u804a\u804a\u5199\u8fdb\u8bb0\u4e8b\u672c\u8fd9\u4e2a\u529f\u80fd",
+      requestedMode: "conversation",
+    });
+    const dictation = resolver.resolve({
+      rawTranscript: "\u8bb0\u4e0b\u660e\u5929\u590d\u76d8\u7ed3\u679c",
+      requestedMode: "dictation",
+    });
+    const unknownTarget = resolver.resolve({
+      rawTranscript: "\u628a\u53d1\u5e03\u5185\u5bb9\u5199\u8fdb\u795e\u79d8\u8f6f\u4ef6",
+      requestedMode: "command",
+    });
+    const dangerousText = resolver.resolve({
+      rawTranscript: "\u8bb0\u4e0b\u5220\u9664\u6240\u6709\u6587\u4ef6",
+      requestedMode: "command",
+    });
+
+    expect(negated.requiresUserSelection).toBe(true);
+    expect(negated.correctionCandidates[0]?.intent).not.toBe("notepad.write_text");
+    expect(reported.requiresUserSelection).toBe(true);
+    expect(reported.correctionCandidates[0]?.intent).not.toBe("notepad.write_text");
+    expect(conversation.correctionCandidates).toEqual([]);
+    expect(dictation.correctionCandidates).toEqual([]);
+    expect(unknownTarget.requiresUserSelection).toBe(true);
+    expect(unknownTarget.correctionCandidates).toEqual([]);
+    expect(dangerousText.requiresUserSelection).toBe(false);
+    expect(dangerousText.correctionCandidates[0]).toMatchObject({ intent: "blocked" });
+  });
+
   it("blocks dangerous commands but keeps negation, quotes, unknown apps, and plugins safe", () => {
     const dangerous = resolver.resolve({
       rawTranscript: "\u5220\u9664\u6240\u6709\u6587\u4ef6\u522b\u786e\u8ba4",
