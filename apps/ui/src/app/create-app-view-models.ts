@@ -54,6 +54,14 @@ export function createCommandRouterSettingsViewModel({
   const productModeEnabled = productModeStatus?.enabled === true;
   const productModeSummary =
     productModeStatus?.status.replaceAll("_", " ") ?? "unknown";
+  const commandRouterMode =
+    productModeStatus?.mode.replaceAll("_", " ") ?? "deterministic rules";
+  const commandRouterUsesFixture =
+    productModeStatus?.providerId === "intent-router.deterministic.fixture" ||
+    commandRouterMode.includes("fixture");
+  const productModeNotice = commandRouterUsesFixture
+    ? "Fixture test harness surface: deterministic intent routing remains isolated from production defaults; Qwen is status-only with no runtime, helper, artifact, cache, or provider call, and no browser execution. Approved local app launches remain Notepad/Calculator only after confirmation."
+    : "Production-safe deterministic rules surface: Qwen is status-only with no runtime, helper, artifact, cache, or provider call, and no browser execution. Approved local app launches remain Notepad/Calculator only after confirmation.";
   const directActionStatus =
     productModeStatus?.directActionEnabled === true ? "enabled" : "disabled";
   const qwenBinding = productModeStatus?.qwenFastRouterBinding;
@@ -121,10 +129,11 @@ export function createCommandRouterSettingsViewModel({
       : ["explicit enablement", "artifact digest", "lifecycle readiness"],
     headerBadge: productModeEnabled ? "control on" : "default off",
     productModeEnabled,
-    productModeNotice:
-      "Fixture-only surface: deterministic intent routing remains active; Qwen is status-only with no runtime, helper, artifact, cache, or provider call, and no browser execution. Approved local app launches remain Notepad/Calculator only after confirmation.",
+    productModeNotice,
     productModeSummary: productModeEnabled
-      ? "Control enabled; text and voice commands are routed through deterministic fixture projection only."
+      ? commandRouterUsesFixture
+        ? "Control enabled; text and voice commands are routed through the explicit fixture test harness only."
+        : "Control enabled; text and voice commands are routed through deterministic rules with existing safety gates."
       : "Default off; existing Chat Answer and BrainCommand behavior is preserved.",
     qwenMetrics: [
       {
@@ -155,7 +164,7 @@ export function createCommandRouterSettingsViewModel({
         value: qwenBinding?.conversationSurfaceProductRoute
           ?.qwenRouteSelectable
           ? "selectable"
-          : "fixture",
+          : "not selectable",
         tone: "success",
       },
       {
@@ -289,7 +298,7 @@ export function createCommandRouterSettingsViewModel({
       },
       {
         label: "Mode",
-        value: productModeStatus?.mode.replaceAll("_", " ") ?? "fixture only",
+        value: commandRouterMode,
         tone: "success",
       },
       {

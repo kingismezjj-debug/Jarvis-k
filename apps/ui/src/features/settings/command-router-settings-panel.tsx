@@ -127,7 +127,7 @@ export function CommandRouterSettingsPanel({
               product route off
             </Badge>
             <Badge className="rounded-md text-[10px]" variant="outline">
-              fixture rollback
+              safe rollback
             </Badge>
           </div>
           <div
@@ -247,7 +247,7 @@ export function CommandRouterSettingsPanel({
             {[
               "default off",
               "explicit opt-in",
-              "fixture fallback",
+              "deterministic fallback",
               "Notepad/Calculator only",
             ].map((label) => (
               <Badge

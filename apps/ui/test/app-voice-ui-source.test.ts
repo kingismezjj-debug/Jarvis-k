@@ -647,7 +647,7 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("setChatAnswerProductModeEnabled");
   });
 
-  it("renders Command Router product mode controls as default-off fixture-only UI", () => {
+  it("renders Command Router product mode controls as default-off deterministic-rules UI", () => {
     expect(appSource).toContain(
       'data-testid="settings-command-router-product-mode-toggle"',
     );
@@ -658,7 +658,9 @@ describe("voice UI wiring", () => {
       'data-testid="settings-command-router-product-mode-notice"',
     );
     expect(appSource).toContain("Deterministic router control");
-    expect(appSource).toContain("deterministic fixture projection only");
+    expect(appSource).toContain("deterministic rules");
+    expect(appSource).toContain("existing safety gates");
+    expect(appSource).not.toContain("deterministic fixture projection only");
     expect(appSource).toContain("Approved local app launches remain");
     expect(appSource).toContain("Qwen is status-only");
     expect(appSource).toContain(
@@ -694,7 +696,7 @@ describe("voice UI wiring", () => {
       "qwen-product-routing.activation.default-off.v1",
     );
     expect(appSource).toContain("product route off");
-    expect(appSource).toContain("fixture rollback");
+    expect(appSource).toContain("safe rollback");
     expect(appSource).toContain("Approved local app launches remain");
     expect(appSource).toContain("setCommandRouterProductModeEnabled");
   });

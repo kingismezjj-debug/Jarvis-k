@@ -26,6 +26,8 @@ describe("app view model factories", () => {
     expect(JSON.stringify(viewModel)).not.toContain(
       "intent-router.deterministic.fixture",
     );
+    expect(JSON.stringify(viewModel)).not.toContain("fixture-only");
+    expect(JSON.stringify(viewModel)).not.toContain("fixture projection");
     expect(JSON.stringify(viewModel)).not.toContain("credential");
     expect(JSON.stringify(viewModel)).not.toContain("secret");
   });
