@@ -476,11 +476,13 @@ function slotGrammarCandidates(
   ]);
   if (openTarget) {
     const target = stripCommandSuffix(openTarget.trim(), [
+      "\u5207\u4e00\u4e0b",
       "\u4e00\u4e0b",
       "\u5427",
       "\u73b0\u5728",
       "\u73b0\u5728\u7528",
       "\u7ed9\u6211\u770b",
+      "\u7ed9\u6211\u5f00",
       "\u6253\u5f00",
       "\u522b\u505a\u522b\u7684",
       "\u7a97\u53e3",

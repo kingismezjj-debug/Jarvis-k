@@ -306,6 +306,8 @@ describe("VoiceCommandResolver", () => {
       "\u8bf7\u6253\u5f00 Calculator\u5427",
       "\u6253\u5f00 CALC",
       "\u9ebb\u70e6\u6253\u5f00\u8ba1\u7b97\u5668\u73b0\u5728",
+      "\u6253\u5f00\u5fae\u8f6f\u6263\u7ed9\u6211\u5f00",
+      "\u6253\u5f00\u5a01\u65af\u6263\u5207\u4e00\u4e0b",
     ];
 
     const corrections = variants.map((rawTranscript) =>
@@ -323,6 +325,14 @@ describe("VoiceCommandResolver", () => {
     expect(corrections[2].correctionCandidates[0]).toMatchObject({
       intent: "localApp.open",
       slots: { target: "calculator" },
+    });
+    expect(corrections[3].correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "vscode" },
+    });
+    expect(corrections[4].correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "vscode" },
     });
     for (const correction of corrections) {
       expect(correction.directActionAttempted).toBe(false);
@@ -393,6 +403,10 @@ describe("VoiceCommandResolver", () => {
       rawTranscript: "\u7528\u7ba1\u7406\u5458\u6743\u9650\u6253\u5f00\u8bb0\u4e8b\u672c",
       requestedMode: "command",
     });
+    const unknownWithOpenSuffix = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u5fae\u8f6f\u53e3\u888b\u7f16\u8f91\u5668\u7ed9\u6211\u5f00",
+      requestedMode: "command",
+    });
 
     expect(unknownApp.requiresUserSelection).toBe(true);
     expect(disabledPlugin.requiresUserSelection).toBe(true);
@@ -402,12 +416,15 @@ describe("VoiceCommandResolver", () => {
       intent: "blocked",
     });
     expect(elevatedOpen.requiresUserSelection).toBe(true);
+    expect(unknownWithOpenSuffix.requiresUserSelection).toBe(true);
+    expect(unknownWithOpenSuffix.correctionCandidates).toEqual([]);
     for (const correction of [
       unknownApp,
       disabledPlugin,
       brandConversation,
       dangerousSuffix,
       elevatedOpen,
+      unknownWithOpenSuffix,
     ]) {
       expect(correction.directActionAttempted).toBe(false);
     }
