@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-16T01:31:10.261Z",
+  "benchmark": "voice-command-zh-cn-v1",
+  "executionLayer": "resolver_only",
+  "realWindowsExecution": false,
+  "microphoneUsed": false,
+  "asrProviderUsed": false,
+  "resolverRulesModifiedForBenchmark": false,
+  "records": 637,
+  "dataset": {
+    "path": "datasets/voice-command-zh-cn-v1.jsonl",
+    "categories": {
+      "normal_command": 337,
+      "asr_error": 100,
+      "ambiguous_or_dangerous": 100,
+      "plugin_command": 50,
+      "negative": 50
+    },
+    "subcategories": {
+      "known_app_open": 98,
+      "known_app_open_requires_caution": 16,
+      "browser_route_alias": 38,
+      "browser_known_site": 20,
+      "filesystem_search": 35,
+      "notepad_write_text": 30,
+      "window_control": 30,
+      "memory_search": 25,
+      "status_query": 25,
+      "coding_task": 20,
+      "known_app_asr_drift": 24,
+      "brand_asr_drift": 16,
+      "local_app_asr_drift": 16,
+      "model_and_url_asr_drift": 44,
+      "ambiguous_target": 40,
+      "dangerous_or_commit_action": 50,
+      "unknown_app_or_url": 10,
+      "enabled_readonly_plugin": 50,
+      "dictation": 15,
+      "conversation_or_qa": 35
+    },
+    "splits": {
+      "train": 448,
+      "dev": 96,
+      "test": 93
+    }
+  },
+  "metrics": {
+    "records": 637,
+    "intentAccuracy": 0.5165,
+    "slotAccuracy": 0.4898,
+    "clarificationAccuracy": 0.5416,
+    "blockedAccuracy": 0.9215,
+    "autoExecutePolicyAccuracy": 0.6358,
+    "safeNonExecutionRate": 1,
+    "taskSuccessRate": 0.4788,
+    "noDirectActionRate": 1
+  },
+  "byCategory": {
+    "normal_command": {
+      "records": 337,
+      "intentAccuracy": 0.4036,
+      "slotAccuracy": 0.3709,
+      "clarificationAccuracy": 0.451,
+      "blockedAccuracy": 1,
+      "autoExecutePolicyAccuracy": 0.4807,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.3472,
+      "noDirectActionRate": 1
+    },
+    "asr_error": {
+      "records": 100,
+      "intentAccuracy": 0.43,
+      "slotAccuracy": 0.43,
+      "clarificationAccuracy": 0.43,
+      "blockedAccuracy": 1,
+      "autoExecutePolicyAccuracy": 0.43,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.43,
+      "noDirectActionRate": 1
+    },
+    "ambiguous_or_dangerous": {
+      "records": 100,
+      "intentAccuracy": 0.5,
+      "slotAccuracy": 1,
+      "clarificationAccuracy": 0.5,
+      "blockedAccuracy": 0.5,
+      "autoExecutePolicyAccuracy": 1,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.5,
+      "noDirectActionRate": 1
+    },
+    "plugin_command": {
+      "records": 50,
+      "intentAccuracy": 1,
+      "slotAccuracy": 1,
+      "clarificationAccuracy": 1,
+      "blockedAccuracy": 1,
+      "autoExecutePolicyAccuracy": 1,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 1,
+      "noDirectActionRate": 1
+    },
+    "negative": {
+      "records": 50,
+      "intentAccuracy": 1,
+      "slotAccuracy": 0.9,
+      "clarificationAccuracy": 1,
+      "blockedAccuracy": 1,
+      "autoExecutePolicyAccuracy": 1,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.9,
+      "noDirectActionRate": 1
+    }
+  },
+  "bySplit": {
+    "train": {
+      "records": 448,
+      "intentAccuracy": 0.5223,
+      "slotAccuracy": 0.4921,
+      "clarificationAccuracy": 0.5536,
+      "blockedAccuracy": 0.9219,
+      "autoExecutePolicyAccuracy": 0.6473,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.4799,
+      "noDirectActionRate": 1
+    },
+    "dev": {
+      "records": 96,
+      "intentAccuracy": 0.5104,
+      "slotAccuracy": 0.4815,
+      "clarificationAccuracy": 0.5417,
+      "blockedAccuracy": 0.9375,
+      "autoExecutePolicyAccuracy": 0.6042,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.5,
+      "noDirectActionRate": 1
+    },
+    "test": {
+      "records": 93,
+      "intentAccuracy": 0.4946,
+      "slotAccuracy": 0.4872,
+      "clarificationAccuracy": 0.4839,
+      "blockedAccuracy": 0.9032,
+      "autoExecutePolicyAccuracy": 0.6129,
+      "safeNonExecutionRate": 1,
+      "taskSuccessRate": 0.4516,
+      "noDirectActionRate": 1
+    }
+  },
+  "errorCategories": {
+    "no_candidate": 185,
+    "intent_mismatch": 308,
+    "slot_mismatch": 274,
+    "unexpected_clarification": 282,
+    "missed_auto_execute": 232,
+    "missing_clarification": 10,
+    "write_text_command_not_supported": 30,
+    "window_control_not_supported": 30,
+    "blocked_mismatch": 50
+  },
+  "confusion": [
+    {
+      "pair": "localApp.open -> clarify",
+      "count": 50
+    },
+    {
+      "pair": "blocked -> clarify",
+      "count": 50
+    },
+    {
+      "pair": "browser.open -> clarify",
+      "count": 42
+    },
+    {
+      "pair": "filesystem.search -> clarify",
+      "count": 35
+    },
+    {
+      "pair": "notepad.write_text -> clarify",
+      "count": 30
+    },
+    {
+      "pair": "memory.search -> clarify",
+      "count": 25
+    },
+    {
+      "pair": "coding.task -> clarify",
+      "count": 18
+    },
+    {
+      "pair": "model.status -> clarify",
+      "count": 15
+    },
+    {
+      "pair": "observability.status -> clarify",
+      "count": 13
+    },
+    {
+      "pair": "window.focus -> clarify",
+      "count": 10
+    },
+    {
+      "pair": "window.minimize -> clarify",
+      "count": 10
+    },
+    {
+      "pair": "window.restore -> clarify",
+      "count": 10
+    }
+  ],
+  "reportArtifacts": {
+    "json": "reports/voice-command-zh-cn-v1-baseline.json",
+    "markdown": "reports/voice-command-zh-cn-v1-baseline.md",
+    "errorsJsonl": "reports/voice-command-zh-cn-v1-errors.jsonl"
+  }
+}
