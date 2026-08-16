@@ -257,6 +257,9 @@ export function useJarvis() {
   } = modelGovernance;
   const dispatchedVoiceTranscriptKeys = useRef<Set<string>>(new Set());
   const textOnlyAcceptanceRef = useRef(false);
+  const refreshVoiceRegressionAfterFinalRef = useRef<() => void>(() => {
+    // Voice regression is local-only and optional; no-op until voice actions bind.
+  });
 
   const refreshSnapshot = useCallback(async () => {
     if (!window.jarvis) {
@@ -349,7 +352,9 @@ export function useJarvis() {
             dispatchedVoiceTranscriptKeys.current.delete(firstKey);
           }
         }
-        void dispatchBrainCommand(text, "voice");
+        void dispatchBrainCommand(text, "voice").then(() => {
+          refreshVoiceRegressionAfterFinalRef.current();
+        });
         return;
       }
     },
@@ -437,6 +442,10 @@ export function useJarvis() {
     setTtsServiceStatus,
     dispatchBrainCommand,
   });
+  refreshVoiceRegressionAfterFinalRef.current = () => {
+    void refreshVoiceRegressionCollectionStatus();
+    void refreshVoiceRegressionPendingSamples();
+  };
 
   const {
     confirmUserRouteAlias,
