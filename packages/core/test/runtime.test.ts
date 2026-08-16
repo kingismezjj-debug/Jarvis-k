@@ -98,6 +98,7 @@ import {
   type CoreChatAnswerOptions,
   type CoreBrainRouterOptions,
   type CoreTextOnlyAcceptanceOptions,
+  type CoreRuntimeSafetyOptions,
   type CoreMemoryAlphaSessionPort,
   type CoreMemoryRetrievalRoutingOptions,
   type LocalPluginEnabledStateRecord,
@@ -1793,6 +1794,7 @@ function createRuntime(
   userRouteAliasRepository?: UserRouteAliasRepository,
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
   voiceRegressionRepository?: VoiceRegressionRepository,
+  runtimeSafety?: CoreRuntimeSafetyOptions,
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -1836,6 +1838,7 @@ function createRuntime(
     undefined,
     userPreferenceMemoryRepository,
     voiceRegressionRepository,
+    runtimeSafety,
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -1983,6 +1986,7 @@ function createRuntimeWithBrainActionExecutorAndTasks(
   userRouteAliasRepository?: UserRouteAliasRepository,
   voiceCommandAliasRepository?: VoiceCommandAliasRepository,
   voiceRegressionRepository?: VoiceRegressionRepository,
+  runtimeSafety?: CoreRuntimeSafetyOptions,
 ) {
   return createRuntime(
     undefined,
@@ -2020,6 +2024,7 @@ function createRuntimeWithBrainActionExecutorAndTasks(
     userRouteAliasRepository,
     undefined,
     voiceRegressionRepository,
+    runtimeSafety,
   );
 }
 
@@ -6792,6 +6797,281 @@ describe("CoreRuntime", () => {
       verificationStatus: "verification_failed",
       failureReason: "TARGET_NOT_ALLOWLISTED",
     });
+  });
+
+  it("blocks effectful Pilot actions before executor invocation when Brain open actions are disabled", async () => {
+    const taskRepository = new InMemoryTaskRepository();
+    const adapterCalls = {
+      browser: 0,
+      localApp: 0,
+      notepad: 0,
+      window: 0,
+      filesystem: 0,
+    };
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          adapterCalls.browser += 1;
+          throw new Error("browser executor must not be called");
+        },
+        async openLocalApp() {
+          adapterCalls.localApp += 1;
+          throw new Error("local app executor must not be called");
+        },
+        async writeNotepadText() {
+          adapterCalls.notepad += 1;
+          throw new Error("notepad executor must not be called");
+        },
+        async controlKnownAppWindow() {
+          adapterCalls.window += 1;
+          throw new Error("window executor must not be called");
+        },
+        async searchFilesystem() {
+          adapterCalls.filesystem += 1;
+          throw new Error("filesystem adapter must not be called");
+        },
+      },
+      taskRepository,
+      undefined,
+      undefined,
+      undefined,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+    );
+    await runtime.hydrateTasks();
+
+    const routedInputs = [
+      {
+        text: "open notepad",
+        intent: "localApp.open",
+        reason: "BRAIN_OPEN_ACTIONS_DISABLED:localApp.open",
+      },
+      {
+        text: "open https://example.com/docs",
+        intent: "browser.open",
+        reason: "BRAIN_OPEN_ACTIONS_DISABLED:browser.open",
+      },
+      {
+        text: "write Jarvis-K smoke text in notepad",
+        intent: "notepad.write_text",
+        reason: "BRAIN_OPEN_ACTIONS_DISABLED:notepad.write_text",
+      },
+      {
+        text: "minimize notepad",
+        intent: "window.minimize",
+        reason: "BRAIN_OPEN_ACTIONS_DISABLED:window.control",
+      },
+      {
+        text: "find contract",
+        intent: "filesystem.search",
+        reason: "BRAIN_OPEN_ACTIONS_DISABLED:filesystem.search",
+      },
+    ] as const;
+
+    for (const input of routedInputs) {
+      const result = await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "text",
+            text: input.text,
+          },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      const brain = BrainCommandResultSchema.parse(
+        result.ok ? (result.data as { brain?: unknown }).brain : undefined,
+      );
+      expect(brain.decision.intent).toBe(input.intent);
+      expect(brain.dispatchStatus).toBe("blocked");
+      expect(brain.summary).toContain("before");
+    }
+
+    expect(adapterCalls).toEqual({
+      browser: 0,
+      localApp: 0,
+      notepad: 0,
+      window: 0,
+      filesystem: 0,
+    });
+    const auditResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getEffectfulActionRuntimeAudit",
+        payload: {},
+      }),
+    );
+    expect(auditResult.ok).toBe(true);
+    expect(auditResult.ok ? auditResult.data : undefined).toMatchObject({
+      audit: {
+        realWindowsExecutionEnabled: false,
+        brainOpenActionsDisabled: true,
+        windowsExecutorInvocationCount: 0,
+        effectfulActionBlockedBeforeExecutorCount: routedInputs.length,
+        lastBlockedReason: routedInputs.at(-1)?.reason,
+      },
+    });
+    for (const task of runtime.getSnapshot().tasks) {
+      expect(task.state).toBe("failed");
+      expect(task.verificationSummary).toContain("before");
+      expect(task.steps[0]?.verificationStatus).toBe("verification_failed");
+      expect(task.steps[0]?.verificationStatus).not.toBe("verified");
+    }
+  });
+
+  it("does not call side-effect adapters for the 20 manual Pilot standard transcripts in disabled mode", async () => {
+    const taskRepository = new InMemoryTaskRepository();
+    const adapterCalls = {
+      browser: 0,
+      localApp: 0,
+      notepad: 0,
+      window: 0,
+      filesystem: 0,
+    };
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          adapterCalls.browser += 1;
+          throw new Error("browser executor must not be called");
+        },
+        async openLocalApp() {
+          adapterCalls.localApp += 1;
+          throw new Error("local app executor must not be called");
+        },
+        async writeNotepadText() {
+          adapterCalls.notepad += 1;
+          throw new Error("notepad executor must not be called");
+        },
+        async controlKnownAppWindow() {
+          adapterCalls.window += 1;
+          throw new Error("window executor must not be called");
+        },
+        async searchFilesystem() {
+          adapterCalls.filesystem += 1;
+          throw new Error("filesystem adapter must not be called");
+        },
+      },
+      taskRepository,
+      undefined,
+      undefined,
+      undefined,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+    );
+    await runtime.hydrateTasks();
+
+    const pilotTranscripts = [
+      "打开记事本",
+      "帮我开一下计算器",
+      "打开 VS Code",
+      "帮我打开文件资源管理器",
+      "打开 GitHub",
+      "用浏览器进入百度",
+      "帮我打开 Jarvis 项目主页",
+      "最小化当前窗口",
+      "把当前窗口最大化",
+      "恢复刚才的窗口",
+      "在记事本里写一行今天要检查语音识别",
+      "帮我记下明天下午开会",
+      "在记事本输入 Jarvis Pilot 测试完成，不要保存",
+      "搜索电脑里的 Jarvis 文件",
+      "帮我找一下名字里带 report 的文件",
+      "调用只读示例插件查看状态",
+      "让示例插件执行一次只读查询",
+      "别帮我打开计算器",
+      "如果我说打开 VS Code，你也不要执行",
+      "删除桌面上的所有文件",
+    ];
+
+    for (const text of pilotTranscripts) {
+      const result = await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "voice",
+            text,
+          },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      const brain = BrainCommandResultSchema.parse(
+        result.ok ? (result.data as { brain?: unknown }).brain : undefined,
+      );
+      if (
+        brain.decision.intent === "localApp.open" ||
+        brain.decision.intent === "browser.open" ||
+        brain.decision.intent === "notepad.write_text" ||
+        brain.decision.intent === "window.focus" ||
+        brain.decision.intent === "window.minimize" ||
+        brain.decision.intent === "window.restore" ||
+        brain.decision.intent === "filesystem.search"
+      ) {
+        expect(brain.dispatchStatus).toBe("blocked");
+      }
+    }
+
+    expect(adapterCalls).toEqual({
+      browser: 0,
+      localApp: 0,
+      notepad: 0,
+      window: 0,
+      filesystem: 0,
+    });
+    const auditResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getEffectfulActionRuntimeAudit",
+        payload: {},
+      }),
+    );
+    expect(auditResult.ok ? auditResult.data : undefined).toMatchObject({
+      audit: {
+        realWindowsExecutionEnabled: false,
+        brainOpenActionsDisabled: true,
+        windowsExecutorInvocationCount: 0,
+      },
+    });
+    for (const task of runtime.getSnapshot().tasks) {
+      expect(task.state).toBe("failed");
+      expect(task.steps[0]?.verificationStatus).not.toBe("verified");
+    }
+  });
+
+  it("keeps runtime audit read-only and does not claim Pilot safety without explicit configuration", async () => {
+    const { runtime } = createRuntime();
+
+    const auditResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getEffectfulActionRuntimeAudit",
+        payload: {},
+      }),
+    );
+
+    expect(auditResult.ok).toBe(true);
+    expect(auditResult.ok ? auditResult.data : undefined).toMatchObject({
+      audit: {
+        realWindowsExecutionEnabled: false,
+        brainOpenActionsDisabled: false,
+        windowsExecutorInvocationCount: 0,
+        effectfulActionBlockedBeforeExecutorCount: 0,
+      },
+    });
+    await expect(
+      runtime.handle({
+        protocolVersion: 1,
+        commandId: "cmd-forged-audit",
+        correlationId: "corr-forged-audit",
+        createdAt: "2026-08-16T00:00:00.000Z",
+        command: {
+          type: "agent.getEffectfulActionRuntimeAudit",
+          payload: {
+            windowsExecutorInvocationCount: 999,
+          },
+        },
+      }),
+    ).rejects.toThrow();
   });
 
   it("runs filesystem searches through observe-only Task Runtime", async () => {

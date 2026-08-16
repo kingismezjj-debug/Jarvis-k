@@ -5,6 +5,7 @@ import {
   BrainAlphaMemoryContext,
   BrainCommandResult,
   BrainCommandResultSchema,
+  EffectfulActionRuntimeAuditSchema,
   BrainIntent,
   BrainPlanStep,
   BrainPlannerResult,
@@ -151,6 +152,10 @@ import { PlannerApprovalService } from "./planner/planner-approval-service";
 import { PlannerExecutionCoordinator } from "./planner/planner-execution-coordinator";
 import { PlannerStatusProjector } from "./planner/planner-status-projector";
 import { ProviderPlannerService } from "./planner/provider-planner-service";
+import {
+  EffectfulActionAuditService,
+  type EffectfulActionKind,
+} from "./effectful-action-audit-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -423,6 +428,11 @@ export interface CoreTextOnlyAcceptanceOptions {
   enabled: boolean;
 }
 
+export interface CoreRuntimeSafetyOptions {
+  realWindowsExecutionEnabled: boolean;
+  brainOpenActionsDisabled: boolean;
+}
+
 export interface LocalPluginEnabledStateRecord {
   pluginId: string;
   enabled: boolean;
@@ -480,6 +490,7 @@ export class CoreRuntime {
   private readonly plannerExecutionCoordinator: PlannerExecutionCoordinator;
   private readonly plannerStatusProjector: PlannerStatusProjector;
   private readonly voiceRegressionService: VoiceRegressionService;
+  private readonly effectfulActionAuditService: EffectfulActionAuditService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -521,8 +532,18 @@ export class CoreRuntime {
     private readonly voiceCommandResolver = new VoiceCommandResolver(),
     private readonly userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
     private readonly voiceRegressionRepository?: VoiceRegressionRepository,
+    runtimeSafety?: CoreRuntimeSafetyOptions,
   ) {
     this.startedAt = this.now().toISOString();
+    this.effectfulActionAuditService = new EffectfulActionAuditService(
+      {
+        realWindowsExecutionEnabled:
+          runtimeSafety?.realWindowsExecutionEnabled === true,
+        brainOpenActionsDisabled:
+          runtimeSafety?.brainOpenActionsDisabled === true,
+      },
+      this.now,
+    );
     this.taskDispatchService =
       this.taskRepository === undefined
         ? undefined
@@ -800,6 +821,14 @@ export class CoreRuntime {
       case "agent.getSnapshot": {
         const snapshot = this.publishSnapshot(envelope.correlationId);
         return this.success(envelope, snapshot);
+      }
+
+      case "agent.getEffectfulActionRuntimeAudit": {
+        return this.success(envelope, {
+          audit: EffectfulActionRuntimeAuditSchema.parse(
+            this.effectfulActionAuditService.getProjection(),
+          ),
+        });
       }
 
       case "agent.runBrainCommand": {
@@ -2980,6 +3009,24 @@ export class CoreRuntime {
       });
     }
 
+    const blockReason = this.shouldBlockBeforeWindowsExecutor("localApp.open");
+    if (blockReason !== undefined) {
+      this.effectfulActionAuditService.recordBlockedBeforeExecutor(blockReason);
+      return this.success(envelope, {
+        launch: CommandRouterLocalAppLaunchResultSchema.parse({
+          status: "blocked",
+          target,
+          label: target,
+          reasonCode: "BRAIN_ACTIONS_DISABLED",
+          confirmationRequired: true,
+          confirmationGranted: true,
+          directActionAttempted: false,
+          persisted: false,
+          rawDiagnosticsExposed: false,
+        }),
+      });
+    }
+    this.recordWindowsExecutorInvocation();
     const actionResult = await this.brainActionExecutor.openLocalApp({
       target,
     });
@@ -4071,6 +4118,54 @@ export class CoreRuntime {
     );
   }
 
+  private async completeEffectfulActionBlockedBeforeExecutor(input: {
+    action: EffectfulActionKind;
+    taskDispatch: TaskDispatchService;
+    taskId: string;
+    stepId: string;
+    correlationId: string;
+    basePlan: BrainPlanStep[];
+    resultSummary: string;
+  }): Promise<{
+    dispatchStatus: BrainCommandResult["dispatchStatus"];
+    plan: BrainPlanStep[];
+    summary: string;
+  }> {
+    const reason =
+      this.effectfulActionAuditService.shouldBlockBeforeWindowsExecutor(
+        input.action,
+      );
+    if (reason === undefined) {
+      throw new Error("Effectful action block requested without a block reason.");
+    }
+    this.effectfulActionAuditService.recordBlockedBeforeExecutor(reason);
+    await input.taskDispatch.completeVerification({
+      taskId: input.taskId,
+      stepId: input.stepId,
+      verificationStatus: "verification_failed",
+      resultSummary: input.resultSummary,
+      failureReason: reason,
+    });
+    await this.refreshTasksFromRepository();
+    return {
+      dispatchStatus: "blocked",
+      plan: this.blockFinalBrainPlan(input.basePlan),
+      summary: input.resultSummary,
+    };
+  }
+
+  private shouldBlockBeforeWindowsExecutor(
+    action: EffectfulActionKind,
+  ): string | undefined {
+    return this.effectfulActionAuditService.shouldBlockBeforeWindowsExecutor(
+      action,
+    );
+  }
+
+  private recordWindowsExecutorInvocation(): void {
+    this.effectfulActionAuditService.recordWindowsExecutorInvocation();
+  }
+
   private async dispatchTaskRuntimePluginInvoke(input: {
     envelope: CommandEnvelope;
     source: "text" | "voice";
@@ -4206,6 +4301,18 @@ export class CoreRuntime {
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
+    if (this.shouldBlockBeforeWindowsExecutor("filesystem.search")) {
+      return this.completeEffectfulActionBlockedBeforeExecutor({
+        action: "filesystem.search",
+        taskDispatch,
+        taskId,
+        stepId,
+        correlationId: input.envelope.correlationId,
+        basePlan: input.basePlan,
+        resultSummary:
+          "Task Runtime blocked filesystem.search before executor invocation because Brain open actions are disabled.",
+      });
+    }
     const actionResult = await executor.searchFilesystem({
       target: input.query,
     });
@@ -4292,6 +4399,19 @@ export class CoreRuntime {
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
+    if (this.shouldBlockBeforeWindowsExecutor("notepad.write_text")) {
+      return this.completeEffectfulActionBlockedBeforeExecutor({
+        action: "notepad.write_text",
+        taskDispatch,
+        taskId,
+        stepId,
+        correlationId: input.envelope.correlationId,
+        basePlan: input.basePlan,
+        resultSummary:
+          "Task Runtime blocked notepad.write_text before Windows executor invocation because Brain open actions are disabled.",
+      });
+    }
+    this.recordWindowsExecutorInvocation();
     const actionResult = await executor.writeNotepadText({
       target: "notepad",
       text: boundedText,
@@ -4382,6 +4502,18 @@ export class CoreRuntime {
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
+    if (this.shouldBlockBeforeWindowsExecutor("window.control")) {
+      return this.completeEffectfulActionBlockedBeforeExecutor({
+        action: "window.control",
+        taskDispatch,
+        taskId,
+        stepId,
+        correlationId: input.envelope.correlationId,
+        basePlan: input.basePlan,
+        resultSummary: `Task Runtime blocked ${input.action} ${appName} before Windows executor invocation because Brain open actions are disabled.`,
+      });
+    }
+    this.recordWindowsExecutorInvocation();
     const actionResult = await executor.controlKnownAppWindow({
       target: appLabel,
       action: input.action,
@@ -4460,6 +4592,19 @@ export class CoreRuntime {
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
+    if (this.shouldBlockBeforeWindowsExecutor("browser.open")) {
+      return this.completeEffectfulActionBlockedBeforeExecutor({
+        action: "browser.open",
+        taskDispatch,
+        taskId,
+        stepId,
+        correlationId: input.envelope.correlationId,
+        basePlan: input.basePlan,
+        resultSummary:
+          "Task Runtime blocked browser.open before Windows executor invocation because Brain open actions are disabled.",
+      });
+    }
+    this.recordWindowsExecutorInvocation();
     const actionResult = await executor.openBrowser({ target: input.target });
     const verificationStatus =
       actionResult.status === "completed"
@@ -4544,6 +4689,18 @@ export class CoreRuntime {
     await this.refreshTasksFromRepository();
     this.publishSnapshot(input.envelope.correlationId);
 
+    if (this.shouldBlockBeforeWindowsExecutor("localApp.open")) {
+      return this.completeEffectfulActionBlockedBeforeExecutor({
+        action: "localApp.open",
+        taskDispatch,
+        taskId,
+        stepId,
+        correlationId: input.envelope.correlationId,
+        basePlan: input.basePlan,
+        resultSummary: `Task Runtime blocked localApp.open for ${appName} before Windows executor invocation because Brain open actions are disabled.`,
+      });
+    }
+    this.recordWindowsExecutorInvocation();
     const actionResult = await executor.openLocalApp({ target: appLabel });
     const verificationStatus =
       actionResult.status === "completed"

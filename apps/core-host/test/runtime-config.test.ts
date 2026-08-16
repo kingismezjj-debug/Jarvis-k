@@ -47,6 +47,31 @@ describe("Core Host runtime config", () => {
     ).toBe(true);
   });
 
+  it("parses Voice Pilot execution safety flags only after explicit truthy opt-in", () => {
+    expect(loadRuntimeConfig({}).brainOpenActionsDisabled).toBe(false);
+    expect(loadRuntimeConfig({}).realWindowsExecutionEnabled).toBe(false);
+    expect(
+      loadRuntimeConfig({ JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1" })
+        .brainOpenActionsDisabled,
+    ).toBe(true);
+    expect(
+      loadRuntimeConfig({ JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "true" })
+        .brainOpenActionsDisabled,
+    ).toBe(true);
+    for (const value of ["", "0", "false"]) {
+      const config = loadRuntimeConfig({
+        JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: value,
+        JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION: value,
+      });
+      expect(config.brainOpenActionsDisabled).toBe(false);
+      expect(config.realWindowsExecutionEnabled).toBe(false);
+    }
+    expect(
+      loadRuntimeConfig({ JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION: "1" })
+        .realWindowsExecutionEnabled,
+    ).toBe(true);
+  });
+
   it("rejects invalid boolean values", () => {
     expect(() =>
       loadRuntimeConfig({ JARVIS_K_ENABLE_QWEN_FAST_ROUTER: "yes" }),

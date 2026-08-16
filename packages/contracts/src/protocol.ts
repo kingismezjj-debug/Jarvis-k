@@ -1523,6 +1523,20 @@ export const BrainCommandResultSchema = z
   .strict();
 export type BrainCommandResult = z.infer<typeof BrainCommandResultSchema>;
 
+export const EffectfulActionRuntimeAuditSchema = z
+  .object({
+    realWindowsExecutionEnabled: z.boolean(),
+    brainOpenActionsDisabled: z.boolean(),
+    windowsExecutorInvocationCount: z.number().int().nonnegative(),
+    effectfulActionBlockedBeforeExecutorCount: z.number().int().nonnegative(),
+    lastBlockedReason: z.string().min(1).max(128).optional(),
+    auditSessionStartedAt: z.string().datetime(),
+  })
+  .strict();
+export type EffectfulActionRuntimeAudit = z.infer<
+  typeof EffectfulActionRuntimeAuditSchema
+>;
+
 export const AgentCommandSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("agent.ping"),
@@ -1530,6 +1544,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("agent.getSnapshot"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("agent.getEffectfulActionRuntimeAudit"),
     payload: EmptyPayloadSchema,
   }),
   z.object({

@@ -19,6 +19,7 @@ export interface RuntimeConfig {
   readonly glmRuntimeHeavyPlannerOneWindowApproved: boolean;
   readonly smokeVoiceEnabled: boolean;
   readonly brainOpenActionsDisabled: boolean;
+  readonly realWindowsExecutionEnabled: boolean;
   readonly brainRouterEnabled: boolean;
   readonly language: "zh" | "en";
   readonly smokeProviderFaultEnabled: boolean;
@@ -51,6 +52,7 @@ const BOOLEAN_ENV_KEYS = [
   "JARVIS_K_HEAVY_PLANNER_GLM_ONE_WINDOW_APPROVED",
   "JARVIS_K_SMOKE_VOICE",
   "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS",
+  "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION",
   "JARVIS_K_ENABLE_BRAIN_ROUTER",
   "JARVIS_K_SMOKE_PROVIDER_FAULT",
 ] as const;
@@ -130,6 +132,7 @@ export function loadRuntimeConfig(
     ),
     smokeVoiceEnabled: flag(env, "JARVIS_K_SMOKE_VOICE"),
     brainOpenActionsDisabled: flag(env, "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS"),
+    realWindowsExecutionEnabled: flag(env, "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION"),
     brainRouterEnabled: env.JARVIS_K_ENABLE_BRAIN_ROUTER !== "0",
     language: env.JARVIS_K_LANGUAGE === "en" ? "en" : "zh",
     smokeProviderFaultEnabled: flag(env, "JARVIS_K_SMOKE_PROVIDER_FAULT"),

@@ -424,6 +424,10 @@ runtime = new CoreRuntime(
   undefined,
   userPreferenceMemoryRepository,
   voiceRegressionRepository,
+  {
+    brainOpenActionsDisabled: runtimeConfig.brainOpenActionsDisabled,
+    realWindowsExecutionEnabled: runtimeConfig.realWindowsExecutionEnabled,
+  },
 );
 const runtimeConfigurationController = new RuntimeConfigurationController({
   runtime,
