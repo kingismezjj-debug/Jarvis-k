@@ -875,6 +875,16 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("toolProductLoop.rawDiagnosticsExposed");
   });
 
+  it("renders blocked tool projections as not-run instead of verified execution", () => {
+    expect(appSource).toContain(
+      'data-testid="tool-loop-result"',
+    );
+    expect(appSource).toContain('toolProductLoop.execution?.resultCode ?? "not_run"');
+    expect(appSource).not.toContain('?? "executed"');
+    expect(appSource).not.toContain('?? "verified"');
+    expect(appSource).not.toContain('?? "verification_failed"');
+  });
+
   it("renders Stage 5 Product Alpha history, safe retry, and local TTS controls", () => {
     expect(appSource).toContain("stage5Copy");
     expect(appSource).toContain("产品 Alpha");

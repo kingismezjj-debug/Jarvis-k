@@ -4139,10 +4139,9 @@ export class CoreRuntime {
       throw new Error("Effectful action block requested without a block reason.");
     }
     this.effectfulActionAuditService.recordBlockedBeforeExecutor(reason);
-    await input.taskDispatch.completeVerification({
+    await input.taskDispatch.blockBeforeExecutor({
       taskId: input.taskId,
       stepId: input.stepId,
-      verificationStatus: "verification_failed",
       resultSummary: input.resultSummary,
       failureReason: reason,
     });

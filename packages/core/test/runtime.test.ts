@@ -6870,6 +6870,10 @@ describe("CoreRuntime", () => {
       },
     ] as const;
 
+    const brainResults: Array<{
+      input: (typeof routedInputs)[number];
+      summary: string;
+    }> = [];
     for (const input of routedInputs) {
       const result = await runtime.handle(
         createCommandEnvelope({
@@ -6887,7 +6891,11 @@ describe("CoreRuntime", () => {
       expect(brain.decision.intent).toBe(input.intent);
       expect(brain.dispatchStatus).toBe("blocked");
       expect(brain.summary).toContain("before");
+      expect(brain.summary.toLowerCase()).not.toContain("verification failed");
+      expect(brain.summary.toLowerCase()).not.toContain("verified");
+      brainResults.push({ input, summary: brain.summary });
     }
+    expect(brainResults).toHaveLength(routedInputs.length);
 
     expect(adapterCalls).toEqual({
       browser: 0,
@@ -6912,11 +6920,33 @@ describe("CoreRuntime", () => {
         lastBlockedReason: routedInputs.at(-1)?.reason,
       },
     });
-    for (const task of runtime.getSnapshot().tasks) {
+    const tasks = runtime.getSnapshot().tasks;
+    expect(tasks).toHaveLength(routedInputs.length);
+    for (const [index, task] of tasks.entries()) {
+      const input = routedInputs[index];
       expect(task.state).toBe("failed");
       expect(task.verificationSummary).toContain("before");
-      expect(task.steps[0]?.verificationStatus).toBe("verification_failed");
+      expect(task.verificationSummary?.toLowerCase()).not.toContain(
+        "verification failed",
+      );
+      expect(task.intent).toBe(input.intent);
+      expect(task.steps[0]).toMatchObject({
+        state: "blocked",
+        verificationStatus: "not_applicable",
+        failureReason: input.reason,
+      });
       expect(task.steps[0]?.verificationStatus).not.toBe("verified");
+      expect(task.steps[0]?.verificationStatus).not.toBe(
+        "verification_failed",
+      );
+      expect(task.steps[0]?.state).not.toBe("completed");
+      expect(task.events.map((event) => event.type)).not.toContain(
+        "verification_failed",
+      );
+      expect(task.events.at(-1)).toMatchObject({
+        type: "failed",
+      });
+      expect(task.events.at(-1)?.message).toContain("blocked_before_executor");
     }
   });
 
@@ -7036,6 +7066,17 @@ describe("CoreRuntime", () => {
     for (const task of runtime.getSnapshot().tasks) {
       expect(task.state).toBe("failed");
       expect(task.steps[0]?.verificationStatus).not.toBe("verified");
+      expect(task.steps[0]?.verificationStatus).not.toBe(
+        "verification_failed",
+      );
+      expect(task.steps[0]).toMatchObject({
+        state: "blocked",
+        verificationStatus: "not_applicable",
+      });
+      expect(task.events.map((event) => event.type)).not.toContain(
+        "verification_failed",
+      );
+      expect(task.events.at(-1)?.message).toContain("blocked_before_executor");
     }
   });
 

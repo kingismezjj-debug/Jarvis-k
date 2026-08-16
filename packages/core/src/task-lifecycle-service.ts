@@ -34,6 +34,13 @@ export interface CompleteTaskVerificationInput {
   failureReason?: string | undefined;
 }
 
+export interface BlockTaskBeforeExecutorInput {
+  taskId: string;
+  stepId: string;
+  resultSummary: string;
+  failureReason: string;
+}
+
 export type TaskExecutionProjection =
   | "simulated"
   | "executed"
@@ -217,6 +224,53 @@ export class TaskLifecycleService {
       message: input.reason,
       createdAt: interruptedAt,
     });
+  }
+
+  public async blockBeforeExecutor(
+    input: BlockTaskBeforeExecutorInput,
+  ): Promise<{
+    verified: false;
+    projection: Extract<TaskExecutionProjection, "simulated">;
+  }> {
+    const existingTask = (await this.repository.listTasks()).find(
+      (task) => task.id === input.taskId,
+    );
+    const existingStep = existingTask?.steps.find(
+      (step) => step.id === input.stepId,
+    );
+    if (
+      (existingTask?.state === "completed" || existingTask?.state === "failed") &&
+      (existingStep?.state === "blocked" || existingStep?.state === "failed")
+    ) {
+      return { verified: false, projection: "simulated" };
+    }
+    this.assertTransition(existingTask?.state ?? "running", "failed");
+    const blockedAt = this.now().toISOString();
+    await this.repository.updateStep({
+      id: input.stepId,
+      taskId: input.taskId,
+      state: "blocked",
+      verificationStatus: "not_applicable",
+      completedAt: blockedAt,
+      resultSummary: input.resultSummary,
+      failureReason: input.failureReason,
+    });
+    await this.repository.updateTask({
+      id: input.taskId,
+      state: "failed",
+      updatedAt: blockedAt,
+      completedAt: blockedAt,
+      verificationSummary: input.resultSummary,
+    });
+    await this.repository.createEvent({
+      id: createId("task-event"),
+      taskId: input.taskId,
+      stepId: input.stepId,
+      type: "failed",
+      message: `blocked_before_executor: ${input.resultSummary}`,
+      createdAt: blockedAt,
+    });
+    return { verified: false, projection: "simulated" };
   }
 
   public assertTransition(from: TaskState, to: TaskState): void {

@@ -312,4 +312,34 @@ describe("TaskLifecycleService", () => {
     expect(task.state).toBe("failed");
     expect(task.steps[0].verificationStatus).toBe("not_applicable");
   });
+
+  it("blocks before executor without verification failure semantics", async () => {
+    const { repository, service } = createService();
+    const ids = await createQueued(service);
+
+    await service.markRunning({ ...ids, message: "running" });
+    const result = await service.blockBeforeExecutor({
+      ...ids,
+      resultSummary: "Blocked before executor.",
+      failureReason: "BRAIN_OPEN_ACTIONS_DISABLED:localApp.open",
+    });
+
+    const [task] = await repository.listTasks();
+    expect(result).toEqual({ verified: false, projection: "simulated" });
+    expect(task.state).toBe("failed");
+    expect(task.steps[0]).toMatchObject({
+      state: "blocked",
+      verificationStatus: "not_applicable",
+      failureReason: "BRAIN_OPEN_ACTIONS_DISABLED:localApp.open",
+    });
+    expect(task.steps[0].verificationStatus).not.toBe("verification_failed");
+    expect(repository.eventTypes()).toEqual([
+      "created",
+      "step_started",
+      "failed",
+    ]);
+    expect(repository.events.at(-1)?.message).toContain(
+      "blocked_before_executor",
+    );
+  });
 });

@@ -1,6 +1,7 @@
 import type { TaskRepository } from "./task-runtime";
 import {
   TaskLifecycleService,
+  type BlockTaskBeforeExecutorInput,
   type CompleteTaskVerificationInput,
   type CreateQueuedTaskInput,
   type CreatedTaskLifecycle,
@@ -36,5 +37,11 @@ export class TaskDispatchService {
     input: CompleteTaskVerificationInput,
   ): Promise<{ verified: boolean }> {
     return this.lifecycle.completeVerification(input);
+  }
+
+  public async blockBeforeExecutor(
+    input: BlockTaskBeforeExecutorInput,
+  ): Promise<{ verified: false }> {
+    return this.lifecycle.blockBeforeExecutor(input);
   }
 }
