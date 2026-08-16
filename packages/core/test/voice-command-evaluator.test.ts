@@ -4,8 +4,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   auditDataset,
+  candidateScopeMetrics,
   evaluateRecord,
+  isQwenRerankEligibleRecord,
   metricsFor,
+  outcomeClassForRecord,
   readJsonl,
   sha256File,
   slotsExactMatch,
@@ -61,6 +64,124 @@ describe("voice command zh-CN evaluator metrics", () => {
 
     expect(result.top1CandidateOk).toBe(false);
     expect(result.top2CandidateOk).toBe(true);
+  });
+
+  it("derives candidate applicability from expected outcome instead of resolver output", () => {
+    const executable = record({ intent: "localApp.open", slots: { target: "vscode" } });
+    const chat = record({ category: "negative", mode: "conversation", intent: "chat.answer", slots: {} });
+    const clarify = record({ intent: "clarify", slots: {}, clarificationRequired: true });
+    const blocked = record({ intent: "blocked", slots: {}, blocked: true, tags: ["dangerous"] });
+    const dictation = record({ mode: "dictation", intent: "notepad.write_text", slots: { text: "hello" } });
+    const blockedWithExecutableCandidate = evaluateRecord(
+      blocked,
+      correction(candidate("open.vscode", "localApp.open", { target: "vscode" })),
+    );
+
+    expect(outcomeClassForRecord(executable)).toBe("candidate_required");
+    expect(outcomeClassForRecord(chat)).toBe("direct_non_action_decision");
+    expect(outcomeClassForRecord(clarify)).toBe("clarification_expected");
+    expect(outcomeClassForRecord(blocked)).toBe("blocked_expected");
+    expect(outcomeClassForRecord(dictation)).toBe("direct_non_action_decision");
+    expect(blockedWithExecutableCandidate.candidateRequired).toBe(false);
+    expect(blockedWithExecutableCandidate.candidateFailureClass).toBe("not_applicable");
+  });
+
+  it("scopes candidate metrics to candidate-required records and keeps legacy all-sample metrics separate", () => {
+    const rankOne = evaluateRecord(
+      record({ intent: "localApp.open", slots: { target: "vscode" } }),
+      correction(candidate("open.vscode", "localApp.open", { target: "vscode" })),
+    );
+    const rankTwo = evaluateRecord(
+      record({ intent: "browser.open", slots: { target: "GitHub" } }),
+      correction(
+        candidate("open.gitlab", "browser.open", { target: "GitLab" }),
+        candidate("open.github", "browser.open", { target: "GitHub" }),
+      ),
+    );
+    const wrongSlot = evaluateRecord(
+      record({ intent: "filesystem.search", slots: { query: "release notes" } }),
+      correction(candidate("search.wrong", "filesystem.search", { query: "release" })),
+    );
+    const noCandidate = evaluateRecord(record({ intent: "window.focus", slots: { target: "notepad" } }), correction());
+    const chat = evaluateRecord(
+      record({ category: "negative", mode: "conversation", intent: "chat.answer", slots: {} }),
+      nonCommandCorrection("conversation"),
+    );
+    const clarify = evaluateRecord(
+      record({ intent: "clarify", slots: {}, clarificationRequired: true }),
+      correction(undefined, undefined, { requiresUserSelection: true }),
+    );
+    const blocked = evaluateRecord(
+      record({ intent: "blocked", slots: {}, blocked: true, tags: ["dangerous"] }),
+      correction(candidate("blocked", "blocked", {})),
+    );
+    const results = [rankOne, rankTwo, wrongSlot, noCandidate, chat, clarify, blocked];
+    const metrics = metricsFor(results);
+    const candidateMetrics = candidateScopeMetrics(results, (result) => result.candidateRequired);
+
+    expect(candidateMetrics.records).toBe(4);
+    expect(candidateMetrics.top1CandidateAccuracy).toBe(0.25);
+    expect(candidateMetrics.top2CandidateRecall).toBe(0.5);
+    expect(candidateMetrics.noCandidateRate).toBe(0.25);
+    expect(candidateMetrics.missingCandidateRate).toBe(0.25);
+    expect(candidateMetrics.failureClasses).toMatchObject({
+      expected_at_rank_1: 1,
+      expected_at_rank_2: 1,
+      candidate_correct_but_slot_incorrect: 1,
+      no_candidates_returned: 1,
+    });
+    expect(metrics.legacyAllSampleTop2CandidateRecall).toBe(0.4286);
+    expect(metrics.candidateRequiredTop2Recall).toBe(0.5);
+    expect(metrics.nonCandidateOutcomeAccuracy).toBe(1);
+  });
+
+  it("separates Qwen rerank eligibility from candidate-required status and reports ranking gap", () => {
+    const rerankable = evaluateRecord(
+      record({ intent: "localApp.open", slots: { target: "vscode" } }),
+      correction(
+        candidate("open.notepad", "localApp.open", { target: "notepad" }),
+        candidate("open.vscode", "localApp.open", { target: "vscode" }),
+      ),
+    );
+    const statusReadOnly = evaluateRecord(
+      record({ intent: "model.status", slots: {}, autoExecuteAllowed: true }),
+      correction(candidate("status.model", "model.status", {})),
+    );
+    const blocked = evaluateRecord(
+      record({ intent: "blocked", slots: {}, blocked: true, tags: ["dangerous"] }),
+      correction(candidate("blocked", "blocked", {})),
+    );
+    const negative = evaluateRecord(
+      record({ category: "negative", mode: "conversation", intent: "chat.answer", slots: {} }),
+      nonCommandCorrection("conversation"),
+    );
+    const results = [rerankable, statusReadOnly, blocked, negative];
+    const qwenMetrics = candidateScopeMetrics(results, (result) => result.qwenRerankEligible);
+
+    expect(isQwenRerankEligibleRecord(resultToRecord(rerankable))).toBe(true);
+    expect(isQwenRerankEligibleRecord(resultToRecord(statusReadOnly))).toBe(false);
+    expect(rerankable.qwenRerankEligible).toBe(true);
+    expect(statusReadOnly.candidateRequired).toBe(true);
+    expect(statusReadOnly.qwenRerankEligible).toBe(false);
+    expect(blocked.qwenRerankEligible).toBe(false);
+    expect(negative.qwenRerankEligible).toBe(false);
+    expect(qwenMetrics.records).toBe(1);
+    expect(qwenMetrics.top1CandidateAccuracy).toBe(0);
+    expect(qwenMetrics.top2CandidateRecall).toBe(1);
+    expect(qwenMetrics.expectedInTopKButNotTop1).toBe(1);
+    expect(qwenMetrics.rankingGapRate).toBe(1);
+    expect(qwenMetrics.theoreticalMaxRerankGain).toBe(1);
+  });
+
+  it("reports not_available for empty candidate scopes", () => {
+    const metrics = candidateScopeMetrics([], () => true);
+
+    expect(metrics.records).toBe(0);
+    expect(metrics.candidatePresenceRate).toBe("not_available");
+    expect(metrics.top1CandidateAccuracy).toBe("not_available");
+    expect(metrics.top2CandidateRecall).toBe("not_available");
+    expect(metrics.rankingGapRate).toBe("not_available");
+    expect(metrics.byIntent).toEqual({});
   });
 
   it("classifies no-candidate, unexpected clarification, and missed clarification", () => {

@@ -37,6 +37,31 @@ const validIntents = new Set([
   "clarify",
   "blocked",
 ]);
+const candidateRequiredIntents = new Set([
+  "localApp.open",
+  "browser.open",
+  "filesystem.search",
+  "notepad.write_text",
+  "window.focus",
+  "window.minimize",
+  "window.restore",
+  "plugin.invoke",
+  "coding.task",
+  "memory.search",
+  "observability.status",
+  "model.status",
+]);
+const qwenRerankEligibleIntents = new Set([
+  "localApp.open",
+  "browser.open",
+  "filesystem.search",
+  "notepad.write_text",
+  "window.focus",
+  "window.minimize",
+  "window.restore",
+  "plugin.invoke",
+  "coding.task",
+]);
 
 export function parseArgs(argv) {
   const options = {
@@ -116,9 +141,16 @@ export function evaluateRecord(record, correction, latencyMs = 0) {
   const candidateCount = correction.correctionCandidates.length;
   const topCandidate = correction.correctionCandidates[0] ?? null;
   const topTwoCandidates = correction.correctionCandidates.slice(0, 2);
+  const topThreeCandidates = correction.correctionCandidates.slice(0, 3);
+  const topFiveCandidates = correction.correctionCandidates.slice(0, 5);
   const top1CandidateOk = candidateMatches(record, topCandidate);
   const top2CandidateOk = topTwoCandidates.some((candidate) => candidateMatches(record, candidate));
+  const top3CandidateOk = topThreeCandidates.some((candidate) => candidateMatches(record, candidate));
+  const top5CandidateOk = topFiveCandidates.some((candidate) => candidateMatches(record, candidate));
   const prediction = projectPrediction(record, correction, topCandidate);
+  const outcomeClass = outcomeClassForRecord(record);
+  const qwenRerankEligible = isQwenRerankEligibleRecord(record);
+  const candidateFailureClass = classifyCandidateFailure(record, correction);
   const intentOk = prediction.intent === record.expected.intent;
   const slotOkAllSamples = slotsExactMatch(record.expected.slots ?? {}, prediction.slots ?? {});
   const slotOkGivenCorrectIntent = intentOk ? slotOkAllSamples : null;
@@ -160,14 +192,21 @@ export function evaluateRecord(record, correction, latencyMs = 0) {
       candidateCount,
       topCandidateId: topCandidate?.id ?? null,
       topCandidateIntent: topCandidate?.intent ?? null,
+      topCandidateSource: candidateSource(topCandidate),
     },
     latencyMs,
+    outcomeClass,
+    qwenRerankEligible,
+    candidateRequired: outcomeClass === "candidate_required",
+    candidateFailureClass,
     intentOk,
     slotOkAllSamples,
     slotOkGivenCorrectIntent,
     jointIntentSlotsOk,
     top1CandidateOk,
     top2CandidateOk,
+    top3CandidateOk,
+    top5CandidateOk,
     clarificationOk,
     blockedOk,
     eligibilityOk,
@@ -264,6 +303,11 @@ export function summarizeResults(results, records, options = {}) {
     byRisk: groupMetrics(results, (result) => result.risk),
     byProvenance: groupMetrics(results, (result) => result.provenance ?? "unknown"),
     topK: topKMetrics(results),
+    candidateRequired: candidateScopeMetrics(results, (result) => result.candidateRequired),
+    qwenRerankEligible: candidateScopeMetrics(results, (result) => result.qwenRerankEligible),
+    outcomeClasses: groupMetrics(results, (result) => result.outcomeClass),
+    candidateFailureClasses: countBy(results, (result) => result.candidateFailureClass),
+    candidateSources: countBy(results, (result) => result.resolver.topCandidateSource ?? "none"),
     performance: performanceSummary,
     errorCategories: countMany(results.flatMap((result) => result.errorCategories)),
     topErrors: topConfusions(results),
@@ -280,7 +324,12 @@ export function metricDefinitions() {
     jointIntentSlotsAccuracy: "Intent accuracy and slot exact match both true.",
     taskSuccessRate: "Resolver-only exact success: intent, slots, clarification, block, and auto-execution eligibility all match expected.",
     top1CandidateAccuracy: "First resolver candidate matches expected by candidate id or intent+slots. Clarification text is not a candidate.",
-    top2CandidateRecall: "Any of the first two resolver candidates matches expected by candidate id or intent+slots.",
+    top2CandidateRecall: "Legacy all-sample metric: any of the first two resolver candidates matches expected by candidate id or intent+slots.",
+    legacyAllSampleTop1CandidateAccuracy: "Historical all-sample Top-1 candidate metric. Non-candidate outcomes remain in the denominator for historical comparison only.",
+    legacyAllSampleTop2CandidateRecall: "Historical all-sample Top-2 candidate metric. Do not use for Qwen rerank admission.",
+    candidateRequired: "Candidate metrics over samples whose expected outcome contract requires a resolver candidate.",
+    qwenRerankEligible: "Candidate metrics over candidate-required samples whose intent may be reranked by future Qwen over a bounded candidate set.",
+    outcomeClass: "Expected outcome class derived from expected intent, blocked/clarification flags, mode, and product safety semantics; never from resolver output.",
     autoExecutionEligibilityAccuracy: "Resolver candidate eligibility matches expected autoExecuteAllowed. This is not product execution.",
     safeNonExecutionRate: "Risky samples are not marked eligible for auto execution by resolver-layer policy.",
     noDirectActionRate: "Resolver invariant: directActionAttempted is false. It is not an auto-execution success metric.",
@@ -317,6 +366,16 @@ export function metricsFor(results) {
     taskSuccessRate: rate(results, (result) => result.taskSuccess),
     top1CandidateAccuracy: rate(results, (result) => result.top1CandidateOk),
     top2CandidateRecall: rate(results, (result) => result.top2CandidateOk),
+    legacyAllSampleTop1CandidateAccuracy: rate(results, (result) => result.top1CandidateOk),
+    legacyAllSampleTop2CandidateRecall: rate(results, (result) => result.top2CandidateOk),
+    candidateRequiredTop1Accuracy: candidateScopeMetrics(results, (result) => result.candidateRequired).top1CandidateAccuracy,
+    candidateRequiredTop2Recall: candidateScopeMetrics(results, (result) => result.candidateRequired).top2CandidateRecall,
+    qwenEligibleTop1Accuracy: candidateScopeMetrics(results, (result) => result.qwenRerankEligible).top1CandidateAccuracy,
+    qwenEligibleTop2Recall: candidateScopeMetrics(results, (result) => result.qwenRerankEligible).top2CandidateRecall,
+    nonCandidateOutcomeAccuracy: nullableRate(
+      results.filter((result) => !result.candidateRequired),
+      (result) => result.taskSuccess,
+    ),
     clarificationPrecision: clarification.precision,
     clarificationRecall: clarification.recall,
     clarificationF1: clarification.f1,
@@ -349,12 +408,46 @@ export function topKMetrics(results) {
     withoutCandidate: withoutCandidate.length,
     singleCandidate: singleCandidate.length,
     multipleCandidates: multipleCandidates.length,
+    legacyAllSampleTop1CandidateAccuracy: rate(results, (result) => result.top1CandidateOk),
+    legacyAllSampleTop2CandidateRecall: rate(results, (result) => result.top2CandidateOk),
     top1CandidateAccuracy: rate(results, (result) => result.top1CandidateOk),
     top2CandidateRecall: rate(results, (result) => result.top2CandidateOk),
     averageCandidateCount: round(
       results.reduce((sum, result) => sum + result.resolver.candidateCount, 0) /
         Math.max(results.length, 1),
     ),
+  };
+}
+
+export function candidateScopeMetrics(results, predicate) {
+  const scoped = results.filter(predicate);
+  return {
+    ...candidateScopeSummary(scoped),
+    byIntent: groupCandidateScopeMetrics(scoped, (result) => result.expected.intent),
+  };
+}
+
+function candidateScopeSummary(scoped) {
+  const rankedButNotTop1 = scoped.filter((result) => !result.top1CandidateOk && result.top2CandidateOk);
+  return {
+    records: scoped.length,
+    candidatePresenceRate: nullableRate(scoped, (result) => result.resolver.candidateCount > 0),
+    top1CandidateAccuracy: nullableRate(scoped, (result) => result.top1CandidateOk),
+    top2CandidateRecall: nullableRate(scoped, (result) => result.top2CandidateOk),
+    top3CandidateRecall: nullableRate(scoped, (result) => result.top3CandidateOk),
+    top5CandidateRecall: nullableRate(scoped, (result) => result.top5CandidateOk),
+    noCandidateRate: nullableRate(scoped, (result) => result.candidateFailureClass === "no_candidates_returned"),
+    missingCandidateRate: nullableRate(scoped, (result) =>
+      ["no_candidates_returned", "candidates_returned_but_expected_missing"].includes(result.candidateFailureClass),
+    ),
+    averageCandidateCount: round(
+      scoped.reduce((sum, result) => sum + result.resolver.candidateCount, 0) /
+        Math.max(scoped.length, 1),
+    ),
+    expectedInTopKButNotTop1: rankedButNotTop1.length,
+    rankingGapRate: nullableRate(scoped, (result) => !result.top1CandidateOk && result.top2CandidateOk),
+    theoreticalMaxRerankGain: nullableRate(scoped, (result) => !result.top1CandidateOk && result.top2CandidateOk),
+    failureClasses: countBy(scoped, (result) => result.candidateFailureClass),
   };
 }
 
@@ -559,6 +652,26 @@ export function renderMarkdown(summary) {
     "",
     ...Object.entries(summary.topK).map(([key, value]) => `- ${key}: ${formatMetric(value)}`),
     "",
+    "## Candidate-required Metrics",
+    "",
+    ...renderCandidateScope(summary.candidateRequired),
+    "",
+    "## Qwen Rerank-eligible Metrics",
+    "",
+    ...renderCandidateScope(summary.qwenRerankEligible),
+    "",
+    "## Outcome Classes",
+    "",
+    ...renderMetricMap(summary.outcomeClasses),
+    "",
+    "## Candidate Failure Classes",
+    "",
+    ...Object.entries(summary.candidateFailureClasses).map(([key, value]) => `- ${key}: ${value}`),
+    "",
+    "## Candidate Sources",
+    "",
+    ...Object.entries(summary.candidateSources).map(([key, value]) => `- ${key}: ${value}`),
+    "",
     "## Performance",
     "",
     ...Object.entries(summary.performance).map(([key, value]) => `- ${key}: ${Array.isArray(value) ? JSON.stringify(value) : value}`),
@@ -638,6 +751,47 @@ function classifyErrors(input) {
   return [...new Set(errors)];
 }
 
+export function outcomeClassForRecord(record) {
+  if (record.expected.blocked || record.expected.intent === "blocked") return "blocked_expected";
+  if (record.expected.clarificationRequired || record.expected.intent === "clarify") return "clarification_expected";
+  if (record.mode === "conversation" || record.mode === "dictation" || record.expected.intent === "chat.answer") {
+    return "direct_non_action_decision";
+  }
+  if (candidateRequiredIntents.has(record.expected.intent)) return "candidate_required";
+  return "direct_non_action_decision";
+}
+
+export function isQwenRerankEligibleRecord(record) {
+  if (outcomeClassForRecord(record) !== "candidate_required") return false;
+  if (!qwenRerankEligibleIntents.has(record.expected.intent)) return false;
+  if (record.category === "negative" || record.mode === "conversation" || record.mode === "dictation") return false;
+  if (record.expected.blocked || record.expected.clarificationRequired) return false;
+  return true;
+}
+
+function classifyCandidateFailure(record, correction) {
+  if (outcomeClassForRecord(record) !== "candidate_required") return "not_applicable";
+  const candidates = correction.correctionCandidates;
+  if (candidates.length === 0) return "no_candidates_returned";
+  const matchedIndex = candidates.findIndex((candidate) => candidateMatches(record, candidate));
+  if (matchedIndex >= 0 && correction.requiresUserSelection) return "candidate_correct_but_policy_requires_clarification";
+  if (matchedIndex === 0) return "expected_at_rank_1";
+  if (matchedIndex === 1) return "expected_at_rank_2";
+  if (matchedIndex > 1) return "expected_beyond_supported_k";
+  if (candidates.some((candidate) => candidate.intent === record.expected.intent)) return "candidate_correct_but_slot_incorrect";
+  if (correction.requiresUserSelection) return "candidate_ineligible_by_safety";
+  return "candidates_returned_but_expected_missing";
+}
+
+function candidateSource(candidate) {
+  if (!candidate) return "none";
+  if (candidate.id?.startsWith?.("route.")) return "user_route_alias";
+  if (candidate.id?.startsWith?.("plugin.")) return "plugin_capability";
+  if (candidate.id?.startsWith?.("slot.")) return "grammar";
+  if (candidate.correctionSource === "alias") return "voice_alias";
+  return candidate.correctionSource ?? "unknown";
+}
+
 function stripDictationPrefix(text) {
   return text.replace(/^(听写：|帮我记：)/u, "").replace(/[。?!？！]$/u, "").trim();
 }
@@ -699,11 +853,38 @@ function groupMetrics(results, selector) {
   return Object.fromEntries([...groups.entries()].map(([key, group]) => [key, metricsFor(group)]));
 }
 
+function groupCandidateScopeMetrics(results, selector) {
+  const groups = new Map();
+  for (const result of results) {
+    const key = selector(result);
+    groups.set(key, [...(groups.get(key) ?? []), result]);
+  }
+  return Object.fromEntries([...groups.entries()].map(([key, group]) => [key, candidateScopeSummary(group)]));
+}
+
 function renderMetricMap(metricMap) {
   return Object.entries(metricMap).map(
     ([key, metrics]) =>
       `- ${key}: intent=${formatMetric(metrics.intentAccuracy)}, joint=${formatMetric(metrics.jointIntentSlotsAccuracy)}, task=${formatMetric(metrics.taskSuccessRate)}, eligibility=${formatMetric(metrics.autoExecutionEligibilityAccuracy)}`,
   );
+}
+
+function renderCandidateScope(scope) {
+  return [
+    `- records: ${scope.records}`,
+    `- candidatePresenceRate: ${formatMetric(scope.candidatePresenceRate)}`,
+    `- top1CandidateAccuracy: ${formatMetric(scope.top1CandidateAccuracy)}`,
+    `- top2CandidateRecall: ${formatMetric(scope.top2CandidateRecall)}`,
+    `- top3CandidateRecall: ${formatMetric(scope.top3CandidateRecall)}`,
+    `- top5CandidateRecall: ${formatMetric(scope.top5CandidateRecall)}`,
+    `- noCandidateRate: ${formatMetric(scope.noCandidateRate)}`,
+    `- missingCandidateRate: ${formatMetric(scope.missingCandidateRate)}`,
+    `- averageCandidateCount: ${formatMetric(scope.averageCandidateCount)}`,
+    `- expectedInTopKButNotTop1: ${scope.expectedInTopKButNotTop1}`,
+    `- rankingGapRate: ${formatMetric(scope.rankingGapRate)}`,
+    `- theoreticalMaxRerankGain: ${formatMetric(scope.theoreticalMaxRerankGain)}`,
+    `- failureClasses: ${JSON.stringify(scope.failureClasses)}`,
+  ];
 }
 
 function precisionRecallF1(results, predicted, expected) {
@@ -782,6 +963,7 @@ function measureOnePass(records, resolver) {
       rawTranscript: record.rawTranscript,
       requestedMode: record.mode,
       aliases: record.context.voiceAliases ?? [],
+      routeAliases: record.context.routeAliases ?? [],
       pluginCapabilities: record.context.enabledPlugins ?? [],
     });
     latenciesMs.push(performance.now() - start);
