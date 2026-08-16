@@ -212,6 +212,31 @@ export class VoiceCommandResolver {
       });
     }
 
+    if (looksDangerousCommand(rawTranscript)) {
+      return VoiceCommandCorrectionSchema.parse({
+        rawTranscript,
+        normalizedTranscript: "blocked",
+        inputMode: "command",
+        correctionSource: "slot_grammar",
+        correctionConfidence: 0.99,
+        correctionCandidates: [
+          {
+            id: "safety.block.dangerous-command",
+            normalizedTranscript: "blocked",
+            inputMode: "command",
+            intent: "blocked",
+            confidence: 0.99,
+            correctionSource: "slot_grammar",
+            label: "Block dangerous command",
+            slots: {},
+          },
+        ],
+        requiresUserSelection: false,
+        rawTranscriptPreserved: true,
+        directActionAttempted: false,
+      });
+    }
+
     if (looksQuotedOrNegated(rawTranscript) && containsCommandVerb(rawTranscript)) {
       return VoiceCommandCorrectionSchema.parse({
         rawTranscript,
@@ -683,10 +708,10 @@ function normalizePhoneticMandarin(value: string, commandMatch = false): string 
     ? normalizeForCommandMatch(value)
     : normalizeLoose(value);
   return normalized
-    .replace(/\u5fae\u7231\u6b7b(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
-    .replace(/\u5fae\u8f6f(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
-    .replace(/\u5a01\u65af(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
-    .replace(/vs(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
+    .replace(/\u5fae\u7231\u6b7b(?:\u6263|\u53e3)(?:\u7684)?(?![\u4e00-\u9fa5])/gu, "vscode")
+    .replace(/\u5fae\u8f6f(?:\u6263|\u53e3)(?:\u7684)?(?![\u4e00-\u9fa5])/gu, "vscode")
+    .replace(/\u5a01\u65af(?:\u6263|\u53e3)(?:\u7684)?(?![\u4e00-\u9fa5])/gu, "vscode")
+    .replace(/vs(?:\u6263|\u53e3)(?:\u7684)?(?![\u4e00-\u9fa5])/gu, "vscode")
     .replace(/\u4e00\u53eatoken/gu, "izytoken")
     .replace(/iztoken|izytoken|ec(?:token)?/giu, "izytoken")
     .replace(/\u6263\u7684\u514b\u65af/gu, "codex")
@@ -934,7 +959,7 @@ function looksDangerousCommand(text: string): boolean {
 
 function looksQuotedOrNegated(text: string): boolean {
   const normalized = normalizeLoose(text);
-  return /(\u4e0d\u8981|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6\u8bf4|\u5979\u8bf4|\u5f15\u7528)/u.test(
+  return /(\u4e0d\u8981|\u522b\u5e2e\u6211|\u522b\u6253\u5f00|\u6ca1\u6709\u8ba9\u4f60|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6\u8bf4|\u5979\u8bf4|\u5982\u679c\u6211\u8bf4|\u5f15\u7528|\u7ba1\u7406\u5458\u6743\u9650)/u.test(
     normalized,
   );
 }

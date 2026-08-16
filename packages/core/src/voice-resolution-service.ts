@@ -1,6 +1,7 @@
 import type { PluginRegistry } from "@jarvis-k/capabilities";
 import {
   type BrainRouterDecision,
+  type UserRouteAliasRecord,
   type VoiceCommandAliasRecord,
   type VoiceCommandCorrection,
   type VoiceCommandCorrectionCandidate,
@@ -10,6 +11,7 @@ import {
 import {
   VoiceCommandResolver,
   type VoiceCommandResolverPluginCapability,
+  type VoiceCommandResolverRouteAlias,
 } from "./voice-command-resolver";
 
 export interface VoiceResolutionAliasRepository {
@@ -17,8 +19,14 @@ export interface VoiceResolutionAliasRepository {
   listAliases(): Promise<VoiceCommandAliasRecord[]>;
 }
 
+export interface VoiceResolutionRouteAliasRepository {
+  initialize(): Promise<void>;
+  listAliases(): Promise<UserRouteAliasRecord[]>;
+}
+
 export interface VoiceResolutionServiceOptions {
   voiceCommandAliasRepository?: VoiceResolutionAliasRepository | undefined;
+  routeAliasRepository?: VoiceResolutionRouteAliasRepository | undefined;
   pluginRegistry?: PluginRegistry | undefined;
   resolver?: VoiceCommandResolver | undefined;
 }
@@ -27,11 +35,15 @@ export class VoiceResolutionService {
   private readonly voiceCommandAliasRepository:
     | VoiceResolutionAliasRepository
     | undefined;
+  private readonly routeAliasRepository:
+    | VoiceResolutionRouteAliasRepository
+    | undefined;
   private readonly pluginRegistry: PluginRegistry | undefined;
   private readonly resolver: VoiceCommandResolver;
 
   public constructor(options: VoiceResolutionServiceOptions = {}) {
     this.voiceCommandAliasRepository = options.voiceCommandAliasRepository;
+    this.routeAliasRepository = options.routeAliasRepository;
     this.pluginRegistry = options.pluginRegistry;
     this.resolver = options.resolver ?? new VoiceCommandResolver();
   }
@@ -87,6 +99,7 @@ export class VoiceResolutionService {
       });
     }
     const aliases = await this.listVoiceCommandAliasesForResolution();
+    const routeAliases = await this.listRouteAliasesForResolution();
     const pluginCapabilities =
       await this.listVoiceCommandPluginCapabilitiesForResolution();
     return this.resolver.resolve({
@@ -95,6 +108,7 @@ export class VoiceResolutionService {
         ? {}
         : { requestedMode: input.requestedMode }),
       aliases,
+      routeAliases,
       pluginCapabilities,
     });
   }
@@ -114,6 +128,23 @@ export class VoiceResolutionService {
     try {
       await this.voiceCommandAliasRepository.initialize();
       return await this.voiceCommandAliasRepository.listAliases();
+    } catch {
+      return [];
+    }
+  }
+
+  private async listRouteAliasesForResolution(): Promise<
+    VoiceCommandResolverRouteAlias[]
+  > {
+    if (!this.routeAliasRepository) {
+      return [];
+    }
+    try {
+      await this.routeAliasRepository.initialize();
+      return (await this.routeAliasRepository.listAliases()).map((alias) => ({
+        label: alias.label,
+        target: alias.targetUrl,
+      }));
     } catch {
       return [];
     }

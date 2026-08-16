@@ -158,6 +158,60 @@ describe("voice command zh-CN evaluator metrics", () => {
     ).toBe(true);
   });
 
+  it("rejects strict matching counterexamples for top-k, clarification, block, aliases, plugins, and urls", () => {
+    const cases = [
+      evaluateRecord(
+        record({ intent: "browser.open", slots: { target: "GitHub" }, autoExecuteAllowed: true }),
+        correction(candidate("open.github.extra", "browser.open", { target: "GitHub", extra: true })),
+      ),
+      evaluateRecord(
+        record({ intent: "browser.open", slots: { target: "GitHub" }, autoExecuteAllowed: true }),
+        correction(candidate("open.gitlab", "browser.open", { target: "GitHub login" })),
+      ),
+      evaluateRecord(
+        record({ intent: "browser.open", slots: { target: "GitHub" }, autoExecuteAllowed: true }),
+        correction(candidate("open.local.github", "localApp.open", { target: "GitHub" })),
+      ),
+      evaluateRecord(
+        record({ intent: "filesystem.search", slots: { query: "release notes" }, autoExecuteAllowed: true }),
+        correction(candidate("search.textual", "chat.answer", { query: "release notes" })),
+      ),
+      evaluateRecord(
+        record({ intent: "localApp.open", slots: { target: "notepad" }, autoExecuteAllowed: true }),
+        correction(undefined, undefined, { requiresUserSelection: true }),
+      ),
+      evaluateRecord(
+        record({ intent: "clarify", slots: {}, clarificationRequired: true, autoExecuteAllowed: false }),
+        correction(candidate("blocked", "blocked", {})),
+      ),
+      evaluateRecord(
+        record({ intent: "browser.open", slots: { target: "Admin console" }, autoExecuteAllowed: true }),
+        correction(candidate("route.alias", "browser.open", { target: "Admin console staging" })),
+      ),
+      evaluateRecord(
+        record({
+          intent: "plugin.invoke",
+          slots: { pluginId: "readonly", capability: "example.status", input: { scope: "summary" } },
+          autoExecuteAllowed: true,
+        }),
+        correction(candidate("plugin.readonly", "plugin.invoke", { pluginId: "readonly", capability: "example.status", input: {} })),
+      ),
+      evaluateRecord(
+        record({ intent: "browser.open", slots: { target: "https://github.com" }, autoExecuteAllowed: true }),
+        correction(candidate("open.url", "browser.open", { target: "https://github.com.evil.test" })),
+      ),
+      evaluateRecord(
+        record({ intent: "observability.status", slots: {}, autoExecuteAllowed: true }),
+        correction(candidate("status.extra", "observability.status", { target: "system" })),
+      ),
+    ];
+
+    for (const result of cases) {
+      expect(result.taskSuccess).toBe(false);
+      expect(result.top1CandidateOk).toBe(false);
+    }
+  });
+
   it("aggregates category and split metrics and handles zero denominators explicitly", () => {
     const result = evaluateRecord(
       record({ split: "dev", category: "negative", mode: "conversation", intent: "chat.answer", slots: {} }),

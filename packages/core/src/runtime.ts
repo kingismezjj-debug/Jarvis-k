@@ -533,6 +533,7 @@ export class CoreRuntime {
     });
     this.voiceResolutionService = new VoiceResolutionService({
       voiceCommandAliasRepository: this.voiceCommandAliasRepository,
+      routeAliasRepository: this.userRouteAliasRepository,
       pluginRegistry: this.pluginRegistry,
       resolver: this.voiceCommandResolver,
     });

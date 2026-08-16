@@ -154,6 +154,118 @@ describe("VoiceCommandResolver", () => {
     expect(dangerous.directActionAttempted).toBe(false);
   });
 
+  it("keeps safe command intent and slots stable under independent wording variations", () => {
+    const variants = [
+      "\u8bf7\u6253\u5f00 Calculator\u5427",
+      "\u6253\u5f00 CALC",
+      "\u9ebb\u70e6\u6253\u5f00\u8ba1\u7b97\u5668\u73b0\u5728",
+    ];
+
+    const corrections = variants.map((rawTranscript) =>
+      resolver.resolve({ rawTranscript, requestedMode: "command" }),
+    );
+
+    expect(corrections[0].correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "calculator" },
+    });
+    expect(corrections[1].correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "calculator" },
+    });
+    expect(corrections[2].correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "calculator" },
+    });
+    for (const correction of corrections) {
+      expect(correction.directActionAttempted).toBe(false);
+    }
+  });
+
+  it("metamorphically rejects negated, quoted, and non-command executable variants", () => {
+    const executable = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u8ba1\u7b97\u5668",
+      requestedMode: "command",
+    });
+    const negated = resolver.resolve({
+      rawTranscript: "\u522b\u5e2e\u6211\u6253\u5f00\u8ba1\u7b97\u5668",
+      requestedMode: "command",
+    });
+    const denied = resolver.resolve({
+      rawTranscript: "\u6211\u6ca1\u6709\u8ba9\u4f60\u6253\u5f00\u8ba1\u7b97\u5668",
+      requestedMode: "command",
+    });
+    const quoted = resolver.resolve({
+      rawTranscript:
+        "\u5982\u679c\u6211\u8bf4\u6253\u5f00\u8ba1\u7b97\u5668\u4f1a\u600e\u4e48\u6837",
+      requestedMode: "command",
+    });
+    const dictation = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u8ba1\u7b97\u5668",
+      requestedMode: "dictation",
+    });
+    const conversation = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u8ba1\u7b97\u5668",
+      requestedMode: "conversation",
+    });
+
+    expect(executable.requiresUserSelection).toBe(false);
+    expect(executable.correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "calculator" },
+    });
+    expect(negated.requiresUserSelection).toBe(true);
+    expect(denied.requiresUserSelection).toBe(true);
+    expect(quoted.requiresUserSelection).toBe(true);
+    expect(dictation.correctionCandidates).toEqual([]);
+    expect(conversation.correctionCandidates).toEqual([]);
+    for (const correction of [negated, denied, quoted, dictation, conversation]) {
+      expect(correction.directActionAttempted).toBe(false);
+    }
+  });
+
+  it("metamorphically keeps unknown targets and risky prefixes from auto execution", () => {
+    const unknownApp = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u5fae\u8f6f\u53e3\u888b\u7f16\u8f91\u5668",
+      requestedMode: "command",
+    });
+    const disabledPlugin = resolver.resolve({
+      rawTranscript: "\u4f7f\u7528\u7edf\u8ba1\u63d2\u4ef6\u53d1\u9001\u62a5\u544a",
+      requestedMode: "command",
+    });
+    const brandConversation = resolver.resolve({
+      rawTranscript: "\u6211\u60f3\u804a\u804a VS Code \u7684\u63d2\u4ef6",
+      requestedMode: "conversation",
+    });
+    const dangerousSuffix = resolver.resolve({
+      rawTranscript:
+        "\u6253\u5f00\u8bb0\u4e8b\u672c\u7136\u540e\u5220\u9664\u6240\u6709\u6587\u4ef6",
+      requestedMode: "command",
+    });
+    const elevatedOpen = resolver.resolve({
+      rawTranscript: "\u7528\u7ba1\u7406\u5458\u6743\u9650\u6253\u5f00\u8bb0\u4e8b\u672c",
+      requestedMode: "command",
+    });
+
+    expect(unknownApp.requiresUserSelection).toBe(true);
+    expect(disabledPlugin.requiresUserSelection).toBe(true);
+    expect(brandConversation.correctionCandidates).toEqual([]);
+    expect(dangerousSuffix.requiresUserSelection).toBe(false);
+    expect(dangerousSuffix.correctionCandidates[0]).toMatchObject({
+      intent: "blocked",
+    });
+    expect(elevatedOpen.requiresUserSelection).toBe(true);
+    for (const correction of [
+      unknownApp,
+      disabledPlugin,
+      brandConversation,
+      dangerousSuffix,
+      elevatedOpen,
+    ]) {
+      expect(correction.directActionAttempted).toBe(false);
+    }
+  });
+
   it("keeps dictation and conversation modes out of command correction", () => {
     const dictation = resolver.resolve({
       rawTranscript: "type Jarvis-K smoke text",
