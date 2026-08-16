@@ -78,6 +78,75 @@ describe("VoiceCommandResolver", () => {
     expect(routeAlias.directActionAttempted).toBe(false);
   });
 
+  it("extracts bounded browser candidates for explicit visit verbs and GitHub ASR drift", () => {
+    const visitGithub = resolver.resolve({
+      rawTranscript: "\u8bbf\u95ee github.com",
+      requestedMode: "command",
+    });
+    const asrGithub = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u7ed9\u4ed6\u54c8\u4ed3\u5e93\u9875",
+      requestedMode: "command",
+    });
+    const rememberedGithub = resolver.resolve({
+      rawTranscript: "\u8fdb\u5165\u8bb0\u7279\u54c8\u5e03\u4e3b\u9875",
+      requestedMode: "command",
+    });
+
+    expect(visitGithub.requiresUserSelection).toBe(false);
+    expect(visitGithub.correctionCandidates[0]).toMatchObject({
+      intent: "browser.open",
+      slots: { target: "GitHub" },
+    });
+    expect(asrGithub.requiresUserSelection).toBe(false);
+    expect(asrGithub.correctionCandidates[0]).toMatchObject({
+      intent: "browser.open",
+      slots: { target: "GitHub" },
+    });
+    expect(rememberedGithub.requiresUserSelection).toBe(false);
+    expect(rememberedGithub.correctionCandidates[0]).toMatchObject({
+      intent: "browser.open",
+      slots: { target: "GitHub" },
+    });
+  });
+
+  it("keeps browser expansion bounded by negation, mode, unknown targets, and unsafe URLs", () => {
+    const negated = resolver.resolve({
+      rawTranscript: "\u4e0d\u8981\u8bbf\u95ee GitHub",
+      requestedMode: "command",
+    });
+    const reported = resolver.resolve({
+      rawTranscript: "\u4ed6\u8bf4\u8bbf\u95ee GitHub",
+      requestedMode: "command",
+    });
+    const conversation = resolver.resolve({
+      rawTranscript: "\u6211\u60f3\u804a\u804a GitHub \u9879\u76ee",
+      requestedMode: "conversation",
+    });
+    const dictation = resolver.resolve({
+      rawTranscript: "\u8bbf\u95ee github.com",
+      requestedMode: "dictation",
+    });
+    const unknownSite = resolver.resolve({
+      rawTranscript: "\u8bbf\u95ee\u795e\u79d8\u7ad9\u70b9",
+      requestedMode: "command",
+    });
+    const unsafeUrl = resolver.resolve({
+      rawTranscript: "\u8bbf\u95ee\u672a\u77e5\u94fe\u63a5",
+      requestedMode: "command",
+    });
+
+    expect(negated.requiresUserSelection).toBe(true);
+    expect(negated.correctionCandidates[0]?.intent).not.toBe("browser.open");
+    expect(reported.requiresUserSelection).toBe(true);
+    expect(reported.correctionCandidates[0]?.intent).not.toBe("browser.open");
+    expect(conversation.correctionCandidates).toEqual([]);
+    expect(dictation.correctionCandidates).toEqual([]);
+    expect(unknownSite.requiresUserSelection).toBe(true);
+    expect(unknownSite.correctionCandidates).toEqual([]);
+    expect(unsafeUrl.requiresUserSelection).toBe(false);
+    expect(unsafeUrl.correctionCandidates[0]).toMatchObject({ intent: "blocked" });
+  });
+
   it("extracts bounded Chinese command slots for write, search, memory, status, and windows", () => {
     const write = resolver.resolve({
       rawTranscript: "\u5199\u5165 \u53d1\u5e03\u8bf4\u660e\u8349\u7a3f\u4f5c\u4e3a\u4e00\u884c",

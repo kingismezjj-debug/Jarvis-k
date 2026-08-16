@@ -337,7 +337,7 @@ function inferVoiceInputMode(text: string): VoiceInputMode {
   }
   if (
     normalized.includes("\u4e0d\u8981\u6253\u5f00") ||
-    (looksQuotedOrNegated(text) && /(?:\u6253\u5f00|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70)/u.test(normalized))
+    (looksQuotedOrNegated(text) && /(?:\u6253\u5f00|\u8bbf\u95ee|\u8fdb\u5165|\u6d4f\u89c8|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70)/u.test(normalized))
   ) {
     return "command";
   }
@@ -356,6 +356,9 @@ function inferVoiceInputMode(text: string): VoiceInputMode {
     startsWithAny(normalized, [
       "open",
       "\u6253\u5f00",
+      "\u8bbf\u95ee",
+      "\u8fdb\u5165",
+      "\u6d4f\u89c8",
       "search",
       "\u641c\u7d22",
       "\u67e5\u627e",
@@ -464,7 +467,13 @@ function slotGrammarCandidates(
     });
     return candidates;
   }
-  const openTarget = stripPrefix(text, ["\u6253\u5f00", "open"]);
+  const openTarget = stripPrefix(text, [
+    "\u6253\u5f00",
+    "\u8bbf\u95ee",
+    "\u8fdb\u5165",
+    "\u6d4f\u89c8",
+    "open",
+  ]);
   if (openTarget) {
     const target = stripCommandSuffix(openTarget.trim(), [
       "\u4e00\u4e0b",
@@ -718,6 +727,7 @@ function normalizePhoneticMandarin(value: string, commandMatch = false): string 
     .replace(/\u6263\u7684\u514b\u65af/gu, "codex")
     .replace(/\u6263\u4ee3\u514b\u65af|\u9760\u5f97\u514b\u65af|\u4ee3\u7801\u52a9\u624b/gu, "codex")
     .replace(/\u9e21\u7279\u54c8\u5e03/gu, "github")
+    .replace(/\u8bb0\u7279\u54c8\u5e03|\u7ed9\u4ed6\u54c8\u5e03|\u7ed9\u4ed6\u54c8/gu, "github")
     .replace(/\u5343\u95ee|\u8fc1\u95ee|\u901a\u4e49|qwin/gu, "qwen")
     .replace(/\u8bb0\u4e8b\u7c3f|\u7b14\u8bb0\u672c/gu, "\u8bb0\u4e8b\u672c")
     .replace(/\u8ba1\u7b97\u6c14|\u8ba1\u7b97\u673a/gu, "\u8ba1\u7b97\u5668");
@@ -1029,7 +1039,7 @@ function looksWriteCommandWithBenignSaveModifier(text: string): boolean {
 
 function containsCommandVerb(text: string): boolean {
   const normalized = normalizeLoose(text);
-  return /(\u6253\u5f00|\u641c\u7d22|\u67e5\u627e|\u5199\u5165|\u8f93\u5165|\u5199\u4e0b|\u8bb0\u4e0b|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70|open|search|type)/iu.test(
+  return /(\u6253\u5f00|\u8bbf\u95ee|\u8fdb\u5165|\u6d4f\u89c8|\u641c\u7d22|\u67e5\u627e|\u5199\u5165|\u8f93\u5165|\u5199\u4e0b|\u8bb0\u4e0b|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70|open|search|type)/iu.test(
     normalized,
   );
 }

@@ -1,7 +1,7 @@
 # voice-command-zh-cn-v1.1 Baseline
 
-Generated: 2026-08-16T04:31:55.865Z
-Git commit: cd5b579219d94c389f4f45f78650c07b9f443a49
+Generated: 2026-08-16T04:34:12.536Z
+Git commit: 5dd96af6c6f2610959b66b08d1221e101f5fa810
 Dataset digest: 6be5c0b2f5d371049fc609f4205f316bcff2a19910f966f56fb94e3b38fbc059
 Evaluator version: 2
 
@@ -154,14 +154,14 @@ Evaluator version: 2
 - recordsPerRun: 96
 - warmupRuns: 2
 - performanceRuns: 3
-- coldStartMs: 111.2797
-- warmAverageMs: 1.1462
-- p50Ms: 1.2011
-- p95Ms: 1.8965
-- p99Ms: 2.1247
-- maxMs: 2.2169
-- throughputPerSecond: 872.1395
-- runTotalMs: [107.2745,110.0143,112.9336]
+- coldStartMs: 108.6918
+- warmAverageMs: 1.1601
+- p50Ms: 1.2364
+- p95Ms: 1.8467
+- p99Ms: 2.7346
+- maxMs: 2.8905
+- throughputPerSecond: 861.6532
+- runTotalMs: [108.6533,109.8652,115.7227]
 
 ## Split Metrics
 
