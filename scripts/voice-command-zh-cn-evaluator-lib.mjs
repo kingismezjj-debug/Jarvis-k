@@ -104,6 +104,7 @@ export function runResolverBenchmark(records, resolver) {
       rawTranscript: record.rawTranscript,
       requestedMode: record.mode,
       aliases: record.context.voiceAliases ?? [],
+      routeAliases: record.context.routeAliases ?? [],
       pluginCapabilities: record.context.enabledPlugins ?? [],
     });
     const latencyMs = performance.now() - start;

@@ -53,6 +53,107 @@ describe("VoiceCommandResolver", () => {
     expect(izyToken.directActionAttempted).toBe(false);
   });
 
+  it("handles polite prefixes, bounded app aliases, and route alias context without benchmark ids", () => {
+    const calculator = resolver.resolve({
+      rawTranscript: "\u8bf7\u6253\u5f00Calculator\u73b0\u5728\u7528",
+    });
+    const routeAlias = resolver.resolve({
+      rawTranscript: "\u6253\u5f00api.izytoken.com\u767b\u5f55\u9875",
+      routeAliases: [{ label: "IZYtoken admin", target: "https://api.izytoken.com" }],
+    });
+
+    expect(calculator.requiresUserSelection).toBe(false);
+    expect(calculator.correctionCandidates[0]).toMatchObject({
+      intent: "localApp.open",
+      slots: { target: "calculator" },
+    });
+    expect(routeAlias.requiresUserSelection).toBe(false);
+    expect(routeAlias.correctionCandidates[0]).toMatchObject({
+      intent: "browser.open",
+      slots: { target: "IZYtoken admin" },
+    });
+    expect(calculator.rawTranscript).toBe(
+      "\u8bf7\u6253\u5f00Calculator\u73b0\u5728\u7528",
+    );
+    expect(routeAlias.directActionAttempted).toBe(false);
+  });
+
+  it("extracts bounded Chinese command slots for write, search, memory, status, and windows", () => {
+    const write = resolver.resolve({
+      rawTranscript: "\u5199\u5165 \u53d1\u5e03\u8bf4\u660e\u8349\u7a3f\u4f5c\u4e3a\u4e00\u884c",
+      requestedMode: "command",
+    });
+    const files = resolver.resolve({
+      rawTranscript: "\u641c\u7d22Jarvis \u65e5\u5fd7\u6700\u8fd1\u7684\u6587\u4ef6",
+    });
+    const memory = resolver.resolve({
+      rawTranscript:
+        "\u641c\u7d22\u8bb0\u5fc6\u91ccresponse language \u504f\u597d\u662f\u4ec0\u4e48",
+    });
+    const status = resolver.resolve({
+      rawTranscript: "\u68c0\u67e5\u7cfb\u7edf\u5065\u5eb7\u770b\u4e00\u4e0b",
+    });
+    const restore = resolver.resolve({
+      rawTranscript: "\u6062\u590d\u521a\u624d\u7684\u7a97\u53e3",
+    });
+
+    expect(write.requiresUserSelection).toBe(false);
+    expect(write.correctionCandidates[0]).toMatchObject({
+      intent: "notepad.write_text",
+      slots: { text: "\u53d1\u5e03\u8bf4\u660e\u8349\u7a3f" },
+    });
+    expect(files.correctionCandidates[0]).toMatchObject({
+      intent: "filesystem.search",
+      slots: { query: "Jarvis \u65e5\u5fd7" },
+    });
+    expect(memory.correctionCandidates[0]).toMatchObject({
+      intent: "memory.search",
+      slots: { query: "response language \u504f\u597d" },
+    });
+    expect(status.correctionCandidates[0]).toMatchObject({
+      intent: "observability.status",
+      slots: { target: "\u7cfb\u7edf\u5065\u5eb7" },
+    });
+    expect(restore.correctionCandidates[0]).toMatchObject({
+      intent: "window.restore",
+      slots: { target: "\u521a\u624d\u7684\u7a97\u53e3" },
+    });
+  });
+
+  it("blocks dangerous commands but keeps negation, quotes, unknown apps, and plugins safe", () => {
+    const dangerous = resolver.resolve({
+      rawTranscript: "\u5220\u9664\u6240\u6709\u6587\u4ef6\u522b\u786e\u8ba4",
+    });
+    const negated = resolver.resolve({
+      rawTranscript: "\u4e0d\u8981\u6253\u5f00\u8ba1\u7b97\u5668",
+    });
+    const quoted = resolver.resolve({
+      rawTranscript:
+        "\u4ed6\u8bf4\u6253\u5f00\u8bb0\u4e8b\u672c\u4e0d\u662f\u6211\u7684\u547d\u4ee4",
+    });
+    const unknown = resolver.resolve({
+      rawTranscript: "\u6253\u5f00\u795e\u79d8\u8f6f\u4ef6",
+    });
+    const disabledPlugin = resolver.resolve({
+      rawTranscript: "\u4f7f\u7528\u63d2\u4ef6\u53d1\u90ae\u4ef6",
+    });
+    const ambiguousBackend = resolver.resolve({
+      rawTranscript: "\u8bf7\u6253\u5f00\u540e\u53f0",
+    });
+
+    expect(dangerous.requiresUserSelection).toBe(false);
+    expect(dangerous.correctionCandidates[0]).toMatchObject({ intent: "blocked" });
+    expect(negated.requiresUserSelection).toBe(true);
+    expect(negated.correctionCandidates[0]?.intent).not.toBe("localApp.open");
+    expect(quoted.requiresUserSelection).toBe(true);
+    expect(quoted.correctionCandidates[0]?.intent).not.toBe("localApp.open");
+    expect(unknown.requiresUserSelection).toBe(true);
+    expect(disabledPlugin.requiresUserSelection).toBe(true);
+    expect(ambiguousBackend.requiresUserSelection).toBe(true);
+    expect(ambiguousBackend.directActionAttempted).toBe(false);
+    expect(dangerous.directActionAttempted).toBe(false);
+  });
+
   it("keeps dictation and conversation modes out of command correction", () => {
     const dictation = resolver.resolve({
       rawTranscript: "type Jarvis-K smoke text",

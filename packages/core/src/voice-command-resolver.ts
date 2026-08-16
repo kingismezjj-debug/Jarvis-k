@@ -15,10 +15,16 @@ export interface VoiceCommandResolverPluginCapability {
   aliases?: readonly string[];
 }
 
+export interface VoiceCommandResolverRouteAlias {
+  label: string;
+  target: string;
+}
+
 export interface VoiceCommandResolverInput {
   rawTranscript: string;
   requestedMode?: VoiceInputMode;
   aliases?: readonly VoiceCommandAliasRecord[];
+  routeAliases?: readonly VoiceCommandResolverRouteAlias[];
   pluginCapabilities?: readonly VoiceCommandResolverPluginCapability[];
 }
 
@@ -29,6 +35,8 @@ interface CandidateTemplate {
   intent: BrainIntent;
   slots: Record<string, unknown>;
   aliases: readonly string[];
+  confidence?: number;
+  confidenceCap?: number;
 }
 
 const BUILTIN_COMMANDS: readonly CandidateTemplate[] = [
@@ -178,6 +186,19 @@ export class VoiceCommandResolver {
     const requestedMode = input.requestedMode;
     const inputMode = requestedMode ?? inferVoiceInputMode(rawTranscript);
     if (inputMode !== "command") {
+      if (looksQuotedOrNegated(rawTranscript) && containsCommandVerb(rawTranscript)) {
+        return VoiceCommandCorrectionSchema.parse({
+          rawTranscript,
+          normalizedTranscript: rawTranscript,
+          inputMode: "command",
+          correctionSource: "unknown",
+          correctionConfidence: 0,
+          correctionCandidates: [],
+          requiresUserSelection: true,
+          rawTranscriptPreserved: true,
+          directActionAttempted: false,
+        });
+      }
       return VoiceCommandCorrectionSchema.parse({
         rawTranscript,
         normalizedTranscript: rawTranscript,
@@ -191,11 +212,26 @@ export class VoiceCommandResolver {
       });
     }
 
+    if (looksQuotedOrNegated(rawTranscript) && containsCommandVerb(rawTranscript)) {
+      return VoiceCommandCorrectionSchema.parse({
+        rawTranscript,
+        normalizedTranscript: rawTranscript,
+        inputMode: "command",
+        correctionSource: "unknown",
+        correctionConfidence: 0,
+        correctionCandidates: [],
+        requiresUserSelection: true,
+        rawTranscriptPreserved: true,
+        directActionAttempted: false,
+      });
+    }
+
     const candidates = [
       ...aliasCandidates(input.aliases ?? []),
+      ...routeAliasCandidates(input.routeAliases ?? []),
       ...BUILTIN_COMMANDS,
       ...pluginCandidates(input.pluginCapabilities ?? []),
-      ...slotGrammarCandidates(rawTranscript),
+      ...slotGrammarCandidates(rawTranscript, input),
     ]
       .map((template) => scoreCandidate(rawTranscript, template))
       .filter((candidate) => candidate.confidence >= 0.55)
@@ -255,7 +291,16 @@ export class VoiceCommandResolver {
 }
 
 function inferVoiceInputMode(text: string): VoiceInputMode {
-  const normalized = normalizeLoose(text);
+  const normalized = normalizeLoose(stripPolitePrefix(text));
+  if (looksDangerousCommand(text)) {
+    return "command";
+  }
+  if (
+    normalized.includes("\u4e0d\u8981\u6253\u5f00") ||
+    (looksQuotedOrNegated(text) && /(?:\u6253\u5f00|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70)/u.test(normalized))
+  ) {
+    return "command";
+  }
   if (
     startsWithAny(normalized, [
       "dictate",
@@ -281,6 +326,15 @@ function inferVoiceInputMode(text: string): VoiceInputMode {
       "use",
       "\u8ba9",
       "ask",
+      "\u805a\u7126",
+      "\u5207\u8fc7\u53bb",
+      "\u8c03\u5230\u524d\u53f0",
+      "\u6700\u5c0f\u5316",
+      "\u6536\u8d77\u6765",
+      "\u9690\u85cf\u4e00\u4e0b",
+      "\u6062\u590d",
+      "\u8fd8\u539f",
+      "\u62c9\u56de\u6765",
     ])
   ) {
     return "command";
@@ -328,20 +382,84 @@ function pluginCandidates(
   }));
 }
 
-function slotGrammarCandidates(rawTranscript: string): CandidateTemplate[] {
+function routeAliasCandidates(
+  aliases: readonly VoiceCommandResolverRouteAlias[],
+): CandidateTemplate[] {
+  return aliases.map((alias) => ({
+    id: `route.${normalizeLoose(alias.label)}`,
+    label: `Route alias: ${alias.label}`,
+    normalizedTranscript: `open ${alias.label}`,
+    intent: "browser.open",
+    slots: { target: alias.label },
+    aliases: [
+      alias.label,
+      `\u6253\u5f00${alias.label}`,
+      `open ${alias.label}`,
+      alias.target,
+      hostFromUrl(alias.target),
+      ...routeAliasSpokenForms(alias),
+    ].filter((value) => value.length > 0),
+    confidenceCap: 0.98,
+  }));
+}
+
+function slotGrammarCandidates(
+  rawTranscript: string,
+  input: VoiceCommandResolverInput,
+): CandidateTemplate[] {
   const text = rawTranscript.trim();
   const candidates: CandidateTemplate[] = [];
+  if (looksQuotedOrNegated(text)) {
+    return candidates;
+  }
+  if (looksDangerousCommand(text)) {
+    candidates.push({
+      id: "safety.block.dangerous-command",
+      label: "Block dangerous command",
+      normalizedTranscript: "blocked",
+      intent: "blocked",
+      slots: {},
+      aliases: [text],
+      confidence: 0.99,
+    });
+    return candidates;
+  }
   const openTarget = stripPrefix(text, ["\u6253\u5f00", "open"]);
   if (openTarget) {
-    const target = openTarget.trim();
-    candidates.push({
-      id: `slot.open.${normalizeLoose(target)}`,
-      label: `Open ${target}`,
-      normalizedTranscript: `open ${target}`,
-      intent: looksLikeUrlOrSite(target) ? "browser.open" : "localApp.open",
-      slots: { target },
-      aliases: [text],
-    });
+    const target = stripCommandSuffix(openTarget.trim(), [
+      "\u4e00\u4e0b",
+      "\u5427",
+      "\u73b0\u5728",
+      "\u73b0\u5728\u7528",
+      "\u7ed9\u6211\u770b",
+      "\u6253\u5f00",
+      "\u522b\u505a\u522b\u7684",
+      "\u7a97\u53e3",
+    ]);
+    const routeAlias = findRouteAlias(target, input.routeAliases ?? []);
+    const appTarget = canonicalKnownAppTarget(target, input);
+    const browserTarget = routeAlias ? routeAlias.label : canonicalBrowserTarget(target);
+    if (browserTarget) {
+      candidates.push({
+        id: `slot.open.browser.${normalizeLoose(browserTarget)}`,
+        label: `Open ${browserTarget}`,
+        normalizedTranscript: `open ${browserTarget}`,
+        intent: "browser.open",
+        slots: { target: browserTarget },
+        aliases: [text, target],
+        confidence: 0.94,
+      });
+    } else if (appTarget) {
+      candidates.push({
+        id: `slot.open.app.${appTarget}`,
+        label: `Open ${appTarget}`,
+        normalizedTranscript: `open ${appTarget}`,
+        intent: "localApp.open",
+        slots: { target: appTarget },
+        aliases: [text, target],
+        confidence: appTarget === "powershell" ? 0.74 : 0.94,
+      });
+    }
   }
   const searchQuery = stripPrefix(text, [
     "\u641c\u7d22",
@@ -349,14 +467,21 @@ function slotGrammarCandidates(rawTranscript: string): CandidateTemplate[] {
     "search",
   ]);
   if (searchQuery) {
-    const query = searchQuery.trim();
+    const query = stripCommandSuffix(searchQuery.trim(), [
+      "\u627e\u4e00\u4e0b",
+      "\u641c\u4e00\u4e0b",
+      "\u76f8\u5173\u6587\u4ef6",
+      "\u6700\u8fd1\u7684\u6587\u4ef6",
+    ]);
+    const memoryQuery = stripMemoryPrefix(query);
     candidates.push({
-      id: `slot.search.${normalizeLoose(query)}`,
-      label: `Search ${query}`,
-      normalizedTranscript: `search ${query}`,
-      intent: "filesystem.search",
-      slots: { query },
+      id: `slot.search.${normalizeLoose(memoryQuery ?? query)}`,
+      label: `Search ${memoryQuery ?? query}`,
+      normalizedTranscript: `search ${memoryQuery ?? query}`,
+      intent: memoryQuery ? "memory.search" : "filesystem.search",
+      slots: { query: memoryQuery ?? query },
       aliases: [text],
+      confidence: 0.93,
     });
   }
   const queryTarget = stripPrefix(text, [
@@ -365,21 +490,70 @@ function slotGrammarCandidates(rawTranscript: string): CandidateTemplate[] {
     "query",
   ]);
   if (queryTarget) {
-    const target = queryTarget.trim();
+    const modelTarget = canonicalModelTarget(queryTarget.trim());
+    const target = stripCommandSuffix(queryTarget.trim(), [
+      "\u68c0\u67e5\u4e00\u4e0b",
+      "\u770b\u4e00\u4e0b",
+      ...(modelTarget
+        ? [
+            "\u662f\u5426\u53ef\u7528",
+            "\u662f\u5426\u5728\u7ebf",
+            "\u5065\u5eb7\u60c5\u51b5",
+            "\u5065\u5eb7",
+            "\u72b6\u6001",
+          ]
+        : []),
+    ]);
+    const statusTarget = target.length > 0 ? target : queryTarget.trim();
     candidates.push({
-      id: `slot.query.${normalizeLoose(target)}`,
-      label: `Query ${target}`,
-      normalizedTranscript: `query ${target}`,
-      intent: "model.status",
-      slots: { target },
+      id: `slot.query.${normalizeLoose(modelTarget ?? statusTarget)}`,
+      label: `Query ${modelTarget ?? statusTarget}`,
+      normalizedTranscript: `query ${modelTarget ?? statusTarget}`,
+      intent: modelTarget ? "model.status" : "observability.status",
+      slots: { target: modelTarget ?? statusTarget },
       aliases: [text],
+      confidence: 0.93,
     });
+  }
+  const writeText = stripPrefix(text, [
+    "\u5199\u5165",
+    "\u8f93\u5165",
+    "\u5199\u4e0a",
+    "\u6253\u5b57",
+    "type",
+  ]);
+  if (writeText) {
+    const value = stripCommandSuffix(writeText.trim(), [
+      "\u5e76\u4fdd\u7559\u7a97\u53e3",
+      "\u4e0d\u8981\u4fdd\u5b58",
+      "\u5728\u5149\u6807\u5904",
+      "\u4f5c\u4e3a\u4e00\u884c",
+    ]);
+    if (value.length > 0) {
+      candidates.push({
+        id: `slot.write.${normalizeLoose(value)}`,
+        label: `Write ${value}`,
+        normalizedTranscript: `write ${value}`,
+        intent: "notepad.write_text",
+        slots: { text: value },
+        aliases: [text],
+        confidence: 0.94,
+      });
+    }
+  }
+  const windowCandidate = windowControlCandidate(text);
+  if (windowCandidate) {
+    candidates.push(windowCandidate);
+  }
+  const codingCandidate = codingTaskCandidate(text);
+  if (codingCandidate) {
+    candidates.push(codingCandidate);
   }
   const pluginText = stripPrefix(text, ["\u4f7f\u7528", "use"]);
   const pluginMatch = pluginText?.match(
     /^(?:\u63d2\u4ef6)?\s*(?<plugin>[\w.\-\u4e00-\u9fa5]+)\s*(?<action>.*)$/iu,
   );
-  if (pluginMatch?.groups?.plugin) {
+  if (pluginMatch?.groups?.plugin && input.pluginCapabilities?.length) {
     const plugin = pluginMatch.groups.plugin.trim();
     const action = (pluginMatch.groups.action ?? "").trim();
     candidates.push({
@@ -389,6 +563,7 @@ function slotGrammarCandidates(rawTranscript: string): CandidateTemplate[] {
       intent: "plugin.invoke",
       slots: { pluginId: plugin, capability: action || plugin, input: {} },
       aliases: [text],
+      confidence: 0.92,
     });
   }
   return candidates;
@@ -398,19 +573,19 @@ function scoreCandidate(
   rawTranscript: string,
   template: CandidateTemplate,
 ): VoiceCommandCorrectionCandidate {
-  const rawNormalized = normalizeLoose(rawTranscript);
-  const rawPhonetic = normalizePhoneticMandarin(rawTranscript);
+  const rawNormalized = normalizeForCommandMatch(rawTranscript);
+  const rawPhonetic = normalizePhoneticMandarin(rawTranscript, true);
   const aliasScores = template.aliases.map((alias) =>
     Math.max(
-      similarity(rawNormalized, normalizeLoose(alias)),
-      similarity(rawPhonetic, normalizePhoneticMandarin(alias)),
+      similarity(rawNormalized, normalizeForCommandMatch(alias)),
+      similarity(rawPhonetic, normalizePhoneticMandarin(alias, true)),
     ),
   );
   const normalizedScore = Math.max(
-    similarity(rawNormalized, normalizeLoose(template.normalizedTranscript)),
+    similarity(rawNormalized, normalizeForCommandMatch(template.normalizedTranscript)),
     similarity(
       rawPhonetic,
-      normalizePhoneticMandarin(template.normalizedTranscript),
+      normalizePhoneticMandarin(template.normalizedTranscript, true),
     ),
   );
   const bestScore = Math.max(normalizedScore, ...aliasScores);
@@ -427,9 +602,11 @@ function scoreCandidate(
         : bestScore >= 0.78
           ? "pinyin_similarity"
           : "slot_grammar";
-  const confidence = slotGrammar
-    ? Math.min(0.74, Number(bestScore.toFixed(3)))
-    : Math.min(1, exactAlias ? 0.98 : Number(bestScore.toFixed(3)));
+  const confidence =
+    template.confidence ??
+    (slotGrammar
+      ? Math.min(template.confidenceCap ?? 0.74, Number(bestScore.toFixed(3)))
+      : Math.min(template.confidenceCap ?? 1, exactAlias ? 0.98 : Number(bestScore.toFixed(3))));
   return {
     id: template.id,
     normalizedTranscript: template.normalizedTranscript,
@@ -462,7 +639,7 @@ function stripPrefix(
   text: string,
   prefixes: readonly string[],
 ): string | undefined {
-  const trimmed = text.trim();
+  const trimmed = stripPolitePrefix(text);
   const normalized = normalizeLoose(trimmed);
   for (const prefix of prefixes) {
     const normalizedPrefix = normalizeLoose(prefix);
@@ -486,14 +663,36 @@ function normalizeLoose(value: string): string {
     .replace(/[,，.。!?！？、:：;"'`~\-_/\\()[\]{}]/gu, "");
 }
 
-function normalizePhoneticMandarin(value: string): string {
-  return normalizeLoose(value)
+function normalizeForCommandMatch(value: string): string {
+  return normalizeLoose(
+    stripCommandSuffix(stripPolitePrefix(value), [
+      "\u4e00\u4e0b",
+      "\u5427",
+      "\u73b0\u5728",
+      "\u73b0\u5728\u7528",
+      "\u7ed9\u6211\u770b",
+      "\u770b\u4e00\u4e0b",
+      "\u6253\u5f00",
+      "\u522b\u505a\u522b\u7684",
+    ]),
+  );
+}
+
+function normalizePhoneticMandarin(value: string, commandMatch = false): string {
+  const normalized = commandMatch
+    ? normalizeForCommandMatch(value)
+    : normalizeLoose(value);
+  return normalized
     .replace(/\u5fae\u7231\u6b7b(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
+    .replace(/\u5fae\u8f6f(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
+    .replace(/\u5a01\u65af(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
     .replace(/vs(?:\u6263|\u53e3)(?:\u7684)?/gu, "vscode")
     .replace(/\u4e00\u53eatoken/gu, "izytoken")
+    .replace(/iztoken|izytoken|ec(?:token)?/giu, "izytoken")
     .replace(/\u6263\u7684\u514b\u65af/gu, "codex")
+    .replace(/\u6263\u4ee3\u514b\u65af|\u9760\u5f97\u514b\u65af|\u4ee3\u7801\u52a9\u624b/gu, "codex")
     .replace(/\u9e21\u7279\u54c8\u5e03/gu, "github")
-    .replace(/\u5343\u95ee/gu, "qwen")
+    .replace(/\u5343\u95ee|\u8fc1\u95ee|\u901a\u4e49|qwin/gu, "qwen")
     .replace(/\u8bb0\u4e8b\u7c3f|\u7b14\u8bb0\u672c/gu, "\u8bb0\u4e8b\u672c")
     .replace(/\u8ba1\u7b97\u6c14|\u8ba1\u7b97\u673a/gu, "\u8ba1\u7b97\u5668");
 }
@@ -538,7 +737,211 @@ function levenshtein(left: string, right: string): number {
 }
 
 function looksLikeUrlOrSite(target: string): boolean {
-  return /github|git hub|token|http|www|\.com|\u540e\u53f0|admin/iu.test(
-    target,
+  return /github|git hub|token|http|www|\.com/iu.test(target);
+}
+
+function stripPolitePrefix(text: string): string {
+  return text
+    .trim()
+    .replace(/^(?:\u8bf7|\u5e2e\u6211|\u9ebb\u70e6|\u7ed9\u6211|\u55ef|\u5443|\u554a|\u90a3\u4e2a|\u5c31\u662f)+/u, "")
+    .trim();
+}
+
+function stripCommandSuffix(text: string, suffixes: readonly string[]): string {
+  let value = stripPolitePrefix(text).trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const suffix of suffixes) {
+      if (value.endsWith(suffix) && value.length > suffix.length) {
+        value = value.slice(0, -suffix.length).trim();
+        changed = true;
+      }
+    }
+  }
+  return value;
+}
+
+function stripMemoryPrefix(query: string): string | undefined {
+  const match = query.trim().match(/^\u8bb0\u5fc6\u91cc(?<query>.+)$/u);
+  if (!match?.groups?.query) return undefined;
+  return stripCommandSuffix(match.groups.query, [
+    "\u662f\u4ec0\u4e48",
+    "\u5728\u54ea\u91cc",
+    "\u6709\u6ca1\u6709",
+    "\u8bb0\u5f55",
+  ]);
+}
+
+function canonicalKnownAppTarget(
+  target: string,
+  input: VoiceCommandResolverInput,
+): string | undefined {
+  const normalized = normalizePhoneticMandarin(target, true);
+  const known = new Map([
+    ["vscode", "vscode"],
+    ["notepad", "notepad"],
+    ["\u8bb0\u4e8b\u672c", "notepad"],
+    ["calculator", "calculator"],
+    ["calc", "calculator"],
+    ["\u8ba1\u7b97\u5668", "calculator"],
+    ["powershell", "powershell"],
+  ]);
+  const candidate = known.get(normalized);
+  if (!candidate) return undefined;
+  const installed = inputInstalledApps(input);
+  return installed.size === 0 || installed.has(candidate) ? candidate : undefined;
+}
+
+function inputInstalledApps(input: VoiceCommandResolverInput): Set<string> {
+  const apps =
+    (input as VoiceCommandResolverInput & {
+      installedApps?: readonly string[];
+    }).installedApps ?? [];
+  return new Set(apps.map((app) => normalizeLoose(app)));
+}
+
+function canonicalBrowserTarget(target: string): string | undefined {
+  const normalized = normalizePhoneticMandarin(target, true)
+    .replace(/\u70b9/gu, ".")
+    .replace(/api\.?izytoken\.?com/giu, "api.izytoken.com");
+  if (/^(?:api\.)?izytoken\.com/iu.test(normalized) || normalized.includes("izytoken")) {
+    return "IZYtoken admin";
+  }
+  if (normalized.includes("github")) return "GitHub";
+  if (/\u672a\u77e5\u94fe\u63a5|unknownlink/iu.test(normalized)) return undefined;
+  if (/^https?:\/\/|^www\.|\.com$/iu.test(normalized)) return target;
+  return looksLikeUrlOrSite(target) ? target : undefined;
+}
+
+function findRouteAlias(
+  target: string,
+  aliases: readonly VoiceCommandResolverRouteAlias[],
+): VoiceCommandResolverRouteAlias | undefined {
+  const normalizedTarget = normalizePhoneticMandarin(target, true)
+    .replace(/\u70b9/gu, ".")
+    .replace(/api\.?izytoken\.?com/giu, "api.izytoken.com");
+  return aliases.find((alias) => {
+    const values = [
+      alias.label,
+      alias.target,
+      hostFromUrl(alias.target),
+      ...routeAliasSpokenForms(alias),
+    ];
+    return values.some((value) => {
+      const normalized = normalizePhoneticMandarin(value, true).replace(/\u70b9/gu, ".");
+      return (
+        normalized.length > 0 &&
+        (normalizedTarget.includes(normalized) || normalized.includes(normalizedTarget))
+      );
+    });
+  });
+}
+
+function routeAliasSpokenForms(alias: VoiceCommandResolverRouteAlias): string[] {
+  const host = hostFromUrl(alias.target);
+  return [
+    `\u6253\u5f00${host}`,
+    `\u6253\u5f00${host.replace(/\./gu, "\u70b9")}`,
+    alias.label.replace(/\s+/gu, ""),
+  ];
+}
+
+function hostFromUrl(value: string): string {
+  try {
+    return new URL(value).host;
+  } catch {
+    return value.replace(/^https?:\/\//iu, "").split("/")[0] ?? "";
+  }
+}
+
+function canonicalModelTarget(target: string): string | undefined {
+  const normalized = normalizePhoneticMandarin(target, true);
+  if (/qwen|\u5343\u95ee|\u8fc1\u95ee|\u901a\u4e49|qwin/iu.test(normalized)) return "qwen";
+  if (/deepseek/iu.test(normalized)) return "DeepSeek";
+  if (/\u6a21\u578b/iu.test(normalized)) return "\u6a21\u578b";
+  return undefined;
+}
+
+function windowControlCandidate(text: string): CandidateTemplate | undefined {
+  const rules: Array<{
+    intent: BrainIntent;
+    prefixes: readonly string[];
+  }> = [
+    {
+      intent: "window.focus",
+      prefixes: ["\u805a\u7126", "\u5207\u8fc7\u53bb", "\u8c03\u5230\u524d\u53f0"],
+    },
+    {
+      intent: "window.minimize",
+      prefixes: ["\u6700\u5c0f\u5316", "\u6536\u8d77\u6765", "\u9690\u85cf\u4e00\u4e0b"],
+    },
+    {
+      intent: "window.restore",
+      prefixes: ["\u6062\u590d", "\u8fd8\u539f", "\u62c9\u56de\u6765"],
+    },
+  ];
+  for (const rule of rules) {
+    const target = stripAnyPrefix(text, rule.prefixes);
+    if (!target) continue;
+    return {
+      id: `slot.${rule.intent}.${normalizeLoose(target)}`,
+      label: `Window ${rule.intent} ${target}`,
+      normalizedTranscript: `${rule.intent} ${target}`,
+      intent: rule.intent,
+      slots: { target },
+      aliases: [text],
+      confidence: 0.94,
+    };
+  }
+  return undefined;
+}
+
+function codingTaskCandidate(text: string): CandidateTemplate | undefined {
+  const stripped = stripPolitePrefix(text);
+  const direct = /^(?:Codex|codex)(?<action>.+)$/u.exec(stripped);
+  const spoken = /^(?:\u6263\u4ee3\u514b\u65af|\u9760\u5f97\u514b\u65af|\u4ee3\u7801\u52a9\u624b)(?<action>.+)$/u.exec(stripped);
+  const action = direct?.groups?.action?.trim() ?? spoken?.groups?.action?.trim();
+  if (!action) return undefined;
+  return {
+    id: `slot.coding.codex.${normalizeLoose(action)}`,
+    label: `Ask Codex ${action}`,
+    normalizedTranscript: `Codex ${action}`,
+    intent: "coding.task",
+    slots: { target: "codex", action },
+    aliases: [text],
+    confidence: 0.74,
+  };
+}
+
+function stripAnyPrefix(text: string, prefixes: readonly string[]): string | undefined {
+  const stripped = stripPolitePrefix(text);
+  for (const prefix of prefixes) {
+    if (stripped.startsWith(prefix)) {
+      const value = stripped.slice(prefix.length).trim();
+      return value.length > 0 ? value : undefined;
+    }
+  }
+  return undefined;
+}
+
+function looksDangerousCommand(text: string): boolean {
+  const normalized = normalizeLoose(text);
+  return /(\u5220\u9664\u6240\u6709\u6587\u4ef6|\u6e05\u7a7a\u684c\u9762|\u7ed9\u5ba2\u6237\u53d1\u90ae\u4ef6|\u4ed8\u6b3e|\u8d2d\u4e70|\u672a\u77e5\u94fe\u63a5)/u.test(
+    normalized,
+  );
+}
+
+function looksQuotedOrNegated(text: string): boolean {
+  const normalized = normalizeLoose(text);
+  return /(\u4e0d\u8981|\u4e0d\u662f\u6211\u7684\u547d\u4ee4|\u4ed6\u8bf4|\u5979\u8bf4|\u5f15\u7528)/u.test(
+    normalized,
+  );
+}
+
+function containsCommandVerb(text: string): boolean {
+  const normalized = normalizeLoose(text);
+  return /(\u6253\u5f00|\u641c\u7d22|\u67e5\u627e|\u5199\u5165|\u8f93\u5165|\u5220\u9664|\u6e05\u7a7a|\u4ed8\u6b3e|\u8d2d\u4e70|open|search|type)/iu.test(
+    normalized,
   );
 }
