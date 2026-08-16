@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { VoiceCaptureActions, VoiceControlViewModel } from "./types";
 import { VoiceAliasConfirmation } from "./voice-alias-confirmation";
 import { VoiceCaptureControls } from "./voice-capture-controls";
+import { VoiceRegressionPanel } from "./voice-regression-panel";
 import { VoiceStatus } from "./voice-status";
 
 export type VoiceControlPanelProps = {
@@ -42,11 +43,26 @@ export function VoiceControlPanel({
           />
         </section>
 
-        <VoiceStatus
-          actions={{ openSettings: actions.openSettings }}
-          copy={viewModel.copy}
-          viewModel={viewModel.status}
-        />
+        <aside className="min-w-0">
+          <VoiceStatus
+            actions={{ openSettings: actions.openSettings }}
+            copy={viewModel.copy}
+            viewModel={viewModel.status}
+          />
+          <VoiceRegressionPanel
+            actions={{
+              clearRegressionRecords: actions.clearRegressionRecords,
+              deleteRegressionRecord: actions.deleteRegressionRecord,
+              exportRegressionRecords: actions.exportRegressionRecords,
+              refreshRegressionRecords: actions.refreshRegressionRecords,
+              setRegressionLocalTextCollection:
+                actions.setRegressionLocalTextCollection,
+              submitRegressionFeedback: actions.submitRegressionFeedback,
+            }}
+            sending={viewModel.sending}
+            viewModel={viewModel.regression}
+          />
+        </aside>
       </div>
     </ScrollArea>
   );

@@ -14,6 +14,8 @@ import {
   type UserPreferenceMemoryRecord,
   type UserRouteAliasRecord,
   type VoiceCommandAliasRecord,
+  type VoiceRegressionConsentLevel,
+  type VoiceRegressionRecord,
   type VoiceEvent,
   type VoiceMode,
   type VoicePermissionState,
@@ -110,6 +112,7 @@ import type {
   TaskRepository,
   TaskStepCreateInput,
 } from "../src/task-runtime";
+import type { VoiceRegressionRepository } from "../src/voice-regression-service";
 
 class InMemoryTaskRepository implements TaskRepository {
   public readonly tasks = new Map<string, Task>();
@@ -690,6 +693,77 @@ class InMemoryUserPreferenceMemoryRepository
 
   public async deletePreference(preferenceId: string): Promise<boolean> {
     return this.preferences.delete(preferenceId);
+  }
+}
+
+class InMemoryVoiceRegressionRepository implements VoiceRegressionRepository {
+  public initialized = false;
+  public consentLevel: VoiceRegressionConsentLevel = "off";
+  public readonly records: VoiceRegressionRecord[] = [];
+
+  public async initialize(): Promise<void> {
+    this.initialized = true;
+  }
+
+  public async getConsentLevel(): Promise<VoiceRegressionConsentLevel> {
+    return this.consentLevel;
+  }
+
+  public async setConsentLevel(
+    level: VoiceRegressionConsentLevel,
+  ): Promise<void> {
+    this.consentLevel = level;
+  }
+
+  public async countRecords(): Promise<number> {
+    return this.records.length;
+  }
+
+  public async appendRecord(
+    record: VoiceRegressionRecord,
+  ): Promise<VoiceRegressionRecord> {
+    this.records.push(record);
+    return record;
+  }
+
+  public async listRecords(options?: {
+    limit?: number | undefined;
+  }): Promise<VoiceRegressionRecord[]> {
+    return this.records.slice(-(options?.limit ?? this.records.length)).reverse();
+  }
+
+  public async updateFeedback(input: {
+    recordId: string;
+    feedback: VoiceRegressionRecord["feedback"];
+  }): Promise<VoiceRegressionRecord | undefined> {
+    const index = this.records.findIndex((record) => record.id === input.recordId);
+    if (index < 0) {
+      return undefined;
+    }
+    const existing = this.records[index];
+    if (!existing) {
+      return undefined;
+    }
+    this.records[index] = {
+      ...existing,
+      feedback: input.feedback,
+    };
+    return this.records[index];
+  }
+
+  public async deleteRecord(recordId: string): Promise<boolean> {
+    const index = this.records.findIndex((record) => record.id === recordId);
+    if (index < 0) {
+      return false;
+    }
+    this.records.splice(index, 1);
+    return true;
+  }
+
+  public async clearRecords(): Promise<number> {
+    const deletedCount = this.records.length;
+    this.records.splice(0, this.records.length);
+    return deletedCount;
   }
 }
 
@@ -1689,6 +1763,7 @@ function createRuntime(
   voiceCommandAliasRepository?: VoiceCommandAliasRepository,
   userRouteAliasRepository?: UserRouteAliasRepository,
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
+  voiceRegressionRepository?: VoiceRegressionRepository,
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -1731,6 +1806,7 @@ function createRuntime(
     userRouteAliasRepository,
     undefined,
     userPreferenceMemoryRepository,
+    voiceRegressionRepository,
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -1745,6 +1821,7 @@ function createRuntimeWithPluginTaskRuntime(
   voiceCommandAliasRepository?: VoiceCommandAliasRepository,
   userRouteAliasRepository?: UserRouteAliasRepository,
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
+  voiceRegressionRepository?: VoiceRegressionRepository,
 ) {
   return createRuntime(
     undefined,
@@ -1781,6 +1858,7 @@ function createRuntimeWithPluginTaskRuntime(
     voiceCommandAliasRepository,
     userRouteAliasRepository,
     userPreferenceMemoryRepository,
+    voiceRegressionRepository,
   );
 }
 
@@ -1875,6 +1953,7 @@ function createRuntimeWithBrainActionExecutorAndTasks(
   taskRepository: TaskRepository,
   userRouteAliasRepository?: UserRouteAliasRepository,
   voiceCommandAliasRepository?: VoiceCommandAliasRepository,
+  voiceRegressionRepository?: VoiceRegressionRepository,
 ) {
   return createRuntime(
     undefined,
@@ -1910,6 +1989,8 @@ function createRuntimeWithBrainActionExecutorAndTasks(
     undefined,
     voiceCommandAliasRepository,
     userRouteAliasRepository,
+    undefined,
+    voiceRegressionRepository,
   );
 }
 
@@ -5157,6 +5238,218 @@ describe("CoreRuntime", () => {
       });
     },
   );
+
+  it("keeps voice regression collection off by default during voice routing", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          return {
+            status: "completed",
+            reasonCode: "ALLOWLISTED_TARGET_OPENED",
+            label: "notepad",
+            verificationStatus: "verified",
+            verificationSummary: "notepad process verification passed",
+          };
+        },
+      },
+      new InMemoryTaskRepository(),
+      undefined,
+      undefined,
+      voiceRegressionRepository,
+    );
+    runtime.configureCommandRouterProductMode({ enabled: true });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "voice",
+          text: "\u6253\u5f00\u8bb0\u4e8b\u7c3f",
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(voiceRegressionRepository.initialized).toBe(true);
+    expect(voiceRegressionRepository.consentLevel).toBe("off");
+    expect(voiceRegressionRepository.records).toHaveLength(0);
+
+    const statusResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getVoiceRegressionCollectionStatus",
+        payload: {},
+      }),
+    );
+    expect(statusResult.ok).toBe(true);
+    expect(
+      statusResult.ok
+        ? (statusResult.data as { status?: unknown } | undefined)?.status
+        : undefined,
+    ).toMatchObject({
+      consentLevel: "off",
+      localTextCollectionEnabled: false,
+      localOnly: true,
+      uploadAllowed: false,
+      audioRetained: false,
+      recordCount: 0,
+    });
+  });
+
+  it("captures local text voice regression records only after explicit consent", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          return {
+            status: "completed",
+            reasonCode: "ALLOWLISTED_TARGET_OPENED",
+            label: "vscode",
+            verificationStatus: "verified",
+            verificationSummary: "vscode process verification passed",
+          };
+        },
+      },
+      new InMemoryTaskRepository(),
+      undefined,
+      undefined,
+      voiceRegressionRepository,
+    );
+    runtime.configureCommandRouterProductMode({ enabled: true });
+
+    const missingConfirmation = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.setVoiceRegressionCollectionConsent",
+        payload: { consentLevel: "local_text" },
+      }),
+    );
+    expect(missingConfirmation.ok).toBe(false);
+    expect(
+      missingConfirmation.ok ? undefined : missingConfirmation.error.code,
+    ).toBe("VOICE_REGRESSION_EXPLICIT_CONSENT_REQUIRED");
+
+    const consent = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.setVoiceRegressionCollectionConsent",
+        payload: {
+          consentLevel: "local_text",
+          confirmation: "explicit_ui_confirmation",
+        },
+      }),
+    );
+    expect(consent.ok).toBe(true);
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "voice",
+          text: "Open VS. Code.",
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(voiceRegressionRepository.records).toHaveLength(1);
+    const [record] = voiceRegressionRepository.records;
+    expect(record).toMatchObject({
+      consentLevel: "local_text",
+      locale: "zh-CN",
+      mode: "command",
+      asr: {
+        providerId: "unknown",
+        rawTranscript: "Open VS. Code.",
+        isFinal: true,
+      },
+      resolver: {
+        normalizedText: "open vscode",
+        clarificationRequired: false,
+        blocked: false,
+      },
+      feedback: {
+        status: "accepted",
+        selectedCandidateIndex: 0,
+      },
+      context: {
+        activeView: "voice",
+      },
+      privacy: {
+        containsAudio: false,
+        uploadAllowed: false,
+      },
+    });
+    expect(record?.resolver.candidates[0]).toMatchObject({
+      intent: "localApp.open",
+      safeSlots: {
+        target: "vscode",
+      },
+    });
+
+    const listed = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionRecords",
+        payload: { limit: 5 },
+      }),
+    );
+    expect(listed.ok).toBe(true);
+    expect(
+      listed.ok
+        ? (listed.data as { records?: VoiceRegressionRecord[] } | undefined)
+            ?.records
+        : undefined,
+    ).toHaveLength(1);
+
+    const feedback = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.submitVoiceRegressionFeedback",
+        payload: {
+          recordId: record!.id,
+          status: "corrected",
+          correctedText: "\u6253\u5f00 VS Code",
+          intendedIntent: "localApp.open",
+        },
+      }),
+    );
+    expect(feedback.ok).toBe(true);
+    expect(voiceRegressionRepository.records[0]?.feedback).toMatchObject({
+      status: "corrected",
+      correctedText: "\u6253\u5f00 VS Code",
+      intendedIntent: "localApp.open",
+    });
+
+    const exported = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.exportVoiceRegressionRecords",
+        payload: {},
+      }),
+    );
+    expect(exported.ok).toBe(true);
+    expect(
+      exported.ok
+        ? (exported.data as { export?: unknown } | undefined)?.export
+        : undefined,
+    ).toMatchObject({
+      localOnly: true,
+      uploadAllowed: false,
+      containsAudio: false,
+      recordCount: 1,
+    });
+
+    const deleted = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.deleteVoiceRegressionRecord",
+        payload: { recordId: record!.id },
+      }),
+    );
+    expect(deleted.ok).toBe(true);
+    expect(voiceRegressionRepository.records).toHaveLength(0);
+  });
 
   it("persists, lists, and deletes confirmed voice command aliases without executing actions", async () => {
     const aliasRepository = new InMemoryVoiceCommandAliasRepository();

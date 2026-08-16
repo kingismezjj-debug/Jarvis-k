@@ -6,6 +6,7 @@ import {
   resolveTaskDatabasePath,
   resolveUserPreferenceMemoryPath,
   resolveUserRouteAliasPath,
+  resolveVoiceRegressionPath,
   resolveVoiceCommandAliasPath,
 } from "../core-host-paths";
 
@@ -22,6 +23,7 @@ export interface CoreHostStoragePaths {
   readonly voiceCommandAliasPath: string;
   readonly userRouteAliasPath: string;
   readonly userPreferenceMemoryPath: string;
+  readonly voiceRegressionPath: string;
 }
 
 export function loadCoreHostStoragePaths(
@@ -38,5 +40,6 @@ export function loadCoreHostStoragePaths(
     voiceCommandAliasPath: resolveVoiceCommandAliasPath(),
     userRouteAliasPath: resolveUserRouteAliasPath(),
     userPreferenceMemoryPath: resolveUserPreferenceMemoryPath(),
+    voiceRegressionPath: resolveVoiceRegressionPath(),
   };
 }

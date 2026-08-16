@@ -55,6 +55,7 @@ import { SqliteTaskRepository } from "./sqlite-task-repository";
 import { JsonVoiceCommandAliasRepository } from "./voice-command-alias-repository";
 import { JsonUserRouteAliasRepository } from "./user-route-alias-repository";
 import { JsonUserPreferenceMemoryRepository } from "./user-preference-memory-repository";
+import { JsonVoiceRegressionRepository } from "./voice-regression-repository";
 import {
   ConfigurableChatAnswerProvider,
   LocalSmokeChatAnswerProvider,
@@ -209,6 +210,9 @@ const userRouteAliasRepository = new JsonUserRouteAliasRepository(
 );
 const userPreferenceMemoryRepository = new JsonUserPreferenceMemoryRepository(
   storagePaths.userPreferenceMemoryPath,
+);
+const voiceRegressionRepository = new JsonVoiceRegressionRepository(
+  storagePaths.voiceRegressionPath,
 );
 const chatAnswerComposition = createCoreHostFixtureChatAnswerComposition({
   enabled: fixtureChatAnswerEnabled,
@@ -419,6 +423,7 @@ runtime = new CoreRuntime(
   userRouteAliasRepository,
   undefined,
   userPreferenceMemoryRepository,
+  voiceRegressionRepository,
 );
 const runtimeConfigurationController = new RuntimeConfigurationController({
   runtime,

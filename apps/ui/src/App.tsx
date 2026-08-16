@@ -110,12 +110,15 @@ export default function App() {
     confirmVoiceCommandCorrection,
     connection,
     createConversation,
+    clearVoiceRegressionRecords,
+    deleteVoiceRegressionRecord,
     deleteUserRouteAlias,
     deleteVoiceCommandAlias,
     disableMemoryAlpha,
     error,
     events,
     exportMemorySnapshot,
+    exportVoiceRegressionRecords,
     fixtureEmbeddingProbe,
     fixtureIntentProbe,
     fixtureOcrProbe,
@@ -149,6 +152,8 @@ export default function App() {
     refreshUserControlledMemories = async () => false,
     refreshUserRouteAliases,
     refreshVoiceCommandAliases,
+    refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionRecords,
     renameConversation,
     resourceDiagnostics,
     retryBrainCommand,
@@ -164,12 +169,17 @@ export default function App() {
     setCommandRouterProductModeEnabled,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
+    setVoiceRegressionLocalTextCollection,
+    submitVoiceRegressionFeedback,
     sending,
     snapshot,
     ttsServiceStatus,
     userControlledMemories = [],
     userRouteAliases,
     voiceCommandAliases,
+    voiceRegressionExportText,
+    voiceRegressionRecords,
+    voiceRegressionStatus,
     voiceServiceStatus,
   } = useJarvis();
   const [draft, setDraft] = useState("");
@@ -1797,6 +1807,19 @@ export default function App() {
                 refreshVoiceAliases: () => {
                   void handleRefreshVoiceCommandAliases();
                 },
+                clearRegressionRecords: () => {
+                  void clearVoiceRegressionRecords();
+                },
+                deleteRegressionRecord: (recordId) => {
+                  void deleteVoiceRegressionRecord(recordId);
+                },
+                exportRegressionRecords: () => {
+                  void exportVoiceRegressionRecords();
+                },
+                refreshRegressionRecords: () => {
+                  void refreshVoiceRegressionCollectionStatus();
+                  void refreshVoiceRegressionRecords();
+                },
                 removeRouteAlias: (aliasId) => {
                   void handleDeleteUserRouteAlias(aliasId);
                 },
@@ -1806,8 +1829,14 @@ export default function App() {
                 startCapture: () => {
                   void ptt.start();
                 },
+                setRegressionLocalTextCollection: (enabled) => {
+                  void setVoiceRegressionLocalTextCollection(enabled);
+                },
                 stopCapture: (reason) => {
                   void ptt.stop(reason);
+                },
+                submitRegressionFeedback: (recordId, status) => {
+                  void submitVoiceRegressionFeedback(recordId, status);
                 },
               }}
               viewModel={{
@@ -1828,6 +1857,11 @@ export default function App() {
                   transcript: voiceTranscript,
                 },
                 copy,
+                regression: {
+                  exportText: voiceRegressionExportText,
+                  records: voiceRegressionRecords,
+                  status: voiceRegressionStatus,
+                },
                 sending,
                 status: {
                   metrics: voiceDiagnosticsMetrics,

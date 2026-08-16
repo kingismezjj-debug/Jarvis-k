@@ -1,6 +1,8 @@
 import type {
   UserRouteAliasRecord,
   VoiceCommandAliasRecord,
+  VoiceRegressionCollectionStatus,
+  VoiceRegressionRecord,
 } from "@jarvis-k/contracts";
 
 import type { uiCopy } from "@/app/copy";
@@ -37,10 +39,17 @@ export type VoiceStatusViewModel = {
   settingsDisabled: boolean;
 };
 
+export type VoiceRegressionViewModel = {
+  exportText: string | null;
+  records: VoiceRegressionRecord[];
+  status: VoiceRegressionCollectionStatus | null;
+};
+
 export type VoiceControlViewModel = {
   aliases: VoiceAliasViewModel;
   capture: VoiceCaptureViewModel;
   copy: VoiceControlCopy;
+  regression: VoiceRegressionViewModel;
   sending: boolean;
   status: VoiceStatusViewModel;
 };
@@ -53,4 +62,13 @@ export type VoiceCaptureActions = {
   removeVoiceAlias(aliasId: string): void;
   startCapture(): void;
   stopCapture(reason: "release" | "user-cancel"): void;
+  clearRegressionRecords(): void;
+  deleteRegressionRecord(recordId: string): void;
+  exportRegressionRecords(): void;
+  refreshRegressionRecords(): void;
+  setRegressionLocalTextCollection(enabled: boolean): void;
+  submitRegressionFeedback(
+    recordId: string,
+    status: "accepted" | "rejected" | "abandoned",
+  ): void;
 };

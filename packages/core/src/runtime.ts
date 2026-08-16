@@ -72,6 +72,7 @@ import {
   VoiceCommand,
   VoiceCommandCorrection,
   VoiceEvent,
+  type VoiceRegressionFeedbackStatus,
   createId,
 } from "@jarvis-k/contracts";
 import {
@@ -115,6 +116,11 @@ import {
   canEnableLocalPluginState,
 } from "./plugin-invocation-service";
 import { VoiceResolutionService } from "./voice-resolution-service";
+import {
+  VoiceRegressionService,
+  type VoiceRegressionCaptureInput,
+  type VoiceRegressionRepository,
+} from "./voice-regression-service";
 import { ChatDispatchService } from "./chat-dispatch-service";
 import {
   CommandRoutingService,
@@ -474,6 +480,7 @@ export class CoreRuntime {
   private readonly plannerApprovalService: PlannerApprovalService;
   private readonly plannerExecutionCoordinator: PlannerExecutionCoordinator;
   private readonly plannerStatusProjector: PlannerStatusProjector;
+  private readonly voiceRegressionService: VoiceRegressionService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -514,6 +521,7 @@ export class CoreRuntime {
     private readonly userRouteAliasRepository?: UserRouteAliasRepository,
     private readonly voiceCommandResolver = new VoiceCommandResolver(),
     private readonly userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
+    private readonly voiceRegressionRepository?: VoiceRegressionRepository,
   ) {
     this.startedAt = this.now().toISOString();
     this.taskDispatchService =
@@ -537,6 +545,10 @@ export class CoreRuntime {
       pluginRegistry: this.pluginRegistry,
       resolver: this.voiceCommandResolver,
     });
+    this.voiceRegressionService = new VoiceRegressionService(
+      this.voiceRegressionRepository,
+      this.now,
+    );
     this.chatDispatchService = new ChatDispatchService({
       provider: this.chatAnswerProvider,
       options: this.chatAnswer,
@@ -805,6 +817,34 @@ export class CoreRuntime {
 
       case "agent.deleteVoiceCommandAlias": {
         return this.deleteVoiceCommandAlias(envelope);
+      }
+
+      case "agent.getVoiceRegressionCollectionStatus": {
+        return this.getVoiceRegressionCollectionStatus(envelope);
+      }
+
+      case "agent.setVoiceRegressionCollectionConsent": {
+        return this.setVoiceRegressionCollectionConsent(envelope);
+      }
+
+      case "agent.listVoiceRegressionRecords": {
+        return this.listVoiceRegressionRecords(envelope);
+      }
+
+      case "agent.submitVoiceRegressionFeedback": {
+        return this.submitVoiceRegressionFeedback(envelope);
+      }
+
+      case "agent.deleteVoiceRegressionRecord": {
+        return this.deleteVoiceRegressionRecord(envelope);
+      }
+
+      case "agent.clearVoiceRegressionRecords": {
+        return this.clearVoiceRegressionRecords(envelope);
+      }
+
+      case "agent.exportVoiceRegressionRecords": {
+        return this.exportVoiceRegressionRecords(envelope);
       }
 
       case "agent.confirmUserRouteAlias": {
@@ -1679,6 +1719,8 @@ export class CoreRuntime {
     }
 
     const payload = envelope.command.payload;
+    let voiceResolverLatencyMs: number | undefined;
+    const voiceCorrectionStartedAt = Date.now();
     const voiceCorrection =
       payload.source === "voice"
         ? await this.voiceResolutionService.resolveCommandCorrection({
@@ -1688,10 +1730,14 @@ export class CoreRuntime {
               : { requestedMode: payload.voiceInputMode }),
           })
         : undefined;
+    if (payload.source === "voice") {
+      voiceResolverLatencyMs = Math.max(0, Date.now() - voiceCorrectionStartedAt);
+    }
     if (voiceCorrection?.requiresUserSelection === true) {
       return this.handleVoiceCommandCorrectionSelectionRequired({
         envelope,
         voiceCorrection,
+        resolverLatencyMs: voiceResolverLatencyMs,
         ...(payload.conversationId === undefined
           ? {}
           : { conversationId: payload.conversationId }),
@@ -1716,6 +1762,11 @@ export class CoreRuntime {
         : {}),
     });
     if (aliasLearning) {
+      await this.captureVoiceRegressionResolution({
+        voiceCorrection,
+        resolverLatencyMs: voiceResolverLatencyMs,
+        feedbackStatus: aliasLearning.ok ? "accepted" : "rejected",
+      });
       return aliasLearning;
     }
     const preferenceMemory = await this.handleUserPreferenceMemoryRequest({
@@ -1733,6 +1784,11 @@ export class CoreRuntime {
         : {}),
     });
     if (preferenceMemory) {
+      await this.captureVoiceRegressionResolution({
+        voiceCorrection,
+        resolverLatencyMs: voiceResolverLatencyMs,
+        feedbackStatus: preferenceMemory.ok ? "accepted" : "rejected",
+      });
       return preferenceMemory;
     }
     const voiceCorrectionRouting =
@@ -1845,13 +1901,52 @@ export class CoreRuntime {
         ? { memoryRecall: dispatched.memoryRecall ?? accepted.memoryRecall }
         : {}),
     });
+    await this.captureVoiceRegressionResolution({
+      voiceCorrection,
+      resolverLatencyMs: voiceResolverLatencyMs,
+      feedbackStatus: dispatched.dispatchStatus === "blocked"
+        ? "rejected"
+        : "accepted",
+    });
     this.publishSnapshot(envelope.correlationId);
     return this.success(envelope, { brain: brainResult });
+  }
+
+  private async captureVoiceRegressionResolution(input: {
+    voiceCorrection: VoiceCommandCorrection | undefined;
+    resolverLatencyMs: number | undefined;
+    feedbackStatus: VoiceRegressionFeedbackStatus;
+  }): Promise<void> {
+    if (!input.voiceCorrection) {
+      return;
+    }
+    try {
+      const captureInput: VoiceRegressionCaptureInput = {
+        correction: input.voiceCorrection,
+        feedbackStatus: input.feedbackStatus,
+        context: {
+          activeView: "voice",
+        },
+      };
+      if (input.resolverLatencyMs !== undefined) {
+        captureInput.resolverLatencyMs = input.resolverLatencyMs;
+      }
+      if (
+        !input.voiceCorrection.requiresUserSelection &&
+        input.voiceCorrection.correctionCandidates.length > 0
+      ) {
+        captureInput.selectedCandidateIndex = 0;
+      }
+      await this.voiceRegressionService.captureResolution(captureInput);
+    } catch {
+      // Voice regression collection is local-only and must never block normal voice routing.
+    }
   }
 
   private async handleVoiceCommandCorrectionSelectionRequired(input: {
     envelope: CommandEnvelope;
     voiceCorrection: VoiceCommandCorrection;
+    resolverLatencyMs?: number | undefined;
     conversationId?: string;
   }): Promise<CommandResult> {
     const decision = this.brainDecision({
@@ -1923,6 +2018,11 @@ export class CoreRuntime {
       summary,
       messageId: accepted.message.id,
       assistantMessageId: assistant.message.id,
+    });
+    await this.captureVoiceRegressionResolution({
+      voiceCorrection: input.voiceCorrection,
+      resolverLatencyMs: input.resolverLatencyMs,
+      feedbackStatus: "abandoned",
     });
     this.publishSnapshot(input.envelope.correlationId);
     return this.success(input.envelope, { brain: brainResult });
@@ -2291,6 +2391,218 @@ export class CoreRuntime {
       rawAudioPersisted: false,
       directActionAttempted: false,
     });
+  }
+
+  private async getVoiceRegressionCollectionStatus(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.getVoiceRegressionCollectionStatus") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression status received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      return this.success(envelope, {
+        status: await this.voiceRegressionService.getStatus(),
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_STATUS_FAILED",
+        message: "Voice regression collection status could not be read.",
+        retryable: true,
+      });
+    }
+  }
+
+  private async setVoiceRegressionCollectionConsent(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.setVoiceRegressionCollectionConsent") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression consent received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      const status = await this.voiceRegressionService.setConsent({
+        consentLevel: envelope.command.payload.consentLevel,
+        confirmation: envelope.command.payload.confirmation,
+      });
+      return this.success(envelope, {
+        status,
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch (error) {
+      return this.failure(envelope, {
+        code:
+          error instanceof Error &&
+          error.message === "VOICE_REGRESSION_EXPLICIT_CONSENT_REQUIRED"
+            ? "VOICE_REGRESSION_EXPLICIT_CONSENT_REQUIRED"
+            : "VOICE_REGRESSION_CONSENT_FAILED",
+        message:
+          "Voice regression local text collection requires explicit user confirmation.",
+        retryable: false,
+      });
+    }
+  }
+
+  private async listVoiceRegressionRecords(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.listVoiceRegressionRecords") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression listing received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      const records = await this.voiceRegressionService.listRecords({
+        limit: envelope.command.payload.limit,
+      });
+      return this.success(envelope, {
+        records,
+        count: records.length,
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_LIST_FAILED",
+        message: "Voice regression records could not be listed.",
+        retryable: true,
+      });
+    }
+  }
+
+  private async submitVoiceRegressionFeedback(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.submitVoiceRegressionFeedback") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression feedback received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      const record = await this.voiceRegressionService.submitFeedback({
+        recordId: envelope.command.payload.recordId,
+        status: envelope.command.payload.status,
+        selectedCandidateIndex: envelope.command.payload.selectedCandidateIndex,
+        correctedText: envelope.command.payload.correctedText,
+        intendedIntent: envelope.command.payload.intendedIntent,
+      });
+      if (!record) {
+        return this.failure(envelope, {
+          code: "VOICE_REGRESSION_RECORD_NOT_FOUND",
+          message: "Voice regression record was not found.",
+          retryable: false,
+        });
+      }
+      return this.success(envelope, {
+        record,
+        persisted: true,
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_FEEDBACK_FAILED",
+        message: "Voice regression feedback could not be saved.",
+        retryable: true,
+      });
+    }
+  }
+
+  private async deleteVoiceRegressionRecord(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.deleteVoiceRegressionRecord") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression deletion received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      return this.success(envelope, {
+        deleted: await this.voiceRegressionService.deleteRecord(
+          envelope.command.payload.recordId,
+        ),
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_DELETE_FAILED",
+        message: "Voice regression record could not be deleted.",
+        retryable: true,
+      });
+    }
+  }
+
+  private async clearVoiceRegressionRecords(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.clearVoiceRegressionRecords") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression clear received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      return this.success(envelope, {
+        deletedCount: await this.voiceRegressionService.clearRecords(),
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_CLEAR_FAILED",
+        message: "Voice regression records could not be cleared.",
+        retryable: true,
+      });
+    }
+  }
+
+  private async exportVoiceRegressionRecords(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.exportVoiceRegressionRecords") {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_COMMAND_INVALID",
+        message: "Voice regression export received an invalid command.",
+        retryable: false,
+      });
+    }
+    try {
+      return this.success(envelope, {
+        export: await this.voiceRegressionService.exportRecords(),
+        rawAudioPersisted: false,
+        uploadAttempted: false,
+        directActionAttempted: false,
+      });
+    } catch {
+      return this.failure(envelope, {
+        code: "VOICE_REGRESSION_EXPORT_FAILED",
+        message: "Voice regression records could not be exported.",
+        retryable: true,
+      });
+    }
   }
 
   private async confirmUserRouteAlias(

@@ -72,6 +72,18 @@ export function resolveUserPreferenceMemoryPath(): string {
   return path.join(localAppData, "Jarvis-K", "user-preference-memories.json");
 }
 
+export function resolveVoiceRegressionPath(): string {
+  const explicitPath = process.env.JARVIS_K_VOICE_REGRESSION_PATH?.trim();
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (!localAppData) {
+    return path.resolve("voice-regression-records.json");
+  }
+  return path.join(localAppData, "Jarvis-K", "voice-regression-records.json");
+}
+
 export function resolveModelDirectoryPath(): string {
   const explicitPath = process.env.JARVIS_K_MODEL_DIR?.trim();
   if (explicitPath) {

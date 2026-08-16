@@ -8,6 +8,8 @@ import type {
   MemoryAlphaStatus,
   PluginManagementStatusResult,
   TtsServiceStatus,
+  VoiceRegressionCollectionStatus,
+  VoiceRegressionRecord,
   VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 import {
@@ -80,6 +82,15 @@ describe("jarvis UI state reducers", () => {
   it("keeps voice reducer pure for service state, text-only reset, and unknown actions", () => {
     const voiceStatus = { available: true } as VoiceServiceStatus;
     const ttsStatus = { available: true } as TtsServiceStatus;
+    const regressionStatus = {
+      consentLevel: "local_text",
+      recordCount: 1,
+    } as VoiceRegressionCollectionStatus;
+    const regressionRecord = {
+      id: "voice-regression_1",
+      asr: { rawTranscript: "打开记事本" },
+      privacy: { containsAudio: false, uploadAllowed: false },
+    } as VoiceRegressionRecord;
     const withVoice = jarvisVoiceReducer(initialJarvisVoiceState, {
       type: "voiceServiceStatus.set",
       status: voiceStatus,
@@ -88,16 +99,36 @@ describe("jarvis UI state reducers", () => {
       type: "ttsServiceStatus.set",
       status: ttsStatus,
     });
-    const textOnly = jarvisVoiceReducer(withTts, {
+    const withRegressionStatus = jarvisVoiceReducer(withTts, {
+      type: "voiceRegressionStatus.set",
+      status: regressionStatus,
+    });
+    const withRegressionRecords = jarvisVoiceReducer(withRegressionStatus, {
+      type: "voiceRegressionRecords.set",
+      records: [regressionRecord],
+    });
+    const withRegressionExport = jarvisVoiceReducer(withRegressionRecords, {
+      type: "voiceRegressionExport.set",
+      exportText: "{}",
+    });
+    const textOnly = jarvisVoiceReducer(withRegressionExport, {
       type: "textOnlyAcceptance.apply",
     });
 
     expect(withTts.voiceServiceStatus).toBe(voiceStatus);
     expect(withTts.ttsServiceStatus).toBe(ttsStatus);
+    expect(withRegressionStatus.voiceRegressionStatus).toBe(regressionStatus);
+    expect(withRegressionRecords.voiceRegressionRecords).toEqual([
+      regressionRecord,
+    ]);
+    expect(withRegressionExport.voiceRegressionExportText).toBe("{}");
     expect(textOnly.voiceServiceStatus).toBeNull();
     expect(textOnly.ttsServiceStatus).toBeNull();
-    expect(jarvisVoiceReducer(withTts, { type: "unknown" })).toBe(withTts);
-    expect(jarvisVoiceReducer(withTts, { type: "reset" })).toEqual(
+    expect(textOnly.voiceRegressionStatus).toBe(regressionStatus);
+    expect(jarvisVoiceReducer(withRegressionExport, { type: "unknown" })).toBe(
+      withRegressionExport,
+    );
+    expect(jarvisVoiceReducer(withRegressionExport, { type: "reset" })).toEqual(
       initialJarvisVoiceState,
     );
   });

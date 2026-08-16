@@ -35,6 +35,12 @@ export type {
   VoiceCommandResolverInput,
   VoiceCommandResolverPluginCapability,
 } from "./voice-command-resolver";
+export {
+  VoiceRegressionService,
+} from "./voice-regression-service";
+export type {
+  VoiceRegressionRepository,
+} from "./voice-regression-service";
 export type {
   TaskCreateInput,
   TaskEventCreateInput,

@@ -17,6 +17,8 @@ import {
   type UserControlledMemoryRecord,
   type UserRouteAliasRecord,
   type VoiceCommandAliasRecord,
+  type VoiceRegressionCollectionStatus,
+  type VoiceRegressionRecord,
   type VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 import {
@@ -86,8 +88,14 @@ export function useJarvis() {
     userRouteAliases,
     userControlledMemories,
   } = memoryState;
-  const { voiceCommandAliases, voiceServiceStatus, ttsServiceStatus } =
-    voiceState;
+  const {
+    voiceCommandAliases,
+    voiceRegressionExportText,
+    voiceRegressionRecords,
+    voiceRegressionStatus,
+    voiceServiceStatus,
+    ttsServiceStatus,
+  } = voiceState;
   const {
     chatAnswerProductModeStatus,
     commandRouterProductModeStatus,
@@ -127,6 +135,24 @@ export function useJarvis() {
   const setVoiceCommandAliases = useCallback(
     (aliases: VoiceCommandAliasRecord[]) => {
       dispatchVoiceState({ type: "voiceAliases.set", aliases });
+    },
+    [],
+  );
+  const setVoiceRegressionExportText = useCallback(
+    (exportText: string | null) => {
+      dispatchVoiceState({ type: "voiceRegressionExport.set", exportText });
+    },
+    [],
+  );
+  const setVoiceRegressionRecords = useCallback(
+    (records: VoiceRegressionRecord[]) => {
+      dispatchVoiceState({ type: "voiceRegressionRecords.set", records });
+    },
+    [],
+  );
+  const setVoiceRegressionStatus = useCallback(
+    (status: VoiceRegressionCollectionStatus | null) => {
+      dispatchVoiceState({ type: "voiceRegressionStatus.set", status });
     },
     [],
   );
@@ -369,18 +395,28 @@ export function useJarvis() {
   });
 
   const {
+    clearVoiceRegressionRecords,
     confirmVoiceCommandCorrection,
+    deleteVoiceRegressionRecord,
     deleteVoiceCommandAlias,
+    exportVoiceRegressionRecords,
     openTtsSettings,
     openVoiceSettings,
     refreshTtsServiceStatus,
     refreshVoiceCommandAliases,
+    refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionRecords,
     refreshVoiceServiceStatus,
+    setVoiceRegressionLocalTextCollection,
+    submitVoiceRegressionFeedback,
   } = useJarvisVoiceActions({
     brainResult,
     setError,
     setSending,
     setVoiceCommandAliases,
+    setVoiceRegressionExportText,
+    setVoiceRegressionRecords,
+    setVoiceRegressionStatus,
     setVoiceServiceStatus,
     setTtsServiceStatus,
     dispatchBrainCommand,
@@ -438,6 +474,8 @@ export function useJarvis() {
       void refreshQwenRuntimeControlStatus();
       void refreshUserControlledMemories();
       void refreshUserRouteAliases();
+      void refreshVoiceRegressionCollectionStatus();
+      void refreshVoiceRegressionRecords();
       return;
     }
 
@@ -450,6 +488,8 @@ export function useJarvis() {
       void refreshQwenRuntimeControlStatus();
       void refreshUserControlledMemories();
       void refreshUserRouteAliases();
+      void refreshVoiceRegressionCollectionStatus();
+      void refreshVoiceRegressionRecords();
     };
     window.addEventListener("focus", handleWindowFocus);
     void refreshVoiceServiceStatus();
@@ -460,6 +500,8 @@ export function useJarvis() {
     void refreshQwenRuntimeControlStatus();
     void refreshUserControlledMemories();
     void refreshUserRouteAliases();
+    void refreshVoiceRegressionCollectionStatus();
+    void refreshVoiceRegressionRecords();
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
     };
@@ -472,6 +514,8 @@ export function useJarvis() {
     refreshUserControlledMemories,
     refreshUserRouteAliases,
     refreshVoiceCommandAliases,
+    refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionRecords,
     refreshVoiceServiceStatus,
     snapshotReady,
     textOnlyAcceptanceEnabled,
@@ -529,11 +573,14 @@ export function useJarvis() {
     setLocalPluginEnabledState,
     retryBrainCommand,
     rollbackBrainResult,
+    clearVoiceRegressionRecords,
     confirmVoiceCommandCorrection,
     confirmUserRouteAlias,
     deleteUserControlledMemory,
+    deleteVoiceRegressionRecord,
     deleteVoiceCommandAlias,
     deleteUserRouteAlias,
+    exportVoiceRegressionRecords,
     refreshTtsServiceStatus,
     refreshUserRouteAliases,
     confirmCommandRouterLocalAppLaunch,
@@ -548,12 +595,17 @@ export function useJarvis() {
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
     setQwenRuntimeControlAction,
+    setVoiceRegressionLocalTextCollection,
+    submitVoiceRegressionFeedback,
     sending,
     snapshot,
     ttsServiceStatus,
     userControlledMemories,
     userRouteAliases,
     voiceCommandAliases,
+    voiceRegressionExportText,
+    voiceRegressionRecords,
+    voiceRegressionStatus,
     voiceServiceStatus,
   };
 }
