@@ -5386,6 +5386,7 @@ describe("CoreRuntime", () => {
         payload: {
           source: "voice",
           text: "Open VS. Code.",
+          asrProviderId: "xunfei",
         },
       }),
     );
@@ -5411,7 +5412,7 @@ describe("CoreRuntime", () => {
       locale: "zh-CN",
       mode: "command",
       asr: {
-        providerId: "unknown",
+        providerId: "xunfei",
         rawTranscript: "Open VS. Code.",
         isFinal: true,
       },
@@ -5452,6 +5453,7 @@ describe("CoreRuntime", () => {
       status: "accepted",
       selectedCandidateIndex: 0,
     });
+    expect(record?.asr.providerId).toBe("xunfei");
 
     const listed = await runtime.handle(
       createCommandEnvelope({
@@ -5484,6 +5486,7 @@ describe("CoreRuntime", () => {
       correctedText: "\u6253\u5f00 VS Code",
       intendedIntent: "localApp.open",
     });
+    expect(voiceRegressionRepository.records[0]?.asr.providerId).toBe("xunfei");
 
     const exported = await runtime.handle(
       createCommandEnvelope({
@@ -5502,6 +5505,12 @@ describe("CoreRuntime", () => {
       containsAudio: false,
       recordCount: 1,
     });
+    expect(
+      exported.ok
+        ? (exported.data as { export?: { records?: VoiceRegressionRecord[] } })
+            .export?.records?.[0]?.asr.providerId
+        : undefined,
+    ).toBe("xunfei");
 
     const deleted = await runtime.handle(
       createCommandEnvelope({

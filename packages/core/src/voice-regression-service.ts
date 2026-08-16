@@ -3,6 +3,8 @@ import {
   type BrainIntent,
   type VoiceCommandCorrection,
   type VoiceInputMode,
+  type VoiceAsrProviderId,
+  VoiceAsrProviderIdSchema,
   type VoiceRegressionCollectionStatus,
   VoiceRegressionCollectionStatusSchema,
   type VoiceRegressionConsentLevel,
@@ -490,9 +492,16 @@ function classifyOutcome(
   return "candidate";
 }
 
-function sanitizeProviderId(providerId: string | undefined): string {
+function sanitizeProviderId(providerId: string | undefined): VoiceAsrProviderId {
   const trimmed = providerId?.trim();
-  return trimmed && trimmed.length <= 128 ? trimmed : "unknown";
+  if (!trimmed) {
+    return "unknown";
+  }
+  const parsed = VoiceAsrProviderIdSchema.safeParse(trimmed);
+  if (!parsed.success) {
+    throw new Error("VOICE_REGRESSION_ASR_PROVIDER_ID_INVALID");
+  }
+  return parsed.data;
 }
 
 function sanitizeContext(input: VoiceRegressionCaptureInput["context"]) {

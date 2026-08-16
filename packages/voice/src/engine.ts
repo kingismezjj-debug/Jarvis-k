@@ -7,6 +7,7 @@ import {
   type VoiceSnapshot,
   type VoiceState,
   type VoiceTranscript,
+  VoiceTranscriptSchema,
   createId
 } from "@jarvis-k/contracts";
 import type {
@@ -337,13 +338,16 @@ export class VoiceEngine implements VoiceEnginePort {
         if (!this.sessionId) {
           return;
         }
-        this.transcript = {
+        this.transcript = VoiceTranscriptSchema.parse({
           sessionId: this.sessionId,
           text: update.text,
           isFinal: update.isFinal,
+          ...(update.providerId === undefined
+            ? {}
+            : { providerId: update.providerId }),
           updatedAt: this.clock.now().toISOString(),
           ...(update.segmentId ? { segmentId: update.segmentId } : {})
-        };
+        });
         this.publish({
           type: "voice.transcript.updated",
           payload: this.transcript

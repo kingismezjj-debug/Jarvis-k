@@ -4,6 +4,7 @@ import {
   type AppCommand,
   type BrainCommandResult,
   type BrainCommandSource,
+  type VoiceAsrProviderId,
 } from "@jarvis-k/contracts";
 
 interface UseJarvisConversationActionsOptions {
@@ -22,7 +23,11 @@ export function useJarvisConversationActions({
   sendCommand,
 }: UseJarvisConversationActionsOptions) {
   const dispatchBrainCommand = useCallback(
-    async (text: string, source: BrainCommandSource) => {
+    async (
+      text: string,
+      source: BrainCommandSource,
+      options?: { asrProviderId?: VoiceAsrProviderId | undefined },
+    ) => {
       if (!window.jarvis) {
         setError("Desktop bridge unavailable.");
         return false;
@@ -35,6 +40,9 @@ export function useJarvisConversationActions({
           payload: {
             source,
             text,
+            ...(source === "voice" && options?.asrProviderId
+              ? { asrProviderId: options.asrProviderId }
+              : {}),
           },
         });
         if (!result.ok) {

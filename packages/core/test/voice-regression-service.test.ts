@@ -244,6 +244,66 @@ describe("VoiceRegressionService", () => {
     expect(repository.records).toHaveLength(1);
   });
 
+  it("rejects credential-shaped ASR provider IDs without creating pending samples", async () => {
+    const credentialLikeProviderId = [
+      "https",
+      "://asr.example.test/path?api_",
+      "key=fake",
+    ].join("");
+    const service = new VoiceRegressionService(
+      new InMemoryVoiceRegressionRepository(),
+      fixedNow,
+    );
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+
+    await expect(
+      service.captureResolution({
+        correction: correctionFixture(),
+        asrProviderId: credentialLikeProviderId,
+      }),
+    ).rejects.toThrow("VOICE_REGRESSION_ASR_PROVIDER_ID_INVALID");
+    expect(service.listPendingSamples()).toHaveLength(0);
+  });
+
+  it("preserves ASR provider identity across accepted, corrected, and rejected feedback", async () => {
+    const service = new VoiceRegressionService(
+      new InMemoryVoiceRegressionRepository(),
+      fixedNow,
+    );
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+
+    const cases = [
+      { status: "accepted" as const, providerId: "xunfei" as const },
+      { status: "corrected" as const, providerId: "volcengine" as const },
+      { status: "rejected" as const, providerId: "fixture-asr" as const },
+    ];
+    for (const [index, item] of cases.entries()) {
+      const captured = await service.captureResolution({
+        correction: correctionFixture({
+          rawTranscript: `打开记事本 ${index}`,
+          normalizedTranscript: `打开记事本 ${index}`,
+        }),
+        asrProviderId: item.providerId,
+      });
+      const saved = await service.savePendingSample({
+        sampleId: captured.sample?.id ?? "",
+        status: item.status,
+        ...(item.status === "corrected"
+          ? { correctedText: "打开记事本", intendedIntent: "localApp.open" as const }
+          : {}),
+      });
+
+      expect(saved?.feedback.status).toBe(item.status);
+      expect(saved?.asr.providerId).toBe(item.providerId);
+    }
+  });
+
   it("supports local view, feedback, deletion, clearing, and export", async () => {
     const service = new VoiceRegressionService(
       new InMemoryVoiceRegressionRepository(),

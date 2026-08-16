@@ -49,11 +49,13 @@ describe("Volcengine ASR protocol", () => {
       {
         text: "hello",
         isFinal: true,
+        providerId: "volcengine",
         segmentId: "volc:session-1:0"
       },
       {
         text: "world",
         isFinal: false,
+        providerId: "volcengine",
         segmentId: "volc:session-1:1"
       }
     ]);

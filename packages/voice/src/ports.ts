@@ -4,6 +4,7 @@ import type {
   VoiceAudioFrame,
   VoiceMode,
   VoicePermissionState,
+  VoiceAsrProviderId,
   VoiceSnapshot
 } from "@jarvis-k/contracts";
 
@@ -21,6 +22,7 @@ export type VoiceActionResult =
 export interface AsrTranscriptUpdate {
   text: string;
   isFinal: boolean;
+  providerId?: VoiceAsrProviderId;
   segmentId?: string;
 }
 

@@ -108,6 +108,16 @@ export type VoiceState = z.infer<typeof VoiceStateSchema>;
 export const VoiceModeSchema = z.enum(["disabled", "ptt", "continuous"]);
 export type VoiceMode = z.infer<typeof VoiceModeSchema>;
 
+export const VoiceAsrProviderIdSchema = z.enum([
+  "xunfei",
+  "volcengine",
+  "fixture-asr",
+  "smoke-asr",
+  "unavailable",
+  "unknown",
+]);
+export type VoiceAsrProviderId = z.infer<typeof VoiceAsrProviderIdSchema>;
+
 export const VoicePermissionStateSchema = z.enum([
   "unknown",
   "prompt",
@@ -684,7 +694,7 @@ export const VoiceRegressionSampleSchema = z
     mode: VoiceInputModeSchema,
     asr: z
       .object({
-        providerId: z.string().trim().min(1).max(128),
+        providerId: VoiceAsrProviderIdSchema.default("unknown"),
         rawTranscript: z.string().trim().min(1).max(20_000),
         providerConfidence: z.number().min(0).max(1).optional(),
         isFinal: z.boolean(),
@@ -1558,6 +1568,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
         conversationId: z.string().min(1).max(128).optional(),
         text: z.string().trim().min(1).max(20_000),
         voiceInputMode: VoiceInputModeSchema.optional(),
+        asrProviderId: VoiceAsrProviderIdSchema.optional(),
       })
       .strict(),
   }),
@@ -2902,6 +2913,7 @@ export const VoiceTranscriptSchema = z
     sessionId: z.string().min(1).max(128),
     text: z.string().max(20_000),
     isFinal: z.boolean(),
+    providerId: VoiceAsrProviderIdSchema.default("unknown"),
     segmentId: z.string().min(1).max(128).optional(),
     updatedAt: z.string().datetime(),
   })

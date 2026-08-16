@@ -10,6 +10,7 @@ import {
   type Scheduler,
   VoiceEngine
 } from "../src";
+import type { VoiceAsrProviderId } from "@jarvis-k/contracts";
 
 class FakeSession implements AsrSessionPort {
   public finalizeCount = 0;
@@ -47,10 +48,15 @@ class FakeProvider {
     return this.session;
   }
 
-  public transcript(text: string, isFinal: boolean): void {
+  public transcript(
+    text: string,
+    isFinal: boolean,
+    providerId?: VoiceAsrProviderId
+  ): void {
     this.callbacks?.onTranscript({
       text,
       isFinal,
+      ...(providerId ? { providerId } : {}),
       segmentId: "segment-1"
     });
   }
@@ -213,9 +219,30 @@ describe("VoiceEngine", () => {
     provider.transcript("Jarvis ready", true);
     expect(engine.getSnapshot().state).toBe("ready");
     expect(engine.getSnapshot().transcript?.text).toBe("Jarvis ready");
+    expect(engine.getSnapshot().transcript?.providerId).toBe("unknown");
     expect(
       events.some((event) => event.type === "voice.transcript.updated")
     ).toBe(true);
+  });
+
+  it("preserves the ASR provider identity on transcript events", async () => {
+    const { engine, events, provider } = createHarness();
+
+    await engine.setMode("ptt");
+    engine.startPtt("capture-1");
+    provider.transcript("打开记事本", true, "xunfei");
+
+    expect(engine.getSnapshot().transcript).toMatchObject({
+      text: "打开记事本",
+      providerId: "xunfei"
+    });
+    expect(
+      events.find((event) => event.type === "voice.transcript.updated")
+    ).toMatchObject({
+      payload: {
+        providerId: "xunfei"
+      }
+    });
   });
 
   it("cancels an active segment without closing the provider session", async () => {

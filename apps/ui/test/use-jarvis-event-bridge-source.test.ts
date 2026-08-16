@@ -34,8 +34,9 @@ describe("useJarvis event bridge source", () => {
   it("refreshes voice regression pending samples after final voice dispatch", () => {
     expect(hookSource).toContain("refreshVoiceRegressionAfterFinalRef");
     expect(hookSource).toContain(
-      'void dispatchBrainCommand(text, "voice").then(() =>',
+      'void dispatchBrainCommand(text, "voice",',
     );
+    expect(hookSource).toContain("asrProviderId: transcript.providerId");
     expect(hookSource).toContain("void refreshVoiceRegressionCollectionStatus()");
     expect(hookSource).toContain("void refreshVoiceRegressionPendingSamples()");
     expect(hookSource).not.toContain("setInterval");

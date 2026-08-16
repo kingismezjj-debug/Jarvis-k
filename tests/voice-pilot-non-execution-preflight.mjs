@@ -3,6 +3,18 @@ import { createCommandEnvelope } from "../packages/contracts/dist/index.js";
 
 const DISABLE_FLAG = "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS";
 const REAL_EXECUTION_FLAG = "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION";
+const PROVIDER_IDENTITY_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY";
+const PROVIDER_STATUS_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_STATUS";
+const PROVIDER_IDENTITY_UNAVAILABLE =
+  "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE";
+const REAL_PILOT_PROVIDER_IDS = new Set(["xunfei", "volcengine"]);
+const NON_PILOT_PROVIDER_IDS = new Set([
+  "unknown",
+  "unavailable",
+  "fixture-asr",
+  "smoke-asr",
+]);
+const READY_PROVIDER_STATES = new Set(["available", "ready"]);
 
 const pilotTranscripts = [
   "打开记事本",
@@ -178,18 +190,72 @@ function isTruthyFlag(value) {
   return value === "1" || value === "true";
 }
 
+function normalizeProviderId(value) {
+  const trimmed = String(value ?? "").trim().toLowerCase();
+  if (trimmed === "xunfei" || trimmed === "volcengine") {
+    return trimmed;
+  }
+  if (trimmed === "fixture-asr" || trimmed === "fixture") {
+    return "fixture-asr";
+  }
+  if (trimmed === "smoke-asr" || trimmed === "smoke") {
+    return "smoke-asr";
+  }
+  if (trimmed === "unavailable") {
+    return "unavailable";
+  }
+  return "unknown";
+}
+
+function normalizeProviderStatus(value, providerId) {
+  const trimmed = String(value ?? "").trim().toLowerCase();
+  if (READY_PROVIDER_STATES.has(trimmed)) {
+    return trimmed;
+  }
+  if (providerId === "unavailable") {
+    return "unavailable";
+  }
+  return "unknown";
+}
+
+function evaluateProviderGate() {
+  const currentVoiceProviderId = normalizeProviderId(
+    process.env[PROVIDER_IDENTITY_FLAG],
+  );
+  const voiceProviderStatus = normalizeProviderStatus(
+    process.env[PROVIDER_STATUS_FLAG],
+    currentVoiceProviderId,
+  );
+  const providerIdentitySupported =
+    !NON_PILOT_PROVIDER_IDS.has(currentVoiceProviderId);
+  const pass =
+    providerIdentitySupported &&
+    REAL_PILOT_PROVIDER_IDS.has(currentVoiceProviderId) &&
+    READY_PROVIDER_STATES.has(voiceProviderStatus);
+  return {
+    pass,
+    currentVoiceProviderId,
+    voiceProviderStatus,
+    providerIdentitySupported,
+  };
+}
+
 function printResult(result) {
   console.log(JSON.stringify(result, null, 2));
 }
 
 const disableFlagEnabled = isTruthyFlag(process.env[DISABLE_FLAG]);
 const realExecutionEnabled = isTruthyFlag(process.env[REAL_EXECUTION_FLAG]);
+const providerGate = evaluateProviderGate();
 
 if (!disableFlagEnabled || realExecutionEnabled) {
   printResult({
     status: "FAIL",
     disableFlag: disableFlagEnabled,
     realWindowsExecutionEnabled: realExecutionEnabled,
+    currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    voiceProviderStatus: providerGate.voiceProviderStatus,
+    providerIdentitySupported: providerGate.providerIdentitySupported,
     effectfulAdaptersStatus: "not_checked",
     executorInvocationCounter: "not_checked",
     blockedBeforeExecutorCounter: "not_checked",
@@ -197,6 +263,23 @@ if (!disableFlagEnabled || realExecutionEnabled) {
     reason: !disableFlagEnabled
       ? "BRAIN_OPEN_ACTIONS_DISABLE_FLAG_NOT_ENABLED"
       : "REAL_WINDOWS_EXECUTION_ENABLED",
+  });
+  process.exit(1);
+}
+
+if (!providerGate.pass) {
+  printResult({
+    status: "FAIL",
+    disableFlag: disableFlagEnabled,
+    realWindowsExecutionEnabled: realExecutionEnabled,
+    currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    voiceProviderStatus: providerGate.voiceProviderStatus,
+    providerIdentitySupported: providerGate.providerIdentitySupported,
+    effectfulAdaptersStatus: "not_checked",
+    executorInvocationCounter: "not_checked",
+    blockedBeforeExecutorCounter: "not_checked",
+    allowManualPilot: false,
+    reason: PROVIDER_IDENTITY_UNAVAILABLE,
   });
   process.exit(1);
 }
@@ -263,6 +346,7 @@ for (const text of pilotTranscripts) {
       payload: {
         source: "voice",
         text,
+        asrProviderId: providerGate.currentVoiceProviderId,
       },
     }),
   );
@@ -301,6 +385,9 @@ printResult({
   status: pass ? "PASS" : "FAIL",
   disableFlag: disableFlagEnabled,
   realWindowsExecutionEnabled: realExecutionEnabled,
+  currentVoiceProviderId: providerGate.currentVoiceProviderId,
+  voiceProviderStatus: providerGate.voiceProviderStatus,
+  providerIdentitySupported: providerGate.providerIdentitySupported,
   effectfulAdaptersStatus: calls,
   executorInvocationCounter: audit?.windowsExecutorInvocationCount,
   blockedBeforeExecutorCounter:

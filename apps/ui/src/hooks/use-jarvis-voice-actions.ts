@@ -9,6 +9,7 @@ import {
   type TtsServiceStatus,
   type VoiceCommandAliasRecord,
   type VoiceCommandCorrectionCandidate,
+  type VoiceAsrProviderId,
   type VoiceRegressionCollectionStatus,
   type VoiceRegressionSample,
   type VoiceRegressionRecord,
@@ -28,7 +29,11 @@ interface UseJarvisVoiceActionsOptions {
   ): void;
   setVoiceServiceStatus(status: VoiceServiceStatus | null): void;
   setTtsServiceStatus(status: TtsServiceStatus | null): void;
-  dispatchBrainCommand(text: string, source: "voice"): Promise<boolean>;
+  dispatchBrainCommand(
+    text: string,
+    source: "voice",
+    options?: { asrProviderId?: VoiceAsrProviderId | undefined },
+  ): Promise<boolean>;
 }
 
 export function useJarvisVoiceActions({

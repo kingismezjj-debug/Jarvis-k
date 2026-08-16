@@ -161,6 +161,7 @@ describe("XunfeiRtasrConnection", () => {
     expect(harness.transcripts).toHaveBeenCalledWith({
       text: "ready",
       isFinal: true,
+      providerId: "xunfei",
       segmentId: "9"
     });
   });

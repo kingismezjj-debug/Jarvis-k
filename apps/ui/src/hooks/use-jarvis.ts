@@ -352,7 +352,9 @@ export function useJarvis() {
             dispatchedVoiceTranscriptKeys.current.delete(firstKey);
           }
         }
-        void dispatchBrainCommand(text, "voice").then(() => {
+        void dispatchBrainCommand(text, "voice", {
+          asrProviderId: transcript.providerId,
+        }).then(() => {
           refreshVoiceRegressionAfterFinalRef.current();
         });
         return;

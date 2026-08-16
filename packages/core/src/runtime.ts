@@ -70,6 +70,7 @@ import {
   ToolPolicy,
   ToolPolicyDecision,
   UserControlledMemoryRecord,
+  VoiceAsrProviderId,
   VoiceCommand,
   VoiceCommandCorrection,
   VoiceEvent,
@@ -1781,6 +1782,7 @@ export class CoreRuntime {
       return this.handleVoiceCommandCorrectionSelectionRequired({
         envelope,
         voiceCorrection,
+        asrProviderId: payload.asrProviderId,
         resolverLatencyMs: voiceResolverLatencyMs,
         ...(payload.conversationId === undefined
           ? {}
@@ -1808,6 +1810,7 @@ export class CoreRuntime {
     if (aliasLearning) {
       await this.captureVoiceRegressionResolution({
         voiceCorrection,
+        asrProviderId: payload.asrProviderId,
         resolverLatencyMs: voiceResolverLatencyMs,
       });
       return aliasLearning;
@@ -1829,6 +1832,7 @@ export class CoreRuntime {
     if (preferenceMemory) {
       await this.captureVoiceRegressionResolution({
         voiceCorrection,
+        asrProviderId: payload.asrProviderId,
         resolverLatencyMs: voiceResolverLatencyMs,
       });
       return preferenceMemory;
@@ -1945,6 +1949,7 @@ export class CoreRuntime {
     });
     await this.captureVoiceRegressionResolution({
       voiceCorrection,
+      asrProviderId: payload.asrProviderId,
       resolverLatencyMs: voiceResolverLatencyMs,
     });
     this.publishSnapshot(envelope.correlationId);
@@ -1953,6 +1958,7 @@ export class CoreRuntime {
 
   private async captureVoiceRegressionResolution(input: {
     voiceCorrection: VoiceCommandCorrection | undefined;
+    asrProviderId: VoiceAsrProviderId | undefined;
     resolverLatencyMs: number | undefined;
   }): Promise<void> {
     if (!input.voiceCorrection) {
@@ -1968,6 +1974,9 @@ export class CoreRuntime {
       if (input.resolverLatencyMs !== undefined) {
         captureInput.resolverLatencyMs = input.resolverLatencyMs;
       }
+      if (input.asrProviderId !== undefined) {
+        captureInput.asrProviderId = input.asrProviderId;
+      }
       await this.voiceRegressionService.captureResolution(captureInput);
     } catch {
       // Voice regression collection is local-only and must never block normal voice routing.
@@ -1977,6 +1986,7 @@ export class CoreRuntime {
   private async handleVoiceCommandCorrectionSelectionRequired(input: {
     envelope: CommandEnvelope;
     voiceCorrection: VoiceCommandCorrection;
+    asrProviderId?: VoiceAsrProviderId | undefined;
     resolverLatencyMs?: number | undefined;
     conversationId?: string;
   }): Promise<CommandResult> {
@@ -2052,6 +2062,7 @@ export class CoreRuntime {
     });
     await this.captureVoiceRegressionResolution({
       voiceCorrection: input.voiceCorrection,
+      asrProviderId: input.asrProviderId,
       resolverLatencyMs: input.resolverLatencyMs,
     });
     this.publishSnapshot(input.envelope.correlationId);

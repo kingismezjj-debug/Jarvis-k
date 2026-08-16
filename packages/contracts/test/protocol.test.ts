@@ -43,6 +43,8 @@ import {
   MemorySnapshotSchema,
   VoiceAudioFrameSchema,
   VoiceAudioFrameMetadataSchema,
+  VoiceRegressionSampleSchema,
+  VoiceTranscriptSchema,
   UserControlledMemoryRecordSchema,
   UserPreferenceMemoryRecordSchema,
   createCommandEnvelope
@@ -1047,6 +1049,135 @@ describe("protocol contracts", () => {
         }
       })
     ).toThrow();
+  });
+
+  it("carries voice ASR provider identity through safe command contracts", () => {
+    const credentialLikeProviderId = [
+      "https",
+      "://asr.example.test/path?api_",
+      "key=fake",
+    ].join("");
+    const command = CommandEnvelopeSchema.parse(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "voice",
+          text: "打开记事本",
+          asrProviderId: "xunfei"
+        }
+      })
+    );
+
+    expect(command.command).toMatchObject({
+      type: "agent.runBrainCommand",
+      payload: {
+        source: "voice",
+        asrProviderId: "xunfei"
+      }
+    });
+    expect(
+      CommandEnvelopeSchema.safeParse({
+        protocolVersion: PROTOCOL_VERSION,
+        id: "command-invalid-provider",
+        correlationId: "correlation-invalid-provider",
+        issuedAt: "2026-08-16T00:00:00.000Z",
+        command: {
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "voice",
+            text: "打开记事本",
+            asrProviderId: credentialLikeProviderId
+          }
+        }
+      }).success
+    ).toBe(false);
+  });
+
+  it("normalizes legacy voice transcripts to unknown provider identity", () => {
+    expect(
+      VoiceTranscriptSchema.parse({
+        sessionId: "voice-session",
+        text: "打开记事本",
+        isFinal: true,
+        updatedAt: "2026-08-16T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      providerId: "unknown"
+    });
+    expect(
+      VoiceTranscriptSchema.parse({
+        sessionId: "voice-session",
+        text: "打开记事本",
+        isFinal: true,
+        providerId: "volcengine",
+        updatedAt: "2026-08-16T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      providerId: "volcengine"
+    });
+    expect(
+      VoiceTranscriptSchema.safeParse({
+        sessionId: "voice-session",
+        text: "打开记事本",
+        isFinal: true,
+        providerId: "bearer-secret",
+        updatedAt: "2026-08-16T00:00:00.000Z"
+      }).success
+    ).toBe(false);
+  });
+
+  it("keeps voice regression provider IDs fixed and non-sensitive", () => {
+    const credentialLikeProviderId = [
+      "xunfei:https",
+      "://endpoint.example.test?key=",
+      "fake",
+    ].join("");
+    const base = {
+      id: "voice-regression-sample-1",
+      schemaVersion: 1,
+      createdAt: "2026-08-16T00:00:00.000Z",
+      consentLevel: "local_text",
+      locale: "zh-CN",
+      mode: "command",
+      asr: {
+        rawTranscript: "打开记事本",
+        isFinal: true
+      },
+      resolver: {
+        version: "voice-command-resolver.deterministic.v1",
+        normalizedText: "打开记事本",
+        outcomeClass: "candidate",
+        candidates: [],
+        clarificationRequired: false,
+        blocked: false,
+        latencyMs: 1
+      },
+      context: {},
+      privacy: {
+        redactions: [],
+        containsAudio: false,
+        uploadAllowed: false
+      }
+    } as const;
+
+    expect(VoiceRegressionSampleSchema.parse(base).asr.providerId).toBe(
+      "unknown"
+    );
+    expect(
+      VoiceRegressionSampleSchema.parse({
+        ...base,
+        asr: { ...base.asr, providerId: "fixture-asr" }
+      }).asr.providerId
+    ).toBe("fixture-asr");
+    expect(
+      VoiceRegressionSampleSchema.safeParse({
+        ...base,
+        asr: {
+          ...base.asr,
+          providerId: credentialLikeProviderId
+        }
+      }).success
+    ).toBe(false);
   });
 
   it("accepts bounded Stage 5 session-hardening contracts", () => {

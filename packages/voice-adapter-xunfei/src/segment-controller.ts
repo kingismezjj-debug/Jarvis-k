@@ -167,6 +167,7 @@ export class XunfeiSegmentController {
     const syntheticFinal: AsrTranscriptUpdate = {
       text: latest?.text ?? "",
       isFinal: true,
+      ...(latest?.providerId ? { providerId: latest.providerId } : {}),
       ...(latest?.segmentId ? { segmentId: latest.segmentId } : {})
     };
     if (!this.isDuplicateFinal(syntheticFinal)) {

@@ -39,6 +39,7 @@ export function parseXunfeiResult(
   return {
     text,
     isFinal: String(nested.type) === "0",
+    providerId: "xunfei",
     ...(segmentId ? { segmentId } : {})
   };
 }

@@ -23,6 +23,7 @@ describe("Xunfei RTASR parser", () => {
     ).toEqual({
       text: "Jarvis ready",
       isFinal: false,
+      providerId: "xunfei",
       segmentId: "7"
     });
   });
@@ -43,6 +44,7 @@ describe("Xunfei RTASR parser", () => {
     ).toEqual({
       text: "complete",
       isFinal: true,
+      providerId: "xunfei",
       segmentId: "segment-8"
     });
   });

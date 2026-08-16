@@ -163,6 +163,7 @@ export function extractVolcengineTranscripts(
         {
           text,
           isFinal: getProperty(utterance, "definite") === true,
+          providerId: "volcengine",
           segmentId: `volc:${sessionId}:${index}`
         }
       ];
@@ -178,6 +179,7 @@ export function extractVolcengineTranscripts(
         {
           text,
           isFinal: isLast,
+          providerId: "volcengine",
           segmentId: `volc:${sessionId}:full`
         }
       ]

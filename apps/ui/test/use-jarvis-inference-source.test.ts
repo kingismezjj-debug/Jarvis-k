@@ -105,7 +105,8 @@ describe("useJarvis inference wiring", () => {
       'envelope.event.type === "voice.transcript.updated"',
     );
     expect(hookSource).toContain("transcript.isFinal && text");
-    expect(hookSource).toContain('void dispatchBrainCommand(text, "voice")');
+    expect(hookSource).toContain('dispatchBrainCommand(text, "voice",');
+    expect(hookSource).toContain("asrProviderId: transcript.providerId");
     expect(hookSource).toContain('segmentId ?? "segmentless"');
     expect(hookSource).toContain(
       "dispatchedVoiceTranscriptKeys.current.has(key)",

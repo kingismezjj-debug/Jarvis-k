@@ -235,6 +235,7 @@ describe("XunfeiRtasrProvider", () => {
     expect(transcripts).toHaveBeenCalledWith({
       text: "recovered",
       isFinal: true,
+      providerId: "xunfei",
       segmentId: "3"
     });
     expect(closed).not.toHaveBeenCalled();
