@@ -113,7 +113,11 @@ import type {
   TaskRepository,
   TaskStepCreateInput,
 } from "../src/task-runtime";
-import type { VoiceRegressionRepository } from "../src/voice-regression-service";
+import type {
+  VoiceRegressionRepository,
+  VoiceRegressionRetentionPolicy,
+  VoiceRegressionRetentionResult,
+} from "../src/voice-regression-service";
 
 class InMemoryTaskRepository implements TaskRepository {
   public readonly tasks = new Map<string, Task>();
@@ -718,6 +722,30 @@ class InMemoryVoiceRegressionRepository implements VoiceRegressionRepository {
 
   public async countRecords(): Promise<number> {
     return this.records.length;
+  }
+
+  public async applyRetention(
+    policy: VoiceRegressionRetentionPolicy,
+  ): Promise<VoiceRegressionRetentionResult> {
+    const cutoffMs =
+      policy.now.getTime() - policy.maxAgeDays * 24 * 60 * 60 * 1000;
+    const retained = this.records
+      .filter((record) => new Date(record.createdAt).getTime() >= cutoffMs)
+      .slice(-policy.maxRecords);
+    while (
+      retained.length > 0 &&
+      Buffer.byteLength(JSON.stringify(retained), "utf8") > policy.maxBytes
+    ) {
+      retained.shift();
+    }
+    const deletedCount = this.records.length - retained.length;
+    this.records.splice(0, this.records.length, ...retained);
+    return {
+      deletedCount,
+      recordCount: this.records.length,
+      approximateBytes: Buffer.byteLength(JSON.stringify(retained), "utf8"),
+      appliedAt: policy.now.toISOString(),
+    };
   }
 
   public async appendRecord(

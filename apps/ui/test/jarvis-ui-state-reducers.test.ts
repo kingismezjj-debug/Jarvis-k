@@ -87,15 +87,21 @@ describe("jarvis UI state reducers", () => {
       consentLevel: "local_text",
       recordCount: 1,
       pendingCount: 1,
+      retentionMaxRecords: 10_000,
+      retentionMaxAgeDays: 30,
+      retentionMaxBytes: 5 * 1024 * 1024,
+      retentionApproximateBytes: 512,
+      retentionDeletedCount: 0,
+      retentionPolicy: "local_text_30d_10000_records_5mb",
     } as VoiceRegressionCollectionStatus;
     const regressionSample = {
       id: "voice-regression-sample_1",
-      asr: { rawTranscript: "鎵撳紑璁颁簨鏈?" },
+      asr: { rawTranscript: "open notepad" },
       privacy: { containsAudio: false, uploadAllowed: false },
     } as VoiceRegressionSample;
     const regressionRecord = {
       id: "voice-regression_1",
-      asr: { rawTranscript: "打开记事本" },
+      asr: { rawTranscript: "open notepad" },
       privacy: { containsAudio: false, uploadAllowed: false },
     } as VoiceRegressionRecord;
     const withVoice = jarvisVoiceReducer(initialJarvisVoiceState, {

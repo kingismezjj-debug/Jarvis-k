@@ -7,6 +7,8 @@ import type {
 import {
   VoiceRegressionService,
   type VoiceRegressionRepository,
+  type VoiceRegressionRetentionPolicy,
+  type VoiceRegressionRetentionResult,
 } from "../src/voice-regression-service";
 
 class InMemoryVoiceRegressionRepository implements VoiceRegressionRepository {
@@ -30,6 +32,30 @@ class InMemoryVoiceRegressionRepository implements VoiceRegressionRepository {
 
   public async countRecords(): Promise<number> {
     return this.records.length;
+  }
+
+  public async applyRetention(
+    policy: VoiceRegressionRetentionPolicy,
+  ): Promise<VoiceRegressionRetentionResult> {
+    const cutoffMs =
+      policy.now.getTime() - policy.maxAgeDays * 24 * 60 * 60 * 1000;
+    const retained = this.records
+      .filter((record) => new Date(record.createdAt).getTime() >= cutoffMs)
+      .slice(-policy.maxRecords);
+    while (
+      retained.length > 0 &&
+      Buffer.byteLength(JSON.stringify(retained), "utf8") > policy.maxBytes
+    ) {
+      retained.shift();
+    }
+    const deletedCount = this.records.length - retained.length;
+    this.records.splice(0, this.records.length, ...retained);
+    return {
+      deletedCount,
+      recordCount: this.records.length,
+      approximateBytes: Buffer.byteLength(JSON.stringify(retained), "utf8"),
+      appliedAt: policy.now.toISOString(),
+    };
   }
 
   public async appendRecord(
@@ -96,6 +122,10 @@ describe("VoiceRegressionService", () => {
       localTextCollectionEnabled: false,
       localAudioCollectionSupported: false,
       localAudioConsentLevel: "unsupported",
+      retentionMaxRecords: 10_000,
+      retentionMaxAgeDays: 30,
+      retentionMaxBytes: 5 * 1024 * 1024,
+      retentionPolicy: "local_text_30d_10000_records_5mb",
       uploadAllowed: false,
       audioRetained: false,
       storage: "local_json",
@@ -103,6 +133,30 @@ describe("VoiceRegressionService", () => {
     expect(captured.pending).toBe(false);
     expect(service.listPendingSamples()).toHaveLength(0);
     expect(repository.records).toHaveLength(0);
+  });
+
+  it("applies explicit retention before status, list, and export", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    repository.records.push(
+      recordFixture("old", "2026-07-01T00:00:00.000Z"),
+      recordFixture("current", "2026-08-16T00:00:00.000Z"),
+    );
+    const service = new VoiceRegressionService(repository, fixedNow);
+
+    const status = await service.getStatus();
+
+    expect(status).toMatchObject({
+      recordCount: 1,
+      retentionDeletedCount: 1,
+      retentionLastAppliedAt: "2026-08-16T00:00:00.000Z",
+    });
+    await expect(service.listRecords()).resolves.toMatchObject([
+      { id: "voice-regression_current" },
+    ]);
+    const exported = await service.exportRecords();
+    expect(exported.recordCount).toBe(1);
+    expect(exported.jsonl).toContain("voice-regression_current");
+    expect(exported.jsonl).not.toContain("voice-regression_old");
   });
 
   it("requires explicit consent before enabling level 1 collection", async () => {
@@ -337,5 +391,52 @@ function correctionFixture(input?: { slots?: Record<string, unknown> }) {
     requiresUserSelection: false,
     rawTranscriptPreserved: true as const,
     directActionAttempted: false as const,
+  };
+}
+
+function recordFixture(
+  suffix: string,
+  createdAt: string,
+): VoiceRegressionRecord {
+  return {
+    id: `voice-regression_${suffix}`,
+    schemaVersion: 1,
+    createdAt,
+    consentLevel: "local_text",
+    locale: "zh-CN",
+    mode: "command",
+    asr: {
+      providerId: "fixture-asr",
+      rawTranscript: `open notepad ${suffix}`,
+      isFinal: true,
+    },
+    resolver: {
+      version: "voice-command-resolver.deterministic.v1",
+      normalizedText: `open notepad ${suffix}`,
+      outcomeClass: "candidate",
+      candidates: [
+        {
+          intent: "localApp.open",
+          safeSlots: { target: "notepad" },
+          confidence: 0.95,
+          source: "structured_candidate_selector",
+        },
+      ],
+      clarificationRequired: false,
+      blocked: false,
+      latencyMs: 1,
+    },
+    feedback: {
+      status: "accepted",
+      selectedCandidateIndex: 0,
+    },
+    context: {
+      activeView: "voice",
+    },
+    privacy: {
+      redactions: [],
+      containsAudio: false,
+      uploadAllowed: false,
+    },
   };
 }

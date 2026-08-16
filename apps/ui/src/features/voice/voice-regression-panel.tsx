@@ -125,8 +125,24 @@ export function VoiceRegressionPanel({
           value={String(status?.retentionMaxRecords ?? 0)}
         />
         <MetricRow
+          label="max age"
+          value={`${status?.retentionMaxAgeDays ?? 0} days`}
+        />
+        <MetricRow
+          label="max file"
+          value={formatBytes(status?.retentionMaxBytes ?? 0)}
+        />
+        <MetricRow
+          label="file size"
+          value={formatBytes(status?.retentionApproximateBytes ?? 0)}
+        />
+        <MetricRow
+          label="last cleanup"
+          value={formatTimestamp(status?.retentionLastAppliedAt)}
+        />
+        <MetricRow
           label="retention"
-          value={status?.retentionPolicy ?? "user_managed"}
+          value={status?.retentionPolicy ?? "local_text_30d_10000_records_5mb"}
         />
         <MetricRow
           label="audio"
@@ -299,4 +315,21 @@ function MetricRow({ label, value }: { label: string; value: string }) {
       <dd className="font-semibold text-foreground">{value}</dd>
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatTimestamp(value: string | undefined): string {
+  if (!value) {
+    return "not applied";
+  }
+  return new Date(value).toLocaleString();
 }

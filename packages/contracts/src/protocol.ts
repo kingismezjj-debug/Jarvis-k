@@ -748,10 +748,15 @@ export const VoiceRegressionCollectionStatusSchema = z
     recordCount: z.number().int().nonnegative(),
     pendingCount: z.number().int().nonnegative(),
     retentionMaxRecords: z.number().int().positive(),
+    retentionMaxAgeDays: z.number().int().positive(),
+    retentionMaxBytes: z.number().int().positive(),
+    retentionApproximateBytes: z.number().int().nonnegative(),
+    retentionLastAppliedAt: z.string().datetime().optional(),
+    retentionDeletedCount: z.number().int().nonnegative(),
     localOnly: z.literal(true),
     uploadAllowed: z.literal(false),
     audioRetained: z.literal(false),
-    retentionPolicy: z.literal("user_managed"),
+    retentionPolicy: z.literal("local_text_30d_10000_records_5mb"),
     storage: z.enum(["not_configured", "local_json"]),
   })
   .strict();

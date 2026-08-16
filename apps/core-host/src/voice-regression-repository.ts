@@ -6,7 +6,11 @@ import {
   VoiceRegressionConsentLevelSchema,
   VoiceRegressionRecordSchema,
 } from "@jarvis-k/contracts";
-import type { VoiceRegressionRepository } from "@jarvis-k/core";
+import type {
+  VoiceRegressionRepository,
+  VoiceRegressionRetentionPolicy,
+  VoiceRegressionRetentionResult,
+} from "@jarvis-k/core";
 
 interface VoiceRegressionState {
   version: 1;
@@ -63,10 +67,48 @@ export class JsonVoiceRegressionRepository
       const state = await this.readState();
       await this.writeState({
         ...state,
-        records: [...state.records, parsed].slice(-10_000),
+        records: [...state.records, parsed],
       });
     });
     return parsed;
+  }
+
+  public async applyRetention(
+    policy: VoiceRegressionRetentionPolicy,
+  ): Promise<VoiceRegressionRetentionResult> {
+    let result: VoiceRegressionRetentionResult | undefined;
+    await this.withWriteLock(async () => {
+      const state = await this.readState();
+      const retained = applyRetentionToRecords(state.records, policy);
+      let nextState: VoiceRegressionState = {
+        ...state,
+        records: retained.records,
+      };
+      while (
+        nextState.records.length > 0 &&
+        approximateStateBytes(nextState) > policy.maxBytes
+      ) {
+        nextState = {
+          ...nextState,
+          records: nextState.records.slice(1),
+        };
+      }
+      const approximateBytes = approximateStateBytes(nextState);
+      const deletedCount = state.records.length - nextState.records.length;
+      if (deletedCount > 0) {
+        await this.writeState(nextState);
+      }
+      result = {
+        deletedCount,
+        recordCount: nextState.records.length,
+        approximateBytes,
+        appliedAt: policy.now.toISOString(),
+      };
+    });
+    if (!result) {
+      throw new Error("VOICE_REGRESSION_RETENTION_FAILED");
+    }
+    return result;
   }
 
   public async listRecords(options?: {
@@ -153,23 +195,7 @@ export class JsonVoiceRegressionRepository
   private async writeState(state: VoiceRegressionState): Promise<void> {
     await mkdir(path.dirname(this.filePath), { recursive: true });
     const temporaryPath = `${this.filePath}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(
-      temporaryPath,
-      `${JSON.stringify(
-        {
-          version: 1,
-          consentLevel: VoiceRegressionConsentLevelSchema.parse(
-            state.consentLevel,
-          ),
-          records: state.records.map((record) =>
-            VoiceRegressionRecordSchema.parse(record),
-          ),
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
+    await writeFile(temporaryPath, serializeState(state), "utf8");
     await rename(temporaryPath, this.filePath);
   }
 
@@ -208,4 +234,38 @@ function isMissingFile(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "ENOENT"
   );
+}
+
+function applyRetentionToRecords(
+  records: VoiceRegressionRecord[],
+  policy: VoiceRegressionRetentionPolicy,
+): { records: VoiceRegressionRecord[] } {
+  const cutoffMs =
+    policy.now.getTime() - policy.maxAgeDays * 24 * 60 * 60 * 1000;
+  const freshRecords = records.filter(
+    (record) => new Date(record.createdAt).getTime() >= cutoffMs,
+  );
+  return {
+    records: freshRecords.slice(-policy.maxRecords),
+  };
+}
+
+function approximateStateBytes(state: VoiceRegressionState): number {
+  return Buffer.byteLength(serializeState(state), "utf8");
+}
+
+function serializeState(state: VoiceRegressionState): string {
+  return `${JSON.stringify(
+    {
+      version: 1,
+      consentLevel: VoiceRegressionConsentLevelSchema.parse(
+        state.consentLevel,
+      ),
+      records: state.records.map((record) =>
+        VoiceRegressionRecordSchema.parse(record),
+      ),
+    },
+    null,
+    2,
+  )}\n`;
 }

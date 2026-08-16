@@ -40,6 +40,8 @@ export {
 } from "./voice-regression-service";
 export type {
   VoiceRegressionRepository,
+  VoiceRegressionRetentionPolicy,
+  VoiceRegressionRetentionResult,
 } from "./voice-regression-service";
 export type {
   TaskCreateInput,

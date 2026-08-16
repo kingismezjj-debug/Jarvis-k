@@ -25,13 +25,33 @@ import {
 
 const RESOLVER_VERSION = "voice-command-resolver.deterministic.v1";
 const MAX_RECORDS = 10_000;
+const MAX_RECORD_AGE_DAYS = 30;
+const MAX_STORAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PENDING_SAMPLES = 50;
+const RETENTION_POLICY_ID = "local_text_30d_10000_records_5mb";
+
+export interface VoiceRegressionRetentionPolicy {
+  maxRecords: number;
+  maxAgeDays: number;
+  maxBytes: number;
+  now: Date;
+}
+
+export interface VoiceRegressionRetentionResult {
+  deletedCount: number;
+  recordCount: number;
+  approximateBytes: number;
+  appliedAt: string;
+}
 
 export interface VoiceRegressionRepository {
   initialize(): Promise<void>;
   getConsentLevel(): Promise<VoiceRegressionConsentLevel>;
   setConsentLevel(level: VoiceRegressionConsentLevel): Promise<void>;
   countRecords(): Promise<number>;
+  applyRetention(
+    policy: VoiceRegressionRetentionPolicy,
+  ): Promise<VoiceRegressionRetentionResult>;
   appendRecord(record: VoiceRegressionRecord): Promise<VoiceRegressionRecord>;
   listRecords(options?: {
     limit?: number | undefined;
@@ -65,6 +85,7 @@ export class VoiceRegressionService {
   private readonly pendingSamples = new Map<string, VoiceRegressionSample>();
   private readonly pendingSampleKeys = new Map<string, string>();
   private readonly completedSampleKeys = new Set<string>();
+  private lastRetentionResult: VoiceRegressionRetentionResult | undefined;
 
   public constructor(
     private readonly repository: VoiceRegressionRepository | undefined,
@@ -81,10 +102,12 @@ export class VoiceRegressionService {
     }
     await this.ensureInitialized();
     const consentLevel = await this.repository.getConsentLevel();
+    const retention = await this.applyRetention();
     return this.status({
       consentLevel,
-      recordCount: await this.repository.countRecords(),
+      recordCount: retention.recordCount,
       storage: "local_json",
+      retention,
     });
   }
 
@@ -111,10 +134,12 @@ export class VoiceRegressionService {
     if (input.consentLevel === "off") {
       this.clearPendingSamples();
     }
+    const retention = await this.applyRetention();
     return this.status({
       consentLevel: input.consentLevel,
-      recordCount: await this.repository.countRecords(),
+      recordCount: retention.recordCount,
       storage: "local_json",
+      retention,
     });
   }
 
@@ -183,6 +208,7 @@ export class VoiceRegressionService {
     });
     assertNoSensitiveExport(JSON.stringify(record));
     const persisted = await this.repository.appendRecord(record);
+    await this.applyRetention();
     this.removePendingSample(sample.id);
     this.completedSampleKeys.add(createSampleKey(sample));
     return persisted;
@@ -206,6 +232,7 @@ export class VoiceRegressionService {
       return [];
     }
     await this.ensureInitialized();
+    await this.applyRetention();
     return this.repository.listRecords(
       options?.limit === undefined ? undefined : { limit: options.limit },
     );
@@ -222,10 +249,12 @@ export class VoiceRegressionService {
       return undefined;
     }
     await this.ensureInitialized();
-    return this.repository.updateFeedback({
+    const updated = await this.repository.updateFeedback({
       recordId: input.recordId,
       feedback: this.createFeedback(input),
     });
+    await this.applyRetention();
+    return updated;
   }
 
   public async deleteRecord(recordId: string): Promise<boolean> {
@@ -233,7 +262,9 @@ export class VoiceRegressionService {
       return false;
     }
     await this.ensureInitialized();
-    return this.repository.deleteRecord(recordId);
+    const deleted = await this.repository.deleteRecord(recordId);
+    await this.applyRetention();
+    return deleted;
   }
 
   public async clearRecords(): Promise<number> {
@@ -241,7 +272,9 @@ export class VoiceRegressionService {
       return 0;
     }
     await this.ensureInitialized();
-    return this.repository.clearRecords();
+    const deleted = await this.repository.clearRecords();
+    await this.applyRetention();
+    return deleted;
   }
 
   public async exportRecords(): Promise<VoiceRegressionExport> {
@@ -278,11 +311,32 @@ export class VoiceRegressionService {
     this.initialized = true;
   }
 
+  private async applyRetention(): Promise<VoiceRegressionRetentionResult> {
+    if (!this.repository) {
+      return {
+        deletedCount: 0,
+        recordCount: 0,
+        approximateBytes: 0,
+        appliedAt: this.now().toISOString(),
+      };
+    }
+    const result = await this.repository.applyRetention({
+      maxRecords: MAX_RECORDS,
+      maxAgeDays: MAX_RECORD_AGE_DAYS,
+      maxBytes: MAX_STORAGE_BYTES,
+      now: this.now(),
+    });
+    this.lastRetentionResult = result;
+    return result;
+  }
+
   private status(input: {
     consentLevel: VoiceRegressionConsentLevel;
     recordCount: number;
     storage: "not_configured" | "local_json";
+    retention?: VoiceRegressionRetentionResult | undefined;
   }): VoiceRegressionCollectionStatus {
+    const retention = input.retention ?? this.lastRetentionResult;
     return VoiceRegressionCollectionStatusSchema.parse({
       consentLevel: input.consentLevel,
       localTextCollectionEnabled: input.consentLevel === "local_text",
@@ -292,10 +346,15 @@ export class VoiceRegressionService {
       recordCount: input.recordCount,
       pendingCount: this.pendingSamples.size,
       retentionMaxRecords: MAX_RECORDS,
+      retentionMaxAgeDays: MAX_RECORD_AGE_DAYS,
+      retentionMaxBytes: MAX_STORAGE_BYTES,
+      retentionApproximateBytes: retention?.approximateBytes ?? 0,
+      ...(retention?.appliedAt ? { retentionLastAppliedAt: retention.appliedAt } : {}),
+      retentionDeletedCount: retention?.deletedCount ?? 0,
       localOnly: true,
       uploadAllowed: false,
       audioRetained: false,
-      retentionPolicy: "user_managed",
+      retentionPolicy: RETENTION_POLICY_ID,
       storage: input.storage,
     });
   }

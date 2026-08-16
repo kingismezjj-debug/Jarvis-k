@@ -40,13 +40,13 @@ describe("JsonVoiceRegressionRepository", () => {
         recordId: appended.id,
         feedback: {
           status: "corrected",
-          correctedText: "打开 VS Code",
+          correctedText: "open VS Code",
           intendedIntent: "localApp.open",
         },
       });
       expect(updated?.feedback).toMatchObject({
         status: "corrected",
-        correctedText: "打开 VS Code",
+        correctedText: "open VS Code",
       });
 
       expect(await repository.deleteRecord(appended.id)).toBe(true);
@@ -105,24 +105,103 @@ describe("JsonVoiceRegressionRepository", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("applies retention by max age and max records", async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-voice-regression-"),
+    );
+    try {
+      const filePath = path.join(tempDir, "records.json");
+      const repository = new JsonVoiceRegressionRepository(filePath);
+      await repository.initialize();
+
+      await repository.appendRecord(
+        createRecord("old", { createdAt: "2026-07-01T00:00:00.000Z" }),
+      );
+      await repository.appendRecord(
+        createRecord("newer-one", { createdAt: "2026-08-15T00:00:00.000Z" }),
+      );
+      await repository.appendRecord(
+        createRecord("newer-two", { createdAt: "2026-08-16T00:00:00.000Z" }),
+      );
+
+      const result = await repository.applyRetention({
+        maxRecords: 1,
+        maxAgeDays: 30,
+        maxBytes: 1024 * 1024,
+        now: new Date("2026-08-16T00:00:00.000Z"),
+      });
+
+      expect(result).toMatchObject({
+        deletedCount: 2,
+        recordCount: 1,
+        appliedAt: "2026-08-16T00:00:00.000Z",
+      });
+      expect(await repository.listRecords()).toMatchObject([
+        { id: "voice-regression_newer-two" },
+      ]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("applies retention by max file size without corrupting state", async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-voice-regression-"),
+    );
+    try {
+      const filePath = path.join(tempDir, "records.json");
+      const repository = new JsonVoiceRegressionRepository(filePath);
+      await repository.initialize();
+
+      await repository.appendRecord(createRecord("one", { text: "a".repeat(300) }));
+      await repository.appendRecord(createRecord("two", { text: "b".repeat(300) }));
+      await repository.appendRecord(
+        createRecord("three", { text: "c".repeat(300) }),
+      );
+
+      const result = await repository.applyRetention({
+        maxRecords: 10,
+        maxAgeDays: 30,
+        maxBytes: 1_800,
+        now: new Date("2026-08-16T00:00:00.000Z"),
+      });
+
+      const raw = await readFile(filePath, "utf8");
+      expect(Buffer.byteLength(raw, "utf8")).toBeLessThanOrEqual(1_800);
+      expect(result.approximateBytes).toBeLessThanOrEqual(1_800);
+      expect(result.deletedCount).toBeGreaterThan(0);
+      expect(await repository.getConsentLevel()).toBe("off");
+      expect(await repository.countRecords()).toBe(result.recordCount);
+      expect(await repository.listRecords({ limit: 1 })).toMatchObject([
+        { id: "voice-regression_three" },
+      ]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });
 
-function createRecord(suffix: string): VoiceRegressionRecord {
+function createRecord(
+  suffix: string,
+  options?: { createdAt?: string | undefined; text?: string | undefined },
+): VoiceRegressionRecord {
+  const text = options?.text ?? `open notepad ${suffix}`;
   return {
     id: `voice-regression_${suffix}`,
     schemaVersion: 1,
-    createdAt: "2026-08-16T00:00:00.000Z",
+    createdAt: options?.createdAt ?? "2026-08-16T00:00:00.000Z",
     consentLevel: "local_text",
     locale: "zh-CN",
     mode: "command",
     asr: {
       providerId: "fixture-asr",
-      rawTranscript: `打开记事本 ${suffix}`,
+      rawTranscript: text,
       isFinal: true,
     },
     resolver: {
       version: "voice-command-resolver.deterministic.v1",
-      normalizedText: "打开记事本",
+      normalizedText: text.slice(0, 500),
       outcomeClass: "candidate",
       candidates: [
         {
