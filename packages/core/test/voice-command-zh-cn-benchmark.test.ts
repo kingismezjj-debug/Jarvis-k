@@ -14,7 +14,12 @@ interface BenchmarkRecord {
     | "plugin_command"
     | "negative";
   subcategory: string;
-  provenance: "manually_curated";
+  provenance:
+    | "synthetic_curated"
+    | "synthetic_asr_error"
+    | "synthetic_safety_case"
+    | "synthetic_plugin_command"
+    | "synthetic_negative";
   locale: "zh-CN";
   rawTranscript: string;
   intendedText: string;
@@ -87,7 +92,7 @@ describe("zh-CN voice command benchmark v1", () => {
 
       expect(record.id).toBe(expectedId);
       expect(record.schemaVersion).toBe(1);
-      expect(record.provenance).toBe("manually_curated");
+      expect(record.provenance.startsWith("synthetic_")).toBe(true);
       expect(record.locale).toBe("zh-CN");
       expect(record.rawTranscript.trim()).not.toBe("");
       expect(record.intendedText.trim()).not.toBe("");

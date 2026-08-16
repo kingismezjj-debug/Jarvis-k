@@ -1,7 +1,16 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 const outputPath = resolve("datasets/voice-command-zh-cn-v1.jsonl");
+const allowOverwrite =
+  process.argv.includes("--overwrite-v1") &&
+  process.argv.includes("--maintainer-confirm-fixed-benchmark-update");
+
+if (existsSync(outputPath) && !allowOverwrite) {
+  throw new Error(
+    `Refusing to overwrite fixed benchmark ${outputPath}. Use --overwrite-v1 --maintainer-confirm-fixed-benchmark-update for an intentional dataset maintenance update.`,
+  );
+}
 
 const installedApps = ["vscode", "notepad", "calculator", "powershell"];
 const routeAlias = {
@@ -83,7 +92,7 @@ function addRecord({
     split: splitFor(records.length + 1),
     category,
     subcategory,
-    provenance: "manually_curated",
+    provenance: provenanceFor(category),
     locale: "zh-CN",
     rawTranscript: uniqueTranscript,
     intendedText,
@@ -98,6 +107,14 @@ function addRecord({
     },
     tags,
   });
+}
+
+function provenanceFor(category) {
+  if (category === "asr_error") return "synthetic_asr_error";
+  if (category === "ambiguous_or_dangerous") return "synthetic_safety_case";
+  if (category === "plugin_command") return "synthetic_plugin_command";
+  if (category === "negative") return "synthetic_negative";
+  return "synthetic_curated";
 }
 
 function sentenceFamilies(prefixes, targets, suffixes, count, make) {
