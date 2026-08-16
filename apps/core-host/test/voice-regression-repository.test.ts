@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { describe, expect, it } from "vitest";
@@ -56,6 +56,51 @@ describe("JsonVoiceRegressionRepository", () => {
       await repository.appendRecord(createRecord("three"));
       expect(await repository.clearRecords()).toBe(2);
       expect(await repository.listRecords()).toEqual([]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("quarantines corrupt state instead of silently overwriting it", async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-voice-regression-"),
+    );
+    try {
+      const filePath = path.join(tempDir, "records.json");
+      await writeFile(filePath, "{ not json", "utf8");
+      const repository = new JsonVoiceRegressionRepository(filePath);
+
+      await repository.initialize();
+
+      expect(await repository.getConsentLevel()).toBe("off");
+      const files = await readdir(tempDir);
+      expect(files.some((file) => file.startsWith("records.json.corrupt-"))).toBe(
+        true,
+      );
+      expect(await readFile(filePath, "utf8")).toContain('"records": []');
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("serializes concurrent record appends without losing records", async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-voice-regression-"),
+    );
+    try {
+      const filePath = path.join(tempDir, "records.json");
+      const repository = new JsonVoiceRegressionRepository(filePath);
+      await repository.initialize();
+
+      await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          repository.appendRecord(createRecord(`batch-${index}`)),
+        ),
+      );
+
+      expect(await repository.countRecords()).toBe(12);
+      const raw = await readFile(filePath, "utf8");
+      expect(raw).not.toContain(".tmp-");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   type VoiceRegressionConsentLevel,
@@ -18,6 +18,7 @@ export class JsonVoiceRegressionRepository
   implements VoiceRegressionRepository
 {
   private initialized = false;
+  private writeQueue: Promise<unknown> = Promise.resolve();
 
   public constructor(private readonly filePath: string) {}
 
@@ -25,26 +26,32 @@ export class JsonVoiceRegressionRepository
     if (this.initialized) {
       return;
     }
-    await mkdir(path.dirname(this.filePath), { recursive: true });
-    await this.writeState(await this.readState());
+    await this.withWriteLock(async () => {
+      await mkdir(path.dirname(this.filePath), { recursive: true });
+      await this.writeState(await this.readState());
+    });
     this.initialized = true;
   }
 
   public async getConsentLevel(): Promise<VoiceRegressionConsentLevel> {
+    await this.afterPendingWrites();
     return (await this.readState()).consentLevel;
   }
 
   public async setConsentLevel(
     level: VoiceRegressionConsentLevel,
   ): Promise<void> {
-    const state = await this.readState();
-    await this.writeState({
-      ...state,
-      consentLevel: VoiceRegressionConsentLevelSchema.parse(level),
+    await this.withWriteLock(async () => {
+      const state = await this.readState();
+      await this.writeState({
+        ...state,
+        consentLevel: VoiceRegressionConsentLevelSchema.parse(level),
+      });
     });
   }
 
   public async countRecords(): Promise<number> {
+    await this.afterPendingWrites();
     return (await this.readState()).records.length;
   }
 
@@ -52,10 +59,12 @@ export class JsonVoiceRegressionRepository
     record: VoiceRegressionRecord,
   ): Promise<VoiceRegressionRecord> {
     const parsed = VoiceRegressionRecordSchema.parse(record);
-    const state = await this.readState();
-    await this.writeState({
-      ...state,
-      records: [...state.records, parsed].slice(-10_000),
+    await this.withWriteLock(async () => {
+      const state = await this.readState();
+      await this.writeState({
+        ...state,
+        records: [...state.records, parsed].slice(-10_000),
+      });
     });
     return parsed;
   }
@@ -63,6 +72,7 @@ export class JsonVoiceRegressionRepository
   public async listRecords(options?: {
     limit?: number | undefined;
   }): Promise<VoiceRegressionRecord[]> {
+    await this.afterPendingWrites();
     const records = (await this.readState()).records;
     const limit = options?.limit ?? records.length;
     return records.slice(-limit).reverse();
@@ -72,39 +82,47 @@ export class JsonVoiceRegressionRepository
     recordId: string;
     feedback: VoiceRegressionRecord["feedback"];
   }): Promise<VoiceRegressionRecord | undefined> {
-    const state = await this.readState();
     let updated: VoiceRegressionRecord | undefined;
-    const records = state.records.map((record) => {
-      if (record.id !== input.recordId) {
-        return record;
-      }
-      updated = VoiceRegressionRecordSchema.parse({
-        ...record,
-        feedback: input.feedback,
+    await this.withWriteLock(async () => {
+      const state = await this.readState();
+      const records = state.records.map((record) => {
+        if (record.id !== input.recordId) {
+          return record;
+        }
+        updated = VoiceRegressionRecordSchema.parse({
+          ...record,
+          feedback: input.feedback,
+        });
+        return updated;
       });
-      return updated;
+      if (!updated) {
+        return;
+      }
+      await this.writeState({ ...state, records });
     });
-    if (!updated) {
-      return undefined;
-    }
-    await this.writeState({ ...state, records });
     return updated;
   }
 
   public async deleteRecord(recordId: string): Promise<boolean> {
-    const state = await this.readState();
-    const records = state.records.filter((record) => record.id !== recordId);
-    const deleted = records.length !== state.records.length;
-    if (deleted) {
-      await this.writeState({ ...state, records });
-    }
+    let deleted = false;
+    await this.withWriteLock(async () => {
+      const state = await this.readState();
+      const records = state.records.filter((record) => record.id !== recordId);
+      deleted = records.length !== state.records.length;
+      if (deleted) {
+        await this.writeState({ ...state, records });
+      }
+    });
     return deleted;
   }
 
   public async clearRecords(): Promise<number> {
-    const state = await this.readState();
-    const deletedCount = state.records.length;
-    await this.writeState({ ...state, records: [] });
+    let deletedCount = 0;
+    await this.withWriteLock(async () => {
+      const state = await this.readState();
+      deletedCount = state.records.length;
+      await this.writeState({ ...state, records: [] });
+    });
     return deletedCount;
   }
 
@@ -123,15 +141,20 @@ export class JsonVoiceRegressionRepository
             )
           : [],
       };
-    } catch {
+    } catch (error) {
+      if (isMissingFile(error)) {
+        return { version: 1, consentLevel: "off", records: [] };
+      }
+      await this.quarantineCorruptState();
       return { version: 1, consentLevel: "off", records: [] };
     }
   }
 
   private async writeState(state: VoiceRegressionState): Promise<void> {
     await mkdir(path.dirname(this.filePath), { recursive: true });
+    const temporaryPath = `${this.filePath}.tmp-${process.pid}-${Date.now()}`;
     await writeFile(
-      this.filePath,
+      temporaryPath,
       `${JSON.stringify(
         {
           version: 1,
@@ -147,5 +170,42 @@ export class JsonVoiceRegressionRepository
       )}\n`,
       "utf8",
     );
+    await rename(temporaryPath, this.filePath);
   }
+
+  private async withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.writeQueue.catch(() => undefined);
+    let release: (() => void) | undefined;
+    this.writeQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release?.();
+    }
+  }
+
+  private async afterPendingWrites(): Promise<void> {
+    await this.writeQueue.catch(() => undefined);
+  }
+
+  private async quarantineCorruptState(): Promise<void> {
+    const backupPath = `${this.filePath}.corrupt-${Date.now()}`;
+    try {
+      await rename(this.filePath, backupPath);
+    } catch {
+      // If quarantine cannot move the file, keep startup fail-closed to empty state.
+    }
+  }
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
 }
