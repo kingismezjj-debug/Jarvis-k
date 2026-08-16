@@ -5,6 +5,7 @@ import {
   BrainAlphaMemoryContext,
   BrainCommandResult,
   BrainCommandResultSchema,
+  BrainDispatchStatus,
   EffectfulActionRuntimeAuditSchema,
   BrainIntent,
   BrainPlanStep,
@@ -74,6 +75,7 @@ import {
   VoiceCommand,
   VoiceCommandCorrection,
   VoiceEvent,
+  type VoiceInputModeSource,
   createId,
 } from "@jarvis-k/contracts";
 import {
@@ -1773,6 +1775,9 @@ export class CoreRuntime {
             ...(payload.voiceInputMode === undefined
               ? {}
               : { requestedMode: payload.voiceInputMode }),
+            ...(payload.voiceInputModeSource === undefined
+              ? {}
+              : { requestedModeSource: payload.voiceInputModeSource }),
           })
         : undefined;
     if (payload.source === "voice") {
@@ -1780,6 +1785,17 @@ export class CoreRuntime {
     }
     if (voiceCorrection?.requiresUserSelection === true) {
       return this.handleVoiceCommandCorrectionSelectionRequired({
+        envelope,
+        voiceCorrection,
+        asrProviderId: payload.asrProviderId,
+        resolverLatencyMs: voiceResolverLatencyMs,
+        ...(payload.conversationId === undefined
+          ? {}
+          : { conversationId: payload.conversationId }),
+      });
+    }
+    if (voiceCorrection && voiceCorrection.inputMode !== "command") {
+      return this.handleNonCommandVoiceInput({
         envelope,
         voiceCorrection,
         asrProviderId: payload.asrProviderId,
@@ -1921,6 +1937,7 @@ export class CoreRuntime {
             rawTranscript: voiceCorrection.rawTranscript,
             normalizedTranscript: voiceCorrection.normalizedTranscript,
             voiceInputMode: voiceCorrection.inputMode,
+            voiceInputModeSource: voiceCorrection.inputModeSource,
             correctionSource: voiceCorrection.correctionSource,
             correctionConfidence: voiceCorrection.correctionConfidence,
             correctionCandidates: voiceCorrection.correctionCandidates,
@@ -1960,6 +1977,7 @@ export class CoreRuntime {
     voiceCorrection: VoiceCommandCorrection | undefined;
     asrProviderId: VoiceAsrProviderId | undefined;
     resolverLatencyMs: number | undefined;
+    modeSource?: VoiceInputModeSource | undefined;
   }): Promise<void> {
     if (!input.voiceCorrection) {
       return;
@@ -1967,6 +1985,8 @@ export class CoreRuntime {
     try {
       const captureInput: VoiceRegressionCaptureInput = {
         correction: input.voiceCorrection,
+        modeSource:
+          input.modeSource ?? input.voiceCorrection.inputModeSource,
         context: {
           activeView: "voice",
         },
@@ -2040,6 +2060,7 @@ export class CoreRuntime {
       rawTranscript: input.voiceCorrection.rawTranscript,
       normalizedTranscript: input.voiceCorrection.normalizedTranscript,
       voiceInputMode: input.voiceCorrection.inputMode,
+      voiceInputModeSource: input.voiceCorrection.inputModeSource,
       correctionSource: input.voiceCorrection.correctionSource,
       correctionConfidence: input.voiceCorrection.correctionConfidence,
       correctionCandidates: input.voiceCorrection.correctionCandidates,
@@ -2056,6 +2077,98 @@ export class CoreRuntime {
       }),
       plan,
       dispatchStatus: "blocked",
+      summary,
+      messageId: accepted.message.id,
+      assistantMessageId: assistant.message.id,
+    });
+    await this.captureVoiceRegressionResolution({
+      voiceCorrection: input.voiceCorrection,
+      asrProviderId: input.asrProviderId,
+      resolverLatencyMs: input.resolverLatencyMs,
+    });
+    this.publishSnapshot(input.envelope.correlationId);
+    return this.success(input.envelope, { brain: brainResult });
+  }
+
+  private async handleNonCommandVoiceInput(input: {
+    envelope: CommandEnvelope;
+    voiceCorrection: VoiceCommandCorrection;
+    asrProviderId?: VoiceAsrProviderId | undefined;
+    resolverLatencyMs?: number | undefined;
+    conversationId?: string;
+  }): Promise<CommandResult> {
+    const accepted = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "user",
+      text: input.voiceCorrection.rawTranscript,
+      recall: input.voiceCorrection.inputMode === "conversation",
+      ...(input.conversationId === undefined
+        ? {}
+        : { conversationId: input.conversationId }),
+    });
+    if (!accepted.ok) {
+      return accepted.result;
+    }
+
+    const decision = this.brainDecision({
+      intent: "chat.answer",
+      confidence: 1,
+      requiresApproval: false,
+      slots: {
+        inputMode: input.voiceCorrection.inputMode,
+        inputModeSource: input.voiceCorrection.inputModeSource,
+      },
+      reason:
+        input.voiceCorrection.inputMode === "dictation"
+          ? "Explicit dictation voice input is captured as text and does not dispatch Task Runtime."
+          : "Explicit conversation voice input is handled as assistant conversation and does not dispatch Task Runtime.",
+    });
+    const summary =
+      input.voiceCorrection.inputMode === "dictation"
+        ? "Voice dictation captured as text. No task execution was attempted."
+        : "Voice conversation captured for assistant context. No task execution was attempted.";
+    const assistant = await this.acceptMessage({
+      envelope: input.envelope,
+      role: "assistant",
+      text: summary,
+      conversationId: accepted.message.conversationId,
+      recall: false,
+    });
+    if (!assistant.ok) {
+      return assistant.result;
+    }
+
+    const plan: BrainPlanStep[] = [
+      {
+        id: "voice-input-mode",
+        title: "Respect explicit non-command voice input mode",
+        status: "completed",
+      },
+    ];
+    const dispatchStatus: BrainDispatchStatus = "completed";
+    const brainResult = BrainCommandResultSchema.parse({
+      source: "voice",
+      text: input.voiceCorrection.rawTranscript,
+      rawTranscript: input.voiceCorrection.rawTranscript,
+      normalizedTranscript: input.voiceCorrection.normalizedTranscript,
+      voiceInputMode: input.voiceCorrection.inputMode,
+      voiceInputModeSource: input.voiceCorrection.inputModeSource,
+      correctionSource: input.voiceCorrection.correctionSource,
+      correctionConfidence: input.voiceCorrection.correctionConfidence,
+      correctionCandidates: input.voiceCorrection.correctionCandidates,
+      voiceCorrection: input.voiceCorrection,
+      routedAt: this.now().toISOString(),
+      decision,
+      routerSelection: this.brainRouterSelection({
+        selectedProviderId: "voice-input-mode.rules",
+        status: "accepted",
+        reasonCode: "PROVIDER_ACCEPTED",
+        failureClass: "none",
+        confidenceBand: "accepted",
+        usedRulesFallback: true,
+      }),
+      plan,
+      dispatchStatus,
       summary,
       messageId: accepted.message.id,
       assistantMessageId: assistant.message.id,
@@ -2152,6 +2265,7 @@ export class CoreRuntime {
             rawTranscript: input.voiceCorrection.rawTranscript,
             normalizedTranscript: input.voiceCorrection.normalizedTranscript,
             voiceInputMode: input.voiceCorrection.inputMode,
+            voiceInputModeSource: input.voiceCorrection.inputModeSource,
             correctionSource: input.voiceCorrection.correctionSource,
             correctionConfidence: input.voiceCorrection.correctionConfidence,
             correctionCandidates: input.voiceCorrection.correctionCandidates,
@@ -2263,6 +2377,7 @@ export class CoreRuntime {
             rawTranscript: input.voiceCorrection.rawTranscript,
             normalizedTranscript: input.voiceCorrection.normalizedTranscript,
             voiceInputMode: input.voiceCorrection.inputMode,
+            voiceInputModeSource: input.voiceCorrection.inputModeSource,
             correctionSource: input.voiceCorrection.correctionSource,
             correctionConfidence: input.voiceCorrection.correctionConfidence,
             correctionCandidates: input.voiceCorrection.correctionCandidates,
@@ -6213,7 +6328,10 @@ export class CoreRuntime {
           result = await this.voiceEngine.setMode(command.payload.mode);
           break;
         case "voice.startPtt":
-          result = this.voiceEngine.startPtt(command.payload.captureId);
+          result = this.voiceEngine.startPtt(command.payload.captureId, {
+            inputMode: command.payload.inputMode,
+            inputModeSource: command.payload.inputModeSource,
+          });
           break;
         case "voice.stopPtt":
           result = await this.voiceEngine.stopPtt();

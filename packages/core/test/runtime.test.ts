@@ -6959,8 +6959,10 @@ describe("CoreRuntime", () => {
     }
   });
 
-  it("does not call side-effect adapters for the 20 manual Pilot standard transcripts in disabled mode", async () => {
+  it("keeps the 20 manual Pilot standard transcripts in explicit command mode without executor calls", async () => {
     const taskRepository = new InMemoryTaskRepository();
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    voiceRegressionRepository.consentLevel = "local_text";
     const adapterCalls = {
       browser: 0,
       localApp: 0,
@@ -6994,7 +6996,7 @@ describe("CoreRuntime", () => {
       taskRepository,
       undefined,
       undefined,
-      undefined,
+      voiceRegressionRepository,
       {
         brainOpenActionsDisabled: true,
         realWindowsExecutionEnabled: false,
@@ -7032,6 +7034,9 @@ describe("CoreRuntime", () => {
           payload: {
             source: "voice",
             text,
+            voiceInputMode: "command",
+            voiceInputModeSource: "explicit_ui",
+            asrProviderId: "xunfei",
           },
         }),
       );
@@ -7039,6 +7044,8 @@ describe("CoreRuntime", () => {
       const brain = BrainCommandResultSchema.parse(
         result.ok ? (result.data as { brain?: unknown }).brain : undefined,
       );
+      expect(brain.voiceInputMode).toBe("command");
+      expect(brain.voiceInputModeSource).toBe("explicit_ui");
       if (
         brain.decision.intent === "localApp.open" ||
         brain.decision.intent === "browser.open" ||
@@ -7072,6 +7079,26 @@ describe("CoreRuntime", () => {
         windowsExecutorInvocationCount: 0,
       },
     });
+    const pendingResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionPendingSamples",
+        payload: {},
+      }),
+    );
+    expect(pendingResult.ok).toBe(true);
+    const pendingSamples = pendingResult.ok
+      ? (pendingResult.data as { samples?: VoiceRegressionSample[] }).samples
+      : undefined;
+    expect(pendingSamples).toHaveLength(20);
+    for (const sample of pendingSamples ?? []) {
+      expect(sample).toMatchObject({
+        mode: "command",
+        modeSource: "explicit_ui",
+        asr: {
+          providerId: "xunfei",
+        },
+      });
+    }
     for (const task of runtime.getSnapshot().tasks) {
       expect(task.state).toBe("failed");
       expect(task.steps[0]?.verificationStatus).not.toBe("verified");
@@ -7087,6 +7114,87 @@ describe("CoreRuntime", () => {
       );
       expect(task.events.at(-1)?.message).toContain("blocked_before_executor");
     }
+  });
+
+  it("keeps explicit non-command voice input out of Task Runtime", async () => {
+    const taskRepository = new InMemoryTaskRepository();
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    voiceRegressionRepository.consentLevel = "local_text";
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser executor must not be called");
+        },
+        async openLocalApp() {
+          throw new Error("local app executor must not be called");
+        },
+        async writeNotepadText() {
+          throw new Error("notepad executor must not be called");
+        },
+        async controlKnownAppWindow() {
+          throw new Error("window executor must not be called");
+        },
+        async searchFilesystem() {
+          throw new Error("filesystem adapter must not be called");
+        },
+      },
+      taskRepository,
+      undefined,
+      undefined,
+      voiceRegressionRepository,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+    );
+    await runtime.hydrateTasks();
+
+    for (const mode of ["conversation", "dictation"] as const) {
+      const result = await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "voice",
+            text: "open VS Code",
+            voiceInputMode: mode,
+            voiceInputModeSource: "explicit_ui",
+            asrProviderId: "xunfei",
+          },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      const brain = BrainCommandResultSchema.parse(
+        result.ok ? (result.data as { brain?: unknown }).brain : undefined,
+      );
+      expect(brain).toMatchObject({
+        voiceInputMode: mode,
+        voiceInputModeSource: "explicit_ui",
+        dispatchStatus: "completed",
+        decision: {
+          intent: "chat.answer",
+        },
+      });
+      expect(brain.summary.toLowerCase()).toContain("no task execution");
+    }
+
+    expect(await taskRepository.listTasks()).toEqual([]);
+    const pendingResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionPendingSamples",
+        payload: {},
+      }),
+    );
+    expect(pendingResult.ok).toBe(true);
+    const pendingSamples = pendingResult.ok
+      ? (pendingResult.data as { samples?: VoiceRegressionSample[] }).samples
+      : undefined;
+    expect(pendingSamples?.map((sample) => sample.mode).sort()).toEqual([
+      "conversation",
+      "dictation",
+    ]);
+    expect(new Set(pendingSamples?.map((sample) => sample.modeSource))).toEqual(
+      new Set(["explicit_ui"]),
+    );
   });
 
   it("keeps runtime audit read-only and does not claim Pilot safety without explicit configuration", async () => {

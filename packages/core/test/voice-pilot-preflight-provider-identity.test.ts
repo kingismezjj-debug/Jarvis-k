@@ -18,6 +18,8 @@ function runPreflight(env: Record<string, string | undefined>) {
       JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION: undefined,
       JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: undefined,
       JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: undefined,
+      JARVIS_K_VOICE_PILOT_INPUT_MODE: undefined,
+      JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: undefined,
       ...env,
     },
     encoding: "utf8",
@@ -36,6 +38,8 @@ describe("voice pilot provider identity preflight", () => {
       const result = runPreflight({
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: providerId,
         JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: "explicit_ui",
       });
       const parsed = JSON.parse(result.stdout);
 
@@ -52,6 +56,8 @@ describe("voice pilot provider identity preflight", () => {
     const result = runPreflight({
       JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: "xunfei",
       JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
+      JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
+      JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: "explicit_ui",
     });
     const parsed = JSON.parse(result.stdout);
 
@@ -61,6 +67,10 @@ describe("voice pilot provider identity preflight", () => {
       currentVoiceProviderId: "xunfei",
       voiceProviderStatus: "ready",
       providerIdentitySupported: true,
+      currentVoiceInputMode: "command",
+      currentVoiceInputModeSource: "explicit_ui",
+      explicitCommandModeSupported: true,
+      pilotTranscriptModeCount: 20,
       allowManualPilot: true,
       executorInvocationCounter: 0,
     });
@@ -71,5 +81,28 @@ describe("voice pilot provider identity preflight", () => {
       windowAutomation: 0,
       filesystemSearch: 0,
     });
+  });
+
+  it("fails closed when the Pilot mode is missing or legacy inferred", () => {
+    for (const [mode, source] of [
+      ["command", undefined],
+      ["command", "legacy_inferred"],
+      ["conversation", "explicit_ui"],
+    ] as const) {
+      const result = runPreflight({
+        JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: "xunfei",
+        JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE: mode,
+        JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: source,
+      });
+      const parsed = JSON.parse(result.stdout);
+
+      expect(result.status).toBe(1);
+      expect(parsed).toMatchObject({
+        status: "FAIL",
+        reason: "VOICE_PILOT_EXPLICIT_COMMAND_MODE_UNAVAILABLE",
+        allowManualPilot: false,
+      });
+    }
   });
 });

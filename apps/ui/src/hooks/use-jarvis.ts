@@ -354,6 +354,8 @@ export function useJarvis() {
         }
         void dispatchBrainCommand(text, "voice", {
           asrProviderId: transcript.providerId,
+          voiceInputMode: transcript.inputMode,
+          voiceInputModeSource: transcript.inputModeSource,
         }).then(() => {
           refreshVoiceRegressionAfterFinalRef.current();
         });

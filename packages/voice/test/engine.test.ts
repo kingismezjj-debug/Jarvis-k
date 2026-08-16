@@ -11,6 +11,10 @@ import {
   VoiceEngine
 } from "../src";
 import type { VoiceAsrProviderId } from "@jarvis-k/contracts";
+import type {
+  VoiceInputMode,
+  VoiceInputModeSource
+} from "@jarvis-k/contracts";
 
 class FakeSession implements AsrSessionPort {
   public finalizeCount = 0;
@@ -51,12 +55,16 @@ class FakeProvider {
   public transcript(
     text: string,
     isFinal: boolean,
-    providerId?: VoiceAsrProviderId
+    providerId?: VoiceAsrProviderId,
+    inputMode?: VoiceInputMode,
+    inputModeSource?: VoiceInputModeSource
   ): void {
     this.callbacks?.onTranscript({
       text,
       isFinal,
       ...(providerId ? { providerId } : {}),
+      ...(inputMode ? { inputMode } : {}),
+      ...(inputModeSource ? { inputModeSource } : {}),
       segmentId: "segment-1"
     });
   }
@@ -241,6 +249,32 @@ describe("VoiceEngine", () => {
     ).toMatchObject({
       payload: {
         providerId: "xunfei"
+      }
+    });
+  });
+
+  it("preserves explicit PTT input mode provenance on transcript events", async () => {
+    const { engine, events, provider } = createHarness();
+
+    await engine.setMode("ptt");
+    engine.startPtt("capture-1", {
+      inputMode: "conversation",
+      inputModeSource: "explicit_ui"
+    });
+    provider.transcript("open VS Code", true, "volcengine");
+
+    expect(engine.getSnapshot().transcript).toMatchObject({
+      text: "open VS Code",
+      providerId: "volcengine",
+      inputMode: "conversation",
+      inputModeSource: "explicit_ui"
+    });
+    expect(
+      events.find((event) => event.type === "voice.transcript.updated")
+    ).toMatchObject({
+      payload: {
+        inputMode: "conversation",
+        inputModeSource: "explicit_ui"
       }
     });
   });

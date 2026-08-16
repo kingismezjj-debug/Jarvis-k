@@ -163,13 +163,13 @@ describe("JsonVoiceRegressionRepository", () => {
       const result = await repository.applyRetention({
         maxRecords: 10,
         maxAgeDays: 30,
-        maxBytes: 1_800,
+        maxBytes: 2_400,
         now: new Date("2026-08-16T00:00:00.000Z"),
       });
 
       const raw = await readFile(filePath, "utf8");
-      expect(Buffer.byteLength(raw, "utf8")).toBeLessThanOrEqual(1_800);
-      expect(result.approximateBytes).toBeLessThanOrEqual(1_800);
+      expect(Buffer.byteLength(raw, "utf8")).toBeLessThanOrEqual(2_400);
+      expect(result.approximateBytes).toBeLessThanOrEqual(2_400);
       expect(result.deletedCount).toBeGreaterThan(0);
       expect(await repository.getConsentLevel()).toBe("off");
       expect(await repository.countRecords()).toBe(result.recordCount);
@@ -194,6 +194,7 @@ function createRecord(
     consentLevel: "local_text",
     locale: "zh-CN",
     mode: "command",
+    modeSource: "legacy_inferred",
     asr: {
       providerId: "fixture-asr",
       rawTranscript: text,

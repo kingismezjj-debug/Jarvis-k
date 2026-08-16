@@ -140,11 +140,45 @@ describe("VoiceCommandResolver", () => {
     expect(reported.requiresUserSelection).toBe(true);
     expect(reported.correctionCandidates[0]?.intent).not.toBe("browser.open");
     expect(conversation.correctionCandidates).toEqual([]);
+    expect(conversation.inputMode).toBe("conversation");
+    expect(conversation.inputModeSource).toBe("explicit_ui");
     expect(dictation.correctionCandidates).toEqual([]);
+    expect(dictation.inputMode).toBe("dictation");
+    expect(dictation.inputModeSource).toBe("explicit_ui");
     expect(unknownSite.requiresUserSelection).toBe(true);
     expect(unknownSite.correctionCandidates).toEqual([]);
     expect(unsafeUrl.requiresUserSelection).toBe(false);
     expect(unsafeUrl.correctionCandidates[0]).toMatchObject({ intent: "blocked" });
+  });
+
+  it("only uses legacy input mode inference when the caller did not provide an explicit mode", () => {
+    const explicitConversation = resolver.resolve({
+      rawTranscript: "open VS Code",
+      requestedMode: "conversation",
+      requestedModeSource: "explicit_ui",
+    });
+    const legacyInferredCommand = resolver.resolve({
+      rawTranscript: "open VS Code",
+    });
+    const explicitCommand = resolver.resolve({
+      rawTranscript: "open VS Code",
+      requestedMode: "command",
+      requestedModeSource: "wake_word",
+    });
+
+    expect(explicitConversation).toMatchObject({
+      inputMode: "conversation",
+      inputModeSource: "explicit_ui",
+      correctionCandidates: [],
+      requiresUserSelection: false,
+    });
+    expect(legacyInferredCommand.inputMode).toBe("command");
+    expect(legacyInferredCommand.inputModeSource).toBe("legacy_inferred");
+    expect(explicitCommand.inputMode).toBe("command");
+    expect(explicitCommand.inputModeSource).toBe("wake_word");
+    expect(explicitCommand.correctionCandidates[0]).toMatchObject({
+      inputModeSource: "wake_word",
+    });
   });
 
   it("extracts bounded Chinese command slots for write, search, memory, status, and windows", () => {

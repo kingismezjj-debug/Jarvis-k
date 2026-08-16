@@ -2,6 +2,8 @@ import type {
   StructuredError,
   VoiceEvent,
   VoiceAudioFrame,
+  VoiceInputMode,
+  VoiceInputModeSource,
   VoiceMode,
   VoicePermissionState,
   VoiceAsrProviderId,
@@ -23,6 +25,8 @@ export interface AsrTranscriptUpdate {
   text: string;
   isFinal: boolean;
   providerId?: VoiceAsrProviderId;
+  inputMode?: VoiceInputMode;
+  inputModeSource?: VoiceInputModeSource;
   segmentId?: string;
 }
 
@@ -69,10 +73,18 @@ export interface VoiceEngineDependencies {
   continuousInactivityMs?: number;
 }
 
+export interface VoiceStartPttOptions {
+  inputMode?: VoiceInputMode;
+  inputModeSource?: VoiceInputModeSource;
+}
+
 export interface VoiceEnginePort {
   getSnapshot(): VoiceSnapshot;
   setMode(mode: VoiceMode): Promise<VoiceActionResult>;
-  startPtt(captureId?: string): VoiceActionResult;
+  startPtt(
+    captureId?: string,
+    options?: VoiceStartPttOptions
+  ): VoiceActionResult;
   acceptAudioFrame(frame: VoiceAudioFrame): Promise<VoiceAudioAcceptance>;
   stopPtt(): Promise<VoiceActionResult>;
   cancel(): Promise<VoiceActionResult>;

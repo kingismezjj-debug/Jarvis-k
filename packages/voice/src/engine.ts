@@ -2,6 +2,8 @@ import {
   type StructuredError,
   type VoiceEvent,
   type VoiceAudioFrame,
+  type VoiceInputMode,
+  type VoiceInputModeSource,
   type VoiceMode,
   type VoicePermissionState,
   type VoiceSnapshot,
@@ -20,6 +22,7 @@ import type {
   VoiceAudioAcceptance,
   VoiceEngineDependencies,
   VoiceEnginePort,
+  VoiceStartPttOptions,
   VoiceEventSink
 } from "./ports";
 import { ContinuousListeningStrategy } from "./continuous-listening-strategy";
@@ -47,6 +50,8 @@ export class VoiceEngine implements VoiceEnginePort {
   private permission: VoicePermissionState = "unknown";
   private session: AsrSessionPort | null = null;
   private sessionId: string | undefined;
+  private sessionInputMode: VoiceInputMode = "command";
+  private sessionInputModeSource: VoiceInputModeSource = "legacy_inferred";
   private transcript: VoiceTranscript | undefined;
   private playbackId: string | undefined;
   private connectionAttempt = 0;
@@ -89,6 +94,8 @@ export class VoiceEngine implements VoiceEnginePort {
       this.connectionAttempt += 1;
       await this.closeSession();
       this.sessionId = undefined;
+      this.sessionInputMode = "command";
+      this.sessionInputModeSource = "legacy_inferred";
       this.transcript = undefined;
       this.playbackId = undefined;
       this.transition("idle");
@@ -134,7 +141,10 @@ export class VoiceEngine implements VoiceEnginePort {
     }
   }
 
-  public startPtt(captureId?: string): VoiceActionResult {
+  public startPtt(
+    captureId?: string,
+    options: VoiceStartPttOptions = {}
+  ): VoiceActionResult {
     if (this.mode !== "ptt" && this.mode !== "continuous") {
       return this.failure(
         "VOICE_MODE_INVALID",
@@ -171,6 +181,9 @@ export class VoiceEngine implements VoiceEnginePort {
     } else {
       this.sessionId = captureId ?? createId("voice");
     }
+    this.sessionInputMode = options.inputMode ?? "command";
+    this.sessionInputModeSource =
+      options.inputModeSource ?? "legacy_inferred";
     this.transcript = undefined;
     this.transition("recording");
     return this.success();
@@ -238,6 +251,8 @@ export class VoiceEngine implements VoiceEnginePort {
       this.mode = "disabled";
       await this.closeSession();
       this.sessionId = undefined;
+      this.sessionInputMode = "command";
+      this.sessionInputModeSource = "legacy_inferred";
       this.transcript = undefined;
       this.playbackId = undefined;
       this.transition("idle");
@@ -261,6 +276,8 @@ export class VoiceEngine implements VoiceEnginePort {
       this.continuousStrategy.resumeAfterPttOverlay();
     } else {
       this.sessionId = undefined;
+      this.sessionInputMode = "command";
+      this.sessionInputModeSource = "legacy_inferred";
     }
     this.transcript = undefined;
     this.playbackId = undefined;
@@ -345,6 +362,9 @@ export class VoiceEngine implements VoiceEnginePort {
           ...(update.providerId === undefined
             ? {}
             : { providerId: update.providerId }),
+          inputMode: update.inputMode ?? this.sessionInputMode,
+          inputModeSource:
+            update.inputModeSource ?? this.sessionInputModeSource,
           updatedAt: this.clock.now().toISOString(),
           ...(update.segmentId ? { segmentId: update.segmentId } : {})
         });
@@ -388,11 +408,15 @@ export class VoiceEngine implements VoiceEnginePort {
     if (previousMode === "continuous" && nextMode !== "continuous") {
       this.continuousStrategy.deactivate();
       this.sessionId = undefined;
+      this.sessionInputMode = "command";
+      this.sessionInputModeSource = "legacy_inferred";
     }
     if (nextMode === "continuous") {
       if (!this.sessionId) {
         this.sessionId = createId("continuous");
       }
+      this.sessionInputMode = "command";
+      this.sessionInputModeSource = "legacy_inferred";
       this.continuousStrategy.activate(this.sessionId);
     }
   }

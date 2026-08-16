@@ -5,8 +5,12 @@ const DISABLE_FLAG = "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS";
 const REAL_EXECUTION_FLAG = "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION";
 const PROVIDER_IDENTITY_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY";
 const PROVIDER_STATUS_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_STATUS";
+const INPUT_MODE_FLAG = "JARVIS_K_VOICE_PILOT_INPUT_MODE";
+const INPUT_MODE_SOURCE_FLAG = "JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE";
 const PROVIDER_IDENTITY_UNAVAILABLE =
   "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE";
+const EXPLICIT_COMMAND_MODE_UNAVAILABLE =
+  "VOICE_PILOT_EXPLICIT_COMMAND_MODE_UNAVAILABLE";
 const REAL_PILOT_PROVIDER_IDS = new Set(["xunfei", "volcengine"]);
 const NON_PILOT_PROVIDER_IDS = new Set([
   "unknown",
@@ -240,6 +244,42 @@ function evaluateProviderGate() {
   };
 }
 
+function normalizeInputMode(value) {
+  const trimmed = String(value ?? "").trim().toLowerCase();
+  return ["command", "conversation", "dictation"].includes(trimmed)
+    ? trimmed
+    : "unknown";
+}
+
+function normalizeInputModeSource(value) {
+  const trimmed = String(value ?? "").trim().toLowerCase();
+  return [
+    "explicit_ui",
+    "wake_word",
+    "legacy_inferred",
+    "fixture",
+    "smoke",
+  ].includes(trimmed)
+    ? trimmed
+    : "unknown";
+}
+
+function evaluateModeGate() {
+  const currentVoiceInputMode = normalizeInputMode(
+    process.env[INPUT_MODE_FLAG],
+  );
+  const currentVoiceInputModeSource = normalizeInputModeSource(
+    process.env[INPUT_MODE_SOURCE_FLAG],
+  );
+  return {
+    pass:
+      currentVoiceInputMode === "command" &&
+      currentVoiceInputModeSource === "explicit_ui",
+    currentVoiceInputMode,
+    currentVoiceInputModeSource,
+  };
+}
+
 function printResult(result) {
   console.log(JSON.stringify(result, null, 2));
 }
@@ -247,6 +287,7 @@ function printResult(result) {
 const disableFlagEnabled = isTruthyFlag(process.env[DISABLE_FLAG]);
 const realExecutionEnabled = isTruthyFlag(process.env[REAL_EXECUTION_FLAG]);
 const providerGate = evaluateProviderGate();
+const modeGate = evaluateModeGate();
 
 if (!disableFlagEnabled || realExecutionEnabled) {
   printResult({
@@ -256,6 +297,8 @@ if (!disableFlagEnabled || realExecutionEnabled) {
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
+    currentVoiceInputMode: modeGate.currentVoiceInputMode,
+    currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
     effectfulAdaptersStatus: "not_checked",
     executorInvocationCounter: "not_checked",
     blockedBeforeExecutorCounter: "not_checked",
@@ -275,11 +318,32 @@ if (!providerGate.pass) {
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
+    currentVoiceInputMode: modeGate.currentVoiceInputMode,
+    currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
     effectfulAdaptersStatus: "not_checked",
     executorInvocationCounter: "not_checked",
     blockedBeforeExecutorCounter: "not_checked",
     allowManualPilot: false,
     reason: PROVIDER_IDENTITY_UNAVAILABLE,
+  });
+  process.exit(1);
+}
+
+if (!modeGate.pass) {
+  printResult({
+    status: "FAIL",
+    disableFlag: disableFlagEnabled,
+    realWindowsExecutionEnabled: realExecutionEnabled,
+    currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    voiceProviderStatus: providerGate.voiceProviderStatus,
+    providerIdentitySupported: providerGate.providerIdentitySupported,
+    currentVoiceInputMode: modeGate.currentVoiceInputMode,
+    currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
+    effectfulAdaptersStatus: "not_checked",
+    executorInvocationCounter: "not_checked",
+    blockedBeforeExecutorCounter: "not_checked",
+    allowManualPilot: false,
+    reason: EXPLICIT_COMMAND_MODE_UNAVAILABLE,
   });
   process.exit(1);
 }
@@ -347,6 +411,8 @@ for (const text of pilotTranscripts) {
         source: "voice",
         text,
         asrProviderId: providerGate.currentVoiceProviderId,
+        voiceInputMode: modeGate.currentVoiceInputMode,
+        voiceInputModeSource: modeGate.currentVoiceInputModeSource,
       },
     }),
   );
@@ -355,6 +421,8 @@ for (const text of pilotTranscripts) {
       status: "FAIL",
       disableFlag: disableFlagEnabled,
       realWindowsExecutionEnabled: realExecutionEnabled,
+      currentVoiceInputMode: modeGate.currentVoiceInputMode,
+      currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
       effectfulAdaptersStatus: calls,
       allowManualPilot: false,
       reason: "VOICE_TRANSCRIPT_PRECHECK_FAILED",
@@ -388,6 +456,10 @@ printResult({
   currentVoiceProviderId: providerGate.currentVoiceProviderId,
   voiceProviderStatus: providerGate.voiceProviderStatus,
   providerIdentitySupported: providerGate.providerIdentitySupported,
+  currentVoiceInputMode: modeGate.currentVoiceInputMode,
+  currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
+  explicitCommandModeSupported: modeGate.pass,
+  pilotTranscriptModeCount: pass ? pilotTranscripts.length : 0,
   effectfulAdaptersStatus: calls,
   executorInvocationCounter: audit?.windowsExecutorInvocationCount,
   blockedBeforeExecutorCounter:

@@ -1,4 +1,8 @@
-import type { AppCommand } from "@jarvis-k/contracts";
+import type {
+  AppCommand,
+  VoiceInputMode,
+  VoiceInputModeSource,
+} from "@jarvis-k/contracts";
 
 export type PttCaptureState =
   | "idle"
@@ -41,6 +45,8 @@ export interface PttCaptureCoordinatorOptions {
   capture: PttCapturePort;
   sendCommand(command: AppCommand): Promise<PttCommandResult>;
   createCaptureId(): string;
+  inputMode?: VoiceInputMode;
+  inputModeSource?: VoiceInputModeSource;
   onStartFailure?(
     reason: PttStartFailureReason,
     error?: PttCommandError
@@ -99,7 +105,11 @@ export class PttCaptureCoordinator {
 
       const sessionResult = await this.options.sendCommand({
         type: "voice.startPtt",
-        payload: { captureId }
+        payload: {
+          captureId,
+          inputMode: this.options.inputMode ?? "command",
+          inputModeSource: this.options.inputModeSource ?? "explicit_ui"
+        }
       });
       if (!sessionResult.ok || operationId !== this.operationId) {
         this.options.onStartFailure?.(

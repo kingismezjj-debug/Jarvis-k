@@ -7,6 +7,7 @@ import {
   type VoiceCommandCorrectionCandidate,
   VoiceCommandCorrectionSchema,
   type VoiceInputMode,
+  type VoiceInputModeSource,
 } from "@jarvis-k/contracts";
 import {
   VoiceCommandResolver,
@@ -81,15 +82,34 @@ export class VoiceResolutionService {
   public async resolveCommandCorrection(input: {
     rawTranscript: string;
     requestedMode?: VoiceInputMode;
+    requestedModeSource?: VoiceInputModeSource;
   }): Promise<VoiceCommandCorrection> {
     const existingVoiceRoutingText = this.normalizeVoiceCommandRoutingText(
       input.rawTranscript,
     );
+    const inputModeSource =
+      input.requestedModeSource ??
+      (input.requestedMode === undefined ? "legacy_inferred" : "explicit_ui");
+    if (input.requestedMode && input.requestedMode !== "command") {
+      return VoiceCommandCorrectionSchema.parse({
+        rawTranscript: input.rawTranscript.trim(),
+        normalizedTranscript: existingVoiceRoutingText,
+        inputMode: input.requestedMode,
+        inputModeSource,
+        correctionSource: "raw",
+        correctionConfidence: 1,
+        correctionCandidates: [],
+        requiresUserSelection: false,
+        rawTranscriptPreserved: true,
+        directActionAttempted: false,
+      });
+    }
     if (this.looksLikeVoiceNotepadWrite(existingVoiceRoutingText)) {
       return VoiceCommandCorrectionSchema.parse({
         rawTranscript: input.rawTranscript.trim(),
         normalizedTranscript: existingVoiceRoutingText,
         inputMode: "command",
+        inputModeSource,
         correctionSource: "raw",
         correctionConfidence: 1,
         correctionCandidates: [],
@@ -107,6 +127,9 @@ export class VoiceResolutionService {
       ...(input.requestedMode === undefined
         ? {}
         : { requestedMode: input.requestedMode }),
+      ...(input.requestedModeSource === undefined
+        ? {}
+        : { requestedModeSource: input.requestedModeSource }),
       aliases,
       routeAliases,
       pluginCapabilities,

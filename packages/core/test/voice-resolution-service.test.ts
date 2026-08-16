@@ -59,4 +59,21 @@ describe("VoiceResolutionService production input parity", () => {
     expect(correction.requiresUserSelection).toBe(true);
     expect(correction.directActionAttempted).toBe(false);
   });
+
+  it("does not convert explicit non-command voice input through the notepad write shortcut", async () => {
+    const service = new VoiceResolutionService();
+
+    const correction = await service.resolveCommandCorrection({
+      rawTranscript: "\u5728\u8bb0\u4e8b\u672c\u8f93\u5165 open VS Code",
+      requestedMode: "conversation",
+      requestedModeSource: "explicit_ui",
+    });
+
+    expect(correction).toMatchObject({
+      inputMode: "conversation",
+      inputModeSource: "explicit_ui",
+      correctionCandidates: [],
+      requiresUserSelection: false,
+    });
+  });
 });

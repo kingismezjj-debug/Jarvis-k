@@ -348,6 +348,24 @@ describe("protocol contracts", () => {
     expect(CommandEnvelopeSchema.parse(startPtt).protocolVersion).toBe(
       PROTOCOL_VERSION
     );
+    expect(CommandEnvelopeSchema.parse(startPtt).command.payload).toMatchObject({
+      inputMode: "command",
+      inputModeSource: "legacy_inferred"
+    });
+    expect(
+      CommandEnvelopeSchema.parse(
+        createCommandEnvelope({
+          type: "voice.startPtt",
+          payload: {
+            inputMode: "conversation",
+            inputModeSource: "explicit_ui"
+          }
+        })
+      ).command.payload
+    ).toMatchObject({
+      inputMode: "conversation",
+      inputModeSource: "explicit_ui"
+    });
   });
 
   it("accepts default-off Chat Answer product mode status", () => {
@@ -1126,6 +1144,64 @@ describe("protocol contracts", () => {
     ).toBe(false);
   });
 
+  it("preserves explicit voice input mode provenance in contracts", () => {
+    expect(
+      VoiceTranscriptSchema.parse({
+        sessionId: "voice-session",
+        text: "open VS Code",
+        isFinal: true,
+        providerId: "xunfei",
+        inputMode: "conversation",
+        inputModeSource: "explicit_ui",
+        updatedAt: "2026-08-16T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      providerId: "xunfei",
+      inputMode: "conversation",
+      inputModeSource: "explicit_ui"
+    });
+    expect(
+      VoiceTranscriptSchema.parse({
+        sessionId: "voice-session",
+        text: "open VS Code",
+        isFinal: true,
+        updatedAt: "2026-08-16T00:00:00.000Z"
+      })
+    ).toMatchObject({
+      inputMode: "command",
+      inputModeSource: "legacy_inferred"
+    });
+    expect(
+      CommandEnvelopeSchema.parse(
+        createCommandEnvelope({
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "voice",
+            text: "open VS Code",
+            voiceInputMode: "command",
+            voiceInputModeSource: "explicit_ui",
+            asrProviderId: "xunfei"
+          }
+        })
+      ).command.payload
+    ).toMatchObject({
+      voiceInputMode: "command",
+      voiceInputModeSource: "explicit_ui"
+    });
+    expect(() =>
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "voice",
+          text: "open VS Code",
+          voiceInputMode: "command",
+          voiceInputModeSource: "user-supplied-free-text",
+          asrProviderId: "xunfei"
+        }
+      })
+    ).toThrow();
+  });
+
   it("keeps voice regression provider IDs fixed and non-sensitive", () => {
     const credentialLikeProviderId = [
       "xunfei:https",
@@ -1163,6 +1239,15 @@ describe("protocol contracts", () => {
     expect(VoiceRegressionSampleSchema.parse(base).asr.providerId).toBe(
       "unknown"
     );
+    expect(VoiceRegressionSampleSchema.parse(base).modeSource).toBe(
+      "legacy_inferred"
+    );
+    expect(
+      VoiceRegressionSampleSchema.parse({
+        ...base,
+        modeSource: "explicit_ui"
+      }).modeSource
+    ).toBe("explicit_ui");
     expect(
       VoiceRegressionSampleSchema.parse({
         ...base,

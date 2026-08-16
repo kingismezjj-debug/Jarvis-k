@@ -70,6 +70,16 @@ describe("PttCaptureCoordinator", () => {
       "voice.setMode",
       "voice.startPtt"
     ]);
+    expect(
+      harness.commands.find((command) => command.type === "voice.startPtt")
+    ).toEqual({
+      type: "voice.startPtt",
+      payload: {
+        captureId: "capture-1",
+        inputMode: "command",
+        inputModeSource: "explicit_ui"
+      }
+    });
   });
 
   it.each([

@@ -10,6 +10,8 @@ import {
   type VoiceCommandAliasRecord,
   type VoiceCommandCorrectionCandidate,
   type VoiceAsrProviderId,
+  type VoiceInputMode,
+  type VoiceInputModeSource,
   type VoiceRegressionCollectionStatus,
   type VoiceRegressionSample,
   type VoiceRegressionRecord,
@@ -32,7 +34,11 @@ interface UseJarvisVoiceActionsOptions {
   dispatchBrainCommand(
     text: string,
     source: "voice",
-    options?: { asrProviderId?: VoiceAsrProviderId | undefined },
+    options?: {
+      asrProviderId?: VoiceAsrProviderId | undefined;
+      voiceInputMode?: VoiceInputMode | undefined;
+      voiceInputModeSource?: VoiceInputModeSource | undefined;
+    },
   ): Promise<boolean>;
 }
 

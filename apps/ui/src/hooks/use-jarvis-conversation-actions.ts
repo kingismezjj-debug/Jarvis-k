@@ -5,6 +5,8 @@ import {
   type BrainCommandResult,
   type BrainCommandSource,
   type VoiceAsrProviderId,
+  type VoiceInputMode,
+  type VoiceInputModeSource,
 } from "@jarvis-k/contracts";
 
 interface UseJarvisConversationActionsOptions {
@@ -26,7 +28,11 @@ export function useJarvisConversationActions({
     async (
       text: string,
       source: BrainCommandSource,
-      options?: { asrProviderId?: VoiceAsrProviderId | undefined },
+      options?: {
+        asrProviderId?: VoiceAsrProviderId | undefined;
+        voiceInputMode?: VoiceInputMode | undefined;
+        voiceInputModeSource?: VoiceInputModeSource | undefined;
+      },
     ) => {
       if (!window.jarvis) {
         setError("Desktop bridge unavailable.");
@@ -42,6 +48,12 @@ export function useJarvisConversationActions({
             text,
             ...(source === "voice" && options?.asrProviderId
               ? { asrProviderId: options.asrProviderId }
+              : {}),
+            ...(source === "voice" && options?.voiceInputMode
+              ? { voiceInputMode: options.voiceInputMode }
+              : {}),
+            ...(source === "voice" && options?.voiceInputModeSource
+              ? { voiceInputModeSource: options.voiceInputModeSource }
               : {}),
           },
         });

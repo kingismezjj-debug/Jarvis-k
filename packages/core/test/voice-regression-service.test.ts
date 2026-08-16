@@ -268,7 +268,7 @@ describe("VoiceRegressionService", () => {
     expect(service.listPendingSamples()).toHaveLength(0);
   });
 
-  it("preserves ASR provider identity across accepted, corrected, and rejected feedback", async () => {
+  it("preserves ASR provider identity and input mode provenance across accepted, corrected, and rejected feedback", async () => {
     const service = new VoiceRegressionService(
       new InMemoryVoiceRegressionRepository(),
       fixedNow,
@@ -290,6 +290,7 @@ describe("VoiceRegressionService", () => {
           normalizedTranscript: `打开记事本 ${index}`,
         }),
         asrProviderId: item.providerId,
+        modeSource: "explicit_ui",
       });
       const saved = await service.savePendingSample({
         sampleId: captured.sample?.id ?? "",
@@ -301,6 +302,8 @@ describe("VoiceRegressionService", () => {
 
       expect(saved?.feedback.status).toBe(item.status);
       expect(saved?.asr.providerId).toBe(item.providerId);
+      expect(saved?.mode).toBe("command");
+      expect(saved?.modeSource).toBe("explicit_ui");
     }
   });
 
@@ -638,6 +641,7 @@ function correctionFixture(input?: {
     normalizedTranscript:
       input?.normalizedTranscript ?? "\u6253\u5f00\u8bb0\u4e8b\u672c",
     inputMode: "command" as const,
+    inputModeSource: "legacy_inferred" as const,
     correctionSource: "slot_grammar" as const,
     correctionConfidence: 0.98,
     correctionCandidates: [
@@ -646,6 +650,7 @@ function correctionFixture(input?: {
         normalizedTranscript:
           input?.normalizedTranscript ?? "\u6253\u5f00\u8bb0\u4e8b\u672c",
         inputMode: "command" as const,
+        inputModeSource: "legacy_inferred" as const,
         intent: "localApp.open" as const,
         confidence: 0.98,
         correctionSource: "slot_grammar" as const,
@@ -670,6 +675,7 @@ function recordFixture(
     consentLevel: "local_text",
     locale: "zh-CN",
     mode: "command",
+    modeSource: "legacy_inferred",
     asr: {
       providerId: "fixture-asr",
       rawTranscript: `open notepad ${suffix}`,

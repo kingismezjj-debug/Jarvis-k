@@ -593,6 +593,15 @@ export const VoiceInputModeSchema = z.enum([
 ]);
 export type VoiceInputMode = z.infer<typeof VoiceInputModeSchema>;
 
+export const VoiceInputModeSourceSchema = z.enum([
+  "explicit_ui",
+  "wake_word",
+  "legacy_inferred",
+  "fixture",
+  "smoke",
+]);
+export type VoiceInputModeSource = z.infer<typeof VoiceInputModeSourceSchema>;
+
 export const VoiceCommandCorrectionSourceSchema = z.enum([
   "raw",
   "alias",
@@ -611,6 +620,7 @@ export const VoiceCommandCorrectionCandidateSchema = z
     id: z.string().min(1).max(128),
     normalizedTranscript: z.string().trim().min(1).max(500),
     inputMode: VoiceInputModeSchema,
+    inputModeSource: VoiceInputModeSourceSchema.default("legacy_inferred"),
     intent: BrainIntentSchema,
     confidence: z.number().min(0).max(1),
     correctionSource: VoiceCommandCorrectionSourceSchema,
@@ -627,6 +637,7 @@ export const VoiceCommandCorrectionSchema = z
     rawTranscript: z.string().trim().min(1).max(20_000),
     normalizedTranscript: z.string().trim().min(1).max(500),
     inputMode: VoiceInputModeSchema,
+    inputModeSource: VoiceInputModeSourceSchema.default("legacy_inferred"),
     correctionSource: VoiceCommandCorrectionSourceSchema,
     correctionConfidence: z.number().min(0).max(1),
     correctionCandidates: z
@@ -692,6 +703,7 @@ export const VoiceRegressionSampleSchema = z
     consentLevel: z.literal("local_text"),
     locale: z.literal("zh-CN"),
     mode: VoiceInputModeSchema,
+    modeSource: VoiceInputModeSourceSchema.default("legacy_inferred"),
     asr: z
       .object({
         providerId: VoiceAsrProviderIdSchema.default("unknown"),
@@ -1506,6 +1518,7 @@ export const BrainCommandResultSchema = z
     rawTranscript: z.string().trim().min(1).max(20_000).optional(),
     normalizedTranscript: z.string().trim().min(1).max(500).optional(),
     voiceInputMode: VoiceInputModeSchema.optional(),
+    voiceInputModeSource: VoiceInputModeSourceSchema.optional(),
     correctionSource: VoiceCommandCorrectionSourceSchema.optional(),
     correctionConfidence: z.number().min(0).max(1).optional(),
     correctionCandidates: z
@@ -1568,6 +1581,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
         conversationId: z.string().min(1).max(128).optional(),
         text: z.string().trim().min(1).max(20_000),
         voiceInputMode: VoiceInputModeSchema.optional(),
+        voiceInputModeSource: VoiceInputModeSourceSchema.optional(),
         asrProviderId: VoiceAsrProviderIdSchema.optional(),
       })
       .strict(),
@@ -1961,6 +1975,8 @@ export const VoiceCommandSchema = z.discriminatedUnion("type", [
     payload: z
       .object({
         captureId: z.string().min(1).max(128).optional(),
+        inputMode: VoiceInputModeSchema.default("command"),
+        inputModeSource: VoiceInputModeSourceSchema.default("legacy_inferred"),
       })
       .strict(),
   }),
@@ -2914,6 +2930,8 @@ export const VoiceTranscriptSchema = z
     text: z.string().max(20_000),
     isFinal: z.boolean(),
     providerId: VoiceAsrProviderIdSchema.default("unknown"),
+    inputMode: VoiceInputModeSchema.default("command"),
+    inputModeSource: VoiceInputModeSourceSchema.default("legacy_inferred"),
     segmentId: z.string().min(1).max(128).optional(),
     updatedAt: z.string().datetime(),
   })

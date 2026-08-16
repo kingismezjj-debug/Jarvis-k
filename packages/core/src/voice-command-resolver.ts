@@ -7,6 +7,7 @@ import {
   VoiceCommandCorrectionCandidate,
   VoiceCommandCorrectionSchema,
   VoiceInputMode,
+  VoiceInputModeSource,
 } from "@jarvis-k/contracts";
 
 export interface VoiceCommandResolverPluginCapability {
@@ -23,6 +24,7 @@ export interface VoiceCommandResolverRouteAlias {
 export interface VoiceCommandResolverInput {
   rawTranscript: string;
   requestedMode?: VoiceInputMode;
+  requestedModeSource?: VoiceInputModeSource;
   aliases?: readonly VoiceCommandAliasRecord[];
   routeAliases?: readonly VoiceCommandResolverRouteAlias[];
   pluginCapabilities?: readonly VoiceCommandResolverPluginCapability[];
@@ -185,12 +187,20 @@ export class VoiceCommandResolver {
     const rawTranscript = input.rawTranscript.trim();
     const requestedMode = input.requestedMode;
     const inputMode = requestedMode ?? inferVoiceInputMode(rawTranscript);
+    const inputModeSource =
+      input.requestedModeSource ??
+      (requestedMode === undefined ? "legacy_inferred" : "explicit_ui");
     if (inputMode !== "command") {
-      if (looksQuotedOrNegated(rawTranscript) && containsCommandVerb(rawTranscript)) {
+      if (
+        inputModeSource === "legacy_inferred" &&
+        looksQuotedOrNegated(rawTranscript) &&
+        containsCommandVerb(rawTranscript)
+      ) {
         return VoiceCommandCorrectionSchema.parse({
           rawTranscript,
           normalizedTranscript: rawTranscript,
           inputMode: "command",
+          inputModeSource,
           correctionSource: "unknown",
           correctionConfidence: 0,
           correctionCandidates: [],
@@ -203,6 +213,7 @@ export class VoiceCommandResolver {
         rawTranscript,
         normalizedTranscript: rawTranscript,
         inputMode,
+        inputModeSource,
         correctionSource: "raw",
         correctionConfidence: 1,
         correctionCandidates: [],
@@ -217,6 +228,7 @@ export class VoiceCommandResolver {
         rawTranscript,
         normalizedTranscript: "blocked",
         inputMode: "command",
+        inputModeSource,
         correctionSource: "slot_grammar",
         correctionConfidence: 0.99,
         correctionCandidates: [
@@ -224,6 +236,7 @@ export class VoiceCommandResolver {
             id: "safety.block.dangerous-command",
             normalizedTranscript: "blocked",
             inputMode: "command",
+            inputModeSource,
             intent: "blocked",
             confidence: 0.99,
             correctionSource: "slot_grammar",
@@ -246,6 +259,7 @@ export class VoiceCommandResolver {
         rawTranscript,
         normalizedTranscript: rawTranscript,
         inputMode: "command",
+        inputModeSource,
         correctionSource: "unknown",
         correctionConfidence: 0,
         correctionCandidates: [],
@@ -273,7 +287,9 @@ export class VoiceCommandResolver {
           template.intent === "blocked",
       );
     const candidates = candidateTemplates
-      .map((template) => scoreCandidate(rawTranscript, template))
+      .map((template) =>
+        scoreCandidate(rawTranscript, template, inputModeSource),
+      )
       .filter((candidate) => candidate.confidence >= 0.55)
       .sort((left, right) => right.confidence - left.confidence);
 
@@ -284,6 +300,7 @@ export class VoiceCommandResolver {
         rawTranscript,
         normalizedTranscript: rawTranscript,
         inputMode: "command",
+        inputModeSource,
         correctionSource: "unknown",
         correctionConfidence: 0,
         correctionCandidates: [],
@@ -306,6 +323,7 @@ export class VoiceCommandResolver {
         ? rawTranscript
         : best.normalizedTranscript,
       inputMode: "command",
+      inputModeSource,
       correctionSource: requiresUserSelection
         ? "structured_candidate_selector"
         : best.correctionSource,
@@ -609,6 +627,7 @@ function slotGrammarCandidates(
 function scoreCandidate(
   rawTranscript: string,
   template: CandidateTemplate,
+  inputModeSource: VoiceInputModeSource,
 ): VoiceCommandCorrectionCandidate {
   const rawNormalized = normalizeForCommandMatch(rawTranscript);
   const rawPhonetic = normalizePhoneticMandarin(rawTranscript, true);
@@ -648,6 +667,7 @@ function scoreCandidate(
     id: template.id,
     normalizedTranscript: template.normalizedTranscript,
     inputMode: "command",
+    inputModeSource,
     intent: template.intent,
     confidence,
     correctionSource,

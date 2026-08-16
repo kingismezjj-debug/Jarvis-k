@@ -3,6 +3,7 @@ import {
   type BrainIntent,
   type VoiceCommandCorrection,
   type VoiceInputMode,
+  type VoiceInputModeSource,
   type VoiceAsrProviderId,
   VoiceAsrProviderIdSchema,
   type VoiceRegressionCollectionStatus,
@@ -69,6 +70,7 @@ export interface VoiceRegressionRepository {
 export interface VoiceRegressionCaptureInput {
   correction: VoiceCommandCorrection;
   mode?: VoiceInputMode | undefined;
+  modeSource?: VoiceInputModeSource | undefined;
   asrProviderId?: string | undefined;
   providerConfidence?: number | undefined;
   asrLatencyMs?: number | undefined;
@@ -397,6 +399,7 @@ export class VoiceRegressionService {
       consentLevel: "local_text",
       locale: "zh-CN",
       mode: input.mode ?? input.correction.inputMode,
+      modeSource: input.modeSource ?? input.correction.inputModeSource,
       asr: {
         providerId: sanitizeProviderId(input.asrProviderId),
         rawTranscript: rawTranscript.value,
