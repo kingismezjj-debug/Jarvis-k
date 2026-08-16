@@ -511,7 +511,7 @@ export function renderMarkdown(summary) {
     .slice(0, 10)
     .map(([key, value]) => `- ${key}: ${value}`);
   return [
-    "# Voice Command zh-CN v1 Baseline",
+    `# ${summary.benchmark ?? benchmarkName} Baseline`,
     "",
     `Generated: ${summary.generatedAt}`,
     `Git commit: ${summary.gitCommit}`,

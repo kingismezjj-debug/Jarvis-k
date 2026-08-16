@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "datasetVersion": "1.1",
+  "parentVersion": "1",
+  "parentDigest": "f8fac54bc046cc48c4f422ca541f7f9c829558a1db125bc8094a6092d23d2450",
+  "currentDigest": "6be5c0b2f5d371049fc609f4205f316bcff2a19910f966f56fb94e3b38fbc059",
+  "generatedAt": "2026-08-16T00:00:00.000Z",
+  "splitAlgorithmVersion": "group-aware-connected-components-v1",
+  "normalizationVersion": "zh-cn-text-normalization-v1",
+  "similarityThreshold": 0.9,
+  "fixedSeed": "jarvis-k-voice-command-zh-cn-v1.1-split-seed-2026-08-16",
+  "totalSamples": 637,
+  "totalGroups": 84,
+  "totalSimilarityComponents": 83,
+  "largestComponent": 64,
+  "splitCounts": {
+    "train": 413,
+    "test": 128,
+    "dev": 96
+  },
+  "categoryBySplit": {
+    "train": {
+      "normal_command": 208,
+      "asr_error": 42,
+      "ambiguous_or_dangerous": 85,
+      "plugin_command": 42,
+      "negative": 36
+    },
+    "test": {
+      "normal_command": 59,
+      "asr_error": 32,
+      "ambiguous_or_dangerous": 15,
+      "plugin_command": 8,
+      "negative": 14
+    },
+    "dev": {
+      "normal_command": 70,
+      "asr_error": 26
+    }
+  },
+  "modeBySplit": {
+    "train": {
+      "command": 377,
+      "dictation": 6,
+      "conversation": 30
+    },
+    "test": {
+      "command": 114,
+      "dictation": 9,
+      "conversation": 5
+    },
+    "dev": {
+      "command": 96
+    }
+  },
+  "intentBySplit": {
+    "train": {
+      "localApp.open": 76,
+      "browser.open": 20,
+      "filesystem.search": 10,
+      "notepad.write_text": 36,
+      "window.focus": 10,
+      "window.minimize": 10,
+      "window.restore": 6,
+      "memory.search": 25,
+      "observability.status": 13,
+      "model.status": 30,
+      "coding.task": 20,
+      "clarify": 40,
+      "blocked": 45,
+      "plugin.invoke": 42,
+      "chat.answer": 30
+    },
+    "test": {
+      "localApp.open": 50,
+      "filesystem.search": 25,
+      "browser.open": 16,
+      "blocked": 5,
+      "clarify": 10,
+      "plugin.invoke": 8,
+      "notepad.write_text": 9,
+      "chat.answer": 5
+    },
+    "dev": {
+      "localApp.open": 28,
+      "browser.open": 64,
+      "window.restore": 4
+    }
+  },
+  "riskBySplit": {
+    "train": {
+      "auto_eligible": 256,
+      "ambiguous": 76,
+      "dangerous": 45,
+      "safe_non_auto": 36
+    },
+    "test": {
+      "auto_eligible": 99,
+      "dangerous": 5,
+      "ambiguous": 10,
+      "safe_non_auto": 14
+    },
+    "dev": {
+      "auto_eligible": 96
+    }
+  },
+  "provenanceBySplit": {
+    "train": {
+      "synthetic_curated": 208,
+      "synthetic_asr_error": 42,
+      "synthetic_safety_case": 85,
+      "synthetic_plugin_command": 42,
+      "synthetic_negative": 36
+    },
+    "test": {
+      "synthetic_curated": 59,
+      "synthetic_asr_error": 32,
+      "synthetic_safety_case": 15,
+      "synthetic_plugin_command": 8,
+      "synthetic_negative": 14
+    },
+    "dev": {
+      "synthetic_curated": 70,
+      "synthetic_asr_error": 26
+    }
+  },
+  "crossGroupLeakage": {
+    "count": 0,
+    "examples": []
+  },
+  "crossSimilarityLeakage": {
+    "count": 0,
+    "examples": []
+  }
+}
