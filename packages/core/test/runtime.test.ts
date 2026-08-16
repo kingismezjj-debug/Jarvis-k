@@ -5441,8 +5441,14 @@ describe("CoreRuntime", () => {
         type: "agent.saveVoiceRegressionPendingSample",
         payload: {
           sampleId: sample!.id,
-          status: "accepted",
-          selectedCandidateIndex: 0,
+          feedback: {
+            kind: "dual_layer",
+            transcript: { status: "accepted" },
+            resolution: {
+              status: "accepted",
+              selectedCandidateIndex: 0,
+            },
+          },
         },
       }),
     );
@@ -5450,8 +5456,12 @@ describe("CoreRuntime", () => {
     expect(voiceRegressionRepository.records).toHaveLength(1);
     const [record] = voiceRegressionRepository.records;
     expect(record?.feedback).toMatchObject({
-      status: "accepted",
-      selectedCandidateIndex: 0,
+      kind: "dual_layer",
+      transcript: { status: "accepted" },
+      resolution: {
+        status: "accepted",
+        selectedCandidateIndex: 0,
+      },
     });
     expect(record?.asr.providerId).toBe("xunfei");
 
@@ -5471,20 +5481,34 @@ describe("CoreRuntime", () => {
 
     const feedback = await runtime.handle(
       createCommandEnvelope({
-      type: "agent.submitVoiceRegressionFeedback",
+        type: "agent.submitVoiceRegressionFeedback",
         payload: {
           recordId: record!.id,
-          status: "corrected",
-          correctedText: "\u6253\u5f00 VS Code",
-          intendedIntent: "localApp.open",
+          feedback: {
+            kind: "dual_layer",
+            transcript: {
+              status: "corrected",
+              correctedText: "\u6253\u5f00 VS Code",
+            },
+            resolution: {
+              status: "wrong_intent",
+              intendedIntent: "localApp.open",
+            },
+          },
         },
       }),
     );
     expect(feedback.ok).toBe(true);
     expect(voiceRegressionRepository.records[0]?.feedback).toMatchObject({
-      status: "corrected",
-      correctedText: "\u6253\u5f00 VS Code",
-      intendedIntent: "localApp.open",
+      kind: "dual_layer",
+      transcript: {
+        status: "corrected",
+        correctedText: "\u6253\u5f00 VS Code",
+      },
+      resolution: {
+        status: "wrong_intent",
+        intendedIntent: "localApp.open",
+      },
     });
     expect(voiceRegressionRepository.records[0]?.asr.providerId).toBe("xunfei");
 

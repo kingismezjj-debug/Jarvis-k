@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import {
-  type BrainIntent,
   type VoiceCommandCorrection,
   type VoiceInputMode,
   type VoiceInputModeSource,
@@ -11,8 +10,8 @@ import {
   type VoiceRegressionConsentLevel,
   type VoiceRegressionExport,
   VoiceRegressionExportSchema,
+  type VoiceRegressionDualFeedback,
   VoiceRegressionFeedbackSchema,
-  type VoiceRegressionFeedbackStatus,
   type VoiceRegressionRecord,
   VoiceRegressionRecordSchema,
   type VoiceRegressionSample,
@@ -185,10 +184,7 @@ export class VoiceRegressionService {
 
   public async savePendingSample(input: {
     sampleId: string;
-    status: VoiceRegressionFeedbackStatus;
-    selectedCandidateIndex?: number | undefined;
-    correctedText?: string | undefined;
-    intendedIntent?: BrainIntent | undefined;
+    feedback: VoiceRegressionDualFeedback;
   }): Promise<VoiceRegressionRecord | undefined> {
     if (!this.repository) {
       return undefined;
@@ -198,7 +194,7 @@ export class VoiceRegressionService {
     if (!sample) {
       return undefined;
     }
-    const feedback = this.createFeedback(input);
+    const feedback = this.createFeedback(input.feedback, sample);
     const record = VoiceRegressionRecordSchema.parse({
       ...sample,
       feedback,
@@ -237,28 +233,34 @@ export class VoiceRegressionService {
     }
     await this.ensureInitialized();
     await this.applyRetention();
-    return this.repository.listRecords(
+    const records = await this.repository.listRecords(
       options?.limit === undefined ? undefined : { limit: options.limit },
     );
+    return records.map((record) => VoiceRegressionRecordSchema.parse(record));
   }
 
   public async submitFeedback(input: {
     recordId: string;
-    status: VoiceRegressionFeedbackStatus;
-    selectedCandidateIndex?: number | undefined;
-    correctedText?: string | undefined;
-    intendedIntent?: BrainIntent | undefined;
+    feedback: VoiceRegressionDualFeedback;
   }): Promise<VoiceRegressionRecord | undefined> {
     if (!this.repository) {
       return undefined;
     }
     await this.ensureInitialized();
+    const existing = (
+      await this.repository.listRecords({ limit: MAX_RECORDS })
+    )
+      .map((record) => VoiceRegressionRecordSchema.parse(record))
+      .find((record) => record.id === input.recordId);
+    if (!existing) {
+      return undefined;
+    }
     const updated = await this.repository.updateFeedback({
       recordId: input.recordId,
-      feedback: this.createFeedback(input),
+      feedback: this.createFeedback(input.feedback, existing),
     });
     await this.applyRetention();
-    return updated;
+    return updated ? VoiceRegressionRecordSchema.parse(updated) : undefined;
   }
 
   public async deleteRecord(recordId: string): Promise<boolean> {
@@ -432,28 +434,41 @@ export class VoiceRegressionService {
     return sample;
   }
 
-  private createFeedback(input: {
-    status: VoiceRegressionFeedbackStatus;
-    selectedCandidateIndex?: number | undefined;
-    correctedText?: string | undefined;
-    intendedIntent?: BrainIntent | undefined;
-  }): VoiceRegressionRecord["feedback"] {
+  private createFeedback(
+    input: VoiceRegressionDualFeedback,
+    sample: Pick<VoiceRegressionSample, "resolver">,
+  ): VoiceRegressionRecord["feedback"] {
     const correctedText =
-      input.correctedText === undefined
+      input.transcript.correctedText === undefined
         ? undefined
-        : redactVoiceRegressionText(input.correctedText);
+        : redactVoiceRegressionText(input.transcript.correctedText);
     if (correctedText && !correctedText.ok) {
       throw new Error("VOICE_REGRESSION_SENSITIVE_FEEDBACK");
     }
+    if (
+      input.resolution.selectedCandidateIndex !== undefined &&
+      input.resolution.selectedCandidateIndex >= sample.resolver.candidates.length
+    ) {
+      throw new Error("VOICE_REGRESSION_SELECTED_CANDIDATE_INVALID");
+    }
+    const resolution =
+      input.transcript.status === "rejected"
+        ? {
+            status: "not_applicable" as const,
+            ...(input.resolution.intendedIntent === undefined
+              ? {}
+              : { intendedIntent: input.resolution.intendedIntent }),
+          }
+        : input.resolution;
     return VoiceRegressionFeedbackSchema.parse({
-      status: input.status,
-      ...(input.selectedCandidateIndex === undefined
-        ? {}
-        : { selectedCandidateIndex: input.selectedCandidateIndex }),
-      ...(correctedText === undefined ? {} : { correctedText: correctedText.value }),
-      ...(input.intendedIntent === undefined
-        ? {}
-        : { intendedIntent: input.intendedIntent }),
+      kind: "dual_layer",
+      transcript: {
+        status: input.transcript.status,
+        ...(correctedText === undefined
+          ? {}
+          : { correctedText: correctedText.value }),
+      },
+      resolution,
     });
   }
 
@@ -541,17 +556,23 @@ function createSampleKey(sample: VoiceRegressionSample): string {
 function extractFeedbackRedactions(
   feedback: VoiceRegressionRecord["feedback"],
 ): string[] {
-  return feedback.correctedText?.includes("[redacted") ? ["feedback"] : [];
+  const correctedText =
+    feedback.kind === "dual_layer"
+      ? feedback.transcript.correctedText
+      : feedback.correctedText;
+  return correctedText?.includes("[redacted") ? ["feedback"] : [];
 }
 
 function assertNoSensitiveVoiceRegressionRecordContent(
   record: VoiceRegressionRecord,
 ): void {
   assertNoSensitiveVoiceRegressionSampleContent(record);
+  const correctedText =
+    record.feedback.kind === "dual_layer"
+      ? record.feedback.transcript.correctedText
+      : record.feedback.correctedText;
   assertNoSensitiveVoiceRegressionUserContent(
-    record.feedback.correctedText === undefined
-      ? []
-      : [record.feedback.correctedText],
+    correctedText === undefined ? [] : [correctedText],
   );
 }
 

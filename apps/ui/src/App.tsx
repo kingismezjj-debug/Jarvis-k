@@ -1832,15 +1832,10 @@ export default function App() {
                   void refreshVoiceRegressionPendingSamples();
                   void refreshVoiceRegressionRecords();
                 },
-                saveRegressionPendingSample: (
-                  sampleId,
-                  status,
-                  correctedText,
-                ) => {
+                saveRegressionPendingSample: (sampleId, feedback) => {
                   void saveVoiceRegressionPendingSample(
                     sampleId,
-                    status,
-                    correctedText,
+                    feedback,
                   );
                 },
                 removeRouteAlias: (aliasId) => {
@@ -1858,8 +1853,8 @@ export default function App() {
                 stopCapture: (reason) => {
                   void ptt.stop(reason);
                 },
-                submitRegressionFeedback: (recordId, status) => {
-                  void submitVoiceRegressionFeedback(recordId, status);
+                submitRegressionFeedback: (recordId, feedback) => {
+                  void submitVoiceRegressionFeedback(recordId, feedback);
                 },
               }}
               viewModel={{

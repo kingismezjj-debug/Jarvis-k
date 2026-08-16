@@ -60,6 +60,7 @@ export function readAppCompositionSource() {
     "features/voice/voice-alias-confirmation.tsx",
     "features/voice/voice-capture-controls.tsx",
     "features/voice/voice-control-panel.tsx",
+    "features/voice/voice-regression-panel.tsx",
     "features/voice/voice-status.tsx",
     "features/voice/voice-transcript-panel.tsx",
     "features/voice/voice-view-model.ts",

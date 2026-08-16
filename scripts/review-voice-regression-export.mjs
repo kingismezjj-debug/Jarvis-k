@@ -81,7 +81,9 @@ const ids = new Set();
 const duplicateIds = [];
 const providerDistribution = {};
 const modeDistribution = {};
-const feedbackDistribution = {};
+const legacyFeedbackDistribution = {};
+const transcriptFeedbackDistribution = {};
+const resolutionFeedbackDistribution = {};
 const manualReviewIds = [];
 for (const record of lineRecords) {
   if (ids.has(record.id)) {
@@ -90,9 +92,17 @@ for (const record of lineRecords) {
   ids.add(record.id);
   increment(providerDistribution, record.asr.providerId);
   increment(modeDistribution, record.mode);
-  increment(feedbackDistribution, record.feedback.status);
+  if (record.feedback.kind === "dual_layer") {
+    increment(transcriptFeedbackDistribution, record.feedback.transcript.status);
+    increment(resolutionFeedbackDistribution, record.feedback.resolution.status);
+  } else {
+    increment(legacyFeedbackDistribution, record.feedback.status);
+  }
   if (
-    record.feedback.status === "corrected" ||
+    (record.feedback.kind === "dual_layer"
+      ? record.feedback.transcript.status === "corrected" ||
+        record.feedback.resolution.status !== "accepted"
+      : record.feedback.status === "corrected") ||
     record.resolver.clarificationRequired ||
     record.resolver.blocked
   ) {
@@ -106,7 +116,9 @@ const summary = {
   duplicateIds,
   providerDistribution,
   modeDistribution,
-  feedbackDistribution,
+  legacyFeedbackDistribution,
+  transcriptFeedbackDistribution,
+  resolutionFeedbackDistribution,
   manualReviewIds,
   uploadAttempted: false,
   datasetModified: false,

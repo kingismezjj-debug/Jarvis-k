@@ -671,6 +671,30 @@ export type VoiceRegressionFeedbackStatus = z.infer<
   typeof VoiceRegressionFeedbackStatusSchema
 >;
 
+export const VoiceRegressionTranscriptFeedbackStatusSchema = z.enum([
+  "accepted",
+  "corrected",
+  "rejected",
+  "unreviewed",
+]);
+export type VoiceRegressionTranscriptFeedbackStatus = z.infer<
+  typeof VoiceRegressionTranscriptFeedbackStatusSchema
+>;
+
+export const VoiceRegressionResolutionFeedbackStatusSchema = z.enum([
+  "accepted",
+  "wrong_intent",
+  "wrong_slots",
+  "should_clarify",
+  "should_block",
+  "should_not_route",
+  "not_applicable",
+  "unreviewed",
+]);
+export type VoiceRegressionResolutionFeedbackStatus = z.infer<
+  typeof VoiceRegressionResolutionFeedbackStatusSchema
+>;
+
 export const VoiceRegressionCandidateSchema = z
   .object({
     intent: BrainIntentSchema,
@@ -683,14 +707,91 @@ export type VoiceRegressionCandidate = z.infer<
   typeof VoiceRegressionCandidateSchema
 >;
 
-export const VoiceRegressionFeedbackSchema = z
+export const VoiceRegressionLegacyFeedbackSchema = z
   .object({
+    kind: z.literal("legacy_combined").default("legacy_combined"),
     status: VoiceRegressionFeedbackStatusSchema,
     selectedCandidateIndex: z.number().int().min(0).max(4).optional(),
     correctedText: z.string().trim().min(1).max(500).optional(),
     intendedIntent: BrainIntentSchema.optional(),
   })
   .strict();
+
+export const VoiceRegressionDualFeedbackSchema = z
+  .object({
+    kind: z.literal("dual_layer"),
+    transcript: z
+      .object({
+        status: VoiceRegressionTranscriptFeedbackStatusSchema,
+        correctedText: z.string().trim().min(1).max(500).optional(),
+      })
+      .strict(),
+    resolution: z
+      .object({
+        status: VoiceRegressionResolutionFeedbackStatusSchema,
+        selectedCandidateIndex: z.number().int().min(0).max(4).optional(),
+        intendedIntent: BrainIntentSchema.optional(),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((feedback, context) => {
+    if (
+      feedback.transcript.status === "corrected" &&
+      !feedback.transcript.correctedText
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "corrected transcript feedback requires correctedText",
+        path: ["transcript", "correctedText"],
+      });
+    }
+    if (
+      feedback.transcript.status !== "corrected" &&
+      feedback.transcript.correctedText !== undefined
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "correctedText is only allowed for corrected transcript feedback",
+        path: ["transcript", "correctedText"],
+      });
+    }
+    if (feedback.transcript.status === "unreviewed") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "saved records require reviewed transcript feedback",
+        path: ["transcript", "status"],
+      });
+    }
+    if (
+      feedback.transcript.status === "rejected" &&
+      feedback.resolution.status !== "not_applicable"
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "rejected transcript feedback requires not_applicable resolution feedback",
+        path: ["resolution", "status"],
+      });
+    }
+    if (
+      feedback.transcript.status !== "rejected" &&
+      feedback.resolution.status === "unreviewed"
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "saved records require reviewed resolution feedback",
+        path: ["resolution", "status"],
+      });
+    }
+  });
+export type VoiceRegressionDualFeedback = z.infer<
+  typeof VoiceRegressionDualFeedbackSchema
+>;
+
+export const VoiceRegressionFeedbackSchema = z.union([
+  VoiceRegressionDualFeedbackSchema,
+  VoiceRegressionLegacyFeedbackSchema,
+]);
 export type VoiceRegressionFeedback = z.infer<
   typeof VoiceRegressionFeedbackSchema
 >;
@@ -1643,10 +1744,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: z
       .object({
         sampleId: z.string().trim().min(1).max(128),
-        status: VoiceRegressionFeedbackStatusSchema,
-        selectedCandidateIndex: z.number().int().min(0).max(4).optional(),
-        correctedText: z.string().trim().min(1).max(500).optional(),
-        intendedIntent: BrainIntentSchema.optional(),
+        feedback: VoiceRegressionDualFeedbackSchema,
       })
       .strict(),
   }),
@@ -1667,10 +1765,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: z
       .object({
         recordId: z.string().trim().min(1).max(128),
-        status: VoiceRegressionFeedbackStatusSchema,
-        selectedCandidateIndex: z.number().int().min(0).max(4).optional(),
-        correctedText: z.string().trim().min(1).max(500).optional(),
-        intendedIntent: BrainIntentSchema.optional(),
+        feedback: VoiceRegressionDualFeedbackSchema,
       })
       .strict(),
   }),

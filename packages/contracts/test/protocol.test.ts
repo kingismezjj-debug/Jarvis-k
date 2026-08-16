@@ -43,6 +43,8 @@ import {
   MemorySnapshotSchema,
   VoiceAudioFrameSchema,
   VoiceAudioFrameMetadataSchema,
+  VoiceRegressionDualFeedbackSchema,
+  VoiceRegressionRecordSchema,
   VoiceRegressionSampleSchema,
   VoiceTranscriptSchema,
   UserControlledMemoryRecordSchema,
@@ -1265,6 +1267,87 @@ describe("protocol contracts", () => {
     ).toBe(false);
   });
 
+  it("separates new voice regression transcript and resolution feedback from legacy combined feedback", () => {
+    const dual = VoiceRegressionDualFeedbackSchema.parse({
+      kind: "dual_layer",
+      transcript: { status: "corrected", correctedText: "打开记事本" },
+      resolution: {
+        status: "wrong_intent",
+        intendedIntent: "localApp.open",
+      },
+    });
+    expect(dual).toMatchObject({
+      kind: "dual_layer",
+      transcript: { status: "corrected" },
+      resolution: { status: "wrong_intent" },
+    });
+    expect(
+      VoiceRegressionDualFeedbackSchema.safeParse({
+        kind: "dual_layer",
+        transcript: { status: "accepted" },
+        resolution: { status: "unreviewed" },
+      }).success
+    ).toBe(false);
+    expect(
+      VoiceRegressionDualFeedbackSchema.safeParse({
+        kind: "dual_layer",
+        transcript: { status: "corrected" },
+        resolution: { status: "accepted" },
+      }).success
+    ).toBe(false);
+
+    const legacyRecord = VoiceRegressionRecordSchema.parse({
+      ...voiceRegressionSampleFixture(),
+      feedback: {
+        status: "accepted",
+        selectedCandidateIndex: 0,
+      },
+    });
+    expect(legacyRecord.feedback).toMatchObject({
+      kind: "legacy_combined",
+      status: "accepted",
+    });
+    expect(legacyRecord.feedback).not.toHaveProperty("transcript");
+  });
+
+  it("requires dual voice regression feedback in new save and update commands", () => {
+    expect(
+      AgentCommandSchema.safeParse({
+        type: "agent.saveVoiceRegressionPendingSample",
+        payload: {
+          sampleId: "sample-1",
+          status: "accepted",
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      AgentCommandSchema.safeParse({
+        type: "agent.saveVoiceRegressionPendingSample",
+        payload: {
+          sampleId: "sample-1",
+          feedback: {
+            kind: "dual_layer",
+            transcript: { status: "accepted" },
+            resolution: { status: "accepted", selectedCandidateIndex: 0 },
+          },
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      AgentCommandSchema.safeParse({
+        type: "agent.submitVoiceRegressionFeedback",
+        payload: {
+          recordId: "record-1",
+          feedback: {
+            kind: "dual_layer",
+            transcript: { status: "rejected" },
+            resolution: { status: "not_applicable" },
+          },
+        },
+      }).success
+    ).toBe(true);
+  });
+
   it("accepts bounded Stage 5 session-hardening contracts", () => {
     const clearHistory = createCommandEnvelope({
       type: "agent.clearSessionHistory",
@@ -2227,3 +2310,42 @@ describe("protocol contracts", () => {
     });
   });
 });
+
+function voiceRegressionSampleFixture() {
+  return {
+    id: "voice-regression-sample-1",
+    schemaVersion: 1,
+    createdAt: "2026-08-16T00:00:00.000Z",
+    consentLevel: "local_text",
+    locale: "zh-CN",
+    mode: "command",
+    modeSource: "explicit_ui",
+    asr: {
+      providerId: "fixture-asr",
+      rawTranscript: "打开记事本",
+      isFinal: true,
+    },
+    resolver: {
+      version: "voice-command-resolver.deterministic.v1",
+      normalizedText: "打开记事本",
+      outcomeClass: "candidate",
+      candidates: [
+        {
+          intent: "localApp.open",
+          safeSlots: { target: "notepad" },
+          confidence: 0.95,
+          source: "slot_grammar",
+        },
+      ],
+      clarificationRequired: false,
+      blocked: false,
+      latencyMs: 1,
+    },
+    context: {},
+    privacy: {
+      redactions: [],
+      containsAudio: false,
+      uploadAllowed: false,
+    },
+  } as const;
+}

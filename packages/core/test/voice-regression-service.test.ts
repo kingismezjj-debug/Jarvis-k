@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type {
+  BrainIntent,
+  VoiceRegressionDualFeedback,
   VoiceRegressionConsentLevel,
+  VoiceRegressionResolutionFeedbackStatus,
   VoiceRegressionRecord,
+  VoiceRegressionTranscriptFeedbackStatus,
 } from "@jarvis-k/contracts";
 import {
   VoiceRegressionService,
@@ -213,8 +217,9 @@ describe("VoiceRegressionService", () => {
     expect(service.listPendingSamples()).toHaveLength(1);
     const saved = await service.savePendingSample({
       sampleId: captured.sample?.id ?? "",
-      status: "accepted",
-      selectedCandidateIndex: 0,
+      feedback: dualFeedback("accepted", "accepted", {
+        selectedCandidateIndex: 0,
+      }),
     });
     expect(saved?.asr).toMatchObject({
       providerId: "xunfei",
@@ -279,28 +284,43 @@ describe("VoiceRegressionService", () => {
     });
 
     const cases = [
-      { status: "accepted" as const, providerId: "xunfei" as const },
-      { status: "corrected" as const, providerId: "volcengine" as const },
-      { status: "rejected" as const, providerId: "fixture-asr" as const },
+      {
+        feedback: dualFeedback("accepted", "accepted"),
+        transcriptStatus: "accepted",
+        providerId: "xunfei" as const,
+      },
+      {
+        feedback: dualFeedback("corrected", "wrong_intent", {
+          correctedText: "open notepad",
+          intendedIntent: "localApp.open",
+        }),
+        transcriptStatus: "corrected",
+        providerId: "volcengine" as const,
+      },
+      {
+        feedback: dualFeedback("rejected", "not_applicable"),
+        transcriptStatus: "rejected",
+        providerId: "fixture-asr" as const,
+      },
     ];
     for (const [index, item] of cases.entries()) {
       const captured = await service.captureResolution({
         correction: correctionFixture({
-          rawTranscript: `打开记事本 ${index}`,
-          normalizedTranscript: `打开记事本 ${index}`,
+          rawTranscript: `鎵撳紑璁颁簨鏈?${index}`,
+          normalizedTranscript: `鎵撳紑璁颁簨鏈?${index}`,
         }),
         asrProviderId: item.providerId,
         modeSource: "explicit_ui",
       });
       const saved = await service.savePendingSample({
         sampleId: captured.sample?.id ?? "",
-        status: item.status,
-        ...(item.status === "corrected"
-          ? { correctedText: "打开记事本", intendedIntent: "localApp.open" as const }
-          : {}),
+        feedback: item.feedback,
       });
 
-      expect(saved?.feedback.status).toBe(item.status);
+      expect(saved?.feedback).toMatchObject({
+        kind: "dual_layer",
+        transcript: { status: item.transcriptStatus },
+      });
       expect(saved?.asr.providerId).toBe(item.providerId);
       expect(saved?.mode).toBe("command");
       expect(saved?.modeSource).toBe("explicit_ui");
@@ -323,23 +343,31 @@ describe("VoiceRegressionService", () => {
     expect(captured.pending).toBe(true);
     const saved = await service.savePendingSample({
       sampleId: captured.sample?.id ?? "",
-      status: "accepted",
-      selectedCandidateIndex: 0,
+      feedback: dualFeedback("accepted", "accepted", {
+        selectedCandidateIndex: 0,
+      }),
     });
     const id = saved?.id ?? "";
 
     await expect(
       service.submitFeedback({
         recordId: id,
-        status: "corrected",
-        correctedText: "\u6253\u5f00\u8bb0\u4e8b\u672c",
-        intendedIntent: "localApp.open",
+        feedback: dualFeedback("corrected", "wrong_intent", {
+          correctedText: "\u6253\u5f00\u8bb0\u4e8b\u672c",
+          intendedIntent: "localApp.open",
+        }),
       }),
     ).resolves.toMatchObject({
       feedback: {
-        status: "corrected",
-        correctedText: "\u6253\u5f00\u8bb0\u4e8b\u672c",
-        intendedIntent: "localApp.open",
+        kind: "dual_layer",
+        transcript: {
+          status: "corrected",
+          correctedText: "\u6253\u5f00\u8bb0\u4e8b\u672c",
+        },
+        resolution: {
+          status: "wrong_intent",
+          intendedIntent: "localApp.open",
+        },
       },
     });
     await expect(service.listRecords()).resolves.toHaveLength(1);
@@ -358,6 +386,112 @@ describe("VoiceRegressionService", () => {
     expect(exported.jsonl).toContain(id);
     await expect(service.deleteRecord(id)).resolves.toBe(true);
     await expect(service.clearRecords()).resolves.toBe(0);
+  });
+
+  it("requires explicit dual-layer feedback before saving pending samples", async () => {
+    const service = new VoiceRegressionService(
+      new InMemoryVoiceRegressionRepository(),
+      fixedNow,
+    );
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    const captured = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+
+    await expect(
+      service.savePendingSample({
+        sampleId: captured.sample?.id ?? "",
+        feedback: dualFeedback("accepted", "unreviewed"),
+      }),
+    ).rejects.toThrow();
+    await expect(
+      service.savePendingSample({
+        sampleId: captured.sample?.id ?? "",
+        feedback: dualFeedback("corrected", "accepted"),
+      }),
+    ).rejects.toThrow();
+
+    expect(service.listPendingSamples()).toHaveLength(1);
+  });
+
+  it("normalizes rejected transcript feedback to not_applicable resolution", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    const service = new VoiceRegressionService(repository, fixedNow);
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    const captured = await service.captureResolution({
+      correction: correctionFixture(),
+    });
+
+    const saved = await service.savePendingSample({
+      sampleId: captured.sample?.id ?? "",
+      feedback: dualFeedback("rejected", "wrong_intent", {
+        intendedIntent: "chat.answer",
+      }),
+    });
+
+    expect(saved?.feedback).toMatchObject({
+      kind: "dual_layer",
+      transcript: { status: "rejected" },
+      resolution: {
+        status: "not_applicable",
+        intendedIntent: "chat.answer",
+      },
+    });
+  });
+
+  it("saves wrong_slots, should_clarify, should_block, and should_not_route without free-form slot corrections", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    const service = new VoiceRegressionService(repository, fixedNow);
+    await service.setConsent({
+      consentLevel: "local_text",
+      confirmation: "explicit_ui_confirmation",
+    });
+    for (const status of [
+      "wrong_slots",
+      "should_clarify",
+      "should_block",
+      "should_not_route",
+    ] as const) {
+      const captured = await service.captureResolution({
+        correction: correctionFixture({
+          rawTranscript: `open notepad ${status}`,
+          normalizedTranscript: `open notepad ${status}`,
+        }),
+      });
+      const saved = await service.savePendingSample({
+        sampleId: captured.sample?.id ?? "",
+        feedback: dualFeedback("accepted", status),
+      });
+      expect(saved?.feedback).toMatchObject({
+        kind: "dual_layer",
+        resolution: { status },
+      });
+      expect(saved?.feedback).not.toHaveProperty("slotCorrection");
+    }
+  });
+
+  it("keeps legacy combined records readable without converting accepted into dual accepted", async () => {
+    const repository = new InMemoryVoiceRegressionRepository();
+    repository.records.push(recordFixture("legacy", "2026-08-16T00:00:00.000Z"));
+    const service = new VoiceRegressionService(repository, fixedNow);
+
+    const records = await service.listRecords();
+    expect(records[0]?.feedback).toMatchObject({
+      kind: "legacy_combined",
+      status: "accepted",
+    });
+    expect(records[0]?.feedback).not.toHaveProperty("transcript");
+    const exported = await service.exportRecords();
+    expect(exported.records[0]?.feedback).toMatchObject({
+      kind: "legacy_combined",
+      status: "accepted",
+    });
   });
 
   it("discards pending samples without persisting abandoned records", async () => {
@@ -397,7 +531,7 @@ describe("VoiceRegressionService", () => {
     expect(service.listPendingSamples()).toHaveLength(1);
     await service.savePendingSample({
       sampleId: first.sample?.id ?? "",
-      status: "accepted",
+      feedback: dualFeedback("accepted", "accepted"),
     });
     const third = await service.captureResolution({
       correction: correctionFixture(),
@@ -454,7 +588,7 @@ describe("VoiceRegressionService", () => {
       await expect(
         service.savePendingSample({
           sampleId: captured.sample?.id ?? "",
-          status: "accepted",
+          feedback: dualFeedback("accepted", "accepted"),
         }),
       ).resolves.toMatchObject({
         id: expect.stringContaining("1234-5678-9012"),
@@ -503,11 +637,16 @@ describe("VoiceRegressionService", () => {
 
     const saved = await service.savePendingSample({
       sampleId: captured.sample?.id ?? "",
-      status: "corrected",
-      correctedText: "correct phrase 138-1234-5678",
+      feedback: dualFeedback("corrected", "accepted", {
+        correctedText: "correct phrase 138-1234-5678",
+      }),
     });
 
-    expect(saved?.feedback.correctedText).toBe(
+    expect(
+      saved?.feedback.kind === "dual_layer"
+        ? saved.feedback.transcript.correctedText
+        : undefined,
+    ).toBe(
       "correct phrase [redacted:phone]",
     );
     expect(JSON.stringify(saved)).not.toContain("138-1234-5678");
@@ -540,7 +679,7 @@ describe("VoiceRegressionService", () => {
 
     await service.savePendingSample({
       sampleId: captured.sample?.id ?? "",
-      status: "accepted",
+      feedback: dualFeedback("accepted", "accepted"),
     });
     const exported = await service.exportRecords();
 
@@ -606,7 +745,7 @@ describe("VoiceRegressionService", () => {
     await expect(
       service.savePendingSample({
         sampleId: captured.sample?.id ?? "",
-        status: "accepted",
+        feedback: dualFeedback("accepted", "accepted"),
       }),
     ).rejects.toThrow("WRITE_FAILED");
 
@@ -661,6 +800,35 @@ function correctionFixture(input?: {
     requiresUserSelection: false,
     rawTranscriptPreserved: true as const,
     directActionAttempted: false as const,
+  };
+}
+
+function dualFeedback(
+  transcriptStatus: VoiceRegressionTranscriptFeedbackStatus,
+  resolutionStatus: VoiceRegressionResolutionFeedbackStatus,
+  options?: {
+    correctedText?: string;
+    intendedIntent?: BrainIntent;
+    selectedCandidateIndex?: number;
+  },
+): VoiceRegressionDualFeedback {
+  return {
+    kind: "dual_layer",
+    transcript: {
+      status: transcriptStatus,
+      ...(options?.correctedText === undefined
+        ? {}
+        : { correctedText: options.correctedText }),
+    },
+    resolution: {
+      status: resolutionStatus,
+      ...(options?.intendedIntent === undefined
+        ? {}
+        : { intendedIntent: options.intendedIntent }),
+      ...(options?.selectedCandidateIndex === undefined
+        ? {}
+        : { selectedCandidateIndex: options.selectedCandidateIndex }),
+    },
   };
 }
 

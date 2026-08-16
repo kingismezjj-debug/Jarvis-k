@@ -2,6 +2,7 @@ import type {
   UserRouteAliasRecord,
   VoiceCommandAliasRecord,
   VoiceRegressionCollectionStatus,
+  VoiceRegressionDualFeedback,
   VoiceRegressionRecord,
   VoiceRegressionSample,
 } from "@jarvis-k/contracts";
@@ -73,12 +74,11 @@ export type VoiceCaptureActions = {
   refreshRegressionRecords(): void;
   saveRegressionPendingSample(
     sampleId: string,
-    status: "accepted" | "corrected" | "rejected" | "abandoned",
-    correctedText?: string,
+    feedback: VoiceRegressionDualFeedback,
   ): void;
   setRegressionLocalTextCollection(enabled: boolean): void;
   submitRegressionFeedback(
     recordId: string,
-    status: "accepted" | "rejected" | "abandoned",
+    feedback: VoiceRegressionDualFeedback,
   ): void;
 };

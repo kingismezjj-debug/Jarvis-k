@@ -13,6 +13,7 @@ import {
   type VoiceInputMode,
   type VoiceInputModeSource,
   type VoiceRegressionCollectionStatus,
+  type VoiceRegressionDualFeedback,
   type VoiceRegressionSample,
   type VoiceRegressionRecord,
   type VoiceServiceStatus,
@@ -328,8 +329,7 @@ export function useJarvisVoiceActions({
   const saveVoiceRegressionPendingSample = useCallback(
     async (
       sampleId: string,
-      status: "accepted" | "corrected" | "rejected" | "abandoned",
-      correctedText?: string,
+      feedback: VoiceRegressionDualFeedback,
     ) => {
       if (!window.jarvis) {
         setError("Desktop bridge unavailable.");
@@ -341,8 +341,7 @@ export function useJarvisVoiceActions({
           type: "agent.saveVoiceRegressionPendingSample",
           payload: {
             sampleId,
-            status,
-            ...(correctedText === undefined ? {} : { correctedText }),
+            feedback,
           },
         });
         if (!result.ok) {
@@ -464,7 +463,7 @@ export function useJarvisVoiceActions({
   const submitVoiceRegressionFeedback = useCallback(
     async (
       recordId: string,
-      status: "accepted" | "rejected" | "abandoned",
+      feedback: VoiceRegressionDualFeedback,
     ) => {
       if (!window.jarvis) {
         setError("Desktop bridge unavailable.");
@@ -474,7 +473,7 @@ export function useJarvisVoiceActions({
       try {
         const result = await window.jarvis.sendCommand({
           type: "agent.submitVoiceRegressionFeedback",
-          payload: { recordId, status },
+          payload: { recordId, feedback },
         });
         if (!result.ok) {
           setError(result.error.message);

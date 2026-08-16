@@ -885,6 +885,23 @@ describe("voice UI wiring", () => {
     expect(appSource).not.toContain('?? "verification_failed"');
   });
 
+  it("uses dual-layer voice regression feedback instead of a combined Accept flow", () => {
+    expect(appSource).toContain("Is the voice transcript correct?");
+    expect(appSource).toContain("Did Jarvis understand the command correctly?");
+    expect(appSource).toContain("Save feedback");
+    expect(appSource).toContain('kind: "dual_layer"');
+    expect(appSource).toContain('status: "wrong_slots"');
+    expect(appSource).toContain('status: "should_block"');
+    expect(appSource).toContain('status: "should_not_route"');
+    expect(appSource).toContain("isDraftComplete(draft)");
+    expect(appSource).not.toContain(
+      'actions.saveRegressionPendingSample(sample.id, "accepted")',
+    );
+    expect(appSource).not.toContain(
+      'actions.saveRegressionPendingSample(sample.id, "rejected")',
+    );
+  });
+
   it("projects blocked brain dispatches through status and summary without verified wording", () => {
     expect(appSource).toContain('data-testid="brain-dispatch-panel"');
     expect(appSource).toContain("{brainResult.dispatchStatus}");

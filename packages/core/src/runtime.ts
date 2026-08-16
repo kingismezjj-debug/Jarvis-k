@@ -2683,10 +2683,7 @@ export class CoreRuntime {
     try {
       const record = await this.voiceRegressionService.savePendingSample({
         sampleId: envelope.command.payload.sampleId,
-        status: envelope.command.payload.status,
-        selectedCandidateIndex: envelope.command.payload.selectedCandidateIndex,
-        correctedText: envelope.command.payload.correctedText,
-        intendedIntent: envelope.command.payload.intendedIntent,
+        feedback: envelope.command.payload.feedback,
       });
       if (!record) {
         return this.failure(envelope, {
@@ -2770,10 +2767,7 @@ export class CoreRuntime {
     try {
       const record = await this.voiceRegressionService.submitFeedback({
         recordId: envelope.command.payload.recordId,
-        status: envelope.command.payload.status,
-        selectedCandidateIndex: envelope.command.payload.selectedCandidateIndex,
-        correctedText: envelope.command.payload.correctedText,
-        intendedIntent: envelope.command.payload.intendedIntent,
+        feedback: envelope.command.payload.feedback,
       });
       if (!record) {
         return this.failure(envelope, {
