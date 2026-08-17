@@ -20,10 +20,13 @@ export type VoiceRegressionPanelProps = {
     | "clearRegressionPendingSamples"
     | "clearRegressionRecords"
     | "discardRegressionPendingSample"
+    | "markPilotNoFinalTranscript"
+    | "markPilotOperatorDeviation"
     | "deleteRegressionRecord"
     | "exportRegressionRecords"
     | "refreshRegressionRecords"
     | "saveRegressionPendingSample"
+    | "startPilotPrompt"
     | "setRegressionLocalTextCollection"
     | "submitRegressionFeedback"
   >;
@@ -33,12 +36,20 @@ export type VoiceRegressionPanelProps = {
 
 type DraftFeedback = {
   correctedText: string;
+  overrideFeedbackWarning: boolean;
   resolutionStatus: VoiceRegressionResolutionFeedbackStatus;
   transcriptStatus: VoiceRegressionTranscriptFeedbackStatus;
 };
 
+type FeedbackWarning =
+  | "accepted_resolution_without_candidate"
+  | "expected_intent_matched_prefer_wrong_slots"
+  | "dangerous_prompt_should_block"
+  | "negative_prompt_should_not_route";
+
 const DEFAULT_DRAFT: DraftFeedback = {
   correctedText: "",
+  overrideFeedbackWarning: false,
   resolutionStatus: "unreviewed",
   transcriptStatus: "unreviewed",
 };
@@ -96,7 +107,18 @@ export function VoiceRegressionPanel({
     const draft = drafts[sample.id] ?? DEFAULT_DRAFT;
     const feedback = createDualFeedback(draft);
     if (!feedback) return;
-    actions.saveRegressionPendingSample(sample.id, feedback);
+    const warning = feedbackConsistencyWarning(
+      sample,
+      feedback,
+      status?.pilotSession?.currentPrompt,
+    );
+    if (warning && !draft.overrideFeedbackWarning) {
+      updateDraft(sample.id, { overrideFeedbackWarning: true });
+      return;
+    }
+    actions.saveRegressionPendingSample(sample.id, feedback, {
+      overrideFeedbackWarning: draft.overrideFeedbackWarning,
+    });
     setDrafts((current) => {
       const next = { ...current };
       delete next[sample.id];
@@ -203,6 +225,46 @@ export function VoiceRegressionPanel({
             value={status.pilotSession.sessionState}
           />
           <MetricRow
+            label="manifest"
+            value={`${status.pilotSession.manifestId ?? "none"} / ${shortDigest(status.pilotSession.manifestDigest)}`}
+          />
+          <MetricRow
+            label="progress"
+            value={`${status.pilotSession.terminalPromptCount ?? 0}/${status.pilotSession.expectedPromptCount ?? 20}`}
+          />
+          <MetricRow
+            label="current prompt"
+            value={
+              status.pilotSession.currentPrompt
+                ? `${status.pilotSession.currentPrompt.promptId} ${status.pilotSession.currentPrompt.status}`
+                : "none"
+            }
+          />
+          <MetricRow
+            label="prompt text"
+            value={status.pilotSession.currentPrompt?.displayText ?? "none"}
+          />
+          <MetricRow
+            label="manifest drift"
+            value={`dup ${status.pilotSession.duplicatePromptCount ?? 0} / order ${status.pilotSession.outOfOrderAttemptCount ?? 0} / extra ${status.pilotSession.nonManifestRecordCount ?? 0}`}
+          />
+          <MetricRow
+            label="prompt outcomes"
+            value={`no-final ${status.pilotSession.noFinalTranscriptCount ?? 0} / discard ${status.pilotSession.discardedCount ?? 0} / deviation ${status.pilotSession.operatorDeviationCount ?? 0}`}
+          />
+          <MetricRow
+            label="feedback warnings"
+            value={`${status.pilotSession.feedbackWarningCount ?? 0} / overrides ${status.pilotSession.feedbackWarningOverrideCount ?? 0}`}
+          />
+          <MetricRow
+            label="required context"
+            value={
+              status.pilotSession.requiredContext?.missing.length
+                ? `missing ${status.pilotSession.requiredContext.missing.join(", ")}`
+                : "ready"
+            }
+          />
+          <MetricRow
             label="session id"
             value={status.pilotSession.sessionShortId ?? "none"}
           />
@@ -236,6 +298,54 @@ export function VoiceRegressionPanel({
           />
         </dl>
       ) : null}
+      {status?.pilotSession ? (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <Button
+            className="h-8 rounded-md px-3 text-xs"
+            disabled={
+              sending ||
+              !status.pilotSession.allowManualPilot ||
+              status.pilotSession.currentPrompt?.status === "active" ||
+              status.pilotSession.currentPrompt?.status ===
+                "transcript_received"
+            }
+            onClick={actions.startPilotPrompt}
+            type="button"
+            variant="outline"
+          >
+            Start prompt
+          </Button>
+          <Button
+            className="h-8 rounded-md px-3 text-xs"
+            disabled={
+              sending ||
+              status.pilotSession.currentPrompt?.status !== "active"
+            }
+            onClick={actions.markPilotNoFinalTranscript}
+            type="button"
+            variant="outline"
+          >
+            No final
+          </Button>
+          <Button
+            className="h-8 rounded-md px-3 text-xs"
+            disabled={
+              sending ||
+              status.pilotSession.currentPrompt?.status !== "active"
+            }
+            onClick={() => {
+              const accepted = window.confirm(
+                "Mark this prompt as operator deviation and invalidate the strict Pilot session?",
+              );
+              if (accepted) actions.markPilotOperatorDeviation();
+            }}
+            type="button"
+            variant="ghost"
+          >
+            Operator deviation
+          </Button>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         {viewModel.pendingSamples.slice(0, 5).map((sample) => (
@@ -245,6 +355,7 @@ export function VoiceRegressionPanel({
             onDiscard={() => actions.discardRegressionPendingSample(sample.id)}
             onSave={() => saveSample(sample)}
             onUpdate={(patch) => updateDraft(sample.id, patch)}
+            pilotPrompt={status?.pilotSession?.currentPrompt}
             sample={sample}
             sending={sending}
           />
@@ -281,6 +392,7 @@ function PendingSampleCard({
   onDiscard,
   onSave,
   onUpdate,
+  pilotPrompt,
   sample,
   sending,
 }: {
@@ -288,6 +400,9 @@ function PendingSampleCard({
   onDiscard(): void;
   onSave(): void;
   onUpdate(patch: Partial<DraftFeedback>): void;
+  pilotPrompt:
+    | NonNullable<VoiceRegressionCollectionStatus["pilotSession"]>["currentPrompt"]
+    | undefined;
   sample: VoiceRegressionSample;
   sending: boolean;
 }) {
@@ -296,6 +411,10 @@ function PendingSampleCard({
     draft.transcriptStatus === "rejected"
       ? "not_applicable"
       : draft.resolutionStatus;
+  const feedback = createDualFeedback(draft);
+  const warning = feedback
+    ? feedbackConsistencyWarning(sample, feedback, pilotPrompt)
+    : undefined;
 
   return (
     <article
@@ -324,6 +443,11 @@ function PendingSampleCard({
         <Badge className="rounded-md text-[10px]" variant="outline">
           {sample.privacy.containsAudio ? "AUDIO" : "TEXT"}
         </Badge>
+        {sample.pilot ? (
+          <Badge className="rounded-md text-[10px]" variant="outline">
+            {sample.pilot.promptId}/{sample.pilot.ordinal}
+          </Badge>
+        ) : null}
       </div>
       <CandidateSummary sample={sample} />
 
@@ -408,6 +532,15 @@ function PendingSampleCard({
         )}
       </fieldset>
 
+      {warning ? (
+        <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-2 py-2 text-[11px] text-amber-900">
+          {feedbackWarningCopy(warning)}
+          {draft.overrideFeedbackWarning
+            ? " Click Save feedback again to confirm this override."
+            : " Save feedback now shows this warning first."}
+        </p>
+      ) : null}
+
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
           className="h-7 rounded-md px-2 text-[11px]"
@@ -416,7 +549,9 @@ function PendingSampleCard({
           type="button"
           variant="outline"
         >
-          Save feedback
+          {warning && draft.overrideFeedbackWarning
+            ? "Confirm save"
+            : "Save feedback"}
         </Button>
         <Button
           className="h-7 rounded-md px-2 text-[11px]"
@@ -573,6 +708,62 @@ function feedbackSummary(record: VoiceRegressionRecord): string {
   return `${record.feedback.transcript.status}/${record.feedback.resolution.status}`;
 }
 
+function feedbackConsistencyWarning(
+  sample: VoiceRegressionSample,
+  feedback: VoiceRegressionDualFeedback,
+  pilotPrompt:
+    | NonNullable<VoiceRegressionCollectionStatus["pilotSession"]>["currentPrompt"]
+    | undefined,
+): FeedbackWarning | undefined {
+  if (!pilotPrompt || feedback.transcript.status === "rejected") {
+    return undefined;
+  }
+  if (
+    feedback.resolution.status === "accepted" &&
+    (sample.resolver.outcomeClass === "no_candidate" ||
+      sample.resolver.outcomeClass === "clarification") &&
+    pilotPrompt.expectedIntent !== undefined
+  ) {
+    return "accepted_resolution_without_candidate";
+  }
+  const topIntent = sample.resolver.candidates[0]?.intent;
+  if (
+    feedback.resolution.status === "wrong_intent" &&
+    pilotPrompt.expectedIntent !== undefined &&
+    topIntent === pilotPrompt.expectedIntent
+  ) {
+    return "expected_intent_matched_prefer_wrong_slots";
+  }
+  if (
+    feedback.resolution.status === "accepted" &&
+    pilotPrompt.expectedOutcomeClass === "blocked" &&
+    !sample.resolver.blocked
+  ) {
+    return "dangerous_prompt_should_block";
+  }
+  if (
+    feedback.resolution.status === "accepted" &&
+    pilotPrompt.safetyClass === "negative_or_quoted" &&
+    sample.resolver.candidates.length > 0
+  ) {
+    return "negative_prompt_should_not_route";
+  }
+  return undefined;
+}
+
+function feedbackWarningCopy(warning: FeedbackWarning): string {
+  switch (warning) {
+    case "accepted_resolution_without_candidate":
+      return "Check this label: Accept means Jarvis fully understood the intent and key slots, not only that it produced a response.";
+    case "expected_intent_matched_prefer_wrong_slots":
+      return "The expected intent appears to match. If the target or parameters are wrong, prefer Wrong slots over Wrong intent.";
+    case "dangerous_prompt_should_block":
+      return "This prompt is expected to be safely blocked. If it was not blocked, use Should block.";
+    case "negative_prompt_should_not_route":
+      return "This negative or quoted prompt should not become an executable command. If it routed, use Not a command.";
+  }
+}
+
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
@@ -597,6 +788,10 @@ function formatTimestamp(value: string | undefined): string {
     return "not applied";
   }
   return new Date(value).toLocaleString();
+}
+
+function shortDigest(value: string | undefined): string {
+  return value ? value.slice(0, 8) : "none";
 }
 
 function formatExecutorDelta(

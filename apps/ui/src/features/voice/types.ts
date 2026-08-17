@@ -69,13 +69,17 @@ export type VoiceCaptureActions = {
   clearRegressionPendingSamples(): void;
   deleteRegressionRecord(recordId: string): void;
   discardRegressionPendingSample(sampleId: string): void;
+  markPilotNoFinalTranscript(): void;
+  markPilotOperatorDeviation(): void;
   exportRegressionRecords(): void;
   refreshRegressionPendingSamples(): void;
   refreshRegressionRecords(): void;
   saveRegressionPendingSample(
     sampleId: string,
     feedback: VoiceRegressionDualFeedback,
+    options?: { overrideFeedbackWarning?: boolean },
   ): void;
+  startPilotPrompt(): void;
   setRegressionLocalTextCollection(enabled: boolean): void;
   submitRegressionFeedback(
     recordId: string,

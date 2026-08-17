@@ -56,10 +56,13 @@ export function VoiceControlPanel({
               clearRegressionRecords: actions.clearRegressionRecords,
               discardRegressionPendingSample:
                 actions.discardRegressionPendingSample,
+              markPilotNoFinalTranscript: actions.markPilotNoFinalTranscript,
+              markPilotOperatorDeviation: actions.markPilotOperatorDeviation,
               deleteRegressionRecord: actions.deleteRegressionRecord,
               exportRegressionRecords: actions.exportRegressionRecords,
               refreshRegressionRecords: actions.refreshRegressionRecords,
               saveRegressionPendingSample: actions.saveRegressionPendingSample,
+              startPilotPrompt: actions.startPilotPrompt,
               setRegressionLocalTextCollection:
                 actions.setRegressionLocalTextCollection,
               submitRegressionFeedback: actions.submitRegressionFeedback,

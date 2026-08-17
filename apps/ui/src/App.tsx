@@ -113,6 +113,8 @@ export default function App() {
     clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
     discardVoiceRegressionPendingSample,
+    markPilotNoFinalTranscript,
+    markPilotOperatorDeviation,
     deleteVoiceRegressionRecord,
     deleteUserRouteAlias,
     deleteVoiceCommandAlias,
@@ -173,6 +175,7 @@ export default function App() {
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
+    startPilotPrompt,
     setVoiceRegressionLocalTextCollection,
     submitVoiceRegressionFeedback,
     sending,
@@ -1821,6 +1824,12 @@ export default function App() {
                 discardRegressionPendingSample: (sampleId) => {
                   void discardVoiceRegressionPendingSample(sampleId);
                 },
+                markPilotNoFinalTranscript: () => {
+                  void markPilotNoFinalTranscript();
+                },
+                markPilotOperatorDeviation: () => {
+                  void markPilotOperatorDeviation();
+                },
                 deleteRegressionRecord: (recordId) => {
                   void deleteVoiceRegressionRecord(recordId);
                 },
@@ -1832,10 +1841,11 @@ export default function App() {
                   void refreshVoiceRegressionPendingSamples();
                   void refreshVoiceRegressionRecords();
                 },
-                saveRegressionPendingSample: (sampleId, feedback) => {
+                saveRegressionPendingSample: (sampleId, feedback, options) => {
                   void saveVoiceRegressionPendingSample(
                     sampleId,
                     feedback,
+                    options,
                   );
                 },
                 removeRouteAlias: (aliasId) => {
@@ -1849,6 +1859,9 @@ export default function App() {
                 },
                 setRegressionLocalTextCollection: (enabled) => {
                   void setVoiceRegressionLocalTextCollection(enabled);
+                },
+                startPilotPrompt: () => {
+                  void startPilotPrompt();
                 },
                 stopCapture: (reason) => {
                   void ptt.stop(reason);
