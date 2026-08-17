@@ -326,14 +326,19 @@ function PendingSampleCard({
           />
         </div>
         {draft.transcriptStatus === "corrected" ? (
-          <input
+          <textarea
             aria-label="Corrected transcript"
-            className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+            className="min-h-16 w-full resize-y rounded-md border bg-background px-2 py-2 text-xs"
+            disabled={sending}
             maxLength={500}
+            onClick={(event) => event.stopPropagation()}
             onChange={(event) =>
               onUpdate({ correctedText: event.currentTarget.value })
             }
+            onKeyDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
             placeholder="Correct transcript"
+            rows={2}
             value={draft.correctedText}
           />
         ) : null}

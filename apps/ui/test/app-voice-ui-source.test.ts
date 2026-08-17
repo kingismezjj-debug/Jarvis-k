@@ -894,6 +894,14 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('status: "should_block"');
     expect(appSource).toContain('status: "should_not_route"');
     expect(appSource).toContain("isDraftComplete(draft)");
+    expect(appSource).toContain("<textarea");
+    expect(appSource).toContain(
+      'aria-label="Corrected transcript"',
+    );
+    expect(appSource).toContain("onKeyDown={(event) => event.stopPropagation()}");
+    expect(appSource).toContain(
+      "onPointerDown={(event) => event.stopPropagation()}",
+    );
     expect(appSource).not.toContain(
       'actions.saveRegressionPendingSample(sample.id, "accepted")',
     );
