@@ -71,6 +71,7 @@ import {
   ToolPolicy,
   ToolPolicyDecision,
   UserControlledMemoryRecord,
+  UserRouteAliasRecord,
   VoiceAsrProviderId,
   VoiceAsrProviderIdSchema,
   VoiceCommand,
@@ -79,6 +80,8 @@ import {
   type VoicePilotExpectedProviderId,
   VoicePilotSessionEvidenceSchema,
   type VoiceInputModeSource,
+  type VoiceRegressionDualFeedback,
+  type VoiceRegressionSample,
   createId,
 } from "@jarvis-k/contracts";
 import {
@@ -162,7 +165,10 @@ import {
   EffectfulActionAuditService,
   type EffectfulActionKind,
 } from "./effectful-action-audit-service";
-import { VoicePilotSessionService } from "./voice-pilot-session-service";
+import {
+  VoicePilotSessionService,
+  type VoicePilotRequiredContextResult,
+} from "./voice-pilot-session-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -590,6 +596,7 @@ export class CoreRuntime {
       repositoryPathProjection: voicePilot?.repositoryPathProjection,
       now: this.now,
       getAudit: () => this.effectfulActionAuditService.getProjection(),
+      getRequiredContext: () => this.getVoicePilotRequiredContext(),
     });
     this.chatDispatchService = new ChatDispatchService({
       provider: this.chatAnswerProvider,
@@ -883,6 +890,18 @@ export class CoreRuntime {
 
       case "agent.completeVoicePilotSession": {
         return this.completeVoicePilotSession(envelope);
+      }
+
+      case "agent.startVoicePilotPrompt": {
+        return this.startVoicePilotPrompt(envelope);
+      }
+
+      case "agent.markVoicePilotNoFinalTranscript": {
+        return this.markVoicePilotNoFinalTranscript(envelope);
+      }
+
+      case "agent.markVoicePilotOperatorDeviation": {
+        return this.markVoicePilotOperatorDeviation(envelope);
       }
 
       case "agent.setVoiceRegressionCollectionConsent": {
@@ -2035,10 +2054,23 @@ export class CoreRuntime {
       const providerId = VoiceAsrProviderIdSchema.parse(
         captureInput.asrProviderId ?? "unknown",
       );
-      if (!this.voicePilotSessionService.beforeCapture(providerId)) {
+      const pilotDecision = this.voicePilotSessionService.beforeCapture({
+        providerId,
+        mode: input.voiceCorrection.inputMode,
+        modeSource:
+          input.modeSource ?? input.voiceCorrection.inputModeSource,
+      });
+      if (!pilotDecision.allowed) {
         return;
       }
-      await this.voiceRegressionService.captureResolution(captureInput);
+      if (pilotDecision.pilot) {
+        captureInput.pilot = pilotDecision.pilot;
+      }
+      const captured =
+        await this.voiceRegressionService.captureResolution(captureInput);
+      if (captured.sample) {
+        this.voicePilotSessionService.attachPendingSample(captured.sample);
+      }
     } catch {
       // Voice regression collection is local-only and must never block normal voice routing.
     }
@@ -2630,7 +2662,18 @@ export class CoreRuntime {
         retryable: false,
       });
     }
-    const pilotSession = this.voicePilotSessionService.prepare();
+    const voiceRegressionStatus = await this.voiceRegressionService.getStatus();
+    if (
+      voiceRegressionStatus.recordCount > 0 ||
+      voiceRegressionStatus.pendingCount > 0
+    ) {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_REPOSITORY_NOT_EMPTY",
+        message: "Voice Pilot session requires an empty Voice Regression repository.",
+        retryable: false,
+      });
+    }
+    const pilotSession = await this.voicePilotSessionService.prepare();
     if (!pilotSession.allowManualPilot) {
       return this.failure(envelope, {
         code: pilotSession.invalidationReason ?? "VOICE_PILOT_SESSION_UNAVAILABLE",
@@ -2689,6 +2732,75 @@ export class CoreRuntime {
       pilotSessionEvidence: VoicePilotSessionEvidenceSchema.parse(
         pilotSessionEvidence,
       ),
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async startVoicePilotPrompt(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.startVoicePilotPrompt") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot prompt start received an invalid command.",
+        retryable: false,
+      });
+    }
+    const pilotSession = this.voicePilotSessionService.startPrompt();
+    if (
+      !pilotSession.allowManualPilot ||
+      pilotSession.currentPrompt?.status !== "active"
+    ) {
+      return this.failure(envelope, {
+        code: pilotSession.invalidationReason ?? "VOICE_PILOT_PROMPT_UNAVAILABLE",
+        message: "Voice Pilot prompt cannot be started.",
+        retryable: false,
+      });
+    }
+    return this.success(envelope, {
+      pilotSession,
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async markVoicePilotNoFinalTranscript(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.markVoicePilotNoFinalTranscript") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot no-final received an invalid command.",
+        retryable: false,
+      });
+    }
+    const pilotSession =
+      this.voicePilotSessionService.markNoFinalTranscript();
+    return this.success(envelope, {
+      pilotSession,
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async markVoicePilotOperatorDeviation(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.markVoicePilotOperatorDeviation") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot operator deviation received an invalid command.",
+        retryable: false,
+      });
+    }
+    const pilotSession =
+      this.voicePilotSessionService.markOperatorDeviation();
+    return this.success(envelope, {
+      pilotSession,
       rawAudioPersisted: false,
       uploadAttempted: false,
       directActionAttempted: false,
@@ -2808,14 +2920,29 @@ export class CoreRuntime {
       const pendingSample = this.voiceRegressionService
         .listPendingSamples({ limit: 50 })
         .find((sample) => sample.id === payload.sampleId);
-      if (
-        pendingSample &&
-        !this.voicePilotSessionService.beforeSave(pendingSample.asr.providerId)
-      ) {
+      if (pendingSample) {
+        const pilotDecision = this.voicePilotSessionService.beforeSave({
+          sample: pendingSample,
+          feedback: payload.feedback,
+          overrideFeedbackWarning: payload.overrideFeedbackWarning,
+        });
+        if (!pilotDecision.allowed) {
+          return this.failure(envelope, {
+            code:
+              pilotDecision.reason === "VOICE_PILOT_PROMPT_FEEDBACK_WARNING"
+                ? "VOICE_PILOT_PROMPT_FEEDBACK_WARNING"
+                : "VOICE_PILOT_PROMPT_SAVE_BLOCKED",
+            message:
+              pilotDecision.warning ??
+              "Voice Pilot pending sample is not valid for the active manifest prompt.",
+            retryable: false,
+          });
+        }
+      }
+      if (!pendingSample) {
         return this.failure(envelope, {
-          code: "VOICE_PILOT_PROVIDER_MISMATCH",
-          message:
-            "Voice Pilot pending sample provider does not match the active session.",
+          code: "VOICE_REGRESSION_PENDING_NOT_FOUND",
+          message: "Voice regression pending sample was not found.",
           retryable: false,
         });
       }
@@ -2830,7 +2957,7 @@ export class CoreRuntime {
           retryable: false,
         });
       }
-      this.voicePilotSessionService.recordSaved(record.asr.providerId);
+      this.voicePilotSessionService.recordSaved({ record });
       return this.success(envelope, {
         record,
         persisted: true,
@@ -2858,9 +2985,25 @@ export class CoreRuntime {
       });
     }
     try {
+      const payload = envelope.command.payload;
+      const pendingSample = this.voiceRegressionService
+        .listPendingSamples({ limit: 50 })
+        .find((sample) => sample.id === payload.sampleId);
+      if (pendingSample) {
+        const pilotDecision =
+          this.voicePilotSessionService.recordDiscard(pendingSample);
+        if (!pilotDecision.allowed) {
+          return this.failure(envelope, {
+            code: "VOICE_PILOT_PROMPT_DISCARD_BLOCKED",
+            message:
+              "Voice Pilot pending sample cannot be discarded for this prompt.",
+            retryable: false,
+          });
+        }
+      }
       return this.success(envelope, {
         discarded: this.voiceRegressionService.discardPendingSample(
-          envelope.command.payload.sampleId,
+          payload.sampleId,
         ),
         rawAudioPersisted: false,
         uploadAttempted: false,
@@ -6402,6 +6545,70 @@ export class CoreRuntime {
     this.localPluginStateRepositoryInitialized = true;
   }
 
+  private async getVoicePilotRequiredContext(): Promise<VoicePilotRequiredContextResult> {
+    const routeAliases: string[] = [];
+    const readonlyPlugins: string[] = [];
+    const missing: string[] = [];
+
+    let jarvisRouteAliasReady = false;
+    if (this.userRouteAliasRepository) {
+      await this.userRouteAliasRepository.initialize();
+      const aliases = await this.userRouteAliasRepository.listAliases();
+      jarvisRouteAliasReady = aliases.some((alias) =>
+        isJarvisProjectHomepageAlias(alias),
+      );
+      if (jarvisRouteAliasReady) {
+        routeAliases.push("route_alias:jarvis_project_homepage");
+      }
+    }
+    if (!jarvisRouteAliasReady) {
+      missing.push("route_alias:jarvis_project_homepage");
+    }
+
+    let readonlyPluginReady = false;
+    const manifest = await this.pluginRegistry?.getPlugin(
+      "cn.example.hello-readonly",
+    );
+    const capability = manifest?.capabilities.find(
+      (item) => item.name === "hello.lookup",
+    );
+    if (
+      manifest &&
+      capability?.readOnly === true &&
+      capability.risk === "read_only"
+    ) {
+      const executablePluginIds = new Set(
+        this.pluginRuntime?.listExecutablePluginIds
+          ? await this.pluginRuntime.listExecutablePluginIds()
+          : [],
+      );
+      const localReadOnlyPluginIds = new Set(
+        this.pluginRuntime?.listLocalReadOnlyPluginIds
+          ? await this.pluginRuntime.listLocalReadOnlyPluginIds()
+          : [],
+      );
+      await this.ensureLocalPluginStateRepositoryInitialized();
+      const state = await this.localPluginStateRepository?.getState(
+        manifest.id,
+      );
+      readonlyPluginReady =
+        executablePluginIds.has(manifest.id) &&
+        localReadOnlyPluginIds.has(manifest.id) &&
+        state?.enabled === true;
+    }
+    if (readonlyPluginReady) {
+      readonlyPlugins.push(
+        "plugin:cn.example.hello-readonly:hello.lookup:readonly_enabled",
+      );
+    } else {
+      missing.push(
+        "plugin:cn.example.hello-readonly:hello.lookup:readonly_enabled",
+      );
+    }
+
+    return { routeAliases, readonlyPlugins, missing };
+  }
+
   private async getLocalPluginEnabledStateRecords(
     plugins: readonly PluginManifest[],
   ): Promise<Map<string, LocalPluginEnabledStateRecord>> {
@@ -6685,5 +6892,22 @@ function maxPluginRiskTier(
     (highest, riskTier) =>
       rank[riskTier] > rank[highest] ? riskTier : highest,
     "low",
+  );
+}
+
+function isJarvisProjectHomepageAlias(alias: UserRouteAliasRecord): boolean {
+  const values = [
+    alias.label,
+    alias.targetHostname,
+    alias.targetUrl,
+    ...alias.aliases,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.toLowerCase());
+  return (
+    values.some((value) => value.includes("jarvis")) &&
+    values.some((value) =>
+      /project|homepage|home|主页|项目|repo|repository/u.test(value),
+    )
   );
 }

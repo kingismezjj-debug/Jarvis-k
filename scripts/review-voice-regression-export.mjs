@@ -13,6 +13,14 @@ const contractsPath = path.join(
   "dist",
   "index.js",
 );
+const corePath = path.join(
+  __dirname,
+  "..",
+  "packages",
+  "core",
+  "dist",
+  "index.js",
+);
 
 const SENSITIVE_RULES = [
   ["bearer_token", /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/giu],
@@ -51,6 +59,7 @@ const {
   VoiceRegressionRecordSchema,
 } =
   await import(pathToFileURL(contractsPath).href);
+const { VOICE_PILOT_MANIFEST } = await import(pathToFileURL(corePath).href);
 const raw = await readFile(filePath, "utf8");
 const parsed = parseExport(raw);
 const exportResult = VoiceRegressionExportSchema.safeParse(parsed);
@@ -139,6 +148,17 @@ const summary = {
           pilotSessionEvidence.actualProviderIdsObserved,
         executorInvocationDelta:
           pilotSessionEvidence.executorInvocationDelta,
+        manifestId: pilotSessionEvidence.manifestId,
+        manifestDigest: pilotSessionEvidence.manifestDigest,
+        expectedPromptCount: pilotSessionEvidence.expectedPromptCount,
+        terminalPromptCount: pilotSessionEvidence.terminalPromptCount,
+        savedRecordCount: pilotSessionEvidence.savedRecordCount,
+        noFinalTranscriptCount: pilotSessionEvidence.noFinalTranscriptCount,
+        discardedCount: pilotSessionEvidence.discardedCount,
+        operatorDeviationCount: pilotSessionEvidence.operatorDeviationCount,
+        duplicatePromptCount: pilotSessionEvidence.duplicatePromptCount,
+        outOfOrderAttemptCount: pilotSessionEvidence.outOfOrderAttemptCount,
+        nonManifestRecordCount: pilotSessionEvidence.nonManifestRecordCount,
         sessionValid: pilotSessionEvidence.sessionValid,
       }
     : undefined,
@@ -201,6 +221,9 @@ function validatePilotSessionEvidence(evidence, exportData, records) {
       fail("VOICE_PILOT_RECORD_PROVIDER_MISMATCH");
     }
   }
+  if (evidence.manifestId) {
+    validateStrictPilotManifestEvidence(evidence, records);
+  }
   const evidenceText = JSON.stringify(evidence);
   if (
     /rawTranscript|normalizedText|correctedText|safeSlots|[A-Z]:\\|\\\\|https?:\/\//u.test(
@@ -208,6 +231,82 @@ function validatePilotSessionEvidence(evidence, exportData, records) {
     )
   ) {
     fail("VOICE_PILOT_EVIDENCE_CONTAINS_USER_CONTENT");
+  }
+}
+
+function validateStrictPilotManifestEvidence(evidence, records) {
+  if (evidence.manifestId !== VOICE_PILOT_MANIFEST.manifestId) {
+    fail("VOICE_PILOT_MANIFEST_ID_MISMATCH");
+  }
+  if (evidence.manifestDigest !== VOICE_PILOT_MANIFEST.digest) {
+    fail("VOICE_PILOT_MANIFEST_DIGEST_MISMATCH");
+  }
+  if (evidence.expectedPromptCount !== VOICE_PILOT_MANIFEST.promptCount) {
+    fail("VOICE_PILOT_MANIFEST_PROMPT_COUNT_MISMATCH");
+  }
+  const outcomes = evidence.promptOutcomes ?? [];
+  if (outcomes.length !== VOICE_PILOT_MANIFEST.promptCount) {
+    fail("VOICE_PILOT_PROMPT_OUTCOME_COUNT_MISMATCH");
+  }
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const seen = new Set();
+  for (const prompt of VOICE_PILOT_MANIFEST.prompts) {
+    const outcome = outcomes.find((item) => item.promptId === prompt.promptId);
+    if (!outcome || outcome.ordinal !== prompt.ordinal) {
+      fail("VOICE_PILOT_PROMPT_OUTCOME_ORDER_MISMATCH");
+    }
+    if (seen.has(outcome.promptId)) {
+      fail("VOICE_PILOT_PROMPT_DUPLICATE");
+    }
+    seen.add(outcome.promptId);
+    if (outcome.status === "feedback_saved") {
+      if (!outcome.recordId) {
+        fail("VOICE_PILOT_PROMPT_RECORD_LINK_MISSING");
+      }
+      const record = recordById.get(outcome.recordId);
+      if (!record) {
+        fail("VOICE_PILOT_PROMPT_RECORD_NOT_FOUND");
+      }
+      if (
+        record.pilot?.sessionId !== evidence.sessionId ||
+        record.pilot?.manifestId !== VOICE_PILOT_MANIFEST.manifestId ||
+        record.pilot?.manifestDigest !== VOICE_PILOT_MANIFEST.digest ||
+        record.pilot?.promptId !== outcome.promptId ||
+        record.pilot?.ordinal !== outcome.ordinal
+      ) {
+        fail("VOICE_PILOT_PROMPT_RECORD_LINK_MISMATCH");
+      }
+      if (
+        outcome.recordDigestSha256 &&
+        createHash("sha256")
+          .update(JSON.stringify(record), "utf8")
+          .digest("hex") !== outcome.recordDigestSha256
+      ) {
+        fail("VOICE_PILOT_PROMPT_RECORD_DIGEST_MISMATCH");
+      }
+    }
+  }
+  const pilotRecords = records.filter((record) => record.pilot);
+  if (pilotRecords.length !== evidence.savedRecordCount) {
+    fail("VOICE_PILOT_SAVED_RECORD_COUNT_MISMATCH");
+  }
+  if (evidence.terminalPromptCount !== VOICE_PILOT_MANIFEST.promptCount) {
+    fail("VOICE_PILOT_TERMINAL_PROMPT_COUNT_MISMATCH");
+  }
+  if ((evidence.discardedCount ?? 0) !== 0) {
+    fail("VOICE_PILOT_DISCARDED_STRICT_FAIL");
+  }
+  if ((evidence.operatorDeviationCount ?? 0) !== 0) {
+    fail("VOICE_PILOT_OPERATOR_DEVIATION_STRICT_FAIL");
+  }
+  if ((evidence.duplicatePromptCount ?? 0) !== 0) {
+    fail("VOICE_PILOT_DUPLICATE_STRICT_FAIL");
+  }
+  if ((evidence.outOfOrderAttemptCount ?? 0) !== 0) {
+    fail("VOICE_PILOT_OUT_OF_ORDER_STRICT_FAIL");
+  }
+  if ((evidence.nonManifestRecordCount ?? 0) !== 0) {
+    fail("VOICE_PILOT_NON_MANIFEST_STRICT_FAIL");
   }
 }
 

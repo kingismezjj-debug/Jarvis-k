@@ -847,6 +847,16 @@ export const VoiceRegressionSampleSchema = z
         uploadAllowed: z.literal(false),
       })
       .strict(),
+    pilot: z
+      .object({
+        sessionId: z.string().min(1).max(128),
+        manifestId: z.string().min(1).max(128),
+        manifestDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+        promptId: z.string().regex(/^P\d{2}$/u),
+        ordinal: z.number().int().min(1).max(20),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -918,6 +928,12 @@ export const VoicePilotInvalidationReasonSchema = z.enum([
   "EXECUTOR_INVOKED",
   "SESSION_INTERRUPTED",
   "REPOSITORY_NOT_EMPTY",
+  "REQUIRED_CONTEXT_MISSING",
+  "PROMPT_ORDER_VIOLATION",
+  "PROMPT_ALREADY_HAS_TRANSCRIPT",
+  "NO_ACTIVE_PROMPT",
+  "MODE_MISMATCH",
+  "OPERATOR_DEVIATION",
 ]);
 export type VoicePilotInvalidationReason = z.infer<
   typeof VoicePilotInvalidationReasonSchema
@@ -933,6 +949,63 @@ export type VoicePilotAuditCounters = z.infer<
   typeof VoicePilotAuditCountersSchema
 >;
 
+export const VoicePilotPromptStatusSchema = z.enum([
+  "pending",
+  "active",
+  "transcript_received",
+  "feedback_saved",
+  "no_final_transcript",
+  "discarded",
+  "invalidated",
+]);
+export type VoicePilotPromptStatus = z.infer<
+  typeof VoicePilotPromptStatusSchema
+>;
+
+export const VoicePilotPromptProjectionSchema = z
+  .object({
+    promptId: z.string().regex(/^P\d{2}$/u),
+    ordinal: z.number().int().min(1).max(20),
+    displayText: z.string().trim().min(1).max(300),
+    expectedOutcomeClass: z.enum([
+      "candidate",
+      "clarification",
+      "blocked",
+      "no_candidate",
+    ]),
+    expectedIntent: BrainIntentSchema.optional(),
+    expectedSlotKeys: z.array(z.string().trim().min(1).max(64)).max(12),
+    candidateRequired: z.boolean(),
+    safetyClass: z.enum([
+      "low_risk",
+      "write_text",
+      "observe_only",
+      "negative_or_quoted",
+      "destructive_blocked",
+    ]),
+    requiredContext: z.array(z.string().trim().min(1).max(160)).max(8),
+    status: VoicePilotPromptStatusSchema,
+  })
+  .strict();
+
+export const VoicePilotPromptOutcomeSchema = z
+  .object({
+    promptId: z.string().regex(/^P\d{2}$/u),
+    ordinal: z.number().int().min(1).max(20),
+    status: VoicePilotPromptStatusSchema,
+    recordId: z.string().min(1).max(128).optional(),
+    recordDigestSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  })
+  .strict();
+
+export const VoicePilotRequiredContextSummarySchema = z
+  .object({
+    routeAliases: z.array(z.string().trim().min(1).max(128)).max(8),
+    readonlyPlugins: z.array(z.string().trim().min(1).max(128)).max(8),
+    missing: z.array(z.string().trim().min(1).max(160)).max(16),
+  })
+  .strict();
+
 export const VoicePilotSessionProjectionSchema = z
   .object({
     sessionId: z.string().min(1).max(128).optional(),
@@ -943,6 +1016,20 @@ export const VoicePilotSessionProjectionSchema = z
     inputMode: z.literal("command"),
     inputModeSource: z.literal("explicit_ui"),
     repositoryPathProjection: z.string().min(1).max(160).optional(),
+    manifestId: z.string().min(1).max(128).optional(),
+    manifestDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    expectedPromptCount: z.number().int().min(0).max(20).optional(),
+    currentPrompt: VoicePilotPromptProjectionSchema.optional(),
+    terminalPromptCount: z.number().int().nonnegative().max(20).optional(),
+    noFinalTranscriptCount: z.number().int().nonnegative().max(20).optional(),
+    discardedCount: z.number().int().nonnegative().max(20).optional(),
+    operatorDeviationCount: z.number().int().nonnegative().max(20).optional(),
+    duplicatePromptCount: z.number().int().nonnegative().optional(),
+    outOfOrderAttemptCount: z.number().int().nonnegative().optional(),
+    nonManifestRecordCount: z.number().int().nonnegative().optional(),
+    feedbackWarningCount: z.number().int().nonnegative().optional(),
+    feedbackWarningOverrideCount: z.number().int().nonnegative().optional(),
+    requiredContext: VoicePilotRequiredContextSummarySchema.optional(),
     auditBaseline: VoicePilotAuditCountersSchema.optional(),
     auditCurrent: VoicePilotAuditCountersSchema.optional(),
     sessionState: VoicePilotSessionStateSchema,
@@ -969,6 +1056,21 @@ export const VoicePilotSessionEvidenceSchema = z
       .min(1)
       .max(8),
     recordCount: z.number().int().nonnegative(),
+    manifestId: z.string().min(1).max(128).optional(),
+    manifestDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    expectedPromptCount: z.number().int().min(0).max(20).optional(),
+    terminalPromptCount: z.number().int().nonnegative().max(20).optional(),
+    savedRecordCount: z.number().int().nonnegative().max(20).optional(),
+    noFinalTranscriptCount: z.number().int().nonnegative().max(20).optional(),
+    discardedCount: z.number().int().nonnegative().max(20).optional(),
+    operatorDeviationCount: z.number().int().nonnegative().max(20).optional(),
+    duplicatePromptCount: z.number().int().nonnegative().optional(),
+    outOfOrderAttemptCount: z.number().int().nonnegative().optional(),
+    nonManifestRecordCount: z.number().int().nonnegative().optional(),
+    feedbackWarningCount: z.number().int().nonnegative().optional(),
+    feedbackWarningOverrideCount: z.number().int().nonnegative().optional(),
+    requiredContext: VoicePilotRequiredContextSummarySchema.optional(),
+    promptOutcomes: z.array(VoicePilotPromptOutcomeSchema).max(20).optional(),
     recordExportDigestSha256: z.string().regex(/^[a-f0-9]{64}$/u),
     executorInvocationBaseline: z.number().int().nonnegative(),
     executorInvocationFinal: z.number().int().nonnegative(),
@@ -1827,6 +1929,18 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema,
   }),
   z.object({
+    type: z.literal("agent.startVoicePilotPrompt"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("agent.markVoicePilotNoFinalTranscript"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("agent.markVoicePilotOperatorDeviation"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
     type: z.literal("agent.setVoiceRegressionCollectionConsent"),
     payload: z
       .object({
@@ -1857,6 +1971,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .object({
         sampleId: z.string().trim().min(1).max(128),
         feedback: VoiceRegressionDualFeedbackSchema,
+        overrideFeedbackWarning: z.boolean().optional(),
       })
       .strict(),
   }),

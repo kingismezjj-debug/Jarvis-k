@@ -21,10 +21,21 @@ function runPreflight(env: Record<string, string | undefined>) {
       JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: undefined,
       JARVIS_K_VOICE_PILOT_INPUT_MODE: undefined,
       JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: undefined,
+      JARVIS_K_VOICE_PILOT_ROUTE_ALIAS_READY: undefined,
+      JARVIS_K_VOICE_PILOT_READONLY_PLUGIN_READY: undefined,
+      JARVIS_K_VOICE_REGRESSION_REPOSITORY_EMPTY: undefined,
       ...env,
     },
     encoding: "utf8",
   });
+}
+
+function readyPilotContext() {
+  return {
+    JARVIS_K_VOICE_PILOT_ROUTE_ALIAS_READY: "1",
+    JARVIS_K_VOICE_PILOT_READONLY_PLUGIN_READY: "1",
+    JARVIS_K_VOICE_REGRESSION_REPOSITORY_EMPTY: "1",
+  };
 }
 
 describe("voice pilot provider identity preflight", () => {
@@ -56,6 +67,7 @@ describe("voice pilot provider identity preflight", () => {
       "smoke-asr",
     ]) {
       const result = runPreflight({
+        ...readyPilotContext(),
         JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
         JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "xunfei",
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: providerId,
@@ -81,6 +93,7 @@ describe("voice pilot provider identity preflight", () => {
       ["volcengine", "xunfei", "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE"],
     ] as const) {
       const result = runPreflight({
+        ...readyPilotContext(),
         JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
         JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: expected,
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: actual,
@@ -102,6 +115,7 @@ describe("voice pilot provider identity preflight", () => {
   it("allows manual pilot only for a matching real ready provider with non-execution proof", () => {
     for (const providerId of ["xunfei", "volcengine"] as const) {
       const result = runPreflight({
+        ...readyPilotContext(),
         JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
         JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: providerId,
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: providerId,
@@ -142,6 +156,7 @@ describe("voice pilot provider identity preflight", () => {
       ["conversation", "explicit_ui"],
     ] as const) {
       const result = runPreflight({
+        ...readyPilotContext(),
         JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
         JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "xunfei",
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: "xunfei",

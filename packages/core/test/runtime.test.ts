@@ -1992,6 +1992,9 @@ function createRuntimeWithBrainActionExecutorAndTasks(
   voiceRegressionRepository?: VoiceRegressionRepository,
   runtimeSafety?: CoreRuntimeSafetyOptions,
   voicePilot?: CoreVoicePilotOptions,
+  pluginRegistry?: PluginRegistry,
+  pluginRuntime?: PluginRuntime,
+  localPluginStateRepository?: LocalPluginStateRepository,
 ) {
   return createRuntime(
     undefined,
@@ -2021,10 +2024,10 @@ function createRuntimeWithBrainActionExecutorAndTasks(
     undefined,
     undefined,
     taskRepository,
+    pluginRegistry,
+    pluginRuntime,
     undefined,
-    undefined,
-    undefined,
-    undefined,
+    localPluginStateRepository,
     voiceCommandAliasRepository,
     userRouteAliasRepository,
     undefined,
@@ -5594,6 +5597,25 @@ describe("CoreRuntime", () => {
 
   it("binds Pilot session evidence to matching provider records and runtime audit counters", async () => {
     const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const routeAliasRepository = new InMemoryUserRouteAliasRepository();
+    await routeAliasRepository.upsertAlias({
+      id: "route_alias_jarvis_project_homepage",
+      label: "Jarvis project homepage",
+      aliases: ["Jarvis project homepage"],
+      intent: "browser.open",
+      targetUrl: "https://example.com/jarvis-project",
+      targetHostname: "example.com",
+      source: "user_confirmed",
+      risk: "medium",
+      createdAt: "2026-08-17T00:00:00.000Z",
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
+    const localStateRepository = new InMemoryLocalPluginStateRepository();
+    await localStateRepository.setState({
+      pluginId: "cn.example.hello-readonly",
+      enabled: true,
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
     const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
       {
         async openBrowser() {
@@ -5604,7 +5626,7 @@ describe("CoreRuntime", () => {
         },
       },
       new InMemoryTaskRepository(),
-      undefined,
+      routeAliasRepository,
       undefined,
       voiceRegressionRepository,
       {
@@ -5616,6 +5638,9 @@ describe("CoreRuntime", () => {
         repositoryPathProjection:
           "LocalAppData/Jarvis-K/voice-regression-pilot-2.json",
       },
+      new FakeLocalTemplatePluginRegistry(),
+      new FakePluginRuntime(["cn.example.hello-readonly"]),
+      localStateRepository,
     );
     runtime.configureVoicePilotActualProvider("xunfei");
     const prepared = await runtime.handle(
@@ -5644,6 +5669,12 @@ describe("CoreRuntime", () => {
           consentLevel: "local_text",
           confirmation: "explicit_ui_confirmation",
         },
+      }),
+    );
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.startVoicePilotPrompt",
+        payload: {},
       }),
     );
     await runtime.handle(
@@ -5687,6 +5718,21 @@ describe("CoreRuntime", () => {
     );
     expect(saved.ok).toBe(true);
 
+    for (let index = 0; index < 19; index += 1) {
+      await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.startVoicePilotPrompt",
+          payload: {},
+        }),
+      );
+      await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.markVoicePilotNoFinalTranscript",
+          payload: {},
+        }),
+      );
+    }
+
     const exported = await runtime.handle(
       createCommandEnvelope({
         type: "agent.exportVoiceRegressionRecords",
@@ -5699,12 +5745,15 @@ describe("CoreRuntime", () => {
       ? (exported.data as { export?: VoiceRegressionExport }).export
       : undefined;
     expect(exportData).toMatchObject({
-      recordCount: 1,
-      pilotSessionEvidence: {
+        recordCount: 1,
+        pilotSessionEvidence: {
         expectedProviderId: "xunfei",
         actualProviderIdsObserved: ["xunfei"],
-        recordCount: 1,
-        executorInvocationDelta: 0,
+          recordCount: 1,
+          terminalPromptCount: 20,
+          savedRecordCount: 1,
+          noFinalTranscriptCount: 19,
+          executorInvocationDelta: 0,
         realWindowsExecutionEnabled: false,
         brainOpenActionsDisabled: true,
         sessionValid: true,
@@ -5720,6 +5769,25 @@ describe("CoreRuntime", () => {
 
   it("keeps mismatched Pilot pending samples unsaved after provider switch invalidates the session", async () => {
     const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const routeAliasRepository = new InMemoryUserRouteAliasRepository();
+    await routeAliasRepository.upsertAlias({
+      id: "route_alias_jarvis_project_homepage",
+      label: "Jarvis project homepage",
+      aliases: ["Jarvis project homepage"],
+      intent: "browser.open",
+      targetUrl: "https://example.com/jarvis-project",
+      targetHostname: "example.com",
+      source: "user_confirmed",
+      risk: "medium",
+      createdAt: "2026-08-17T00:00:00.000Z",
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
+    const localStateRepository = new InMemoryLocalPluginStateRepository();
+    await localStateRepository.setState({
+      pluginId: "cn.example.hello-readonly",
+      enabled: true,
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
     const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
       {
         async openBrowser() {
@@ -5730,7 +5798,7 @@ describe("CoreRuntime", () => {
         },
       },
       new InMemoryTaskRepository(),
-      undefined,
+      routeAliasRepository,
       undefined,
       voiceRegressionRepository,
       {
@@ -5742,6 +5810,9 @@ describe("CoreRuntime", () => {
         repositoryPathProjection:
           "LocalAppData/Jarvis-K/voice-regression-pilot-2.json",
       },
+      new FakeLocalTemplatePluginRegistry(),
+      new FakePluginRuntime(["cn.example.hello-readonly"]),
+      localStateRepository,
     );
     runtime.configureVoicePilotActualProvider("xunfei");
     expect(
@@ -5759,6 +5830,12 @@ describe("CoreRuntime", () => {
           consentLevel: "local_text",
           confirmation: "explicit_ui_confirmation",
         },
+      }),
+    );
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.startVoicePilotPrompt",
+        payload: {},
       }),
     );
     await runtime.handle(
@@ -5804,7 +5881,7 @@ describe("CoreRuntime", () => {
 
     expect(saved.ok).toBe(false);
     expect(saved.ok ? undefined : saved.error.code).toBe(
-      "VOICE_PILOT_PROVIDER_MISMATCH",
+      "VOICE_PILOT_PROMPT_SAVE_BLOCKED",
     );
     expect(voiceRegressionRepository.records).toHaveLength(0);
     const pendingAfter = await runtime.handle(
@@ -5832,6 +5909,72 @@ describe("CoreRuntime", () => {
         providerMatchesExpected: false,
       },
     });
+  });
+
+  it("refuses to prepare a Voice Pilot session when the regression repository is not empty", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    voiceRegressionRepository.records.push({
+      id: "existing-record",
+      createdAt: "2026-08-17T00:00:00.000Z",
+    } as VoiceRegressionRecord);
+    const routeAliasRepository = new InMemoryUserRouteAliasRepository();
+    await routeAliasRepository.upsertAlias({
+      id: "route_alias_jarvis_project_homepage",
+      label: "Jarvis project homepage",
+      aliases: ["Jarvis project homepage"],
+      intent: "browser.open",
+      targetUrl: "https://example.com/jarvis-project",
+      targetHostname: "example.com",
+      source: "user_confirmed",
+      risk: "medium",
+      createdAt: "2026-08-17T00:00:00.000Z",
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
+    const localStateRepository = new InMemoryLocalPluginStateRepository();
+    await localStateRepository.setState({
+      pluginId: "cn.example.hello-readonly",
+      enabled: true,
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          throw new Error("local app should not be opened");
+        },
+      },
+      new InMemoryTaskRepository(),
+      routeAliasRepository,
+      undefined,
+      voiceRegressionRepository,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+      {
+        expectedProviderId: "xunfei",
+        repositoryPathProjection:
+          "LocalAppData/Jarvis-K/voice-regression-pilot-2.json",
+      },
+      new FakeLocalTemplatePluginRegistry(),
+      new FakePluginRuntime(["cn.example.hello-readonly"]),
+      localStateRepository,
+    );
+    runtime.configureVoicePilotActualProvider("xunfei");
+
+    const prepared = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.prepareVoicePilotSession",
+        payload: {},
+      }),
+    );
+
+    expect(prepared.ok).toBe(false);
+    expect(prepared.ok ? undefined : prepared.error.code).toBe(
+      "VOICE_PILOT_REPOSITORY_NOT_EMPTY",
+    );
   });
 
   it("persists, lists, and deletes confirmed voice command aliases without executing actions", async () => {

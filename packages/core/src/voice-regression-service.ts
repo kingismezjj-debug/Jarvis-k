@@ -74,6 +74,15 @@ export interface VoiceRegressionCaptureInput {
   providerConfidence?: number | undefined;
   asrLatencyMs?: number | undefined;
   resolverLatencyMs?: number | undefined;
+  pilot?:
+    | {
+        sessionId: string;
+        manifestId: string;
+        manifestDigest: string;
+        promptId: string;
+        ordinal: number;
+      }
+    | undefined;
   context?:
     | {
         activeCapabilityId?: string | undefined;
@@ -429,6 +438,7 @@ export class VoiceRegressionService {
         containsAudio: false,
         uploadAllowed: false,
       },
+      ...(input.pilot ? { pilot: input.pilot } : {}),
     });
     assertNoSensitiveVoiceRegressionSampleContent(sample);
     return sample;

@@ -1,4 +1,7 @@
-import { CoreRuntime } from "../packages/core/dist/index.js";
+import {
+  CoreRuntime,
+  VOICE_PILOT_MANIFEST,
+} from "../packages/core/dist/index.js";
 import { createCommandEnvelope } from "../packages/contracts/dist/index.js";
 
 const DISABLE_FLAG = "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS";
@@ -8,6 +11,9 @@ const PROVIDER_IDENTITY_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY";
 const PROVIDER_STATUS_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_STATUS";
 const INPUT_MODE_FLAG = "JARVIS_K_VOICE_PILOT_INPUT_MODE";
 const INPUT_MODE_SOURCE_FLAG = "JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE";
+const ROUTE_ALIAS_READY_FLAG = "JARVIS_K_VOICE_PILOT_ROUTE_ALIAS_READY";
+const READONLY_PLUGIN_READY_FLAG = "JARVIS_K_VOICE_PILOT_READONLY_PLUGIN_READY";
+const REPOSITORY_EMPTY_FLAG = "JARVIS_K_VOICE_REGRESSION_REPOSITORY_EMPTY";
 const TEST_HARNESS_FLAG = "JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS";
 const ACTIVE_SESSION_UNAVAILABLE = "VOICE_PILOT_ACTIVE_SESSION_UNAVAILABLE";
 const EXPECTED_PROVIDER_UNAVAILABLE =
@@ -16,6 +22,9 @@ const PROVIDER_IDENTITY_UNAVAILABLE =
   "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE";
 const EXPLICIT_COMMAND_MODE_UNAVAILABLE =
   "VOICE_PILOT_EXPLICIT_COMMAND_MODE_UNAVAILABLE";
+const REQUIRED_CONTEXT_MISSING = "VOICE_PILOT_REQUIRED_CONTEXT_MISSING";
+const REPOSITORY_NOT_EMPTY = "VOICE_PILOT_REPOSITORY_NOT_EMPTY";
+const MANIFEST_INVALID = "VOICE_PILOT_MANIFEST_INVALID";
 const REAL_PILOT_PROVIDER_IDS = new Set(["xunfei", "volcengine"]);
 const NON_PILOT_PROVIDER_IDS = new Set([
   "unknown",
@@ -303,6 +312,26 @@ const realExecutionEnabled = isTruthyFlag(process.env[REAL_EXECUTION_FLAG]);
 const testHarnessEnabled = isTruthyFlag(process.env[TEST_HARNESS_FLAG]);
 const providerGate = evaluateProviderGate();
 const modeGate = evaluateModeGate();
+const manifestGate = {
+  pass:
+    VOICE_PILOT_MANIFEST.manifestId === "voice-pilot-zh-cn-standard-20" &&
+    VOICE_PILOT_MANIFEST.promptCount === 20 &&
+    /^[a-f0-9]{64}$/.test(VOICE_PILOT_MANIFEST.digest),
+  manifestId: VOICE_PILOT_MANIFEST.manifestId,
+  manifestDigest: VOICE_PILOT_MANIFEST.digest,
+  promptCount: VOICE_PILOT_MANIFEST.promptCount,
+};
+const contextGate = {
+  pass:
+    isTruthyFlag(process.env[ROUTE_ALIAS_READY_FLAG]) &&
+    isTruthyFlag(process.env[READONLY_PLUGIN_READY_FLAG]),
+  routeAliasReady: isTruthyFlag(process.env[ROUTE_ALIAS_READY_FLAG]),
+  readonlyPluginReady: isTruthyFlag(process.env[READONLY_PLUGIN_READY_FLAG]),
+};
+const repositoryGate = {
+  pass: isTruthyFlag(process.env[REPOSITORY_EMPTY_FLAG]),
+  empty: isTruthyFlag(process.env[REPOSITORY_EMPTY_FLAG]),
+};
 
 if (!testHarnessEnabled) {
   printResult({
@@ -310,6 +339,9 @@ if (!testHarnessEnabled) {
     disableFlag: disableFlagEnabled,
     realWindowsExecutionEnabled: realExecutionEnabled,
     expectedProviderId: providerGate.expectedProviderId,
+    manifestId: manifestGate.manifestId,
+    manifestDigest: manifestGate.manifestDigest,
+    promptCount: manifestGate.promptCount,
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     currentVoiceInputMode: modeGate.currentVoiceInputMode,
@@ -321,6 +353,48 @@ if (!testHarnessEnabled) {
   process.exit(1);
 }
 
+if (!manifestGate.pass) {
+  printResult({
+    status: "FAIL",
+    manifestId: manifestGate.manifestId,
+    manifestDigest: manifestGate.manifestDigest,
+    promptCount: manifestGate.promptCount,
+    allowManualPilot: false,
+    reason: MANIFEST_INVALID,
+  });
+  process.exit(1);
+}
+
+if (!contextGate.pass) {
+  printResult({
+    status: "FAIL",
+    disableFlag: disableFlagEnabled,
+    realWindowsExecutionEnabled: realExecutionEnabled,
+    expectedProviderId: providerGate.expectedProviderId,
+    currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    manifestId: manifestGate.manifestId,
+    manifestDigest: manifestGate.manifestDigest,
+    promptCount: manifestGate.promptCount,
+    requiredContext: contextGate,
+    allowManualPilot: false,
+    reason: REQUIRED_CONTEXT_MISSING,
+  });
+  process.exit(1);
+}
+
+if (!repositoryGate.pass) {
+  printResult({
+    status: "FAIL",
+    manifestId: manifestGate.manifestId,
+    manifestDigest: manifestGate.manifestDigest,
+    promptCount: manifestGate.promptCount,
+    repositoryEmpty: repositoryGate.empty,
+    allowManualPilot: false,
+    reason: REPOSITORY_NOT_EMPTY,
+  });
+  process.exit(1);
+}
+
 if (!disableFlagEnabled || realExecutionEnabled) {
   printResult({
     status: "FAIL",
@@ -328,6 +402,11 @@ if (!disableFlagEnabled || realExecutionEnabled) {
     realWindowsExecutionEnabled: realExecutionEnabled,
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
     expectedProviderId: providerGate.expectedProviderId,
+    manifestId: manifestGate.manifestId,
+    manifestDigest: manifestGate.manifestDigest,
+    promptCount: manifestGate.promptCount,
+    requiredContext: contextGate,
+    repositoryEmpty: repositoryGate.empty,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
     currentVoiceInputMode: modeGate.currentVoiceInputMode,
@@ -372,6 +451,11 @@ if (!modeGate.pass) {
     realWindowsExecutionEnabled: realExecutionEnabled,
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
     expectedProviderId: providerGate.expectedProviderId,
+    manifestId: manifestGate.manifestId,
+    manifestDigest: manifestGate.manifestDigest,
+    promptCount: manifestGate.promptCount,
+    requiredContext: contextGate,
+    repositoryEmpty: repositoryGate.empty,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
     currentVoiceInputMode: modeGate.currentVoiceInputMode,
@@ -492,6 +576,9 @@ for (const [index, text] of pilotTranscripts.entries()) {
         realWindowsExecutionEnabled: realExecutionEnabled,
         currentVoiceProviderId: providerGate.currentVoiceProviderId,
         expectedProviderId: providerGate.expectedProviderId,
+        manifestId: manifestGate.manifestId,
+        manifestDigest: manifestGate.manifestDigest,
+        promptCount: manifestGate.promptCount,
         voiceProviderStatus: providerGate.voiceProviderStatus,
         currentVoiceInputMode: modeGate.currentVoiceInputMode,
         currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
@@ -529,6 +616,11 @@ printResult({
   realWindowsExecutionEnabled: realExecutionEnabled,
   currentVoiceProviderId: providerGate.currentVoiceProviderId,
   expectedProviderId: providerGate.expectedProviderId,
+  manifestId: manifestGate.manifestId,
+  manifestDigest: manifestGate.manifestDigest,
+  promptCount: manifestGate.promptCount,
+  requiredContext: contextGate,
+  repositoryEmpty: repositoryGate.empty,
   voiceProviderStatus: providerGate.voiceProviderStatus,
   providerIdentitySupported: providerGate.providerIdentitySupported,
   currentVoiceInputMode: modeGate.currentVoiceInputMode,

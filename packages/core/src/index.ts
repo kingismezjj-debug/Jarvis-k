@@ -39,6 +39,13 @@ export type {
 export {
   VoiceRegressionService,
 } from "./voice-regression-service";
+export {
+  VOICE_PILOT_MANIFEST,
+  VOICE_PILOT_MANIFEST_DIGEST,
+  VOICE_PILOT_MANIFEST_ID,
+  VOICE_PILOT_MANIFEST_PROMPTS,
+  VOICE_PILOT_MANIFEST_VERSION,
+} from "./voice-pilot-manifest";
 export type {
   VoiceRegressionRepository,
   VoiceRegressionRetentionPolicy,
