@@ -335,6 +335,8 @@ const repositoryGate = {
 
 if (!testHarnessEnabled) {
   printResult({
+    preflightType: "static/offline",
+    runtimeCheck: "not_available_from_standalone_process",
     status: "FAIL",
     disableFlag: disableFlagEnabled,
     realWindowsExecutionEnabled: realExecutionEnabled,
@@ -349,6 +351,7 @@ if (!testHarnessEnabled) {
     activeRuntimeSession: false,
     allowManualPilot: false,
     reason: ACTIVE_SESSION_UNAVAILABLE,
+    nextStep: "PREPARE_SESSION_IN_RUNNING_APP_REQUIRED",
   });
   process.exit(1);
 }

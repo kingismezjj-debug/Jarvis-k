@@ -52,9 +52,12 @@ describe("voice pilot provider identity preflight", () => {
 
     expect(result.status).toBe(1);
     expect(parsed).toMatchObject({
+      preflightType: "static/offline",
+      runtimeCheck: "not_available_from_standalone_process",
       status: "FAIL",
       reason: "VOICE_PILOT_ACTIVE_SESSION_UNAVAILABLE",
       allowManualPilot: false,
+      nextStep: "PREPARE_SESSION_IN_RUNNING_APP_REQUIRED",
     });
   });
 

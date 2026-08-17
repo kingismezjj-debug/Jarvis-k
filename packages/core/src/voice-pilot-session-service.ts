@@ -425,6 +425,14 @@ export class VoicePilotSessionService {
     this.session.invalidationReason = reason;
   }
 
+  public cancel(): VoicePilotSessionProjection {
+    if (!this.session || this.session.state === "completed") {
+      return this.inactive("NO_ACTIVE_PROMPT");
+    }
+    this.invalidate("SESSION_INTERRUPTED");
+    return this.project();
+  }
+
   private createEvidence(recordExportDigestSha256: string): VoicePilotSessionEvidence {
     if (!this.session) {
       throw new Error("VOICE_PILOT_SESSION_UNAVAILABLE");

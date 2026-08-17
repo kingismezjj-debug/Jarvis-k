@@ -5977,6 +5977,129 @@ describe("CoreRuntime", () => {
     );
   });
 
+  it("prepares Pilot sessions idempotently and cancels without enabling prompts", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const routeAliasRepository = new InMemoryUserRouteAliasRepository();
+    await routeAliasRepository.upsertAlias({
+      id: "route_alias_jarvis_project_homepage",
+      label: "Jarvis project homepage",
+      aliases: ["Jarvis project homepage"],
+      intent: "browser.open",
+      targetUrl: "https://example.com/jarvis-project",
+      targetHostname: "example.com",
+      source: "user_confirmed",
+      risk: "medium",
+      createdAt: "2026-08-17T00:00:00.000Z",
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
+    const localStateRepository = new InMemoryLocalPluginStateRepository();
+    await localStateRepository.setState({
+      pluginId: "cn.example.hello-readonly",
+      enabled: true,
+      updatedAt: "2026-08-17T00:00:00.000Z",
+    });
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          throw new Error("local app should not be opened");
+        },
+      },
+      new InMemoryTaskRepository(),
+      routeAliasRepository,
+      undefined,
+      voiceRegressionRepository,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+      {
+        expectedProviderId: "volcengine",
+        repositoryPathProjection:
+          "LocalAppData/Jarvis-K/voice-regression-standard20-volcengine-20260817.json",
+      },
+      new FakeLocalTemplatePluginRegistry(),
+      new FakePluginRuntime(["cn.example.hello-readonly"]),
+      localStateRepository,
+    );
+    runtime.configureVoicePilotActualProvider("volcengine");
+
+    const firstPrepare = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.prepareVoicePilotSession",
+        payload: {},
+      }),
+    );
+    const firstSessionId = firstPrepare.ok
+      ? (
+          firstPrepare.data as {
+            pilotSession?: { sessionId?: string; sessionState?: string };
+          }
+        ).pilotSession?.sessionId
+      : undefined;
+    expect(firstPrepare.ok).toBe(true);
+    expect(firstSessionId).toBeDefined();
+
+    const secondPrepare = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.prepareVoicePilotSession",
+        payload: {},
+      }),
+    );
+    expect(secondPrepare.ok).toBe(true);
+    expect(
+      secondPrepare.ok
+        ? (
+            secondPrepare.data as {
+              pilotSession?: { sessionId?: string; sessionState?: string };
+            }
+          ).pilotSession
+        : undefined,
+    ).toMatchObject({
+      sessionId: firstSessionId,
+      sessionState: "ready",
+    });
+    expect(voiceRegressionRepository.records).toHaveLength(0);
+
+    const cancelled = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.cancelVoicePilotSession",
+        payload: {},
+      }),
+    );
+    expect(cancelled.ok).toBe(true);
+    expect(
+      cancelled.ok
+        ? (
+            cancelled.data as {
+              pilotSession?: {
+                sessionId?: string;
+                sessionState?: string;
+                invalidationReason?: string;
+                allowManualPilot?: boolean;
+              };
+            }
+          ).pilotSession
+        : undefined,
+    ).toMatchObject({
+      sessionId: firstSessionId,
+      sessionState: "invalidated",
+      invalidationReason: "SESSION_INTERRUPTED",
+      allowManualPilot: false,
+    });
+
+    const started = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.startVoicePilotPrompt",
+        payload: {},
+      }),
+    );
+    expect(started.ok).toBe(false);
+    expect(voiceRegressionRepository.records).toHaveLength(0);
+  });
+
   it("persists, lists, and deletes confirmed voice command aliases without executing actions", async () => {
     const aliasRepository = new InMemoryVoiceCommandAliasRepository();
     const { runtime } = createRuntimeWithPluginTaskRuntime(

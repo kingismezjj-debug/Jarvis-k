@@ -888,6 +888,10 @@ export class CoreRuntime {
         return this.getVoicePilotSessionStatus(envelope);
       }
 
+      case "agent.cancelVoicePilotSession": {
+        return this.cancelVoicePilotSession(envelope);
+      }
+
       case "agent.completeVoicePilotSession": {
         return this.completeVoicePilotSession(envelope);
       }
@@ -2701,6 +2705,34 @@ export class CoreRuntime {
     }
     return this.success(envelope, {
       pilotSession: this.voicePilotSessionService.getProjection(),
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async cancelVoicePilotSession(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.cancelVoicePilotSession") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot cancellation received an invalid command.",
+        retryable: false,
+      });
+    }
+    const pilotSession = this.voicePilotSessionService.cancel();
+    if (pilotSession.sessionState !== "invalidated") {
+      return this.failure(envelope, {
+        code:
+          pilotSession.invalidationReason ??
+          "VOICE_PILOT_ACTIVE_SESSION_UNAVAILABLE",
+        message: "Voice Pilot session is unavailable for cancellation.",
+        retryable: false,
+      });
+    }
+    return this.success(envelope, {
+      pilotSession,
       rawAudioPersisted: false,
       uploadAttempted: false,
       directActionAttempted: false,

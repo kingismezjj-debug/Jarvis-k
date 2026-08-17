@@ -112,6 +112,7 @@ export default function App() {
     createConversation,
     clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
+    cancelPilotSession,
     discardVoiceRegressionPendingSample,
     markPilotNoFinalTranscript,
     markPilotOperatorDeviation,
@@ -123,6 +124,7 @@ export default function App() {
     events,
     exportMemorySnapshot,
     exportVoiceRegressionRecords,
+    preparePilotSession,
     fixtureEmbeddingProbe,
     fixtureIntentProbe,
     fixtureOcrProbe,
@@ -1821,6 +1823,9 @@ export default function App() {
                 clearRegressionRecords: () => {
                   void clearVoiceRegressionRecords();
                 },
+                cancelPilotSession: () => {
+                  void cancelPilotSession();
+                },
                 discardRegressionPendingSample: (sampleId) => {
                   void discardVoiceRegressionPendingSample(sampleId);
                 },
@@ -1840,6 +1845,9 @@ export default function App() {
                   void refreshVoiceRegressionCollectionStatus();
                   void refreshVoiceRegressionPendingSamples();
                   void refreshVoiceRegressionRecords();
+                },
+                preparePilotSession: () => {
+                  void preparePilotSession();
                 },
                 saveRegressionPendingSample: (sampleId, feedback, options) => {
                   void saveVoiceRegressionPendingSample(

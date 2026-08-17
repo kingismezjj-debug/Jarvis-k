@@ -1925,6 +1925,10 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     payload: EmptyPayloadSchema,
   }),
   z.object({
+    type: z.literal("agent.cancelVoicePilotSession"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
     type: z.literal("agent.completeVoicePilotSession"),
     payload: EmptyPayloadSchema,
   }),

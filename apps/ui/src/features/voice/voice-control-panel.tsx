@@ -51,6 +51,7 @@ export function VoiceControlPanel({
           />
           <VoiceRegressionPanel
             actions={{
+              cancelPilotSession: actions.cancelPilotSession,
               clearRegressionPendingSamples:
                 actions.clearRegressionPendingSamples,
               clearRegressionRecords: actions.clearRegressionRecords,
@@ -60,6 +61,7 @@ export function VoiceControlPanel({
               markPilotOperatorDeviation: actions.markPilotOperatorDeviation,
               deleteRegressionRecord: actions.deleteRegressionRecord,
               exportRegressionRecords: actions.exportRegressionRecords,
+              preparePilotSession: actions.preparePilotSession,
               refreshRegressionRecords: actions.refreshRegressionRecords,
               saveRegressionPendingSample: actions.saveRegressionPendingSample,
               startPilotPrompt: actions.startPilotPrompt,

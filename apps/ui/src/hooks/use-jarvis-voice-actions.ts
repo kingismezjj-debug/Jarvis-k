@@ -276,12 +276,6 @@ export function useJarvisVoiceActions({
           setError("Core returned invalid voice regression status.");
           return false;
         }
-        if (enabled) {
-          await window.jarvis.sendCommand({
-            type: "agent.prepareVoicePilotSession",
-            payload: {},
-          });
-        }
         await refreshVoiceRegressionCollectionStatus();
         await refreshVoiceRegressionPendingSamples();
         await refreshVoiceRegressionRecords();
@@ -300,6 +294,68 @@ export function useJarvisVoiceActions({
       setVoiceRegressionStatus,
     ],
   );
+
+  const preparePilotSession = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    setSending(true);
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.prepareVoicePilotSession",
+        payload: {},
+      });
+      if (!result.ok) {
+        setError(result.error.message);
+        await refreshVoiceRegressionCollectionStatus();
+        return false;
+      }
+      await refreshVoiceRegressionCollectionStatus();
+      await refreshVoiceRegressionPendingSamples();
+      await refreshVoiceRegressionRecords();
+      setError(null);
+      return true;
+    } finally {
+      setSending(false);
+    }
+  }, [
+    refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionPendingSamples,
+    refreshVoiceRegressionRecords,
+    setError,
+    setSending,
+  ]);
+
+  const cancelPilotSession = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    setSending(true);
+    try {
+      const result = await window.jarvis.sendCommand({
+        type: "agent.cancelVoicePilotSession",
+        payload: {},
+      });
+      if (!result.ok) {
+        setError(result.error.message);
+        await refreshVoiceRegressionCollectionStatus();
+        return false;
+      }
+      await refreshVoiceRegressionCollectionStatus();
+      await refreshVoiceRegressionPendingSamples();
+      setError(null);
+      return true;
+    } finally {
+      setSending(false);
+    }
+  }, [
+    refreshVoiceRegressionCollectionStatus,
+    refreshVoiceRegressionPendingSamples,
+    setError,
+    setSending,
+  ]);
 
   const deleteVoiceRegressionRecord = useCallback(
     async (recordId: string) => {
@@ -677,6 +733,7 @@ export function useJarvisVoiceActions({
     clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
     confirmVoiceCommandCorrection,
+    cancelPilotSession,
     discardVoiceRegressionPendingSample,
     deleteVoiceRegressionRecord,
     deleteVoiceCommandAlias,
@@ -685,6 +742,7 @@ export function useJarvisVoiceActions({
     markPilotOperatorDeviation,
     openTtsSettings,
     openVoiceSettings,
+    preparePilotSession,
     refreshTtsServiceStatus,
     refreshVoiceCommandAliases,
     refreshVoiceRegressionCollectionStatus,

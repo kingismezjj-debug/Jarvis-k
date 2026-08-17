@@ -69,9 +69,11 @@ export type VoiceCaptureActions = {
   clearRegressionPendingSamples(): void;
   deleteRegressionRecord(recordId: string): void;
   discardRegressionPendingSample(sampleId: string): void;
+  cancelPilotSession(): void;
   markPilotNoFinalTranscript(): void;
   markPilotOperatorDeviation(): void;
   exportRegressionRecords(): void;
+  preparePilotSession(): void;
   refreshRegressionPendingSamples(): void;
   refreshRegressionRecords(): void;
   saveRegressionPendingSample(

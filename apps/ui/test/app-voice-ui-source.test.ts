@@ -4,6 +4,9 @@ import { readAppCompositionSource, readUiSource } from "./read-ui-source";
 
 const appSource = readAppCompositionSource();
 const voiceActionsSource = readUiSource(["hooks/use-jarvis-voice-actions.ts"]);
+const voiceRegressionPanelSource = readUiSource([
+  "features/voice/voice-regression-panel.tsx",
+]);
 
 describe("voice UI wiring", () => {
   it("keeps PTT enabled while voice commands are in flight", () => {
@@ -924,6 +927,26 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain("formatExecutorDelta");
     expect(voiceActionsSource).toContain("agent.prepareVoicePilotSession");
     expect(appSource).not.toContain("setPilotSession");
+  });
+
+  it("exposes explicit Pilot prepare, refresh, and cancel controls", () => {
+    expect(voiceRegressionPanelSource).toContain(
+      'data-testid="voice-pilot-prepare"',
+    );
+    expect(voiceRegressionPanelSource).toContain("Prepare Pilot Session");
+    expect(voiceRegressionPanelSource).toContain(
+      'data-testid="voice-pilot-refresh-runtime"',
+    );
+    expect(voiceRegressionPanelSource).toContain(
+      'data-testid="voice-pilot-cancel"',
+    );
+    expect(voiceRegressionPanelSource).toContain("formatProviderMatch");
+    expect(voiceRegressionPanelSource).toContain('return "N/A"');
+    expect(voiceActionsSource).toContain("agent.prepareVoicePilotSession");
+    expect(voiceActionsSource).toContain("agent.cancelVoicePilotSession");
+    expect(voiceActionsSource).not.toContain(
+      "if (enabled) {\n          await window.jarvis.sendCommand({\n            type: \"agent.prepareVoicePilotSession\"",
+    );
   });
 
   it("projects blocked brain dispatches through status and summary without verified wording", () => {

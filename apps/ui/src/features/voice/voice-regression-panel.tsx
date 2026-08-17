@@ -17,6 +17,7 @@ import type { VoiceCaptureActions, VoiceRegressionViewModel } from "./types";
 export type VoiceRegressionPanelProps = {
   actions: Pick<
     VoiceCaptureActions,
+    | "cancelPilotSession"
     | "clearRegressionPendingSamples"
     | "clearRegressionRecords"
     | "discardRegressionPendingSample"
@@ -24,6 +25,7 @@ export type VoiceRegressionPanelProps = {
     | "markPilotOperatorDeviation"
     | "deleteRegressionRecord"
     | "exportRegressionRecords"
+    | "preparePilotSession"
     | "refreshRegressionRecords"
     | "saveRegressionPendingSample"
     | "startPilotPrompt"
@@ -74,6 +76,18 @@ export function VoiceRegressionPanel({
   const [drafts, setDrafts] = useState<Record<string, DraftFeedback>>({});
   const status = viewModel.status;
   const enabled = status?.consentLevel === "local_text";
+  const pilotSession = status?.pilotSession;
+  const canPreparePilot =
+    enabled &&
+    pilotSession?.sessionState === "inactive" &&
+    viewModel.pendingSamples.length === 0 &&
+    viewModel.records.length === 0 &&
+    status?.pendingCount === 0 &&
+    status.recordCount === 0 &&
+    pilotSession.expectedProviderId !== undefined;
+  const canCancelPilot =
+    pilotSession?.sessionState === "ready" ||
+    pilotSession?.sessionState === "collecting";
   const confirmEnable = () => {
     if (enabled) {
       actions.setRegressionLocalTextCollection(false);
@@ -92,6 +106,31 @@ export function VoiceRegressionPanel({
     );
     if (accepted) {
       actions.clearRegressionRecords();
+    }
+  };
+  const confirmPreparePilot = () => {
+    if (!pilotSession) return;
+    const accepted = window.confirm(
+      [
+        "Prepare Voice Pilot session?",
+        `Manifest: ${pilotSession.manifestId ?? "unknown"}`,
+        `Expected provider: ${pilotSession.expectedProviderId ?? "missing"}`,
+        "The Voice Regression repository must be empty.",
+        "Real Windows execution must remain disabled.",
+        "Only local text collection is enabled.",
+        "Audio is not saved.",
+      ].join("\n"),
+    );
+    if (accepted) {
+      actions.preparePilotSession();
+    }
+  };
+  const confirmCancelPilot = () => {
+    const accepted = window.confirm(
+      "Cancel and invalidate the current Voice Pilot session? This does not delete records, clear the repository, or reset runtime audit counters.",
+    );
+    if (accepted) {
+      actions.cancelPilotSession();
     }
   };
   const updateDraft = (sampleId: string, patch: Partial<DraftFeedback>) => {
@@ -274,11 +313,15 @@ export function VoiceRegressionPanel({
           />
           <MetricRow
             label="actual provider"
-            value={status.pilotSession.actualProviderId}
+            value={
+              status.pilotSession.sessionState === "inactive"
+                ? `${status.pilotSession.actualProviderId} (not locked)`
+                : status.pilotSession.actualProviderId
+            }
           />
           <MetricRow
             label="provider match"
-            value={status.pilotSession.providerMatchesExpected ? "YES" : "NO"}
+            value={formatProviderMatch(status.pilotSession)}
           />
           <MetricRow
             label="input mode"
@@ -296,12 +339,37 @@ export function VoiceRegressionPanel({
                 : (status.pilotSession.invalidationReason ?? "NO")
             }
           />
+          <MetricRow
+            label="failure reason"
+            value={status.pilotSession.invalidationReason ?? "none"}
+          />
         </dl>
       ) : null}
       {status?.pilotSession ? (
         <div className="mb-3 flex flex-wrap gap-2">
           <Button
             className="h-8 rounded-md px-3 text-xs"
+            data-testid="voice-pilot-prepare"
+            disabled={sending || !canPreparePilot}
+            onClick={confirmPreparePilot}
+            type="button"
+            variant="outline"
+          >
+            Prepare Pilot Session
+          </Button>
+          <Button
+            className="h-8 rounded-md px-3 text-xs"
+            data-testid="voice-pilot-refresh-runtime"
+            disabled={sending}
+            onClick={actions.refreshRegressionRecords}
+            type="button"
+            variant="outline"
+          >
+            Refresh runtime preflight
+          </Button>
+          <Button
+            className="h-8 rounded-md px-3 text-xs"
+            data-testid="voice-pilot-start-prompt"
             disabled={
               sending ||
               !status.pilotSession.allowManualPilot ||
@@ -314,6 +382,16 @@ export function VoiceRegressionPanel({
             variant="outline"
           >
             Start prompt
+          </Button>
+          <Button
+            className="h-8 rounded-md px-3 text-xs"
+            data-testid="voice-pilot-cancel"
+            disabled={sending || !canCancelPilot}
+            onClick={confirmCancelPilot}
+            type="button"
+            variant="ghost"
+          >
+            Cancel session
           </Button>
           <Button
             className="h-8 rounded-md px-3 text-xs"
@@ -803,4 +881,15 @@ function formatExecutorDelta(
     pilotSession.auditBaseline?.windowsExecutorInvocationCount ?? 0;
   const current = pilotSession.auditCurrent?.windowsExecutorInvocationCount ?? 0;
   return String(Math.max(0, current - baseline));
+}
+
+function formatProviderMatch(
+  pilotSession: NonNullable<
+    VoiceRegressionCollectionStatus["pilotSession"]
+  >,
+): string {
+  if (pilotSession.sessionState === "inactive") {
+    return "N/A";
+  }
+  return pilotSession.providerMatchesExpected ? "YES" : "NO";
 }
