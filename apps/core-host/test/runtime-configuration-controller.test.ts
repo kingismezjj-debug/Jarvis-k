@@ -84,6 +84,9 @@ describe("RuntimeConfigurationController", () => {
         resourceId: "volc.seedasr.sauc.duration",
       },
     });
+    expect(harness.runtime.configureVoicePilotActualProvider).toHaveBeenCalledWith(
+      "volcengine",
+    );
   });
 
   it("does not treat ordinary core inbound messages as runtime configuration", async () => {
@@ -128,6 +131,7 @@ function createHarness() {
   const runtime = {
     configureCommandRouterProductMode: vi.fn(),
     configureChatAnswerProductMode: vi.fn(),
+    configureVoicePilotActualProvider: vi.fn(),
   };
   const chatAnswerRuntimeBinding = {
     applyProductModeConfiguration: vi.fn(() => ({

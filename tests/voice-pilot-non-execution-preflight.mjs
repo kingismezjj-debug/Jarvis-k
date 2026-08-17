@@ -3,10 +3,15 @@ import { createCommandEnvelope } from "../packages/contracts/dist/index.js";
 
 const DISABLE_FLAG = "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS";
 const REAL_EXECUTION_FLAG = "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION";
+const EXPECTED_PROVIDER_FLAG = "JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID";
 const PROVIDER_IDENTITY_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY";
 const PROVIDER_STATUS_FLAG = "JARVIS_K_VOICE_PILOT_PROVIDER_STATUS";
 const INPUT_MODE_FLAG = "JARVIS_K_VOICE_PILOT_INPUT_MODE";
 const INPUT_MODE_SOURCE_FLAG = "JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE";
+const TEST_HARNESS_FLAG = "JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS";
+const ACTIVE_SESSION_UNAVAILABLE = "VOICE_PILOT_ACTIVE_SESSION_UNAVAILABLE";
+const EXPECTED_PROVIDER_UNAVAILABLE =
+  "VOICE_PILOT_EXPECTED_PROVIDER_UNAVAILABLE";
 const PROVIDER_IDENTITY_UNAVAILABLE =
   "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE";
 const EXPLICIT_COMMAND_MODE_UNAVAILABLE =
@@ -223,6 +228,9 @@ function normalizeProviderStatus(value, providerId) {
 }
 
 function evaluateProviderGate() {
+  const expectedProviderId = normalizeProviderId(
+    process.env[EXPECTED_PROVIDER_FLAG],
+  );
   const currentVoiceProviderId = normalizeProviderId(
     process.env[PROVIDER_IDENTITY_FLAG],
   );
@@ -232,15 +240,21 @@ function evaluateProviderGate() {
   );
   const providerIdentitySupported =
     !NON_PILOT_PROVIDER_IDS.has(currentVoiceProviderId);
+  const expectedProviderSupported =
+    expectedProviderId === "xunfei" || expectedProviderId === "volcengine";
   const pass =
+    expectedProviderSupported &&
     providerIdentitySupported &&
     REAL_PILOT_PROVIDER_IDS.has(currentVoiceProviderId) &&
-    READY_PROVIDER_STATES.has(voiceProviderStatus);
+    READY_PROVIDER_STATES.has(voiceProviderStatus) &&
+    expectedProviderId === currentVoiceProviderId;
   return {
     pass,
+    expectedProviderId,
     currentVoiceProviderId,
     voiceProviderStatus,
     providerIdentitySupported,
+    expectedProviderSupported,
   };
 }
 
@@ -286,8 +300,26 @@ function printResult(result) {
 
 const disableFlagEnabled = isTruthyFlag(process.env[DISABLE_FLAG]);
 const realExecutionEnabled = isTruthyFlag(process.env[REAL_EXECUTION_FLAG]);
+const testHarnessEnabled = isTruthyFlag(process.env[TEST_HARNESS_FLAG]);
 const providerGate = evaluateProviderGate();
 const modeGate = evaluateModeGate();
+
+if (!testHarnessEnabled) {
+  printResult({
+    status: "FAIL",
+    disableFlag: disableFlagEnabled,
+    realWindowsExecutionEnabled: realExecutionEnabled,
+    expectedProviderId: providerGate.expectedProviderId,
+    currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    voiceProviderStatus: providerGate.voiceProviderStatus,
+    currentVoiceInputMode: modeGate.currentVoiceInputMode,
+    currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
+    activeRuntimeSession: false,
+    allowManualPilot: false,
+    reason: ACTIVE_SESSION_UNAVAILABLE,
+  });
+  process.exit(1);
+}
 
 if (!disableFlagEnabled || realExecutionEnabled) {
   printResult({
@@ -295,6 +327,7 @@ if (!disableFlagEnabled || realExecutionEnabled) {
     disableFlag: disableFlagEnabled,
     realWindowsExecutionEnabled: realExecutionEnabled,
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    expectedProviderId: providerGate.expectedProviderId,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
     currentVoiceInputMode: modeGate.currentVoiceInputMode,
@@ -315,6 +348,7 @@ if (!providerGate.pass) {
     status: "FAIL",
     disableFlag: disableFlagEnabled,
     realWindowsExecutionEnabled: realExecutionEnabled,
+    expectedProviderId: providerGate.expectedProviderId,
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
@@ -324,7 +358,9 @@ if (!providerGate.pass) {
     executorInvocationCounter: "not_checked",
     blockedBeforeExecutorCounter: "not_checked",
     allowManualPilot: false,
-    reason: PROVIDER_IDENTITY_UNAVAILABLE,
+    reason: !providerGate.expectedProviderSupported
+      ? EXPECTED_PROVIDER_UNAVAILABLE
+      : PROVIDER_IDENTITY_UNAVAILABLE,
   });
   process.exit(1);
 }
@@ -335,6 +371,7 @@ if (!modeGate.pass) {
     disableFlag: disableFlagEnabled,
     realWindowsExecutionEnabled: realExecutionEnabled,
     currentVoiceProviderId: providerGate.currentVoiceProviderId,
+    expectedProviderId: providerGate.expectedProviderId,
     voiceProviderStatus: providerGate.voiceProviderStatus,
     providerIdentitySupported: providerGate.providerIdentitySupported,
     currentVoiceInputMode: modeGate.currentVoiceInputMode,
@@ -454,6 +491,7 @@ for (const [index, text] of pilotTranscripts.entries()) {
         disableFlag: disableFlagEnabled,
         realWindowsExecutionEnabled: realExecutionEnabled,
         currentVoiceProviderId: providerGate.currentVoiceProviderId,
+        expectedProviderId: providerGate.expectedProviderId,
         voiceProviderStatus: providerGate.voiceProviderStatus,
         currentVoiceInputMode: modeGate.currentVoiceInputMode,
         currentVoiceInputModeSource: modeGate.currentVoiceInputModeSource,
@@ -490,6 +528,7 @@ printResult({
   disableFlag: disableFlagEnabled,
   realWindowsExecutionEnabled: realExecutionEnabled,
   currentVoiceProviderId: providerGate.currentVoiceProviderId,
+  expectedProviderId: providerGate.expectedProviderId,
   voiceProviderStatus: providerGate.voiceProviderStatus,
   providerIdentitySupported: providerGate.providerIdentitySupported,
   currentVoiceInputMode: modeGate.currentVoiceInputMode,

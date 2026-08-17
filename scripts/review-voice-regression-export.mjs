@@ -45,7 +45,11 @@ if (!filePath) {
   fail("USAGE: node scripts/review-voice-regression-export.mjs <export.json>");
 }
 
-const { VoiceRegressionExportSchema, VoiceRegressionRecordSchema } =
+const {
+  VoicePilotSessionEvidenceSchema,
+  VoiceRegressionExportSchema,
+  VoiceRegressionRecordSchema,
+} =
   await import(pathToFileURL(contractsPath).href);
 const raw = await readFile(filePath, "utf8");
 const parsed = parseExport(raw);
@@ -75,6 +79,13 @@ const lineRecords = exportData.jsonl.trim()
   : [];
 if (lineRecords.length !== exportData.recordCount) {
   fail("VOICE_REGRESSION_EXPORT_JSONL_COUNT_MISMATCH");
+}
+
+const pilotSessionEvidence = exportData.pilotSessionEvidence
+  ? VoicePilotSessionEvidenceSchema.parse(exportData.pilotSessionEvidence)
+  : undefined;
+if (pilotSessionEvidence) {
+  validatePilotSessionEvidence(pilotSessionEvidence, exportData, lineRecords);
 }
 
 const ids = new Set();
@@ -120,6 +131,17 @@ const summary = {
   transcriptFeedbackDistribution,
   resolutionFeedbackDistribution,
   manualReviewIds,
+  pilotSessionEvidence: pilotSessionEvidence
+    ? {
+        sessionId: pilotSessionEvidence.sessionId,
+        expectedProviderId: pilotSessionEvidence.expectedProviderId,
+        actualProviderIdsObserved:
+          pilotSessionEvidence.actualProviderIdsObserved,
+        executorInvocationDelta:
+          pilotSessionEvidence.executorInvocationDelta,
+        sessionValid: pilotSessionEvidence.sessionValid,
+      }
+    : undefined,
   uploadAttempted: false,
   datasetModified: false,
   rulesGenerated: false,
@@ -148,6 +170,45 @@ function parseExport(input) {
     records,
     jsonl,
   };
+}
+
+function validatePilotSessionEvidence(evidence, exportData, records) {
+  if (evidence.recordExportDigestSha256 !== exportData.digestSha256) {
+    fail("VOICE_PILOT_EVIDENCE_EXPORT_DIGEST_MISMATCH");
+  }
+  if (evidence.recordCount !== exportData.recordCount) {
+    fail("VOICE_PILOT_EVIDENCE_RECORD_COUNT_MISMATCH");
+  }
+  if (evidence.executorInvocationDelta !== 0) {
+    fail("VOICE_PILOT_EVIDENCE_EXECUTOR_DELTA_NONZERO");
+  }
+  if (evidence.realWindowsExecutionEnabled !== false) {
+    fail("VOICE_PILOT_EVIDENCE_REAL_EXECUTION_ENABLED");
+  }
+  if (evidence.brainOpenActionsDisabled !== true) {
+    fail("VOICE_PILOT_EVIDENCE_DISABLE_GATE_MISSING");
+  }
+  if (!evidence.sessionValid || evidence.invalidationReason) {
+    fail("VOICE_PILOT_EVIDENCE_SESSION_INVALID");
+  }
+  for (const providerId of evidence.actualProviderIdsObserved) {
+    if (providerId !== evidence.expectedProviderId) {
+      fail("VOICE_PILOT_EVIDENCE_PROVIDER_MISMATCH");
+    }
+  }
+  for (const record of records) {
+    if (record.asr.providerId !== evidence.expectedProviderId) {
+      fail("VOICE_PILOT_RECORD_PROVIDER_MISMATCH");
+    }
+  }
+  const evidenceText = JSON.stringify(evidence);
+  if (
+    /rawTranscript|normalizedText|correctedText|safeSlots|[A-Z]:\\|\\\\|https?:\/\//u.test(
+      evidenceText,
+    )
+  ) {
+    fail("VOICE_PILOT_EVIDENCE_CONTAINS_USER_CONTENT");
+  }
 }
 
 function scanSensitive(input) {

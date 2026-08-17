@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -64,6 +64,129 @@ describe("voice regression export review script", () => {
     expect(output).toContain('"legacyFeedbackDistribution"');
     expect(output).toContain('"accepted": 1');
   });
+
+  it("reviews Pilot session evidence without requiring legacy exports to include it", () => {
+    const record = recordFixture("pilot-record", {
+      kind: "dual_layer",
+      transcript: { status: "accepted" },
+      resolution: { status: "accepted" },
+    });
+    const exportData = exportFixture([record], {
+      schemaVersion: 1,
+      sessionId: "voice-pilot-session:test",
+      sessionStartedAt: "2026-08-16T00:00:00.000Z",
+      sessionEndedAt: "2026-08-16T00:01:00.000Z",
+      expectedProviderId: "xunfei",
+      actualProviderIdsObserved: ["xunfei"],
+      recordCount: 1,
+      recordExportDigestSha256: "",
+      executorInvocationBaseline: 0,
+      executorInvocationFinal: 0,
+      executorInvocationDelta: 0,
+      blockedBeforeExecutorBaseline: 2,
+      blockedBeforeExecutorFinal: 5,
+      blockedBeforeExecutorDelta: 3,
+      realWindowsExecutionEnabled: false,
+      brainOpenActionsDisabled: true,
+      sessionValid: true,
+    });
+    exportData.pilotSessionEvidence.recordExportDigestSha256 =
+      exportData.digestSha256;
+    const output = runReview(writeExport(exportData));
+
+    expect(output.status).toBe(0);
+    expect(output.stdout).toContain('"status": "PASS"');
+    expect(output.stdout).toContain('"pilotSessionEvidence"');
+    expect(output.stdout).toContain('"executorInvocationDelta": 0');
+
+    const legacy = exportFixture([record]);
+    const legacyOutput = runReview(writeExport(legacy));
+    expect(legacyOutput.status).toBe(0);
+    expect(legacyOutput.stdout).toContain('"status": "PASS"');
+  });
+
+  it("fails Pilot review when evidence is not bound to the export or session", () => {
+    const record = recordFixture("pilot-record", {
+      kind: "dual_layer",
+      transcript: { status: "accepted" },
+      resolution: { status: "accepted" },
+    });
+    const base = exportFixture([record], {
+      schemaVersion: 1,
+      sessionId: "voice-pilot-session:test",
+      sessionStartedAt: "2026-08-16T00:00:00.000Z",
+      sessionEndedAt: "2026-08-16T00:01:00.000Z",
+      expectedProviderId: "xunfei",
+      actualProviderIdsObserved: ["xunfei"],
+      recordCount: 1,
+      recordExportDigestSha256: "",
+      executorInvocationBaseline: 0,
+      executorInvocationFinal: 0,
+      executorInvocationDelta: 0,
+      blockedBeforeExecutorBaseline: 0,
+      blockedBeforeExecutorFinal: 0,
+      blockedBeforeExecutorDelta: 0,
+      realWindowsExecutionEnabled: false,
+      brainOpenActionsDisabled: true,
+      sessionValid: true,
+    });
+    base.pilotSessionEvidence.recordExportDigestSha256 = base.digestSha256;
+
+    const cases = [
+      {
+        mutate: (value: typeof base) => {
+          value.pilotSessionEvidence.recordExportDigestSha256 =
+            "0".repeat(64);
+        },
+        message: "VOICE_PILOT_EVIDENCE_EXPORT_DIGEST_MISMATCH",
+      },
+      {
+        mutate: (value: typeof base) => {
+          value.pilotSessionEvidence.executorInvocationDelta = 1;
+          value.pilotSessionEvidence.executorInvocationFinal = 1;
+        },
+        message: "VOICE_PILOT_EVIDENCE_EXECUTOR_DELTA_NONZERO",
+      },
+      {
+        mutate: (value: typeof base) => {
+          value.pilotSessionEvidence.sessionValid = false;
+          value.pilotSessionEvidence.invalidationReason =
+            "PROVIDER_MISMATCH";
+        },
+        message: "VOICE_PILOT_EVIDENCE_SESSION_INVALID",
+      },
+      {
+        mutate: (value: typeof base) => {
+          value.pilotSessionEvidence.actualProviderIdsObserved = [
+            "xunfei",
+            "volcengine",
+          ];
+        },
+        message: "VOICE_PILOT_EVIDENCE_PROVIDER_MISMATCH",
+      },
+      {
+        mutate: (value: typeof base) => {
+          value.records[0].asr.providerId = "volcengine";
+          value.jsonl = `${JSON.stringify(value.records[0])}\n`;
+          value.digestSha256 = createHash("sha256")
+            .update(value.jsonl, "utf8")
+            .digest("hex");
+          value.pilotSessionEvidence.recordExportDigestSha256 =
+            value.digestSha256;
+        },
+        message: "VOICE_PILOT_RECORD_PROVIDER_MISMATCH",
+      },
+    ];
+
+    for (const { mutate, message } of cases) {
+      const copy = JSON.parse(JSON.stringify(base)) as typeof base;
+      mutate(copy);
+      const output = runReview(writeExport(copy));
+
+      expect(output.status).not.toBe(0);
+      expect(output.stderr).toContain(message);
+    }
+  });
 });
 
 function recordFixture(id: string, feedback: unknown) {
@@ -111,4 +234,51 @@ function recordFixture(id: string, feedback: unknown) {
       uploadAllowed: false,
     },
   };
+}
+
+function exportFixture(
+  records: Array<ReturnType<typeof recordFixture>>,
+  pilotSessionEvidence?: Record<string, unknown>,
+) {
+  const jsonl =
+    records.length === 0
+      ? ""
+      : `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
+  const digestSha256 = createHash("sha256")
+    .update(jsonl, "utf8")
+    .digest("hex");
+  return {
+    schemaVersion: 1,
+    exportedAt: "2026-08-16T00:00:00.000Z",
+    provenance: "USER_INITIATED_LOCAL_VOICE_REGRESSION_EXPORT",
+    localOnly: true,
+    uploadAllowed: false,
+    containsAudio: false,
+    format: "jsonl",
+    digestSha256,
+    recordCount: records.length,
+    records,
+    jsonl,
+    ...(pilotSessionEvidence ? { pilotSessionEvidence } : {}),
+  };
+}
+
+function writeExport(exportData: unknown) {
+  const exportPath = path.join(
+    mkdtempSync(path.join(tmpdir(), "jarvis-voice-export-review-")),
+    "voice-regression-export.json",
+  );
+  writeFileSync(exportPath, JSON.stringify(exportData), "utf8");
+  return exportPath;
+}
+
+function runReview(exportPath: string) {
+  return spawnSync(
+    process.execPath,
+    ["scripts/review-voice-regression-export.mjs", exportPath],
+    {
+      cwd: path.resolve(import.meta.dirname, "..", "..", ".."),
+      encoding: "utf8",
+    },
+  );
 }

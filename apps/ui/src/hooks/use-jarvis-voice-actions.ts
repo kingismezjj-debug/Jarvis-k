@@ -276,7 +276,13 @@ export function useJarvisVoiceActions({
           setError("Core returned invalid voice regression status.");
           return false;
         }
-        setVoiceRegressionStatus(parsed.data);
+        if (enabled) {
+          await window.jarvis.sendCommand({
+            type: "agent.prepareVoicePilotSession",
+            payload: {},
+          });
+        }
+        await refreshVoiceRegressionCollectionStatus();
         await refreshVoiceRegressionPendingSamples();
         await refreshVoiceRegressionRecords();
         setError(null);
@@ -286,6 +292,7 @@ export function useJarvisVoiceActions({
       }
     },
     [
+      refreshVoiceRegressionCollectionStatus,
       refreshVoiceRegressionRecords,
       refreshVoiceRegressionPendingSamples,
       setError,

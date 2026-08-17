@@ -24,6 +24,7 @@ export interface RuntimeConfig {
   readonly language: "zh" | "en";
   readonly smokeProviderFaultEnabled: boolean;
   readonly deterministicFallbackEnabled: true;
+  readonly voicePilotExpectedProviderId?: "xunfei" | "volcengine" | undefined;
 }
 
 export interface RuntimeConfigLogProjection {
@@ -95,6 +96,7 @@ export function loadRuntimeConfig(
   if (brainRouterModelId !== undefined && brainRouterModelId.length > 300) {
     throw new Error("Brain router model id is invalid.");
   }
+  const voicePilotExpectedProviderId = parseVoicePilotExpectedProviderId(env);
   return {
     mode,
     env,
@@ -137,6 +139,9 @@ export function loadRuntimeConfig(
     language: env.JARVIS_K_LANGUAGE === "en" ? "en" : "zh",
     smokeProviderFaultEnabled: flag(env, "JARVIS_K_SMOKE_PROVIDER_FAULT"),
     deterministicFallbackEnabled: true,
+    ...(voicePilotExpectedProviderId === undefined
+      ? {}
+      : { voicePilotExpectedProviderId }),
   };
 }
 
@@ -166,6 +171,19 @@ function parseRuntimeMode(env: Readonly<NodeJS.ProcessEnv>): RuntimeMode {
 function flag(env: Readonly<NodeJS.ProcessEnv>, key: string): boolean {
   const raw = env[key];
   return raw === "1" || raw === "true";
+}
+
+function parseVoicePilotExpectedProviderId(
+  env: Readonly<NodeJS.ProcessEnv>,
+): "xunfei" | "volcengine" | undefined {
+  const raw = env.JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID?.trim().toLowerCase();
+  if (raw === undefined || raw.length === 0) {
+    return undefined;
+  }
+  if (raw === "xunfei" || raw === "volcengine") {
+    return raw;
+  }
+  throw new Error("Voice Pilot expected provider id is invalid.");
 }
 
 function validateBooleanEnvironment(env: Readonly<NodeJS.ProcessEnv>): void {

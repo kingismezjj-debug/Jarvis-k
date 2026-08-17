@@ -72,9 +72,12 @@ import {
   ToolPolicyDecision,
   UserControlledMemoryRecord,
   VoiceAsrProviderId,
+  VoiceAsrProviderIdSchema,
   VoiceCommand,
   VoiceCommandCorrection,
   VoiceEvent,
+  type VoicePilotExpectedProviderId,
+  VoicePilotSessionEvidenceSchema,
   type VoiceInputModeSource,
   createId,
 } from "@jarvis-k/contracts";
@@ -159,6 +162,7 @@ import {
   EffectfulActionAuditService,
   type EffectfulActionKind,
 } from "./effectful-action-audit-service";
+import { VoicePilotSessionService } from "./voice-pilot-session-service";
 
 type EventSink = (event: EventEnvelope) => void;
 
@@ -436,6 +440,11 @@ export interface CoreRuntimeSafetyOptions {
   brainOpenActionsDisabled: boolean;
 }
 
+export interface CoreVoicePilotOptions {
+  expectedProviderId?: VoicePilotExpectedProviderId | undefined;
+  repositoryPathProjection?: string | undefined;
+}
+
 export interface LocalPluginEnabledStateRecord {
   pluginId: string;
   enabled: boolean;
@@ -494,6 +503,7 @@ export class CoreRuntime {
   private readonly plannerStatusProjector: PlannerStatusProjector;
   private readonly voiceRegressionService: VoiceRegressionService;
   private readonly effectfulActionAuditService: EffectfulActionAuditService;
+  private readonly voicePilotSessionService: VoicePilotSessionService;
 
   public constructor(
     private readonly eventSink: EventSink,
@@ -536,6 +546,7 @@ export class CoreRuntime {
     private readonly userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
     private readonly voiceRegressionRepository?: VoiceRegressionRepository,
     runtimeSafety?: CoreRuntimeSafetyOptions,
+    voicePilot?: CoreVoicePilotOptions,
   ) {
     this.startedAt = this.now().toISOString();
     this.effectfulActionAuditService = new EffectfulActionAuditService(
@@ -572,6 +583,14 @@ export class CoreRuntime {
       this.voiceRegressionRepository,
       this.now,
     );
+    this.voicePilotSessionService = new VoicePilotSessionService({
+      expectedProviderId: voicePilot?.expectedProviderId,
+      inputMode: "command",
+      inputModeSource: "explicit_ui",
+      repositoryPathProjection: voicePilot?.repositoryPathProjection,
+      now: this.now,
+      getAudit: () => this.effectfulActionAuditService.getProjection(),
+    });
     this.chatDispatchService = new ChatDispatchService({
       provider: this.chatAnswerProvider,
       options: this.chatAnswer,
@@ -852,6 +871,18 @@ export class CoreRuntime {
 
       case "agent.getVoiceRegressionCollectionStatus": {
         return this.getVoiceRegressionCollectionStatus(envelope);
+      }
+
+      case "agent.prepareVoicePilotSession": {
+        return this.prepareVoicePilotSession(envelope);
+      }
+
+      case "agent.getVoicePilotSessionStatus": {
+        return this.getVoicePilotSessionStatus(envelope);
+      }
+
+      case "agent.completeVoicePilotSession": {
+        return this.completeVoicePilotSession(envelope);
       }
 
       case "agent.setVoiceRegressionCollectionConsent": {
@@ -1754,6 +1785,10 @@ export class CoreRuntime {
     };
   }
 
+  public configureVoicePilotActualProvider(providerId: VoiceAsrProviderId): void {
+    this.voicePilotSessionService.setActualProvider(providerId);
+  }
+
   private async handleBrainCommand(
     envelope: CommandEnvelope,
   ): Promise<CommandResult> {
@@ -1996,6 +2031,12 @@ export class CoreRuntime {
       }
       if (input.asrProviderId !== undefined) {
         captureInput.asrProviderId = input.asrProviderId;
+      }
+      const providerId = VoiceAsrProviderIdSchema.parse(
+        captureInput.asrProviderId ?? "unknown",
+      );
+      if (!this.voicePilotSessionService.beforeCapture(providerId)) {
+        return;
       }
       await this.voiceRegressionService.captureResolution(captureInput);
     } catch {
@@ -2560,8 +2601,12 @@ export class CoreRuntime {
       });
     }
     try {
+      const status = await this.voiceRegressionService.getStatus();
       return this.success(envelope, {
-        status: await this.voiceRegressionService.getStatus(),
+        status: {
+          ...status,
+          pilotSession: this.voicePilotSessionService.getProjection(),
+        },
         rawAudioPersisted: false,
         uploadAttempted: false,
         directActionAttempted: false,
@@ -2573,6 +2618,81 @@ export class CoreRuntime {
         retryable: true,
       });
     }
+  }
+
+  private async prepareVoicePilotSession(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.prepareVoicePilotSession") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot session preparation received an invalid command.",
+        retryable: false,
+      });
+    }
+    const pilotSession = this.voicePilotSessionService.prepare();
+    if (!pilotSession.allowManualPilot) {
+      return this.failure(envelope, {
+        code: pilotSession.invalidationReason ?? "VOICE_PILOT_SESSION_UNAVAILABLE",
+        message: "Voice Pilot session is not ready for manual collection.",
+        retryable: false,
+      });
+    }
+    return this.success(envelope, {
+      pilotSession,
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async getVoicePilotSessionStatus(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.getVoicePilotSessionStatus") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot session status received an invalid command.",
+        retryable: false,
+      });
+    }
+    return this.success(envelope, {
+      pilotSession: this.voicePilotSessionService.getProjection(),
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
+  }
+
+  private async completeVoicePilotSession(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.completeVoicePilotSession") {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_COMMAND_INVALID",
+        message: "Voice Pilot session completion received an invalid command.",
+        retryable: false,
+      });
+    }
+    const exported = await this.voiceRegressionService.exportRecords();
+    const pilotSessionEvidence = this.voicePilotSessionService.complete(
+      exported.digestSha256,
+    );
+    if (!pilotSessionEvidence) {
+      return this.failure(envelope, {
+        code: "VOICE_PILOT_ACTIVE_SESSION_UNAVAILABLE",
+        message: "Voice Pilot session is unavailable.",
+        retryable: false,
+      });
+    }
+    return this.success(envelope, {
+      pilotSessionEvidence: VoicePilotSessionEvidenceSchema.parse(
+        pilotSessionEvidence,
+      ),
+      rawAudioPersisted: false,
+      uploadAttempted: false,
+      directActionAttempted: false,
+    });
   }
 
   private async setVoiceRegressionCollectionConsent(
@@ -2591,7 +2711,10 @@ export class CoreRuntime {
         confirmation: envelope.command.payload.confirmation,
       });
       return this.success(envelope, {
-        status,
+        status: {
+          ...status,
+          pilotSession: this.voicePilotSessionService.getProjection(),
+        },
         rawAudioPersisted: false,
         uploadAttempted: false,
         directActionAttempted: false,
@@ -2681,9 +2804,24 @@ export class CoreRuntime {
       });
     }
     try {
+      const payload = envelope.command.payload;
+      const pendingSample = this.voiceRegressionService
+        .listPendingSamples({ limit: 50 })
+        .find((sample) => sample.id === payload.sampleId);
+      if (
+        pendingSample &&
+        !this.voicePilotSessionService.beforeSave(pendingSample.asr.providerId)
+      ) {
+        return this.failure(envelope, {
+          code: "VOICE_PILOT_PROVIDER_MISMATCH",
+          message:
+            "Voice Pilot pending sample provider does not match the active session.",
+          retryable: false,
+        });
+      }
       const record = await this.voiceRegressionService.savePendingSample({
-        sampleId: envelope.command.payload.sampleId,
-        feedback: envelope.command.payload.feedback,
+        sampleId: payload.sampleId,
+        feedback: payload.feedback,
       });
       if (!record) {
         return this.failure(envelope, {
@@ -2692,6 +2830,7 @@ export class CoreRuntime {
           retryable: false,
         });
       }
+      this.voicePilotSessionService.recordSaved(record.asr.providerId);
       return this.success(envelope, {
         record,
         persisted: true,
@@ -2857,8 +2996,18 @@ export class CoreRuntime {
       });
     }
     try {
+      const exported = await this.voiceRegressionService.exportRecords();
+      const pilotSessionEvidence = this.voicePilotSessionService.complete(
+        exported.digestSha256,
+      );
       return this.success(envelope, {
-        export: await this.voiceRegressionService.exportRecords(),
+        export:
+          pilotSessionEvidence === undefined
+            ? exported
+            : {
+                ...exported,
+                pilotSessionEvidence,
+              },
         rawAudioPersisted: false,
         uploadAttempted: false,
         directActionAttempted: false,

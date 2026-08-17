@@ -881,10 +881,109 @@ export const VoiceRegressionCollectionStatusSchema = z
     audioRetained: z.literal(false),
     retentionPolicy: z.literal("local_text_30d_10000_records_5mb"),
     storage: z.enum(["not_configured", "local_json"]),
+    pilotSession: z.lazy(() => VoicePilotSessionProjectionSchema).optional(),
   })
   .strict();
 export type VoiceRegressionCollectionStatus = z.infer<
   typeof VoiceRegressionCollectionStatusSchema
+>;
+
+export const VoicePilotExpectedProviderIdSchema = z.enum([
+  "xunfei",
+  "volcengine",
+]);
+export type VoicePilotExpectedProviderId = z.infer<
+  typeof VoicePilotExpectedProviderIdSchema
+>;
+
+export const VoicePilotSessionStateSchema = z.enum([
+  "inactive",
+  "ready",
+  "collecting",
+  "completed",
+  "invalidated",
+]);
+export type VoicePilotSessionState = z.infer<
+  typeof VoicePilotSessionStateSchema
+>;
+
+export const VoicePilotInvalidationReasonSchema = z.enum([
+  "EXPECTED_PROVIDER_MISSING",
+  "EXPECTED_PROVIDER_INVALID",
+  "ACTUAL_PROVIDER_UNAVAILABLE",
+  "PROVIDER_MISMATCH",
+  "PROVIDER_SWITCHED",
+  "REAL_WINDOWS_EXECUTION_ENABLED",
+  "BRAIN_OPEN_ACTIONS_NOT_DISABLED",
+  "EXECUTOR_INVOKED",
+  "SESSION_INTERRUPTED",
+  "REPOSITORY_NOT_EMPTY",
+]);
+export type VoicePilotInvalidationReason = z.infer<
+  typeof VoicePilotInvalidationReasonSchema
+>;
+
+export const VoicePilotAuditCountersSchema = z
+  .object({
+    windowsExecutorInvocationCount: z.number().int().nonnegative(),
+    effectfulActionBlockedBeforeExecutorCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type VoicePilotAuditCounters = z.infer<
+  typeof VoicePilotAuditCountersSchema
+>;
+
+export const VoicePilotSessionProjectionSchema = z
+  .object({
+    sessionId: z.string().min(1).max(128).optional(),
+    sessionShortId: z.string().min(1).max(16).optional(),
+    sessionStartedAt: z.string().datetime().optional(),
+    expectedProviderId: VoicePilotExpectedProviderIdSchema.optional(),
+    actualProviderId: VoiceAsrProviderIdSchema,
+    inputMode: z.literal("command"),
+    inputModeSource: z.literal("explicit_ui"),
+    repositoryPathProjection: z.string().min(1).max(160).optional(),
+    auditBaseline: VoicePilotAuditCountersSchema.optional(),
+    auditCurrent: VoicePilotAuditCountersSchema.optional(),
+    sessionState: VoicePilotSessionStateSchema,
+    invalidationReason: VoicePilotInvalidationReasonSchema.optional(),
+    recordCount: z.number().int().nonnegative(),
+    providerMismatchCount: z.number().int().nonnegative(),
+    allowManualPilot: z.boolean(),
+    providerMatchesExpected: z.boolean(),
+  })
+  .strict();
+export type VoicePilotSessionProjection = z.infer<
+  typeof VoicePilotSessionProjectionSchema
+>;
+
+export const VoicePilotSessionEvidenceSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    sessionId: z.string().min(1).max(128),
+    sessionStartedAt: z.string().datetime(),
+    sessionEndedAt: z.string().datetime(),
+    expectedProviderId: VoicePilotExpectedProviderIdSchema,
+    actualProviderIdsObserved: z
+      .array(VoiceAsrProviderIdSchema)
+      .min(1)
+      .max(8),
+    recordCount: z.number().int().nonnegative(),
+    recordExportDigestSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    executorInvocationBaseline: z.number().int().nonnegative(),
+    executorInvocationFinal: z.number().int().nonnegative(),
+    executorInvocationDelta: z.number().int().nonnegative(),
+    blockedBeforeExecutorBaseline: z.number().int().nonnegative(),
+    blockedBeforeExecutorFinal: z.number().int().nonnegative(),
+    blockedBeforeExecutorDelta: z.number().int().nonnegative(),
+    realWindowsExecutionEnabled: z.literal(false),
+    brainOpenActionsDisabled: z.literal(true),
+    sessionValid: z.boolean(),
+    invalidationReason: VoicePilotInvalidationReasonSchema.optional(),
+  })
+  .strict();
+export type VoicePilotSessionEvidence = z.infer<
+  typeof VoicePilotSessionEvidenceSchema
 >;
 
 export const VoiceRegressionExportSchema = z
@@ -900,6 +999,7 @@ export const VoiceRegressionExportSchema = z
     recordCount: z.number().int().nonnegative(),
     records: z.array(VoiceRegressionRecordSchema).max(10_000),
     jsonl: z.string(),
+    pilotSessionEvidence: VoicePilotSessionEvidenceSchema.optional(),
   })
   .strict();
 export type VoiceRegressionExport = z.infer<
@@ -1712,6 +1812,18 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("agent.getVoiceRegressionCollectionStatus"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("agent.prepareVoicePilotSession"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("agent.getVoicePilotSessionStatus"),
+    payload: EmptyPayloadSchema,
+  }),
+  z.object({
+    type: z.literal("agent.completeVoicePilotSession"),
     payload: EmptyPayloadSchema,
   }),
   z.object({

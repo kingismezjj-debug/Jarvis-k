@@ -1,3 +1,4 @@
+import path from "node:path";
 import { type CoreOutboundMessage } from "@jarvis-k/contracts";
 import {
   fixtureModelManifests,
@@ -428,6 +429,12 @@ runtime = new CoreRuntime(
     brainOpenActionsDisabled: runtimeConfig.brainOpenActionsDisabled,
     realWindowsExecutionEnabled: runtimeConfig.realWindowsExecutionEnabled,
   },
+  {
+    expectedProviderId: runtimeConfig.voicePilotExpectedProviderId,
+    repositoryPathProjection: projectVoiceRegressionPath(
+      storagePaths.voiceRegressionPath,
+    ),
+  },
 );
 const runtimeConfigurationController = new RuntimeConfigurationController({
   runtime,
@@ -473,3 +480,11 @@ void hydrateCoreHostAndAnnounceReady({
   runtime,
   hydrateMemory: memoryAlphaImplementation !== undefined,
 });
+
+function projectVoiceRegressionPath(absolutePath: string): string {
+  const fileName = path.basename(absolutePath);
+  const parentName = path.basename(path.dirname(absolutePath));
+  return parentName === "Jarvis-K"
+    ? `LocalAppData/Jarvis-K/${fileName}`
+    : `local/${fileName}`;
+}

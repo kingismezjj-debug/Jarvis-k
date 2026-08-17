@@ -72,6 +72,33 @@ describe("Core Host runtime config", () => {
     ).toBe(true);
   });
 
+  it("parses Voice Pilot expected provider as an exact Pilot-only lock", () => {
+    expect(loadRuntimeConfig({}).voicePilotExpectedProviderId).toBeUndefined();
+    expect(
+      loadRuntimeConfig({
+        JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "xunfei",
+      }).voicePilotExpectedProviderId,
+    ).toBe("xunfei");
+    expect(
+      loadRuntimeConfig({
+        JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "VOLCENGINE",
+      }).voicePilotExpectedProviderId,
+    ).toBe("volcengine");
+    for (const providerId of [
+      "unknown",
+      "unavailable",
+      "fixture-asr",
+      "smoke-asr",
+      "https://asr.example.test?key=fake",
+    ]) {
+      expect(() =>
+        loadRuntimeConfig({
+          JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: providerId,
+        }),
+      ).toThrow("Voice Pilot expected provider id is invalid.");
+    }
+  });
+
   it("rejects invalid boolean values", () => {
     expect(() =>
       loadRuntimeConfig({ JARVIS_K_ENABLE_QWEN_FAST_ROUTER: "yes" }),

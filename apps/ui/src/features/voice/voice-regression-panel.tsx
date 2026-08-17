@@ -1,6 +1,7 @@
 import { Download, RefreshCw, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type {
+  VoiceRegressionCollectionStatus,
   VoiceRegressionDualFeedback,
   VoiceRegressionRecord,
   VoiceRegressionResolutionFeedbackStatus,
@@ -195,6 +196,46 @@ export function VoiceRegressionPanel({
         />
         <MetricRow label="upload" value={status?.uploadAllowed ? "ON" : "OFF"} />
       </dl>
+      {status?.pilotSession ? (
+        <dl className="mb-3 divide-y divide-border border-y text-[11px]">
+          <MetricRow
+            label="pilot session"
+            value={status.pilotSession.sessionState}
+          />
+          <MetricRow
+            label="session id"
+            value={status.pilotSession.sessionShortId ?? "none"}
+          />
+          <MetricRow
+            label="expected provider"
+            value={status.pilotSession.expectedProviderId ?? "missing"}
+          />
+          <MetricRow
+            label="actual provider"
+            value={status.pilotSession.actualProviderId}
+          />
+          <MetricRow
+            label="provider match"
+            value={status.pilotSession.providerMatchesExpected ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="input mode"
+            value={`${status.pilotSession.inputMode}/${status.pilotSession.inputModeSource}`}
+          />
+          <MetricRow
+            label="executor delta"
+            value={formatExecutorDelta(status.pilotSession)}
+          />
+          <MetricRow
+            label="session valid"
+            value={
+              status.pilotSession.allowManualPilot
+                ? "YES"
+                : (status.pilotSession.invalidationReason ?? "NO")
+            }
+          />
+        </dl>
+      ) : null}
 
       <div className="space-y-3">
         {viewModel.pendingSamples.slice(0, 5).map((sample) => (
@@ -556,4 +597,15 @@ function formatTimestamp(value: string | undefined): string {
     return "not applied";
   }
   return new Date(value).toLocaleString();
+}
+
+function formatExecutorDelta(
+  pilotSession: NonNullable<
+    VoiceRegressionCollectionStatus["pilotSession"]
+  >,
+): string {
+  const baseline =
+    pilotSession.auditBaseline?.windowsExecutorInvocationCount ?? 0;
+  const current = pilotSession.auditCurrent?.windowsExecutorInvocationCount ?? 0;
+  return String(Math.max(0, current - baseline));
 }

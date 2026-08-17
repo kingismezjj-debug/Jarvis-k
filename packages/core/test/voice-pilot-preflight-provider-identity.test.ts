@@ -16,6 +16,7 @@ function runPreflight(env: Record<string, string | undefined>) {
       ...process.env,
       JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
       JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION: undefined,
+      JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: undefined,
       JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: undefined,
       JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: undefined,
       JARVIS_K_VOICE_PILOT_INPUT_MODE: undefined,
@@ -27,6 +28,25 @@ function runPreflight(env: Record<string, string | undefined>) {
 }
 
 describe("voice pilot provider identity preflight", () => {
+  it("fails closed without an active runtime session bridge", () => {
+    const result = runPreflight({
+      JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: undefined,
+      JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "xunfei",
+      JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: "xunfei",
+      JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
+      JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
+      JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: "explicit_ui",
+    });
+    const parsed = JSON.parse(result.stdout);
+
+    expect(result.status).toBe(1);
+    expect(parsed).toMatchObject({
+      status: "FAIL",
+      reason: "VOICE_PILOT_ACTIVE_SESSION_UNAVAILABLE",
+      allowManualPilot: false,
+    });
+  });
+
   it("fails closed when provider identity is unknown, unavailable, fixture, or smoke", () => {
     for (const providerId of [
       undefined,
@@ -36,6 +56,8 @@ describe("voice pilot provider identity preflight", () => {
       "smoke-asr",
     ]) {
       const result = runPreflight({
+        JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
+        JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "xunfei",
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: providerId,
         JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
         JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
@@ -52,35 +74,65 @@ describe("voice pilot provider identity preflight", () => {
     }
   });
 
-  it("allows manual pilot only for a real ready provider with non-execution proof", () => {
-    const result = runPreflight({
-      JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: "xunfei",
-      JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
-      JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
-      JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: "explicit_ui",
-    });
-    const parsed = JSON.parse(result.stdout);
+  it("fails closed when the expected provider is missing or mismatched", () => {
+    for (const [expected, actual, reason] of [
+      [undefined, "xunfei", "VOICE_PILOT_EXPECTED_PROVIDER_UNAVAILABLE"],
+      ["xunfei", "volcengine", "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE"],
+      ["volcengine", "xunfei", "VOICE_PILOT_PROVIDER_IDENTITY_UNAVAILABLE"],
+    ] as const) {
+      const result = runPreflight({
+        JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
+        JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: expected,
+        JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: actual,
+        JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: "explicit_ui",
+      });
+      const parsed = JSON.parse(result.stdout);
 
-    expect(result.status).toBe(0);
-    expect(parsed).toMatchObject({
-      status: "PASS",
-      currentVoiceProviderId: "xunfei",
-      voiceProviderStatus: "ready",
-      providerIdentitySupported: true,
-      currentVoiceInputMode: "command",
-      currentVoiceInputModeSource: "explicit_ui",
-      explicitCommandModeSupported: true,
-      pilotTranscriptModeCount: 20,
-      allowManualPilot: true,
-      executorInvocationCounter: 0,
-    });
-    expect(parsed.effectfulAdaptersStatus).toEqual({
-      browserOpen: 0,
-      localAppOpen: 0,
-      notepadAutomation: 0,
-      windowAutomation: 0,
-      filesystemSearch: 0,
-    });
+      expect(result.status).toBe(1);
+      expect(parsed).toMatchObject({
+        status: "FAIL",
+        reason,
+        allowManualPilot: false,
+      });
+    }
+  });
+
+  it("allows manual pilot only for a matching real ready provider with non-execution proof", () => {
+    for (const providerId of ["xunfei", "volcengine"] as const) {
+      const result = runPreflight({
+        JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
+        JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: providerId,
+        JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: providerId,
+        JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE: "command",
+        JARVIS_K_VOICE_PILOT_INPUT_MODE_SOURCE: "explicit_ui",
+      });
+      const parsed = JSON.parse(result.stdout);
+
+      expect(result.status).toBe(0);
+      expect(parsed).toMatchObject({
+        status: "PASS",
+        expectedProviderId: providerId,
+        currentVoiceProviderId: providerId,
+        voiceProviderStatus: "ready",
+        providerIdentitySupported: true,
+        currentVoiceInputMode: "command",
+        currentVoiceInputModeSource: "explicit_ui",
+        explicitCommandModeSupported: true,
+        pilotTranscriptModeCount: 20,
+        allowManualPilot: true,
+        executorInvocationCounter: 0,
+      });
+      expect(parsed.effectfulAdaptersStatus).toEqual({
+        browserOpen: 0,
+        localAppOpen: 0,
+        notepadAutomation: 0,
+        windowAutomation: 0,
+        filesystemSearch: 0,
+      });
+    }
   });
 
   it("fails closed when the Pilot mode is missing or legacy inferred", () => {
@@ -90,6 +142,8 @@ describe("voice pilot provider identity preflight", () => {
       ["conversation", "explicit_ui"],
     ] as const) {
       const result = runPreflight({
+        JARVIS_K_VOICE_PILOT_ALLOW_TEST_HARNESS: "1",
+        JARVIS_K_VOICE_PILOT_EXPECTED_PROVIDER_ID: "xunfei",
         JARVIS_K_VOICE_PILOT_PROVIDER_IDENTITY: "xunfei",
         JARVIS_K_VOICE_PILOT_PROVIDER_STATUS: "ready",
         JARVIS_K_VOICE_PILOT_INPUT_MODE: mode,

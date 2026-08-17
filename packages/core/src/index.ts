@@ -8,6 +8,7 @@ export type {
   CoreChatAnswerOptions,
   CoreCommandRouterProductModeOptions,
   CoreTextOnlyAcceptanceOptions,
+  CoreVoicePilotOptions,
   CoreBrainRouterOptions,
   CoreMemoryAlphaSessionPort,
   LocalPluginEnabledStateRecord,

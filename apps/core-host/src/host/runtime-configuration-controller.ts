@@ -18,6 +18,7 @@ export interface RuntimeConfigurationTarget {
     readonly provider?: ChatAnswerProvider;
     readonly options?: CoreChatAnswerOptions;
   }): void;
+  configureVoicePilotActualProvider(providerId: "xunfei" | "volcengine"): void;
 }
 
 export interface RuntimeConfigurationControllerInput {
@@ -116,5 +117,6 @@ export class RuntimeConfigurationController {
     configuration: CoreHostVoiceProviderConfiguration,
   ): Promise<void> {
     await this.input.voiceComposition.configureProvider(configuration);
+    this.input.runtime.configureVoicePilotActualProvider(configuration.provider);
   }
 }

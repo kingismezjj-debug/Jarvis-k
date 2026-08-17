@@ -15,6 +15,7 @@ import {
   type UserRouteAliasRecord,
   type VoiceCommandAliasRecord,
   type VoiceRegressionConsentLevel,
+  type VoiceRegressionExport,
   type VoiceRegressionRecord,
   type VoiceRegressionSample,
   type VoiceEvent,
@@ -99,6 +100,7 @@ import {
   type CoreBrainRouterOptions,
   type CoreTextOnlyAcceptanceOptions,
   type CoreRuntimeSafetyOptions,
+  type CoreVoicePilotOptions,
   type CoreMemoryAlphaSessionPort,
   type CoreMemoryRetrievalRoutingOptions,
   type LocalPluginEnabledStateRecord,
@@ -1795,6 +1797,7 @@ function createRuntime(
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
   voiceRegressionRepository?: VoiceRegressionRepository,
   runtimeSafety?: CoreRuntimeSafetyOptions,
+  voicePilot?: CoreVoicePilotOptions,
 ) {
   const events: EventEnvelope[] = [];
   const voiceEngine = new FakeVoiceEngine();
@@ -1839,6 +1842,7 @@ function createRuntime(
     userPreferenceMemoryRepository,
     voiceRegressionRepository,
     runtimeSafety,
+    voicePilot,
   );
   voiceEngine.setEventSink((event) => runtime.handleVoiceEvent(event));
   return { events, runtime, voiceEngine };
@@ -1987,6 +1991,7 @@ function createRuntimeWithBrainActionExecutorAndTasks(
   voiceCommandAliasRepository?: VoiceCommandAliasRepository,
   voiceRegressionRepository?: VoiceRegressionRepository,
   runtimeSafety?: CoreRuntimeSafetyOptions,
+  voicePilot?: CoreVoicePilotOptions,
 ) {
   return createRuntime(
     undefined,
@@ -2025,6 +2030,7 @@ function createRuntimeWithBrainActionExecutorAndTasks(
     undefined,
     voiceRegressionRepository,
     runtimeSafety,
+    voicePilot,
   );
 }
 
@@ -5544,6 +5550,288 @@ describe("CoreRuntime", () => {
     );
     expect(deleted.ok).toBe(true);
     expect(voiceRegressionRepository.records).toHaveLength(0);
+  });
+
+  it("does not create a Pilot session during ordinary Voice Regression startup", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          throw new Error("local app should not be opened");
+        },
+      },
+      new InMemoryTaskRepository(),
+      undefined,
+      undefined,
+      voiceRegressionRepository,
+    );
+
+    const statusResult = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getVoiceRegressionCollectionStatus",
+        payload: {},
+      }),
+    );
+
+    expect(statusResult.ok).toBe(true);
+    expect(
+      statusResult.ok
+        ? (statusResult.data as { status?: unknown } | undefined)?.status
+        : undefined,
+    ).toMatchObject({
+      pilotSession: {
+        sessionState: "inactive",
+        allowManualPilot: false,
+        actualProviderId: "unavailable",
+        inputMode: "command",
+        inputModeSource: "explicit_ui",
+      },
+    });
+  });
+
+  it("binds Pilot session evidence to matching provider records and runtime audit counters", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          throw new Error("local app should not be opened");
+        },
+      },
+      new InMemoryTaskRepository(),
+      undefined,
+      undefined,
+      voiceRegressionRepository,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+      {
+        expectedProviderId: "xunfei",
+        repositoryPathProjection:
+          "LocalAppData/Jarvis-K/voice-regression-pilot-2.json",
+      },
+    );
+    runtime.configureVoicePilotActualProvider("xunfei");
+    const prepared = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.prepareVoicePilotSession",
+        payload: {},
+      }),
+    );
+    expect(prepared.ok).toBe(true);
+    expect(
+      prepared.ok
+        ? (prepared.data as { pilotSession?: unknown }).pilotSession
+        : undefined,
+    ).toMatchObject({
+      expectedProviderId: "xunfei",
+      actualProviderId: "xunfei",
+      sessionState: "ready",
+      allowManualPilot: true,
+      providerMatchesExpected: true,
+    });
+
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.setVoiceRegressionCollectionConsent",
+        payload: {
+          consentLevel: "local_text",
+          confirmation: "explicit_ui_confirmation",
+        },
+      }),
+    );
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "voice",
+          text: "打开记事本",
+          asrProviderId: "xunfei",
+          voiceInputMode: "command",
+          voiceInputModeSource: "explicit_ui",
+        },
+      }),
+    );
+    const pending = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionPendingSamples",
+        payload: { limit: 1 },
+      }),
+    );
+    const sample = pending.ok
+      ? (pending.data as { samples?: VoiceRegressionSample[] }).samples?.[0]
+      : undefined;
+    expect(sample?.asr.providerId).toBe("xunfei");
+
+    const saved = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.saveVoiceRegressionPendingSample",
+        payload: {
+          sampleId: sample!.id,
+          feedback: {
+            kind: "dual_layer",
+            transcript: { status: "accepted" },
+            resolution: {
+              status: "accepted",
+              selectedCandidateIndex: 0,
+            },
+          },
+        },
+      }),
+    );
+    expect(saved.ok).toBe(true);
+
+    const exported = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.exportVoiceRegressionRecords",
+        payload: {},
+      }),
+    );
+
+    expect(exported.ok).toBe(true);
+    const exportData = exported.ok
+      ? (exported.data as { export?: VoiceRegressionExport }).export
+      : undefined;
+    expect(exportData).toMatchObject({
+      recordCount: 1,
+      pilotSessionEvidence: {
+        expectedProviderId: "xunfei",
+        actualProviderIdsObserved: ["xunfei"],
+        recordCount: 1,
+        executorInvocationDelta: 0,
+        realWindowsExecutionEnabled: false,
+        brainOpenActionsDisabled: true,
+        sessionValid: true,
+      },
+    });
+    expect(exportData?.pilotSessionEvidence?.recordExportDigestSha256).toBe(
+      exportData?.digestSha256,
+    );
+    expect(JSON.stringify(exportData?.pilotSessionEvidence)).not.toMatch(
+      /rawTranscript|normalizedText|correctedText|safeSlots|https?:\/\/|[A-Z]:\\/u,
+    );
+  });
+
+  it("keeps mismatched Pilot pending samples unsaved after provider switch invalidates the session", async () => {
+    const voiceRegressionRepository = new InMemoryVoiceRegressionRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
+      {
+        async openBrowser() {
+          throw new Error("browser should not be opened");
+        },
+        async openLocalApp() {
+          throw new Error("local app should not be opened");
+        },
+      },
+      new InMemoryTaskRepository(),
+      undefined,
+      undefined,
+      voiceRegressionRepository,
+      {
+        brainOpenActionsDisabled: true,
+        realWindowsExecutionEnabled: false,
+      },
+      {
+        expectedProviderId: "xunfei",
+        repositoryPathProjection:
+          "LocalAppData/Jarvis-K/voice-regression-pilot-2.json",
+      },
+    );
+    runtime.configureVoicePilotActualProvider("xunfei");
+    expect(
+      await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.prepareVoicePilotSession",
+          payload: {},
+        }),
+      ),
+    ).toMatchObject({ ok: true });
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.setVoiceRegressionCollectionConsent",
+        payload: {
+          consentLevel: "local_text",
+          confirmation: "explicit_ui_confirmation",
+        },
+      }),
+    );
+    await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "voice",
+          text: "打开记事本",
+          asrProviderId: "xunfei",
+          voiceInputMode: "command",
+          voiceInputModeSource: "explicit_ui",
+        },
+      }),
+    );
+    const pendingBefore = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionPendingSamples",
+        payload: { limit: 1 },
+      }),
+    );
+    const sample = pendingBefore.ok
+      ? (pendingBefore.data as { samples?: VoiceRegressionSample[] }).samples?.[0]
+      : undefined;
+    expect(sample).toBeDefined();
+
+    runtime.configureVoicePilotActualProvider("volcengine");
+    const saved = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.saveVoiceRegressionPendingSample",
+        payload: {
+          sampleId: sample!.id,
+          feedback: {
+            kind: "dual_layer",
+            transcript: { status: "accepted" },
+            resolution: {
+              status: "accepted",
+              selectedCandidateIndex: 0,
+            },
+          },
+        },
+      }),
+    );
+
+    expect(saved.ok).toBe(false);
+    expect(saved.ok ? undefined : saved.error.code).toBe(
+      "VOICE_PILOT_PROVIDER_MISMATCH",
+    );
+    expect(voiceRegressionRepository.records).toHaveLength(0);
+    const pendingAfter = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.listVoiceRegressionPendingSamples",
+        payload: { limit: 5 },
+      }),
+    );
+    expect(
+      pendingAfter.ok
+        ? (pendingAfter.data as { samples?: VoiceRegressionSample[] }).samples
+        : undefined,
+    ).toHaveLength(1);
+    const status = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getVoicePilotSessionStatus",
+        payload: {},
+      }),
+    );
+    expect(status.ok ? status.data : undefined).toMatchObject({
+      pilotSession: {
+        sessionState: "invalidated",
+        invalidationReason: "PROVIDER_SWITCHED",
+        allowManualPilot: false,
+        providerMatchesExpected: false,
+      },
+    });
   });
 
   it("persists, lists, and deletes confirmed voice command aliases without executing actions", async () => {

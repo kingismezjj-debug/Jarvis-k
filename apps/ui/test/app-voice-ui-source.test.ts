@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { readAppCompositionSource } from "./read-ui-source";
+import { readAppCompositionSource, readUiSource } from "./read-ui-source";
 
 const appSource = readAppCompositionSource();
+const voiceActionsSource = readUiSource(["hooks/use-jarvis-voice-actions.ts"]);
 
 describe("voice UI wiring", () => {
   it("keeps PTT enabled while voice commands are in flight", () => {
@@ -908,6 +909,21 @@ describe("voice UI wiring", () => {
     expect(appSource).not.toContain(
       'actions.saveRegressionPendingSample(sample.id, "rejected")',
     );
+  });
+
+  it("renders Pilot session evidence as read-only Voice Regression status", () => {
+    expect(appSource).toContain("pilotSession");
+    expect(appSource).toContain("pilot session");
+    expect(appSource).toContain("session id");
+    expect(appSource).toContain("expected provider");
+    expect(appSource).toContain("actual provider");
+    expect(appSource).toContain("provider match");
+    expect(appSource).toContain("input mode");
+    expect(appSource).toContain("executor delta");
+    expect(appSource).toContain("session valid");
+    expect(appSource).toContain("formatExecutorDelta");
+    expect(voiceActionsSource).toContain("agent.prepareVoicePilotSession");
+    expect(appSource).not.toContain("setPilotSession");
   });
 
   it("projects blocked brain dispatches through status and summary without verified wording", () => {
