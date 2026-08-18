@@ -99,6 +99,12 @@ const REAL_PROVIDER_IDS = new Set<VoiceAsrProviderId>([
 export class VoicePilotSessionService {
   private actualProviderId: VoiceAsrProviderId = "unavailable";
   private session: ActiveVoicePilotSession | undefined;
+  private lastPrepareFailure:
+    | {
+        reason: VoicePilotInvalidationReason;
+        requiredContext: VoicePilotRequiredContextResult;
+      }
+    | undefined;
 
   public constructor(private readonly options: VoicePilotSessionServiceOptions) {}
 
@@ -118,26 +124,26 @@ export class VoicePilotSessionService {
 
   public async prepare(): Promise<VoicePilotSessionProjection> {
     if (!this.options.expectedProviderId) {
-      return this.inactive("EXPECTED_PROVIDER_MISSING");
+      return this.prepareFailed("EXPECTED_PROVIDER_MISSING");
     }
     const requiredContext =
       (await this.options.getRequiredContext?.()) ??
       emptyRequiredContextResult();
     if (requiredContext.missing.length > 0) {
-      return this.inactive("REQUIRED_CONTEXT_MISSING", requiredContext);
+      return this.prepareFailed("REQUIRED_CONTEXT_MISSING", requiredContext);
     }
     if (!REAL_PROVIDER_IDS.has(this.actualProviderId)) {
-      return this.inactive("ACTUAL_PROVIDER_UNAVAILABLE", requiredContext);
+      return this.prepareFailed("ACTUAL_PROVIDER_UNAVAILABLE", requiredContext);
     }
     if (this.options.expectedProviderId !== this.actualProviderId) {
-      return this.inactive("PROVIDER_MISMATCH", requiredContext);
+      return this.prepareFailed("PROVIDER_MISMATCH", requiredContext);
     }
     const audit = this.options.getAudit();
     if (audit.realWindowsExecutionEnabled) {
-      return this.inactive("REAL_WINDOWS_EXECUTION_ENABLED", requiredContext);
+      return this.prepareFailed("REAL_WINDOWS_EXECUTION_ENABLED", requiredContext);
     }
     if (!audit.brainOpenActionsDisabled) {
-      return this.inactive("BRAIN_OPEN_ACTIONS_NOT_DISABLED", requiredContext);
+      return this.prepareFailed("BRAIN_OPEN_ACTIONS_NOT_DISABLED", requiredContext);
     }
     if (this.session?.state === "invalidated") {
       return this.project();
@@ -145,6 +151,7 @@ export class VoicePilotSessionService {
     if (this.session?.state === "ready" || this.session?.state === "collecting") {
       return this.project();
     }
+    this.lastPrepareFailure = undefined;
     this.session = {
       sessionId: createId("voice-pilot-session"),
       sessionStartedAt: this.options.now().toISOString(),
@@ -177,9 +184,19 @@ export class VoicePilotSessionService {
 
   public getProjection(): VoicePilotSessionProjection {
     if (!this.session) {
-      return this.inactive();
+      return this.inactive(
+        this.lastPrepareFailure?.reason,
+        this.lastPrepareFailure?.requiredContext,
+      );
     }
     return this.project();
+  }
+
+  public recordPrepareFailure(
+    reason: VoicePilotInvalidationReason,
+    requiredContext?: VoicePilotRequiredContextResult | undefined,
+  ): VoicePilotSessionProjection {
+    return this.prepareFailed(reason, requiredContext);
   }
 
   public startPrompt(): VoicePilotSessionProjection {
@@ -617,6 +634,17 @@ export class VoicePilotSessionService {
       allowManualPilot: false,
       providerMatchesExpected: false,
     });
+  }
+
+  private prepareFailed(
+    reason: VoicePilotInvalidationReason,
+    requiredContext?: VoicePilotRequiredContextResult | undefined,
+  ): VoicePilotSessionProjection {
+    this.lastPrepareFailure = {
+      reason,
+      requiredContext: requiredContext ?? emptyRequiredContextResult(),
+    };
+    return this.inactive(reason, requiredContext);
   }
 
   private nextPendingPrompt(

@@ -52,6 +52,10 @@ describe("VoicePilotSessionService", () => {
       allowManualPilot: false,
       invalidationReason: "EXPECTED_PROVIDER_MISSING",
     });
+    expect(missingExpected.getProjection()).toMatchObject({
+      sessionState: "inactive",
+      invalidationReason: "EXPECTED_PROVIDER_MISSING",
+    });
 
     const missingContext = createService({
       expectedProviderId: "xunfei",
@@ -70,6 +74,13 @@ describe("VoicePilotSessionService", () => {
         missing: ["route_alias:jarvis_project_homepage"],
       },
     });
+    expect(missingContext.getProjection()).toMatchObject({
+      sessionState: "inactive",
+      invalidationReason: "REQUIRED_CONTEXT_MISSING",
+      requiredContext: {
+        missing: ["route_alias:jarvis_project_homepage"],
+      },
+    });
 
     const service = createService({ expectedProviderId: "xunfei" });
     service.setActualProvider("fixture-asr");
@@ -78,6 +89,33 @@ describe("VoicePilotSessionService", () => {
       actualProviderId: "fixture-asr",
       invalidationReason: "ACTUAL_PROVIDER_UNAVAILABLE",
     });
+    expect(service.getProjection()).toMatchObject({
+      sessionState: "inactive",
+      invalidationReason: "ACTUAL_PROVIDER_UNAVAILABLE",
+    });
+  });
+
+  it("clears the last prepare failure once a ready session is created", async () => {
+    const service = createService({ expectedProviderId: "volcengine" });
+    service.setActualProvider("xunfei");
+    await expect(service.prepare()).resolves.toMatchObject({
+      sessionState: "inactive",
+      invalidationReason: "PROVIDER_MISMATCH",
+    });
+    expect(service.getProjection()).toMatchObject({
+      invalidationReason: "PROVIDER_MISMATCH",
+    });
+
+    service.setActualProvider("volcengine");
+    await expect(service.prepare()).resolves.toMatchObject({
+      sessionState: "ready",
+      allowManualPilot: true,
+    });
+    const readyProjection = service.getProjection();
+    expect(readyProjection).toMatchObject({
+      sessionState: "ready",
+    });
+    expect(readyProjection.invalidationReason).toBeUndefined();
   });
 
   it("binds one final transcript to the active prompt in manifest order", async () => {

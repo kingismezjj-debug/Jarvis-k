@@ -944,6 +944,15 @@ describe("voice UI wiring", () => {
     expect(voiceRegressionPanelSource).toContain('return "N/A"');
     expect(voiceActionsSource).toContain("agent.prepareVoicePilotSession");
     expect(voiceActionsSource).toContain("agent.cancelVoicePilotSession");
+    expect(voiceActionsSource).toContain(
+      "VoicePilotSessionProjectionSchema.safeParse",
+    );
+    expect(voiceActionsSource).toContain(
+      "setVoiceRegressionStatus((current) =>",
+    );
+    expect(voiceActionsSource).toContain(
+      "await refreshVoiceRegressionCollectionStatus();\n        setError(result.error.message);",
+    );
     expect(voiceActionsSource).not.toContain(
       "if (enabled) {\n          await window.jarvis.sendCommand({\n            type: \"agent.prepareVoicePilotSession\"",
     );

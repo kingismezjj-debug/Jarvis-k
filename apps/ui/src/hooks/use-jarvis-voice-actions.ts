@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, type Dispatch, type SetStateAction } from "react";
 import {
+  VoicePilotSessionProjectionSchema,
   VoiceRegressionCollectionStatusSchema,
   VoiceRegressionExportSchema,
   VoiceRegressionSampleSchema,
@@ -27,9 +28,9 @@ interface UseJarvisVoiceActionsOptions {
   setVoiceRegressionExportText(exportText: string | null): void;
   setVoiceRegressionPendingSamples(samples: VoiceRegressionSample[]): void;
   setVoiceRegressionRecords(records: VoiceRegressionRecord[]): void;
-  setVoiceRegressionStatus(
-    status: VoiceRegressionCollectionStatus | null,
-  ): void;
+  setVoiceRegressionStatus: Dispatch<
+    SetStateAction<VoiceRegressionCollectionStatus | null>
+  >;
   setVoiceServiceStatus(status: VoiceServiceStatus | null): void;
   setTtsServiceStatus(status: TtsServiceStatus | null): void;
   dispatchBrainCommand(
@@ -307,10 +308,20 @@ export function useJarvisVoiceActions({
         payload: {},
       });
       if (!result.ok) {
-        setError(result.error.message);
         await refreshVoiceRegressionCollectionStatus();
+        setError(result.error.message);
         return false;
       }
+      const pilotSession = VoicePilotSessionProjectionSchema.safeParse(
+        (result.data as { pilotSession?: unknown } | undefined)?.pilotSession,
+      );
+      if (!pilotSession.success) {
+        setError("Core returned invalid Voice Pilot session status.");
+        return false;
+      }
+      setVoiceRegressionStatus((current) =>
+        current ? { ...current, pilotSession: pilotSession.data } : current,
+      );
       await refreshVoiceRegressionCollectionStatus();
       await refreshVoiceRegressionPendingSamples();
       await refreshVoiceRegressionRecords();

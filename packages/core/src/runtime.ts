@@ -2671,6 +2671,7 @@ export class CoreRuntime {
       voiceRegressionStatus.recordCount > 0 ||
       voiceRegressionStatus.pendingCount > 0
     ) {
+      this.voicePilotSessionService.recordPrepareFailure("REPOSITORY_NOT_EMPTY");
       return this.failure(envelope, {
         code: "VOICE_PILOT_REPOSITORY_NOT_EMPTY",
         message: "Voice Pilot session requires an empty Voice Regression repository.",

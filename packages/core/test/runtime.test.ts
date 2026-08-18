@@ -5975,6 +5975,21 @@ describe("CoreRuntime", () => {
     expect(prepared.ok ? undefined : prepared.error.code).toBe(
       "VOICE_PILOT_REPOSITORY_NOT_EMPTY",
     );
+    const status = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.getVoiceRegressionCollectionStatus",
+        payload: {},
+      }),
+    );
+    expect(status.ok ? status.data : undefined).toMatchObject({
+      status: {
+        pilotSession: {
+          sessionState: "inactive",
+          invalidationReason: "REPOSITORY_NOT_EMPTY",
+          allowManualPilot: false,
+        },
+      },
+    });
   });
 
   it("prepares Pilot sessions idempotently and cancels without enabling prompts", async () => {
