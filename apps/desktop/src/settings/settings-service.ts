@@ -3,6 +3,7 @@ import {
   CommandRouterProductModeStatus,
   createCommandRouterQwenProductRoutingActivationStatus,
 } from "@jarvis-k/contracts";
+import type { UiSurfaceCapabilityStatus } from "@jarvis-k/contracts";
 import type { ChatAnswerProviderConfiguration } from "../secure-chat-answer-provider-store";
 
 export interface SettingsServiceOptions {
@@ -16,6 +17,7 @@ export interface SettingsServiceOptions {
     enabled: boolean;
     configuration?: ChatAnswerProviderConfiguration | undefined;
   }) => void;
+  evaluationCapabilityAvailable?: boolean;
 }
 
 export class SettingsService {
@@ -24,6 +26,16 @@ export class SettingsService {
   private chatAnswerProductModeRuntimeArmed = false;
 
   public constructor(private readonly options: SettingsServiceOptions) {}
+
+  public getUiSurfaceCapabilityStatus(): UiSurfaceCapabilityStatus {
+    return {
+      evaluationCapabilityAvailable:
+        this.options.evaluationCapabilityAvailable === true,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    };
+  }
 
   public getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
     const qwenBindingStatus = this.commandRouterProductModeEnabled

@@ -53,6 +53,7 @@ export type VoiceControlViewModel = {
   capture: VoiceCaptureViewModel;
   copy: VoiceControlCopy;
   regression: VoiceRegressionViewModel;
+  regressionVisible: boolean;
   sending: boolean;
   status: VoiceStatusViewModel;
 };

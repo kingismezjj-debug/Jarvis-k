@@ -43,7 +43,7 @@ Voice freeze rules:
 ## Current Blockers
 
 - No Windows installer, signing, update, uninstall, or portable build configuration is present.
-- Ordinary UI currently exposes developer/evaluation surfaces, including ASR Regression, Pilot Session controls, runtime inspector, fixture probes, model diagnostics, and provider controls.
+- Phase 4A-1 now isolates Product UI from Developer/Evaluation surfaces by default; final smoke/verify remains the current gate.
 - No tray/minimize-to-background lifecycle is implemented; closing the last window quits the app.
 - Voice is usable only after explicit provider configuration, and first-run onboarding is not yet productized.
 - Strict Voice Pilot UX remains too costly for manual progress and is deferred.
@@ -71,7 +71,7 @@ Voice daily use:
 - PTT UI and audio IPC exist; microphone permission is restricted to audio.
 - Provider settings are stored with `safeStorage`; Xunfei and Volcengine are supported.
 - Level 0 Voice Regression is off by default; Level 1 is explicit local text only; Level 2 audio is unsupported; upload is off.
-- Pilot and ASR Regression controls are visible in ordinary Voice UI and should move behind Developer Mode later.
+- Pilot and ASR Regression controls are hidden from ordinary Voice UI and only mount when Developer Mode plus Evaluation capability are enabled.
 
 Core user loops evidence:
 
@@ -117,7 +117,8 @@ Recommended Phase 4A implementation order:
    - User value: ordinary users see product workflows first.
    - Scope: hide Pilot, fixture probes, raw diagnostics, provider probes, runtime inspector, and advanced model controls behind a default-off Developer Mode.
    - Safety: do not delete tooling or change backend contracts.
-   - Acceptance: default UI has no Pilot/fixture/evaluation controls; Developer Mode restores them.
+   - Acceptance: default UI has no Pilot/fixture/evaluation controls; Developer Mode restores diagnostics, and Evaluation capability restores Pilot tools.
+   - Status: implemented in Phase 4A-1 pending full `npm run verify`.
    - Blocks: first-run polish and release packaging.
 
 2. Windows tray, minimize, background, and quit lifecycle.
@@ -134,7 +135,7 @@ Recommended Phase 4A implementation order:
 
 ## Key Commits
 
-- Current HEAD at freeze: `06b52a18158f8b1606657ba917bb9ee74f583167`
+- Current HEAD before Phase 4A-1: `041bb7a974305ad47a2e1105c7359b6ed8df0ac8`
 - Recent prepare-session fix: `06b52a18158f8b1606657ba917bb9ee74f583167`
 
 ## Prohibited Until Re-approved

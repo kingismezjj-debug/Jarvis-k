@@ -17,6 +17,7 @@ export type AppNavigationProps = {
   coreOnline: boolean;
   inspectorOpen: boolean;
   items: NavItem[];
+  showInspectorToggle: boolean;
   ptt: {
     active: boolean;
     state: string;
@@ -39,6 +40,7 @@ export function AppNavigation({
   onStopPtt,
   onToggleInspector,
   ptt,
+  showInspectorToggle,
   textOnlyAcceptanceMode,
 }: AppNavigationProps) {
   return (
@@ -49,7 +51,12 @@ export function AppNavigation({
             active={activeView === item.id}
             item={item}
             key={item.id}
-            label={copy.nav[item.id]}
+            label={
+              item.id === "developer"
+                ? ((copy.nav as Record<string, string>).developer ??
+                  "Developer")
+                : copy.nav[item.id]
+            }
             onSelect={onSelectView}
           />
         ))}
@@ -109,24 +116,28 @@ export function AppNavigation({
               : copy.label.pushToTalk}
           </TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label={copy.label.toggleInspector}
-              aria-pressed={inspectorOpen}
-              data-testid="toggle-inspector"
-              onClick={onToggleInspector}
-              size="icon-lg"
-              type="button"
-              variant="ghost"
-            >
-              <PanelLeft className="size-[18px]" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {inspectorOpen ? copy.label.hideInspector : copy.label.showInspector}
-          </TooltipContent>
-        </Tooltip>
+        {showInspectorToggle ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={copy.label.toggleInspector}
+                aria-pressed={inspectorOpen}
+                data-testid="toggle-inspector"
+                onClick={onToggleInspector}
+                size="icon-lg"
+                type="button"
+                variant="ghost"
+              >
+                <PanelLeft className="size-[18px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {inspectorOpen
+                ? copy.label.hideInspector
+                : copy.label.showInspector}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

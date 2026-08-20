@@ -16,6 +16,14 @@ async function expectActionStatus(window, expectedText) {
   return window.getByTestId("last-action-status").innerText();
 }
 
+async function expectAbsent(window, testId) {
+  const count = await window.getByTestId(testId).count();
+  if (count !== 0) {
+    throw new Error(`Expected ${testId} to be hidden in Product UI.`);
+  }
+  return count;
+}
+
 try {
   electronApp = await electron.launch({
     args: [
@@ -41,9 +49,23 @@ try {
     timeout: 15_000
   });
 
+  const productDeveloperNavCount = await expectAbsent(window, "nav-developer");
+  const productInspectorToggleCount = await expectAbsent(
+    window,
+    "toggle-inspector"
+  );
+  const productRuntimeInspectorCount = await expectAbsent(
+    window,
+    "runtime-inspector"
+  );
+
   await window.getByTestId("nav-tasks").click();
   await window.getByTestId("tasks-view").waitFor({ timeout: 5_000 });
   const tasksStatus = await expectActionStatus(window, "Tasks view active");
+  const productModelOperationsCount = await expectAbsent(
+    window,
+    "model-operation-list"
+  );
 
   await window.getByTestId("nav-activity").click();
   await window.getByTestId("activity-view").waitFor({ timeout: 5_000 });
@@ -61,6 +83,14 @@ try {
   await window.getByTestId("settings-open-voice-settings").waitFor({
     timeout: 5_000
   });
+  const productSettingsInspectorCount = await expectAbsent(
+    window,
+    "settings-toggle-inspector"
+  );
+  const productSettingsProbeCount = await expectAbsent(
+    window,
+    "settings-probe-core"
+  );
 
   await window.getByTestId("language-zh").click();
   await window.getByTestId("jarvis-app").evaluate((node) => {
@@ -68,31 +98,8 @@ try {
       throw new Error("UI language did not switch to Chinese.");
     }
   });
-  const zhSettingsTitle = await window
-    .getByRole("heading", { name: "设置" })
-    .innerText();
   const zhLanguageStatus = await window
     .getByTestId("last-action-status")
-    .innerText();
-  await window.getByTestId("settings-view").getByText("核心状态").waitFor({
-    timeout: 5_000
-  });
-  await window.getByTestId("settings-view").getByText("运行模式").waitFor({
-    timeout: 5_000
-  });
-  const zhGeneralMetric = await window
-    .getByTestId("settings-view")
-    .getByText("核心状态")
-    .innerText();
-  await window.getByTestId("runtime-inspector").getByText("核心状态").waitFor({
-    timeout: 5_000
-  });
-  await window.getByTestId("runtime-inspector").getByText("语音引擎").waitFor({
-    timeout: 5_000
-  });
-  const zhInspectorMetric = await window
-    .getByTestId("runtime-inspector")
-    .getByText("核心状态")
     .innerText();
 
   await window.getByTestId("language-en").click();
@@ -105,8 +112,15 @@ try {
     .getByRole("heading", { name: "Settings" })
     .innerText();
 
+  await window.getByTestId("nav-voice").click();
+  await window.getByTestId("voice-view").waitFor({ timeout: 5_000 });
+  const productVoiceRegressionCount = await expectAbsent(
+    window,
+    "voice-regression-panel"
+  );
+
   await window.getByTestId("nav-conversation").click();
-  await window.getByTestId("command-input").fill("打开 GitHub");
+  await window.getByTestId("command-input").fill("Open GitHub");
   await window.getByTestId("send-command").click();
   await window.getByTestId("brain-dispatch-panel").waitFor({
     timeout: 5_000
@@ -118,22 +132,10 @@ try {
     timeout: 5_000
   });
   await window
-    .getByTestId("tool-loop-selected-tool")
-    .getByText("none")
-    .waitFor({ timeout: 5_000 });
-  await window
-    .getByTestId("tool-loop-safety")
-    .getByText("blocked")
-    .waitFor({ timeout: 5_000 });
-  await window
     .getByTestId("tool-loop-result")
     .getByText("not_run")
     .waitFor({ timeout: 5_000 });
   const brainIntent = await window.getByTestId("brain-intent").innerText();
-  const toolLoopSelectedTool = await window
-    .getByTestId("tool-loop-selected-tool")
-    .innerText();
-  const toolLoopSafety = await window.getByTestId("tool-loop-safety").innerText();
   const toolLoopResult = await window.getByTestId("tool-loop-result").innerText();
 
   await window.getByTestId("send-command").click();
@@ -142,36 +144,24 @@ try {
     "Type a command first"
   );
 
-  await window.getByTestId("disable-memory-alpha").click();
-  const disableMemoryAlphaStatus = await expectActionStatus(
-    window,
-    "Memory alpha is disabled"
-  );
-
-  await window.getByTestId("run-fixture-embedding").click();
-  const fixtureEmbeddingStatus = await expectActionStatus(
-    window,
-    "Fixture embedding provider unavailable"
-  );
-
   console.log(
     JSON.stringify({
       status: "PASS",
       tasksStatus,
       activityStatus,
       settingsStatus,
-      zhSettingsTitle,
       zhLanguageStatus,
-      zhGeneralMetric,
-      zhInspectorMetric,
       enSettingsTitle,
       brainIntent,
-      toolLoopSelectedTool,
-      toolLoopSafety,
       toolLoopResult,
       emptySendStatus,
-      disableMemoryAlphaStatus,
-      fixtureEmbeddingStatus
+      productDeveloperNavCount,
+      productInspectorToggleCount,
+      productRuntimeInspectorCount,
+      productModelOperationsCount,
+      productSettingsInspectorCount,
+      productSettingsProbeCount,
+      productVoiceRegressionCount
     })
   );
 } finally {

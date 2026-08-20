@@ -69,6 +69,7 @@ export const uiCopy = {
       memory: "Memory",
       voice: "Voice",
       activity: "Activity",
+      developer: "Developer",
       settings: "Settings",
     },
     view: {
@@ -77,6 +78,7 @@ export const uiCopy = {
       plugins: "Plugin Management",
       memoryCenter: "User Memory",
       voiceConsole: "Voice Console",
+      developer: "Developer",
       settings: "Settings",
       activity: "Activity",
     },
@@ -102,6 +104,7 @@ export const uiCopy = {
       voice: "Voice",
       memoryAlpha: "Memory Alpha",
       modelGovernance: "Model Governance",
+      advanced: "Advanced",
       voiceSettings: "Voice Settings",
       ttsSettings: "TTS Settings",
     },
@@ -153,6 +156,9 @@ export const uiCopy = {
     label: {
       protocol: "PROTOCOL V1",
       localContract: "LOCAL CONTRACT",
+      developerMode: "Developer Mode",
+      evaluationCapability: "Evaluation capability",
+      productSurface: "Product surface",
       readyDiagnostics: "Ready for developer-alpha diagnostics.",
       noLocalConversations: "No local conversations yet.",
       runtimeReady:

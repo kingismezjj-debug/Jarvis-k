@@ -33,7 +33,7 @@ export function ModelOperationList({
   viewModel: ModelOperationListViewModel;
 }) {
   return (
-    <section className="min-w-0">
+    <section className="min-w-0" data-testid="model-operation-list">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Model Operations</h3>
         <Tooltip>

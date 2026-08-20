@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import { registerSettingsIpc } from "../src/ipc/register-settings-ipc";
 import { SettingsService } from "../src/settings/settings-service";
@@ -11,6 +12,7 @@ function createSettingsService(input: {
   credentialConfigured?: boolean;
   secureStorageAvailable?: boolean;
   configuration?: ChatAnswerProviderConfiguration | null;
+  evaluationCapabilityAvailable?: boolean;
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
@@ -23,6 +25,7 @@ function createSettingsService(input: {
     }),
     configureCommandRouterProductMode,
     configureChatAnswerProductMode,
+    evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
   });
   return {
     service,
@@ -43,6 +46,24 @@ describe("SettingsService", () => {
       enabled: false,
       status: "credential_missing",
       credentialExposed: false,
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toEqual({
+      evaluationCapabilityAvailable: false,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    });
+  });
+
+  it("exposes evaluation capability as a read-only safe projection", () => {
+    const { service } = createSettingsService({
+      evaluationCapabilityAvailable: true,
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toEqual({
+      evaluationCapabilityAvailable: true,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
     });
   });
 
@@ -96,7 +117,8 @@ describe("registerSettingsIpc", () => {
       settingsService: service,
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(4);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(5);
+    expect(handlers.has(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)).toBe(true);
     unregister();
     expect(handlers.size).toBe(0);
   });
@@ -117,8 +139,8 @@ describe("registerSettingsIpc", () => {
       getMainWindow: () => null,
       settingsService: service,
     });
-    expect(ipcMain.handle).toHaveBeenCalledTimes(8);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(8);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(10);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(10);
   });
 
   it("rejects settings updates from non-main-window senders", async () => {

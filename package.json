@@ -72,6 +72,7 @@
     "dev": "npm run build && npm run start",
     "smoke:desktop": "npm run build && node tests/desktop-smoke.mjs",
     "smoke:desktop:ui-interaction": "npm run build && node tests/desktop-ui-interaction-smoke.mjs",
+    "smoke:desktop:ui-surface-mode": "npm run build && node tests/desktop-ui-surface-mode-smoke.mjs",
     "smoke:desktop:memory-degraded": "npm run build && node tests/desktop-memory-degraded-smoke.mjs",
     "smoke:desktop:memory-retrieval-env-wiring": "npm run build && node tests/desktop-memory-retrieval-env-wiring-smoke.mjs",
     "smoke:desktop:memory-retrieval-provider-query-vector": "npm run build && node tests/desktop-memory-retrieval-provider-query-vector-smoke.mjs",

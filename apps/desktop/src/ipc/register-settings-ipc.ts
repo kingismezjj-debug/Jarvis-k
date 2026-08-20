@@ -4,6 +4,7 @@ import {
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
+  IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import type { SettingsService } from "../settings/settings-service";
 
@@ -18,6 +19,7 @@ const SETTINGS_CHANNELS = [
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 ] as const;
 
 export function registerSettingsIpc(
@@ -42,6 +44,9 @@ export function registerSettingsIpc(
   );
   options.ipcMain.handle(IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL, () =>
     options.settingsService.getCommandRouterProductModeStatus(),
+  );
+  options.ipcMain.handle(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL, () =>
+    options.settingsService.getUiSurfaceCapabilityStatus(),
   );
   options.ipcMain.handle(
     IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,

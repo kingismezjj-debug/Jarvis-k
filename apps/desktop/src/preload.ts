@@ -18,6 +18,7 @@ import {
   IPC_TTS_SETTINGS_OPEN_CHANNEL,
   IPC_TTS_SETTINGS_STATUS_CHANNEL,
   IPC_TTS_SYNTHESIZE_CHANNEL,
+  IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
   IPC_VOICE_SETTINGS_OPEN_CHANNEL,
   IPC_VOICE_SETTINGS_STATUS_CHANNEL,
   IPC_VOICE_AUDIO_CHANNEL,
@@ -27,6 +28,7 @@ import {
   type QwenRuntimeControlAction,
   TtsServiceStatusSchema,
   TtsSynthesisResultSchema,
+  UiSurfaceCapabilityStatusSchema,
   VoiceServiceStatusSchema,
   VoiceAudioFrame,
   VoiceAudioFrameSchema,
@@ -85,6 +87,10 @@ const bridge: JarvisBridge = {
       await ipcRenderer.invoke(IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL, {
         enabled
       })
+    ),
+  getUiSurfaceCapabilityStatus: async () =>
+    UiSurfaceCapabilityStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)
     ),
   getVoiceServiceStatus: async () =>
     VoiceServiceStatusSchema.parse(

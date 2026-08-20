@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useJarvis } from "@/hooks/use-jarvis";
+import { useUiSurfaceMode } from "@/hooks/use-ui-surface-mode";
 import { usePttCapture } from "@/hooks/use-ptt-capture";
 import { stage5Copy, uiCopy } from "@/app/copy";
 import {
@@ -81,6 +82,7 @@ import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel
 import { VoiceSettingsPanel } from "@/features/settings/voice-settings-panel";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { VoiceControlPanel } from "@/features/voice/voice-control-panel";
+import { VoiceRegressionPanel } from "@/features/voice/voice-regression-panel";
 import {
   buildVoiceDiagnostics,
   formatVoiceAudioPercent,
@@ -95,6 +97,7 @@ import {
 } from "@/voice/local-tts";
 
 export default function App() {
+  const uiSurfaceMode = useUiSurfaceMode();
   const {
     brainResult,
     chatAnswerProductModeStatus,
@@ -191,12 +194,14 @@ export default function App() {
     voiceRegressionRecords,
     voiceRegressionStatus,
     voiceServiceStatus,
-  } = useJarvis();
+  } = useJarvis({
+    evaluationSurfaceEnabled: uiSurfaceMode.evaluationSurfaceEnabled,
+  });
   const [draft, setDraft] = useState("");
   const [memorySnapshotDraft, setMemorySnapshotDraft] = useState("");
   const [memoryAlphaProbeDraft, setMemoryAlphaProbeDraft] = useState("");
   const [activeView, setActiveView] = useState<ActiveView>("conversation");
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [lastAction, setLastAction] = useState<ActionStatus | null>(null);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(readInitialLanguage);
   const [skinTheme, setSkinTheme] = useState<SkinThemeId>(readInitialSkinTheme);
@@ -544,6 +549,8 @@ export default function App() {
 
   const coreOnline = connection === "online";
   const textOnlyAcceptanceMode = snapshot?.textOnlyAcceptance?.enabled === true;
+  const developerModeEnabled = uiSurfaceMode.developerModeEnabled;
+  const evaluationSurfaceEnabled = uiSurfaceMode.evaluationSurfaceEnabled;
   const ptt = usePttCapture(async (command) => {
     if (!window.jarvis) {
       return {
@@ -559,11 +566,15 @@ export default function App() {
     if (result.ok) return { ok: true };
     return { ok: false, error: result.error };
   }, coreOnline && !textOnlyAcceptanceMode);
-  const visiblePrimaryNavigation = textOnlyAcceptanceMode
-    ? primaryNavigation.filter((item) => item.id !== "voice")
-    : primaryNavigation;
+  const visiblePrimaryNavigation = primaryNavigation.filter((item) => {
+    if (textOnlyAcceptanceMode && item.id === "voice") return false;
+    if (item.id === "developer" && !developerModeEnabled) return false;
+    return true;
+  });
   const recentEvents = useMemo(() => events.slice(0, 12), [events]);
-  const localManifestDiscovery = localPluginManifestDeveloperStatus;
+  const localManifestDiscovery = developerModeEnabled
+    ? localPluginManifestDeveloperStatus
+    : null;
   const latestVoiceError = useMemo(
     () =>
       recentEvents.find((envelope) => envelope.event.type === "voice.error")
@@ -782,7 +793,10 @@ export default function App() {
               ? copy.view.voiceConsole
               : activeView === "settings"
                 ? copy.view.settings
-                : copy.view.activity;
+                : activeView === "developer"
+                  ? ((copy.view as Record<string, string>).developer ??
+                    "Developer")
+                  : copy.view.activity;
   const viewSubtitle =
     activeView === "conversation"
       ? `sequence ${snapshot?.sequenceId ?? 0}${
@@ -800,13 +814,24 @@ export default function App() {
               ? `${snapshot?.voice.mode ?? "manual"} / ${snapshot?.voice.state ?? "idle"}`
               : activeView === "settings"
                 ? `runtime ${runtimeMode} / Memory alpha ${memoryAlpha?.state ?? "unknown"}`
-                : `${recentEvents.length} recent events / Memory alpha ${memoryAlpha?.state ?? "unknown"}`;
+                : activeView === "developer"
+                  ? `${uiSurfaceMode.effectiveSurface} / evaluation ${evaluationSurfaceEnabled ? "available" : "hidden"}`
+                  : `${recentEvents.length} recent events / Memory alpha ${memoryAlpha?.state ?? "unknown"}`;
 
   useEffect(() => {
     if (textOnlyAcceptanceMode && activeView === "voice") {
       setActiveView("conversation");
     }
-  }, [activeView, textOnlyAcceptanceMode]);
+    if (!developerModeEnabled && activeView === "developer") {
+      setActiveView("conversation");
+    }
+  }, [activeView, developerModeEnabled, textOnlyAcceptanceMode]);
+
+  useEffect(() => {
+    if (!developerModeEnabled && inspectorOpen) {
+      setInspectorOpen(false);
+    }
+  }, [developerModeEnabled, inspectorOpen]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -817,11 +842,14 @@ export default function App() {
   useEffect(() => {
     if (activeView === "plugins" && coreOnline) {
       void refreshPlugins();
-      void refreshLocalPluginManifestDeveloperStatus();
+      if (developerModeEnabled) {
+        void refreshLocalPluginManifestDeveloperStatus();
+      }
     }
   }, [
     activeView,
     coreOnline,
+    developerModeEnabled,
     refreshLocalPluginManifestDeveloperStatus,
     refreshPlugins,
   ]);
@@ -1456,6 +1484,7 @@ export default function App() {
         />
       }
       inspector={
+        developerModeEnabled && inspectorOpen ? (
         <RuntimeInspectorPanel
           actions={{
             disableMemoryAlpha: () => {
@@ -1517,6 +1546,7 @@ export default function App() {
           sending={sending}
           viewModel={runtimeInspectorViewModel}
         />
+        ) : undefined
       }
       inspectorOpen={inspectorOpen}
       navigation={
@@ -1535,6 +1565,7 @@ export default function App() {
           }}
           onToggleInspector={() => setInspectorOpen((open) => !open)}
           ptt={{ active: ptt.active, state: ptt.state }}
+          showInspectorToggle={developerModeEnabled}
           textOnlyAcceptanceMode={textOnlyAcceptanceMode}
         />
       }
@@ -1673,20 +1704,22 @@ export default function App() {
                   viewModel={{ tasks: snapshot?.tasks ?? [] }}
                 />
 
-                <ModelOperationList
-                  actions={{
-                    refresh: () => {
-                      void trackAction(
-                        "Refresh model governance",
-                        refreshModelGovernance,
-                        copy.action.modelGovernanceRefreshed,
-                      );
-                    },
-                  }}
-                  copy={copy}
-                  sending={sending}
-                  viewModel={{ operations: modelOperations }}
-                />
+                {developerModeEnabled ? (
+                  <ModelOperationList
+                    actions={{
+                      refresh: () => {
+                        void trackAction(
+                          "Refresh model governance",
+                          refreshModelGovernance,
+                          copy.action.modelGovernanceRefreshed,
+                        );
+                      },
+                    }}
+                    copy={copy}
+                    sending={sending}
+                    viewModel={{ operations: modelOperations }}
+                  />
+                ) : null}
               </div>
             </ScrollArea>
           ) : activeView === "plugins" ? (
@@ -1698,6 +1731,9 @@ export default function App() {
                       "Refresh plugins",
                       async () => {
                         const pluginsOk = await refreshPlugins();
+                        if (!developerModeEnabled) {
+                          return pluginsOk;
+                        }
                         const manifestsOk =
                           await refreshLocalPluginManifestDeveloperStatus();
                         return pluginsOk && manifestsOk;
@@ -1797,7 +1833,9 @@ export default function App() {
                   }}
                 />
 
-                <MemoryBoundaryPanel viewModel={memoryBoundaryViewModel} />
+                {developerModeEnabled ? (
+                  <MemoryBoundaryPanel viewModel={memoryBoundaryViewModel} />
+                ) : null}
               </div>
             </ScrollArea>
           ) : activeView === "voice" ? (
@@ -1902,6 +1940,7 @@ export default function App() {
                   records: voiceRegressionRecords,
                   status: voiceRegressionStatus,
                 },
+                regressionVisible: false,
                 sending,
                 status: {
                   metrics: voiceDiagnosticsMetrics,
@@ -1909,6 +1948,155 @@ export default function App() {
                 },
               }}
             />
+          ) : activeView === "developer" ? (
+            <ScrollArea className="min-h-0 flex-1">
+              <div
+                className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(0,1fr)_360px]"
+                data-testid="developer-view"
+              >
+                <section className="min-w-0">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Developer surface</h3>
+                    <Badge className="rounded-md text-[10px]" variant="outline">
+                      {uiSurfaceMode.effectiveSurface.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <dl className="divide-y divide-border border-y text-[11px]">
+                    <Metric
+                      label={copy.label.developerMode}
+                      tone={developerModeEnabled ? "accent" : undefined}
+                      value={developerModeEnabled ? "ON" : "OFF"}
+                    />
+                    <Metric
+                      label={copy.label.evaluationCapability}
+                      tone={
+                        uiSurfaceMode.evaluationCapabilityAvailable
+                          ? "accent"
+                          : undefined
+                      }
+                      value={
+                        uiSurfaceMode.evaluationCapabilityAvailable
+                          ? "AVAILABLE"
+                          : "OFF"
+                      }
+                    />
+                    <Metric
+                      label={copy.metric.inspector}
+                      value={inspectorOpen ? copy.value.shown : copy.value.hidden}
+                    />
+                  </dl>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      className="h-8 rounded-md px-2.5 text-xs"
+                      data-testid="developer-toggle-inspector"
+                      onClick={() => setInspectorOpen((open) => !open)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {copy.label.inspector}
+                    </Button>
+                    <Button
+                      className="h-8 rounded-md px-2.5 text-xs"
+                      data-testid="developer-probe-core"
+                      disabled={sending}
+                      onClick={() => {
+                        void trackAction("Probe Core", async () => {
+                          const probed = await probeCore();
+                          const refreshedCapabilities =
+                            await refreshCapabilities();
+                          const refreshedMemory = await refreshMemoryHealth();
+                          const refreshedModels = await refreshModelGovernance();
+                          return (
+                            probed &&
+                            refreshedCapabilities &&
+                            refreshedMemory &&
+                            refreshedModels
+                          );
+                        });
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      {copy.label.probe}
+                    </Button>
+                  </div>
+                </section>
+
+                {evaluationSurfaceEnabled ? (
+                  <VoiceRegressionPanel
+                    actions={{
+                      cancelPilotSession: () => {
+                        void cancelPilotSession();
+                      },
+                      clearRegressionPendingSamples: () => {
+                        void clearVoiceRegressionPendingSamples();
+                      },
+                      clearRegressionRecords: () => {
+                        void clearVoiceRegressionRecords();
+                      },
+                      discardRegressionPendingSample: (sampleId) => {
+                        void discardVoiceRegressionPendingSample(sampleId);
+                      },
+                      markPilotNoFinalTranscript: () => {
+                        void markPilotNoFinalTranscript();
+                      },
+                      markPilotOperatorDeviation: () => {
+                        void markPilotOperatorDeviation();
+                      },
+                      deleteRegressionRecord: (recordId) => {
+                        void deleteVoiceRegressionRecord(recordId);
+                      },
+                      exportRegressionRecords: () => {
+                        void exportVoiceRegressionRecords();
+                      },
+                      preparePilotSession: () => {
+                        void preparePilotSession();
+                      },
+                      refreshRegressionRecords: () => {
+                        void refreshVoiceRegressionCollectionStatus();
+                        void refreshVoiceRegressionPendingSamples();
+                        void refreshVoiceRegressionRecords();
+                      },
+                      saveRegressionPendingSample: (
+                        sampleId,
+                        feedback,
+                        options,
+                      ) => {
+                        void saveVoiceRegressionPendingSample(
+                          sampleId,
+                          feedback,
+                          options,
+                        );
+                      },
+                      startPilotPrompt: () => {
+                        void startPilotPrompt();
+                      },
+                      setRegressionLocalTextCollection: (enabled) => {
+                        void setVoiceRegressionLocalTextCollection(enabled);
+                      },
+                      submitRegressionFeedback: (recordId, feedback) => {
+                        void submitVoiceRegressionFeedback(recordId, feedback);
+                      },
+                    }}
+                    sending={sending}
+                    viewModel={{
+                      exportText: voiceRegressionExportText,
+                      pendingSamples: voiceRegressionPendingSamples,
+                      records: voiceRegressionRecords,
+                      status: voiceRegressionStatus,
+                    }}
+                  />
+                ) : (
+                  <section
+                    className="min-w-0 border-y py-5 text-xs text-muted-foreground"
+                    data-testid="evaluation-surface-hidden"
+                  >
+                    Evaluation tools are hidden. Start with Developer Mode and
+                    the desktop evaluation capability enabled.
+                  </section>
+                )}
+              </div>
+            </ScrollArea>
           ) : activeView === "settings" ? (
             <ScrollArea className="min-h-0 flex-1">
               <div
@@ -1988,6 +2176,20 @@ export default function App() {
                         );
                       }
                     },
+                    setDeveloperModeEnabled: (enabled) => {
+                      if (
+                        enabled &&
+                        !window.confirm(
+                          "Enable Developer Mode? This only shows local diagnostics and evaluation surfaces. It does not enable real execution, fixtures, recording, or uploads.",
+                        )
+                      ) {
+                        return;
+                      }
+                      uiSurfaceMode.setDeveloperModeEnabled(enabled);
+                      if (!enabled) {
+                        setInspectorOpen(false);
+                      }
+                    },
                     toggleInspector: () => {
                       setInspectorOpen((open) => !open);
                       notifyAction(
@@ -2003,10 +2205,14 @@ export default function App() {
                   viewModel={{
                     connection,
                     coreHealth: snapshot?.health ?? connection,
+                    developerModeEnabled,
+                    evaluationCapabilityAvailable:
+                      uiSurfaceMode.evaluationCapabilityAvailable,
                     inspectorOpen,
                     localTtsEnabled,
                     runtimeMode,
                     sending,
+                    showDeveloperControls: developerModeEnabled,
                     sequenceId: snapshot?.sequenceId ?? 0,
                     ttsServiceConfigured: ttsServiceStatus?.configured === true,
                   }}
@@ -2208,20 +2414,22 @@ export default function App() {
                   </dl>
                 </section>
 
-                <ModelGovernanceSettingsPanel
-                  actions={{
-                    refresh: () => {
-                      void trackAction(
-                        "Refresh model governance",
-                        refreshModelGovernance,
-                        copy.action.modelGovernanceRefreshed,
-                      );
-                    },
-                  }}
-                  copy={copy}
-                  sending={sending}
-                  viewModel={modelGovernanceSettingsViewModel}
-                />
+                {developerModeEnabled ? (
+                  <ModelGovernanceSettingsPanel
+                    actions={{
+                      refresh: () => {
+                        void trackAction(
+                          "Refresh model governance",
+                          refreshModelGovernance,
+                          copy.action.modelGovernanceRefreshed,
+                        );
+                      },
+                    }}
+                    copy={copy}
+                    sending={sending}
+                    viewModel={modelGovernanceSettingsViewModel}
+                  />
+                ) : null}
               </div>
             </ScrollArea>
           ) : (

@@ -233,7 +233,9 @@ if (!hasSingleInstanceLock) {
           enabled: input.enabled,
           ...(input.configuration ? { configuration: input.configuration } : {})
         });
-      }
+      },
+      evaluationCapabilityAvailable:
+        process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1"
     });
 
     supervisorIpcDisposer = registerSupervisorIpc({

@@ -59,7 +59,10 @@ describe("UI feature component boundaries", () => {
     const appSource = readSource("App.tsx");
 
     expect(appSource).toContain("const {");
-    expect(appSource).toContain("} = useJarvis();");
+    expect(appSource).toContain("} = useJarvis({");
+    expect(appSource).toContain(
+      "evaluationSurfaceEnabled: uiSurfaceMode.evaluationSurfaceEnabled",
+    );
     for (const relativePath of featureComponents) {
       expect(readSource(relativePath)).not.toContain("useJarvis()");
     }
@@ -242,11 +245,12 @@ describe("UI feature component boundaries", () => {
     expect(appSource).toContain("stopCapture: (reason) =>");
     expect(appSource).toContain("removeVoiceAlias: (aliasId)");
     expect(appSource).toContain("removeRouteAlias: (aliasId)");
+    expect(voiceControlSource).toContain("viewModel.regressionVisible");
     expect(voiceControlSource).toContain(
-      "clearRegressionPendingSamples:\n                actions.clearRegressionPendingSamples",
+      "clearRegressionPendingSamples:\n                  actions.clearRegressionPendingSamples",
     );
     expect(voiceControlSource).toContain(
-      "discardRegressionPendingSample:\n                actions.discardRegressionPendingSample",
+      "discardRegressionPendingSample:\n                  actions.discardRegressionPendingSample",
     );
     expect(voiceControlSource).toContain(
       "saveRegressionPendingSample: actions.saveRegressionPendingSample",

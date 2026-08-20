@@ -166,7 +166,10 @@ export function VoiceRegressionPanel({
   };
 
   return (
-    <section className="mt-5 min-w-0 border-t pt-5">
+    <section
+      className="mt-5 min-w-0 border-t pt-5"
+      data-testid="voice-regression-panel"
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">ASR regression</h3>

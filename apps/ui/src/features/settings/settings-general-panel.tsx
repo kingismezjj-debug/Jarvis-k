@@ -18,11 +18,15 @@ export type SettingsGeneralViewModel = {
   sending: boolean;
   sequenceId: number;
   ttsServiceConfigured: boolean;
+  developerModeEnabled: boolean;
+  evaluationCapabilityAvailable: boolean;
+  showDeveloperControls: boolean;
 };
 
 export type SettingsGeneralActions = {
   probeCore: () => void;
   setLocalTtsEnabled: (enabled: boolean) => void;
+  setDeveloperModeEnabled: (enabled: boolean) => void;
   toggleInspector: () => void;
 };
 
@@ -95,30 +99,66 @@ export function SettingsGeneralPanel({
           type="checkbox"
         />
       </label>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          className="h-8 rounded-md px-2.5 text-xs"
-          data-testid="settings-toggle-inspector"
-          onClick={actions.toggleInspector}
-          type="button"
-          variant="outline"
-        >
-          <PanelLeft className="size-3.5" />
-          {copy.label.inspector}
-        </Button>
-        <Button
-          className="h-8 rounded-md px-2.5 text-xs"
-          data-testid="settings-probe-core"
-          disabled={viewModel.sending}
-          onClick={actions.probeCore}
-          type="button"
-          variant="outline"
-        >
-          <RefreshCw
-            className={cn("size-3.5", viewModel.sending && "animate-spin")}
+      <div
+        className="mt-3 border-y py-2 text-[11px]"
+        data-testid="settings-developer-mode"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block font-medium">
+              {copy.label.developerMode}
+            </span>
+            <span className="mt-0.5 block text-muted-foreground">
+              {viewModel.developerModeEnabled
+                ? "Developer diagnostics are visible."
+                : "Product mode hides diagnostics and evaluation tools."}
+            </span>
+          </span>
+          <input
+            aria-label={copy.label.developerMode}
+            checked={viewModel.developerModeEnabled}
+            className="size-4 accent-primary"
+            data-testid="settings-developer-mode-toggle"
+            onChange={(event) =>
+              actions.setDeveloperModeEnabled(event.target.checked)
+            }
+            type="checkbox"
           />
-          {copy.label.probe}
-        </Button>
+        </div>
+        <Metric
+          label={copy.label.evaluationCapability}
+          tone={viewModel.evaluationCapabilityAvailable ? "accent" : undefined}
+          value={viewModel.evaluationCapabilityAvailable ? "available" : "off"}
+        />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {viewModel.showDeveloperControls ? (
+          <>
+            <Button
+              className="h-8 rounded-md px-2.5 text-xs"
+              data-testid="settings-toggle-inspector"
+              onClick={actions.toggleInspector}
+              type="button"
+              variant="outline"
+            >
+              <PanelLeft className="size-3.5" />
+              {copy.label.inspector}
+            </Button>
+            <Button
+              className="h-8 rounded-md px-2.5 text-xs"
+              data-testid="settings-probe-core"
+              disabled={viewModel.sending}
+              onClick={actions.probeCore}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw
+                className={cn("size-3.5", viewModel.sending && "animate-spin")}
+              />
+              {copy.label.probe}
+            </Button>
+          </>
+        ) : null}
       </div>
     </section>
   );

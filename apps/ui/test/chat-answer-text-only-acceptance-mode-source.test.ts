@@ -8,7 +8,7 @@ describe("Chat Answer text-only acceptance mode UI", () => {
   it("projects an explicit disabled voice state without changing normal navigation", () => {
     expect(appSource).toContain("textOnlyAcceptanceMode");
     expect(appSource).toContain("visiblePrimaryNavigation");
-    expect(appSource).toContain('item.id !== "voice"');
+    expect(appSource).toContain('textOnlyAcceptanceMode && item.id === "voice"');
     expect(appSource).toContain('data-testid="text-only-acceptance-status"');
     expect(appSource).toContain('"text-only-voice-disabled"');
     expect(appSource).toContain("MicOff");

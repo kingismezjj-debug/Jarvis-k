@@ -49,29 +49,31 @@ export function VoiceControlPanel({
             copy={viewModel.copy}
             viewModel={viewModel.status}
           />
-          <VoiceRegressionPanel
-            actions={{
-              cancelPilotSession: actions.cancelPilotSession,
-              clearRegressionPendingSamples:
-                actions.clearRegressionPendingSamples,
-              clearRegressionRecords: actions.clearRegressionRecords,
-              discardRegressionPendingSample:
-                actions.discardRegressionPendingSample,
-              markPilotNoFinalTranscript: actions.markPilotNoFinalTranscript,
-              markPilotOperatorDeviation: actions.markPilotOperatorDeviation,
-              deleteRegressionRecord: actions.deleteRegressionRecord,
-              exportRegressionRecords: actions.exportRegressionRecords,
-              preparePilotSession: actions.preparePilotSession,
-              refreshRegressionRecords: actions.refreshRegressionRecords,
-              saveRegressionPendingSample: actions.saveRegressionPendingSample,
-              startPilotPrompt: actions.startPilotPrompt,
-              setRegressionLocalTextCollection:
-                actions.setRegressionLocalTextCollection,
-              submitRegressionFeedback: actions.submitRegressionFeedback,
-            }}
-            sending={viewModel.sending}
-            viewModel={viewModel.regression}
-          />
+          {viewModel.regressionVisible ? (
+            <VoiceRegressionPanel
+              actions={{
+                cancelPilotSession: actions.cancelPilotSession,
+                clearRegressionPendingSamples:
+                  actions.clearRegressionPendingSamples,
+                clearRegressionRecords: actions.clearRegressionRecords,
+                discardRegressionPendingSample:
+                  actions.discardRegressionPendingSample,
+                markPilotNoFinalTranscript: actions.markPilotNoFinalTranscript,
+                markPilotOperatorDeviation: actions.markPilotOperatorDeviation,
+                deleteRegressionRecord: actions.deleteRegressionRecord,
+                exportRegressionRecords: actions.exportRegressionRecords,
+                preparePilotSession: actions.preparePilotSession,
+                refreshRegressionRecords: actions.refreshRegressionRecords,
+                saveRegressionPendingSample: actions.saveRegressionPendingSample,
+                startPilotPrompt: actions.startPilotPrompt,
+                setRegressionLocalTextCollection:
+                  actions.setRegressionLocalTextCollection,
+                submitRegressionFeedback: actions.submitRegressionFeedback,
+              }}
+              sending={viewModel.sending}
+              viewModel={viewModel.regression}
+            />
+          ) : null}
         </aside>
       </div>
     </ScrollArea>

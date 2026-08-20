@@ -57,7 +57,12 @@ import { useModelGovernance } from "./use-model-governance";
 
 type CoreConnection = "connecting" | "online" | "restarting" | "offline";
 
-export function useJarvis() {
+export type UseJarvisOptions = {
+  evaluationSurfaceEnabled?: boolean;
+};
+
+export function useJarvis(options: UseJarvisOptions = {}) {
+  const evaluationSurfaceEnabled = options.evaluationSurfaceEnabled === true;
   const [snapshot, setSnapshot] = useState<CoreSnapshot | null>(null);
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [connection, setConnection] = useState<CoreConnection>("connecting");
@@ -452,6 +457,9 @@ export function useJarvis() {
     dispatchBrainCommand,
   });
   refreshVoiceRegressionAfterFinalRef.current = () => {
+    if (!evaluationSurfaceEnabled) {
+      return;
+    }
     void refreshVoiceRegressionCollectionStatus();
     void refreshVoiceRegressionPendingSamples();
   };
@@ -508,9 +516,11 @@ export function useJarvis() {
       void refreshQwenRuntimeControlStatus();
       void refreshUserControlledMemories();
       void refreshUserRouteAliases();
-      void refreshVoiceRegressionCollectionStatus();
-      void refreshVoiceRegressionPendingSamples();
-      void refreshVoiceRegressionRecords();
+      if (evaluationSurfaceEnabled) {
+        void refreshVoiceRegressionCollectionStatus();
+        void refreshVoiceRegressionPendingSamples();
+        void refreshVoiceRegressionRecords();
+      }
       return;
     }
 
@@ -523,9 +533,11 @@ export function useJarvis() {
       void refreshQwenRuntimeControlStatus();
       void refreshUserControlledMemories();
       void refreshUserRouteAliases();
-      void refreshVoiceRegressionCollectionStatus();
-      void refreshVoiceRegressionPendingSamples();
-      void refreshVoiceRegressionRecords();
+      if (evaluationSurfaceEnabled) {
+        void refreshVoiceRegressionCollectionStatus();
+        void refreshVoiceRegressionPendingSamples();
+        void refreshVoiceRegressionRecords();
+      }
     };
     window.addEventListener("focus", handleWindowFocus);
     void refreshVoiceServiceStatus();
@@ -536,15 +548,18 @@ export function useJarvis() {
     void refreshQwenRuntimeControlStatus();
     void refreshUserControlledMemories();
     void refreshUserRouteAliases();
-    void refreshVoiceRegressionCollectionStatus();
-    void refreshVoiceRegressionPendingSamples();
-    void refreshVoiceRegressionRecords();
+    if (evaluationSurfaceEnabled) {
+      void refreshVoiceRegressionCollectionStatus();
+      void refreshVoiceRegressionPendingSamples();
+      void refreshVoiceRegressionRecords();
+    }
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
     };
   }, [
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
+    evaluationSurfaceEnabled,
     refreshPlugins,
     refreshQwenRuntimeControlStatus,
     refreshTtsServiceStatus,

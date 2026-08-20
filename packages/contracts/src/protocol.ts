@@ -41,6 +41,8 @@ export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
 export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
   "jarvis-k:qwen-runtime-control-set";
+export const IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL =
+  "jarvis-k:ui-surface-capability-status";
 
 export const TaskStateSchema = z.enum([
   "queued",
@@ -369,6 +371,18 @@ export const CommandRouterProductModeSetResultSchema = z
   .strict();
 export type CommandRouterProductModeSetResult = z.infer<
   typeof CommandRouterProductModeSetResultSchema
+>;
+
+export const UiSurfaceCapabilityStatusSchema = z
+  .object({
+    evaluationCapabilityAvailable: z.boolean(),
+    source: z.literal("desktop-main"),
+    sensitiveValuesExposed: z.literal(false),
+    rendererWritable: z.literal(false),
+  })
+  .strict();
+export type UiSurfaceCapabilityStatus = z.infer<
+  typeof UiSurfaceCapabilityStatusSchema
 >;
 
 export const QwenRuntimeControlActionSchema = z.enum([
@@ -3508,6 +3522,7 @@ export interface JarvisBridge {
   setChatAnswerProductModeEnabled(
     enabled: boolean,
   ): Promise<ChatAnswerProductModeSetResult>;
+  getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;

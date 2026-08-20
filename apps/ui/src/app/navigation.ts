@@ -1,6 +1,7 @@
 import {
   Activity,
   Database,
+  FlaskConical,
   ListTodo,
   MessageSquare,
   Mic2,
@@ -16,4 +17,5 @@ export const primaryNavigation: NavItem[] = [
   { id: "memory", icon: Database },
   { id: "voice", icon: Mic2 },
   { id: "activity", icon: Activity },
+  { id: "developer", icon: FlaskConical },
 ];

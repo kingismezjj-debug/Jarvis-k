@@ -13,6 +13,7 @@ export type ActiveView =
   | "memory"
   | "voice"
   | "activity"
+  | "developer"
   | "settings";
 export type UiLanguage = "en" | "zh";
 export type SkinThemeId = "signal" | "harbor" | "ember";
