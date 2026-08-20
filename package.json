@@ -1,6 +1,6 @@
 {
   "name": "jarvis-k",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
   "main": "apps/desktop/dist/main.js",
@@ -177,8 +177,8 @@
     "node": ">=22.12.0"
   },
   "build": {
-    "appId": "com.jarvisk.desktop",
-    "productName": "Jarvis-K",
+    "appId": "com.jarvis-k.desktop.alpha",
+    "productName": "Jarvis-K Alpha",
     "asar": false,
     "directories": {
       "output": "artifacts/packaged"

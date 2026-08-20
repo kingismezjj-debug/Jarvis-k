@@ -83,11 +83,11 @@ if (packageJson.main !== "apps/desktop/dist/main.js") {
   fail("Root package main does not point to desktop packaged entry.");
 }
 
-if (packageJson.build?.appId !== "com.jarvisk.desktop") {
-  fail("Electron builder appId is not stable.");
+if (packageJson.build?.appId !== "com.jarvis-k.desktop.alpha") {
+  fail("Electron builder appId is not the Alpha app identity.");
 }
-if (packageJson.build?.productName !== "Jarvis-K") {
-  fail("Electron builder productName is not Jarvis-K.");
+if (packageJson.build?.productName !== "Jarvis-K Alpha") {
+  fail("Electron builder productName is not Jarvis-K Alpha.");
 }
 if (packageJson.build?.asar !== false) {
   fail("Alpha packaged runtime must keep asar disabled for child process paths.");

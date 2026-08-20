@@ -13,7 +13,7 @@ const executablePath = path.join(
   "artifacts",
   "packaged",
   "win-unpacked",
-  "Jarvis-K.exe",
+  "Jarvis-K Alpha.exe",
 );
 const packagedAppDirectory = path.join(
   rootDirectory,
@@ -90,6 +90,8 @@ try {
     env: {
       ...process.env,
       JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
+      JARVIS_K_USER_DATA_PATH: userDataDirectory,
+      JARVIS_K_LOCAL_DATA_PATH: userDataDirectory,
       JARVIS_K_MEMORY_DB_PATH: path.join(userDataDirectory, "memory.sqlite"),
       JARVIS_K_MODEL_DIR: path.join(userDataDirectory, "models"),
     },
