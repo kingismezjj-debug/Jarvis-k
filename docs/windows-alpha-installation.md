@@ -9,10 +9,10 @@ The Windows Alpha package is built with Electron Builder for Windows x64.
 - Installer script: `npm run package:windows:alpha`
 - Unpacked verification script: `npm run verify:package:windows`
 - Output directory: `artifacts/packaged`
-- Version: `0.1.0-alpha.2`
+- Version: `0.1.0-alpha.3`
 - Product name: `Jarvis-K Alpha`
 - App ID / AppUserModelId: `com.jarvis-k.desktop.alpha`
-- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.2-windows-x64-unsigned-alpha-setup.exe`
+- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.3-windows-x64-unsigned-alpha-setup.exe`
 - Unpacked executable: `artifacts/packaged/win-unpacked/Jarvis-K Alpha.exe`
 
 `0.1.0-alpha.1` is superseded and should not be installed or shared. Its
@@ -76,6 +76,21 @@ By default, closing the main window hides Jarvis-K to the tray.
 - Use the tray menu `Quit Jarvis-K` action, or set close behavior to quit, for full shutdown.
 - Full quit stops CoreHost, voice capture, and Qwen runtime control processes.
 
+## Launch At Login
+
+Launch at login is a user-controlled product setting for packaged Alpha and
+future Stable builds only.
+
+- Default: OFF.
+- Implementation: Electron `app.setLoginItemSettings` /
+  `app.getLoginItemSettings`.
+- Startup argument: `--jarvis-startup=login`.
+- Login startup creates the tray/CoreHost runtime but keeps the main window
+  hidden until the user opens Jarvis-K from the tray.
+- Development and test builds do not register real Windows startup items.
+- The Alpha uninstall script removes only the `Jarvis-K Alpha` startup entry and
+  does not delete Alpha or development user data.
+
 ## Verification
 
 Before sharing an Alpha artifact, run:
@@ -106,7 +121,6 @@ This Alpha packaging step does not include:
 
 - code signing;
 - auto-update;
-- startup at login;
 - portable build;
 - Microsoft Store publishing;
 - real Windows task acceptance;

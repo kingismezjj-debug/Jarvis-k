@@ -58,7 +58,11 @@ export class DesktopLifecycleController {
   }
 
   public attachWindow(window: BrowserWindow): void {
-    this.state = window.isMinimized() ? "minimized" : "visible";
+    this.state = window.isMinimized()
+      ? "minimized"
+      : window.isVisible()
+        ? "visible"
+        : "hidden_to_tray";
     window.on("minimize", () => {
       if (this.state !== "quitting") {
         this.state = "minimized";

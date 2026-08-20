@@ -43,6 +43,11 @@ import {
   createCoreHostStorageEnvironment,
   createDesktopStorageProfile
 } from "./storage/storage-profile";
+import { LoginItemController } from "./login-item/login-item-controller";
+import {
+  resolveDesktopStartupSource,
+  type DesktopStartupSource
+} from "./startup/startup-source";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -64,6 +69,8 @@ let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
 let settingsService: SettingsService | null = null;
 let secureStoreService: SecureStoreService | null = null;
 let desktopRuntimeDisposeStarted = false;
+let startupSource: DesktopStartupSource = resolveDesktopStartupSource();
+let loginItemController: LoginItemController | null = null;
 
 configureElectronGpuPolicy({ app });
 const storageProfile = createDesktopStorageProfile({
@@ -218,6 +225,12 @@ if (!hasSingleInstanceLock) {
         getChatAnswerProviderConfiguration
     });
     supervisorController.start();
+    loginItemController = new LoginItemController({
+      app,
+      releaseChannel: storageProfile.releaseChannel,
+      appId: storageProfile.appId,
+      productName: storageProfile.productName
+    });
     settingsService = new SettingsService({
       loadChatAnswerProviderConfiguration: async () => {
         try {
@@ -253,6 +266,7 @@ if (!hasSingleInstanceLock) {
           ...(input.configuration ? { configuration: input.configuration } : {})
         });
       },
+      loginItemController,
       evaluationCapabilityAvailable:
         process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1",
       desktopSettingsPath: storageProfile.desktopSettingsPath
@@ -368,7 +382,9 @@ if (!hasSingleInstanceLock) {
 }
 
 function createTrackedMainWindow(): BrowserWindow {
-  const window = createMainWindow();
+  const showOnReady =
+    startupSource !== "login" || trayController?.isAvailable() !== true;
+  const window = createMainWindow({ showOnReady });
   lifecycleController?.attachWindow(window);
   return window;
 }
@@ -406,6 +422,7 @@ function disposeDesktopRuntime(): void {
   supervisorIpcDisposer = null;
   supervisorController?.stop();
   supervisorController = null;
+  loginItemController = null;
   trayController?.dispose();
   trayController = null;
 }

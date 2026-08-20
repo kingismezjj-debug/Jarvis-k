@@ -9,6 +9,7 @@ import {
   type CoreSnapshot,
   type DesktopCloseButtonBehavior,
   type DesktopFirstRunOnboardingState,
+  type DesktopLaunchAtLoginStatus,
   type DesktopSettings,
   type EventEnvelope,
   type MemoryAlphaRecallProbeResult,
@@ -71,6 +72,8 @@ export function useJarvis(options: UseJarvisOptions = {}) {
   const [connection, setConnection] = useState<CoreConnection>("connecting");
   const [desktopSettings, setDesktopSettings] =
     useState<DesktopSettings | null>(null);
+  const [desktopLaunchAtLoginStatus, setDesktopLaunchAtLoginStatus] =
+    useState<DesktopLaunchAtLoginStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversationState, dispatchConversationState] = useReducer(
     jarvisConversationReducer,
@@ -325,7 +328,12 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       return false;
     }
     try {
-      setDesktopSettings(await window.jarvis.getDesktopSettings());
+      const [settings, launchAtLoginStatus] = await Promise.all([
+        window.jarvis.getDesktopSettings(),
+        window.jarvis.getDesktopLaunchAtLoginStatus(),
+      ]);
+      setDesktopSettings(settings);
+      setDesktopLaunchAtLoginStatus(launchAtLoginStatus);
       return true;
     } catch {
       setError("Desktop settings are unavailable.");
@@ -372,6 +380,28 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     },
     [],
   );
+
+  const setDesktopLaunchAtLoginEnabled = useCallback(async (enabled: boolean) => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    const result = await window.jarvis.setDesktopLaunchAtLoginEnabled(enabled);
+    setDesktopSettings(result.settings);
+    try {
+      setDesktopLaunchAtLoginStatus(
+        await window.jarvis.getDesktopLaunchAtLoginStatus(),
+      );
+    } catch {
+      setDesktopLaunchAtLoginStatus(null);
+    }
+    if (!result.ok) {
+      setError(result.message ?? "Launch at login setting was rejected.");
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
 
   const {
     clearSessionHistory,
@@ -649,6 +679,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     clearSessionHistory,
     error,
     desktopSettings,
+    desktopLaunchAtLoginStatus,
     createConversation,
     disableMemoryAlpha,
     events,
@@ -719,6 +750,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
+    setDesktopLaunchAtLoginEnabled,
     setDesktopFirstRunOnboardingState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,

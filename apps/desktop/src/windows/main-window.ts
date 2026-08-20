@@ -1,7 +1,13 @@
 import path from "node:path";
 import { BrowserWindow, shell } from "electron";
 
-export function createMainWindow(): BrowserWindow {
+export interface CreateMainWindowOptions {
+  readonly showOnReady?: boolean;
+}
+
+export function createMainWindow(
+  options: CreateMainWindowOptions = {},
+): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -45,7 +51,11 @@ export function createMainWindow(): BrowserWindow {
       event.preventDefault();
     }
   });
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => {
+    if (options.showOnReady !== false) {
+      window.show();
+    }
+  });
   void window.loadFile(
     path.join(__dirname, "..", "..", "..", "ui", "dist", "index.html"),
   );

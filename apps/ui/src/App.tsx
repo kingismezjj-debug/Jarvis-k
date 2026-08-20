@@ -114,6 +114,7 @@ export default function App() {
     confirmVoiceCommandCorrection,
     connection,
     createConversation,
+    desktopLaunchAtLoginStatus,
     desktopSettings,
     clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
@@ -153,6 +154,7 @@ export default function App() {
     refreshCapabilities,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
+    refreshDesktopSettings,
     refreshLocalPluginManifestDeveloperStatus,
     refreshQwenRuntimeControlStatus,
     refreshMemoryAlphaStatus,
@@ -181,6 +183,7 @@ export default function App() {
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
+    setDesktopLaunchAtLoginEnabled,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
@@ -2213,6 +2216,24 @@ export default function App() {
                         "Close behavior updated",
                       );
                     },
+                    setDesktopLaunchAtLoginEnabled: (enabled) => {
+                      void trackAction(
+                        enabled
+                          ? "Enable launch at login"
+                          : "Disable launch at login",
+                        async () => setDesktopLaunchAtLoginEnabled(enabled),
+                        enabled
+                          ? "Launch at login enabled"
+                          : "Launch at login disabled",
+                      );
+                    },
+                    refreshDesktopSettings: () => {
+                      void trackAction(
+                        "Refresh desktop settings",
+                        refreshDesktopSettings,
+                        "Desktop settings refreshed",
+                      );
+                    },
                     toggleInspector: () => {
                       setInspectorOpen((open) => !open);
                       notifyAction(
@@ -2232,6 +2253,9 @@ export default function App() {
                     desktopCloseButtonBehavior:
                       desktopSettings?.closeButtonBehavior ??
                       "minimize_to_tray",
+                    desktopLaunchAtLoginEnabled:
+                      desktopSettings?.launchAtLoginEnabled ?? false,
+                    desktopLaunchAtLoginStatus,
                     evaluationCapabilityAvailable:
                       uiSurfaceMode.evaluationCapabilityAvailable,
                     inspectorOpen,

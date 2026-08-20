@@ -1,5 +1,8 @@
 import { PanelLeft, RefreshCw } from "lucide-react";
-import type { DesktopCloseButtonBehavior } from "@jarvis-k/contracts";
+import type {
+  DesktopCloseButtonBehavior,
+  DesktopLaunchAtLoginStatus,
+} from "@jarvis-k/contracts";
 
 import type { stage5Copy, uiCopy } from "@/app/copy";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +24,8 @@ export type SettingsGeneralViewModel = {
   ttsServiceConfigured: boolean;
   developerModeEnabled: boolean;
   desktopCloseButtonBehavior: DesktopCloseButtonBehavior;
+  desktopLaunchAtLoginEnabled: boolean;
+  desktopLaunchAtLoginStatus: DesktopLaunchAtLoginStatus | null;
   evaluationCapabilityAvailable: boolean;
   showDeveloperControls: boolean;
 };
@@ -32,6 +37,8 @@ export type SettingsGeneralActions = {
   setDesktopCloseButtonBehavior: (
     behavior: DesktopCloseButtonBehavior,
   ) => void;
+  setDesktopLaunchAtLoginEnabled: (enabled: boolean) => void;
+  refreshDesktopSettings: () => void;
   toggleInspector: () => void;
 };
 
@@ -148,6 +155,88 @@ export function SettingsGeneralPanel({
           tone="accent"
           value="local only"
         />
+      </div>
+      <div
+        className="mt-3 border-y py-2 text-[11px]"
+        data-testid="settings-launch-at-login"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block font-medium">Launch at login</span>
+            <span className="mt-0.5 block text-muted-foreground">
+              Start Jarvis-K Alpha when you sign in to Windows.
+            </span>
+          </span>
+          <input
+            aria-label="Launch Jarvis-K Alpha when I sign in to Windows"
+            checked={viewModel.desktopLaunchAtLoginEnabled}
+            className="size-4 accent-primary"
+            data-testid="settings-launch-at-login-toggle"
+            disabled={
+              viewModel.desktopLaunchAtLoginStatus?.canModify === false ||
+              viewModel.sending
+            }
+            onChange={(event) =>
+              actions.setDesktopLaunchAtLoginEnabled(event.target.checked)
+            }
+            type="checkbox"
+          />
+        </div>
+        <Metric
+          label="Requested"
+          tone={viewModel.desktopLaunchAtLoginEnabled ? "success" : undefined}
+          value={viewModel.desktopLaunchAtLoginEnabled ? "ON" : "OFF"}
+        />
+        <Metric
+          label="Windows registration"
+          tone={
+            viewModel.desktopLaunchAtLoginStatus?.openAtLogin
+              ? "success"
+              : undefined
+          }
+          value={
+            viewModel.desktopLaunchAtLoginStatus
+              ? viewModel.desktopLaunchAtLoginStatus.openAtLogin
+                ? "ON"
+                : "OFF"
+              : "unknown"
+          }
+        />
+        <Metric
+          label="Availability"
+          tone={
+            viewModel.desktopLaunchAtLoginStatus?.supported
+              ? "accent"
+              : "warning"
+          }
+          value={
+            viewModel.desktopLaunchAtLoginStatus?.supported
+              ? viewModel.desktopLaunchAtLoginStatus.releaseChannel
+              : "packaged alpha only"
+          }
+        />
+        {viewModel.desktopLaunchAtLoginStatus?.mismatch ||
+        viewModel.desktopLaunchAtLoginStatus?.errorCode ? (
+          <Metric
+            label="Status"
+            tone="warning"
+            value={
+              viewModel.desktopLaunchAtLoginStatus.errorCode ??
+              "Windows registration mismatch"
+            }
+          />
+        ) : null}
+        <Button
+          className="mt-2 h-8 rounded-md px-2.5 text-xs"
+          data-testid="settings-launch-at-login-refresh"
+          disabled={viewModel.sending}
+          onClick={actions.refreshDesktopSettings}
+          type="button"
+          variant="outline"
+        >
+          <RefreshCw className={cn("size-3.5", viewModel.sending && "animate-spin")} />
+          Retry
+        </Button>
       </div>
       <div
         className="mt-3 border-y py-2 text-[11px]"

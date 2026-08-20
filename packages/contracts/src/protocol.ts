@@ -41,6 +41,10 @@ export const IPC_DESKTOP_SETTINGS_STATUS_CHANNEL =
   "jarvis-k:desktop-settings-status";
 export const IPC_DESKTOP_SETTINGS_SET_CHANNEL =
   "jarvis-k:desktop-settings-set";
+export const IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL =
+  "jarvis-k:desktop-launch-at-login-status";
+export const IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL =
+  "jarvis-k:desktop-launch-at-login-set";
 export const IPC_DESKTOP_UI_ACTION_CHANNEL = "jarvis-k:desktop-ui-action";
 export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
@@ -411,6 +415,7 @@ export const DesktopSettingsSchema = z
   .object({
     closeButtonBehavior: DesktopCloseButtonBehaviorSchema,
     closeToTrayNoticeShown: z.boolean(),
+    launchAtLoginEnabled: z.boolean(),
     firstRunOnboardingVersion: z.literal(1),
     firstRunOnboardingState: DesktopFirstRunOnboardingStateSchema,
     firstRunOnboardingStateChangedAt: z.string().datetime().optional(),
@@ -429,6 +434,46 @@ export const DesktopSettingsSetResultSchema = z
   .strict();
 export type DesktopSettingsSetResult = z.infer<
   typeof DesktopSettingsSetResultSchema
+>;
+
+export const DesktopLaunchAtLoginReleaseChannelSchema = z.enum([
+  "development",
+  "alpha",
+  "stable",
+  "test",
+]);
+export type DesktopLaunchAtLoginReleaseChannel = z.infer<
+  typeof DesktopLaunchAtLoginReleaseChannelSchema
+>;
+
+export const DesktopLaunchAtLoginStatusSchema = z
+  .object({
+    requested: z.boolean(),
+    openAtLogin: z.boolean(),
+    supported: z.boolean(),
+    canModify: z.boolean(),
+    mismatch: z.boolean(),
+    releaseChannel: DesktopLaunchAtLoginReleaseChannelSchema,
+    startupArgument: z.literal("--jarvis-startup=login"),
+    source: z.enum([
+      "electron-login-item",
+      "unsupported-release-channel",
+      "electron-api-error",
+    ]),
+    appId: z.string().min(1).max(120),
+    productName: z.string().min(1).max(120),
+    errorCode: z
+      .enum([
+        "LOGIN_ITEM_UNSUPPORTED_RELEASE_CHANNEL",
+        "LOGIN_ITEM_STATUS_UNAVAILABLE",
+        "LOGIN_ITEM_SET_FAILED",
+      ])
+      .optional(),
+    errorMessage: z.string().min(1).max(300).optional(),
+  })
+  .strict();
+export type DesktopLaunchAtLoginStatus = z.infer<
+  typeof DesktopLaunchAtLoginStatusSchema
 >;
 
 export const DesktopUiActionSchema = z
@@ -3577,8 +3622,12 @@ export interface JarvisBridge {
   ): Promise<ChatAnswerProductModeSetResult>;
   getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
   getDesktopSettings(): Promise<DesktopSettings>;
+  getDesktopLaunchAtLoginStatus(): Promise<DesktopLaunchAtLoginStatus>;
   setDesktopCloseButtonBehavior(
     behavior: DesktopCloseButtonBehavior,
+  ): Promise<DesktopSettingsSetResult>;
+  setDesktopLaunchAtLoginEnabled(
+    enabled: boolean,
   ): Promise<DesktopSettingsSetResult>;
   setDesktopFirstRunOnboardingState(
     state: DesktopFirstRunOnboardingState,

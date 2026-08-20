@@ -9,6 +9,7 @@ import {
 import type {
   DesktopCloseButtonBehavior,
   DesktopFirstRunOnboardingState,
+  DesktopLaunchAtLoginStatus,
   DesktopSettings,
   DesktopSettingsSetResult,
   UiSurfaceCapabilityStatus,
@@ -16,6 +17,7 @@ import type {
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { ChatAnswerProviderConfiguration } from "../secure-chat-answer-provider-store";
+import type { LoginItemController } from "../login-item/login-item-controller";
 
 export interface SettingsServiceOptions {
   loadChatAnswerProviderConfiguration: () => Promise<ChatAnswerProviderConfiguration | null>;
@@ -28,6 +30,7 @@ export interface SettingsServiceOptions {
     enabled: boolean;
     configuration?: ChatAnswerProviderConfiguration | undefined;
   }) => void;
+  loginItemController?: LoginItemController;
   evaluationCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
 }
@@ -56,6 +59,14 @@ export class SettingsService {
     return this.desktopSettings;
   }
 
+  public getDesktopLaunchAtLoginStatus(): DesktopLaunchAtLoginStatus {
+    return this.options.loginItemController?.getStatus(
+      this.desktopSettings.launchAtLoginEnabled,
+    ) ?? createUnavailableLaunchAtLoginStatus(
+      this.desktopSettings.launchAtLoginEnabled,
+    );
+  }
+
   public setDesktopCloseButtonBehavior(
     rawInput: unknown,
   ): DesktopSettingsSetResult {
@@ -72,13 +83,48 @@ export class SettingsService {
     }
 
     this.desktopSettings = {
-      ...createDesktopSettings(parsed.data),
+      ...this.desktopSettings,
+      closeButtonBehavior: parsed.data,
       closeToTrayNoticeShown: this.desktopSettings.closeToTrayNoticeShown,
     };
     this.persistDesktopSettings();
     return {
       ok: true,
       settings: this.desktopSettings,
+    };
+  }
+
+  public setDesktopLaunchAtLoginEnabled(
+    rawInput: unknown,
+  ): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    if (typeof raw.launchAtLoginEnabled !== "boolean") {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Launch at login setting is invalid.",
+      };
+    }
+    const result = this.options.loginItemController?.setEnabled(
+      raw.launchAtLoginEnabled,
+    ) ?? {
+      ok: false,
+      message: "Launch at login is unavailable.",
+      status: createUnavailableLaunchAtLoginStatus(false),
+    };
+    const nextRequested =
+      result.ok && result.status.openAtLogin === raw.launchAtLoginEnabled
+        ? raw.launchAtLoginEnabled
+        : result.status.openAtLogin;
+    this.desktopSettings = {
+      ...this.desktopSettings,
+      launchAtLoginEnabled: nextRequested,
+    };
+    this.persistDesktopSettings();
+    return {
+      ok: result.ok,
+      settings: this.desktopSettings,
+      ...(result.message ? { message: result.message } : {}),
     };
   }
 
@@ -350,6 +396,7 @@ function createDesktopSettings(
   return {
     closeButtonBehavior,
     closeToTrayNoticeShown: false,
+    launchAtLoginEnabled: false,
     firstRunOnboardingVersion: 1,
     firstRunOnboardingState: "pending",
     persistedLocally: true,
@@ -369,6 +416,7 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
   const candidate = {
     closeButtonBehavior,
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
+    launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
     firstRunOnboardingVersion: 1,
     firstRunOnboardingState,
     ...(typeof raw.firstRunOnboardingStateChangedAt === "string"
@@ -384,6 +432,7 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
   return {
     ...createDesktopSettings(closeButtonBehavior),
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
+    launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
     firstRunOnboardingState,
   };
 }
@@ -392,4 +441,22 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function createUnavailableLaunchAtLoginStatus(
+  requested: boolean,
+): DesktopLaunchAtLoginStatus {
+  return {
+    requested,
+    openAtLogin: false,
+    supported: false,
+    canModify: false,
+    mismatch: requested,
+    releaseChannel: "development",
+    startupArgument: "--jarvis-startup=login",
+    source: "unsupported-release-channel",
+    appId: "com.jarvis-k.desktop.development",
+    productName: "Jarvis-K",
+    errorCode: "LOGIN_ITEM_UNSUPPORTED_RELEASE_CHANNEL",
+  };
 }

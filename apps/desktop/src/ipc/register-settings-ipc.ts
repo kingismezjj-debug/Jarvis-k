@@ -4,6 +4,8 @@ import {
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
@@ -24,6 +26,8 @@ const SETTINGS_CHANNELS = [
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
 ] as const;
 
 export function registerSettingsIpc(
@@ -55,6 +59,9 @@ export function registerSettingsIpc(
   options.ipcMain.handle(IPC_DESKTOP_SETTINGS_STATUS_CHANNEL, () =>
     options.settingsService.getDesktopSettings(),
   );
+  options.ipcMain.handle(IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL, () =>
+    options.settingsService.getDesktopLaunchAtLoginStatus(),
+  );
   options.ipcMain.handle(
     IPC_DESKTOP_SETTINGS_SET_CHANNEL,
     (event, rawInput: unknown) => {
@@ -74,7 +81,23 @@ export function registerSettingsIpc(
           rawInput,
         );
       }
+      if ("launchAtLoginEnabled" in input) {
+        return options.settingsService.setDesktopLaunchAtLoginEnabled(rawInput);
+      }
       return options.settingsService.setDesktopCloseButtonBehavior(rawInput);
+    },
+  );
+  options.ipcMain.handle(
+    IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
+    (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return {
+          ok: false,
+          settings: options.settingsService.getDesktopSettings(),
+          message: "Launch at login settings are unavailable.",
+        };
+      }
+      return options.settingsService.setDesktopLaunchAtLoginEnabled(rawInput);
     },
   );
   options.ipcMain.handle(

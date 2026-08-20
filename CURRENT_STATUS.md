@@ -19,7 +19,8 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Local-only Voice Regression collection, redaction, retention, export, and export review are implemented.
 - Product UI is separated from Developer/Evaluation surfaces by default.
 - Tray lifecycle is implemented: close-to-tray by default, restore from tray, explicit quit, and CoreHost cleanup.
-- Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.2` supersedes `0.1.0-alpha.1` after fixing the packaged runtime dependency closure.
+- User-controlled Windows launch at login is implemented for packaged Alpha/Stable only; it is OFF by default, uses Electron login item APIs, and starts hidden to tray on login.
+- Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
 
@@ -49,7 +50,7 @@ Voice freeze rules:
 
 - Windows Alpha package remains unsigned and requires manual install acceptance on Windows.
 - Phase 4A-3C Alpha `0.1.0-alpha.1` manual installation acceptance is **FAILED / BLOCKED**: storage isolation acceptance `PASS`, installer install/uninstall mechanics `PARTIAL PASS`, packaged runtime startup `FAIL`, blocking reason `MODULE_NOT_FOUND @jarvis-k/contracts`; First-run, Tray, CoreHost, second-instance, and quit acceptance were not completed.
-- Alpha `0.1.0-alpha.1` is superseded / not distributable. The next recorded phase from that failure is Phase 4A-3D packaged runtime dependency closure fix; `0.1.0-alpha.2` contains that fix and requires a fresh manual installation acceptance.
+- Alpha `0.1.0-alpha.1` is superseded / not distributable. `0.1.0-alpha.2` fixed the packaged runtime dependency closure; `0.1.0-alpha.3` is the current Alpha candidate for launch-at-login validation.
 - No signing certificate, auto-update, portable build, or store publishing path is configured.
 - Voice is usable only after explicit provider configuration.
 - Strict Voice Pilot UX remains too costly for manual progress and is deferred.
@@ -59,8 +60,8 @@ Voice freeze rules:
 Installation and release:
 
 - Current state supports developer-run Electron plus unsigned Windows x64 Alpha packaging.
-- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.2`.
-- Manual installation acceptance status is not complete for `0.1.0-alpha.2`; do not treat the failed `0.1.0-alpha.1` Phase 4A-3C run as a passing release acceptance.
+- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.3`.
+- Manual launch-at-login acceptance status is not complete for `0.1.0-alpha.3`; do not treat earlier package acceptance as validating this new startup behavior.
 - CI runs on `windows-latest` with `npm ci`, typecheck, tests, boundary checks, sensitive artifact guard, and build.
 - Installer packaging uses Electron Builder NSIS, per-user install, no elevation, no auto-run after finish, and user data is retained on uninstall.
 - Signing is explicitly not configured for Alpha; artifacts are named `unsigned-alpha`.
@@ -76,7 +77,7 @@ Desktop lifecycle:
 - GPU is disabled by default unless `JARVIS_K_ENABLE_ELECTRON_GPU=1`.
 - `before-quit` stops voice, Qwen runtime IPC, and Core supervisor.
 - Tray icon, close-to-tray, restore, and explicit quit are implemented.
-- Start-on-login, auto-update, and crash-recovery UX remain out of scope.
+- Auto-update and crash-recovery UX remain out of scope.
 
 Voice daily use:
 
@@ -108,7 +109,7 @@ P0:
 P1:
 
 - Unsigned installer requires manual Windows trust acceptance.
-- No auto-update or startup-at-login release path.
+- No auto-update release path.
 - First-run provider and microphone setup remains guidance-only, not a full wizard.
 
 P2:

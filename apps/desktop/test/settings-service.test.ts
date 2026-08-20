@@ -5,12 +5,14 @@ import path from "node:path";
 import {
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import { registerSettingsIpc } from "../src/ipc/register-settings-ipc";
 import { SettingsService } from "../src/settings/settings-service";
 import type { ChatAnswerProviderConfiguration } from "../src/secure-chat-answer-provider-store";
+import { LoginItemController } from "../src/login-item/login-item-controller";
 
 function createSettingsService(input: {
   credentialConfigured?: boolean;
@@ -18,6 +20,7 @@ function createSettingsService(input: {
   configuration?: ChatAnswerProviderConfiguration | null;
   evaluationCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
+  packagedAlphaLoginItem?: boolean;
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
@@ -30,6 +33,9 @@ function createSettingsService(input: {
     }),
     configureCommandRouterProductMode,
     configureChatAnswerProductMode,
+    loginItemController: input.packagedAlphaLoginItem
+      ? createLoginItemController()
+      : undefined,
     evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
     desktopSettingsPath: input.desktopSettingsPath,
   });
@@ -62,6 +68,7 @@ describe("SettingsService", () => {
     expect(service.getDesktopSettings()).toEqual({
       closeButtonBehavior: "minimize_to_tray",
       closeToTrayNoticeShown: false,
+      launchAtLoginEnabled: false,
       firstRunOnboardingVersion: 1,
       firstRunOnboardingState: "pending",
       persistedLocally: true,
@@ -92,6 +99,7 @@ describe("SettingsService", () => {
       const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
       expect(stored).toMatchObject({
         closeButtonBehavior: "quit",
+        launchAtLoginEnabled: false,
         firstRunOnboardingState: "pending",
         syncedToCloud: false,
       });
@@ -162,6 +170,7 @@ describe("SettingsService", () => {
       expect(service.getDesktopSettings()).toMatchObject({
         closeButtonBehavior: "quit",
         closeToTrayNoticeShown: true,
+        launchAtLoginEnabled: false,
         firstRunOnboardingVersion: 1,
         firstRunOnboardingState: "pending",
         persistedLocally: true,
@@ -181,6 +190,59 @@ describe("SettingsService", () => {
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
+    });
+  });
+
+  it("persists launch at login as a local user-controlled setting", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-login-settings-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({
+        desktopSettingsPath,
+        packagedAlphaLoginItem: true,
+      });
+      const result = service.setDesktopLaunchAtLoginEnabled({
+        launchAtLoginEnabled: true,
+      });
+      expect(result).toMatchObject({
+        ok: true,
+        settings: {
+          launchAtLoginEnabled: true,
+          persistedLocally: true,
+          syncedToCloud: false,
+        },
+      });
+      expect(service.getDesktopLaunchAtLoginStatus()).toMatchObject({
+        requested: true,
+        openAtLogin: true,
+        supported: true,
+        releaseChannel: "alpha",
+        startupArgument: "--jarvis-startup=login",
+      });
+      const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
+      expect(stored).toMatchObject({
+        launchAtLoginEnabled: true,
+        syncedToCloud: false,
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("fails closed when launch at login is requested outside packaged alpha", () => {
+    const { service } = createSettingsService();
+    const result = service.setDesktopLaunchAtLoginEnabled({
+      launchAtLoginEnabled: true,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      settings: { launchAtLoginEnabled: false },
+    });
+    expect(service.getDesktopLaunchAtLoginStatus()).toMatchObject({
+      supported: false,
+      openAtLogin: false,
     });
   });
 
@@ -234,7 +296,7 @@ describe("registerSettingsIpc", () => {
       settingsService: service,
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(7);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(9);
     expect(handlers.has(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)).toBe(true);
     unregister();
     expect(handlers.size).toBe(0);
@@ -256,8 +318,8 @@ describe("registerSettingsIpc", () => {
       getMainWindow: () => null,
       settingsService: service,
     });
-    expect(ipcMain.handle).toHaveBeenCalledTimes(14);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(14);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(18);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(18);
   });
 
   it("rejects settings updates from non-main-window senders", async () => {
@@ -282,6 +344,9 @@ describe("registerSettingsIpc", () => {
       IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
     );
     const desktopSettingsHandler = handlers.get(IPC_DESKTOP_SETTINGS_SET_CHANNEL);
+    const launchAtLoginHandler = handlers.get(
+      IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
+    );
     await expect(
       Promise.resolve(
         commandRouterHandler?.({ sender: { id: 8 } }, { enabled: true }),
@@ -300,5 +365,30 @@ describe("registerSettingsIpc", () => {
         ),
       ),
     ).resolves.toMatchObject({ ok: false });
+    await expect(
+      Promise.resolve(
+        launchAtLoginHandler?.(
+          { sender: { id: 8 } },
+          { launchAtLoginEnabled: true },
+        ),
+      ),
+    ).resolves.toMatchObject({ ok: false });
   });
 });
+
+function createLoginItemController(): LoginItemController {
+  let openAtLogin = false;
+  return new LoginItemController({
+    app: {
+      isPackaged: true,
+      getPath: () => "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+      getLoginItemSettings: () => ({ openAtLogin }),
+      setLoginItemSettings: (settings) => {
+        openAtLogin = settings.openAtLogin === true;
+      },
+    },
+    releaseChannel: "alpha",
+    appId: "com.jarvis-k.desktop.alpha",
+    productName: "Jarvis-K Alpha",
+  });
+}

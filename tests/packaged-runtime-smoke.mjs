@@ -128,6 +128,9 @@ try {
   if (initialSettings.closeButtonBehavior !== "minimize_to_tray") {
     throw new Error("Packaged app default close behavior is not tray mode.");
   }
+  if (initialSettings.launchAtLoginEnabled !== false) {
+    throw new Error("Packaged app default launch at login setting is not off.");
+  }
 
   await window.getByTestId("first-run-onboarding").waitFor({ timeout: 5_000 });
   for (let step = 0; step < 3; step += 1) {

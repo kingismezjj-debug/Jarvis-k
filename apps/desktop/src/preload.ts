@@ -8,6 +8,7 @@ import {
   CommandRouterProductModeStatusSchema,
   DesktopSettingsSetResultSchema,
   DesktopSettingsSchema,
+  DesktopLaunchAtLoginStatusSchema,
   DesktopUiActionSchema,
   EventEnvelopeSchema,
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
@@ -15,6 +16,8 @@ import {
   IPC_COMMAND_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
+  IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
@@ -100,6 +103,10 @@ const bridge: JarvisBridge = {
     DesktopSettingsSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_STATUS_CHANNEL)
     ),
+  getDesktopLaunchAtLoginStatus: async () =>
+    DesktopLaunchAtLoginStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL)
+    ),
   setDesktopCloseButtonBehavior: async (
     behavior: DesktopCloseButtonBehavior
   ) =>
@@ -114,6 +121,12 @@ const bridge: JarvisBridge = {
     DesktopSettingsSetResultSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_SET_CHANNEL, {
         firstRunOnboardingState: state
+      })
+    ),
+  setDesktopLaunchAtLoginEnabled: async (enabled) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL, {
+        launchAtLoginEnabled: enabled
       })
     ),
   getUiSurfaceCapabilityStatus: async () =>
