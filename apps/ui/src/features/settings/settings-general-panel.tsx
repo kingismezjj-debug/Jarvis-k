@@ -1,4 +1,5 @@
 import { PanelLeft, RefreshCw } from "lucide-react";
+import type { DesktopCloseButtonBehavior } from "@jarvis-k/contracts";
 
 import type { stage5Copy, uiCopy } from "@/app/copy";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ export type SettingsGeneralViewModel = {
   sequenceId: number;
   ttsServiceConfigured: boolean;
   developerModeEnabled: boolean;
+  desktopCloseButtonBehavior: DesktopCloseButtonBehavior;
   evaluationCapabilityAvailable: boolean;
   showDeveloperControls: boolean;
 };
@@ -27,6 +29,9 @@ export type SettingsGeneralActions = {
   probeCore: () => void;
   setLocalTtsEnabled: (enabled: boolean) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
+  setDesktopCloseButtonBehavior: (
+    behavior: DesktopCloseButtonBehavior,
+  ) => void;
   toggleInspector: () => void;
 };
 
@@ -99,6 +104,51 @@ export function SettingsGeneralPanel({
           type="checkbox"
         />
       </label>
+      <div
+        className="mt-3 border-y py-2 text-[11px]"
+        data-testid="settings-close-button-behavior"
+      >
+        <div className="mb-2 font-medium">Close button behavior</div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            aria-pressed={
+              viewModel.desktopCloseButtonBehavior === "minimize_to_tray"
+            }
+            className="h-8 rounded-md px-2.5 text-xs"
+            data-testid="settings-close-behavior-tray"
+            onClick={() =>
+              actions.setDesktopCloseButtonBehavior("minimize_to_tray")
+            }
+            type="button"
+            variant={
+              viewModel.desktopCloseButtonBehavior === "minimize_to_tray"
+                ? "secondary"
+                : "outline"
+            }
+          >
+            Minimize to system tray
+          </Button>
+          <Button
+            aria-pressed={viewModel.desktopCloseButtonBehavior === "quit"}
+            className="h-8 rounded-md px-2.5 text-xs"
+            data-testid="settings-close-behavior-quit"
+            onClick={() => actions.setDesktopCloseButtonBehavior("quit")}
+            type="button"
+            variant={
+              viewModel.desktopCloseButtonBehavior === "quit"
+                ? "secondary"
+                : "outline"
+            }
+          >
+            Quit Jarvis-K
+          </Button>
+        </div>
+        <Metric
+          label="Persistence"
+          tone="accent"
+          value="local only"
+        />
+      </div>
       <div
         className="mt-3 border-y py-2 text-[11px]"
         data-testid="settings-developer-mode"

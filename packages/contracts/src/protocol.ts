@@ -37,6 +37,11 @@ export const IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL =
   "jarvis-k:command-router-product-mode-status";
 export const IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL =
   "jarvis-k:command-router-product-mode-set";
+export const IPC_DESKTOP_SETTINGS_STATUS_CHANNEL =
+  "jarvis-k:desktop-settings-status";
+export const IPC_DESKTOP_SETTINGS_SET_CHANNEL =
+  "jarvis-k:desktop-settings-set";
+export const IPC_DESKTOP_UI_ACTION_CHANNEL = "jarvis-k:desktop-ui-action";
 export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
 export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
@@ -384,6 +389,42 @@ export const UiSurfaceCapabilityStatusSchema = z
 export type UiSurfaceCapabilityStatus = z.infer<
   typeof UiSurfaceCapabilityStatusSchema
 >;
+
+export const DesktopCloseButtonBehaviorSchema = z.enum([
+  "minimize_to_tray",
+  "quit",
+]);
+export type DesktopCloseButtonBehavior = z.infer<
+  typeof DesktopCloseButtonBehaviorSchema
+>;
+
+export const DesktopSettingsSchema = z
+  .object({
+    closeButtonBehavior: DesktopCloseButtonBehaviorSchema,
+    closeToTrayNoticeShown: z.boolean(),
+    persistedLocally: z.literal(true),
+    syncedToCloud: z.literal(false),
+  })
+  .strict();
+export type DesktopSettings = z.infer<typeof DesktopSettingsSchema>;
+
+export const DesktopSettingsSetResultSchema = z
+  .object({
+    ok: z.boolean(),
+    settings: DesktopSettingsSchema,
+    message: z.string().min(1).max(500).optional(),
+  })
+  .strict();
+export type DesktopSettingsSetResult = z.infer<
+  typeof DesktopSettingsSetResultSchema
+>;
+
+export const DesktopUiActionSchema = z
+  .object({
+    type: z.literal("desktop.openSettings"),
+  })
+  .strict();
+export type DesktopUiAction = z.infer<typeof DesktopUiActionSchema>;
 
 export const QwenRuntimeControlActionSchema = z.enum([
   "start",
@@ -3523,10 +3564,15 @@ export interface JarvisBridge {
     enabled: boolean,
   ): Promise<ChatAnswerProductModeSetResult>;
   getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
+  getDesktopSettings(): Promise<DesktopSettings>;
+  setDesktopCloseButtonBehavior(
+    behavior: DesktopCloseButtonBehavior,
+  ): Promise<DesktopSettingsSetResult>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;
   openTtsSettings(): Promise<TtsServiceStatus>;
   synthesizeTts(text: string, voiceId?: string): Promise<TtsSynthesisResult>;
+  onDesktopUiAction(listener: (action: DesktopUiAction) => void): () => void;
   onEvent(listener: (event: EventEnvelope) => void): () => void;
 }

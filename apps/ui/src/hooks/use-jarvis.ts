@@ -7,6 +7,8 @@ import {
   type CommandRouterLocalAppLaunchResult,
   type CommandRouterProductModeStatus,
   type CoreSnapshot,
+  type DesktopCloseButtonBehavior,
+  type DesktopSettings,
   type EventEnvelope,
   type MemoryAlphaRecallProbeResult,
   type MemoryAlphaStatus,
@@ -66,6 +68,8 @@ export function useJarvis(options: UseJarvisOptions = {}) {
   const [snapshot, setSnapshot] = useState<CoreSnapshot | null>(null);
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [connection, setConnection] = useState<CoreConnection>("connecting");
+  const [desktopSettings, setDesktopSettings] =
+    useState<DesktopSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversationState, dispatchConversationState] = useReducer(
     jarvisConversationReducer,
@@ -314,6 +318,40 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     }
   }, []);
 
+  const refreshDesktopSettings = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    try {
+      setDesktopSettings(await window.jarvis.getDesktopSettings());
+      return true;
+    } catch {
+      setError("Desktop settings are unavailable.");
+      return false;
+    }
+  }, []);
+
+  const setDesktopCloseButtonBehavior = useCallback(
+    async (behavior: DesktopCloseButtonBehavior) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      const result = await window.jarvis.setDesktopCloseButtonBehavior(
+        behavior,
+      );
+      setDesktopSettings(result.settings);
+      if (!result.ok) {
+        setError(result.message ?? "Desktop settings were rejected.");
+        return false;
+      }
+      setError(null);
+      return true;
+    },
+    [],
+  );
+
   const {
     clearSessionHistory,
     createConversation,
@@ -510,6 +548,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     if (textOnlyAcceptanceEnabled) {
       setVoiceServiceStatus(null);
       setTtsServiceStatus(null);
+      void refreshDesktopSettings();
       void refreshChatAnswerProductModeStatus();
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
@@ -527,6 +566,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     const handleWindowFocus = () => {
       void refreshVoiceServiceStatus();
       void refreshTtsServiceStatus();
+      void refreshDesktopSettings();
       void refreshChatAnswerProductModeStatus();
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
@@ -542,6 +582,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     window.addEventListener("focus", handleWindowFocus);
     void refreshVoiceServiceStatus();
     void refreshTtsServiceStatus();
+    void refreshDesktopSettings();
     void refreshChatAnswerProductModeStatus();
     void refreshCommandRouterProductModeStatus();
     void refreshPlugins();
@@ -559,6 +600,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
   }, [
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
+    refreshDesktopSettings,
     evaluationSurfaceEnabled,
     refreshPlugins,
     refreshQwenRuntimeControlStatus,
@@ -585,6 +627,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     cancelTask,
     clearSessionHistory,
     error,
+    desktopSettings,
     createConversation,
     disableMemoryAlpha,
     events,
@@ -610,6 +653,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     probeMemoryAlphaRecall,
     probeCore,
     refreshCapabilities,
+    refreshDesktopSettings,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshLocalPluginManifestDeveloperStatus,
@@ -653,6 +697,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     selectConversation,
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
+    setDesktopCloseButtonBehavior,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
     startPilotPrompt,

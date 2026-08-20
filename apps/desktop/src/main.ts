@@ -1,6 +1,7 @@
 import path from "node:path";
 import {
   BrowserWindow,
+  Notification,
   app,
   ipcMain,
   safeStorage
@@ -20,6 +21,8 @@ import {
   selectedHeavyPlannerProvider
 } from "./desktop-runtime-policy";
 import { createMainWindow } from "./windows/main-window";
+import { DesktopTrayController } from "./tray/desktop-tray-controller";
+import { DesktopLifecycleController } from "./lifecycle/desktop-lifecycle-controller";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc";
 import { SettingsService } from "./settings/settings-service";
 import { registerSecureStoreIpc } from "./ipc/register-secure-store-ipc";
@@ -43,6 +46,10 @@ let voiceController: VoiceController | null = null;
 let voiceIpcDisposer: (() => void) | null = null;
 let qwenRuntimeController: QwenRuntimeController | null = null;
 let qwenRuntimeIpcDisposer: (() => void) | null = null;
+let secureStoreIpcDisposer: (() => void) | null = null;
+let settingsIpcDisposer: (() => void) | null = null;
+let trayController: DesktopTrayController | null = null;
+let lifecycleController: DesktopLifecycleController | null = null;
 let openAiHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
   null;
 let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
@@ -51,6 +58,7 @@ let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
   null;
 let settingsService: SettingsService | null = null;
 let secureStoreService: SecureStoreService | null = null;
+let desktopRuntimeDisposeStarted = false;
 
 configureElectronGpuPolicy({ app });
 
@@ -152,16 +160,6 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  registerDesktopAppLifecycle({
-    app,
-    getMainWindow: () => mainWindow,
-    createMainWindow,
-    setMainWindow: (window) => {
-      mainWindow = window;
-    },
-    cleanup: disposeDesktopRuntime
-  });
-
   void app.whenReady().then(() => {
     const coreEntry = path.join(
       __dirname,
@@ -235,8 +233,59 @@ if (!hasSingleInstanceLock) {
         });
       },
       evaluationCapabilityAvailable:
-        process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1"
+        process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1",
+      desktopSettingsPath: path.join(
+        app.getPath("userData"),
+        "jarvis-k-desktop-settings.json"
+      )
     });
+    trayController = new DesktopTrayController({
+      getMainWindow: () => mainWindow,
+      createMainWindow: createTrackedMainWindow,
+      setMainWindow: (window) => {
+        mainWindow = window;
+      },
+      onOpenSettings: () => {
+        lifecycleController?.openSettings();
+      },
+      onQuit: () => {
+        lifecycleController?.requestExplicitQuit();
+      },
+      getStatus: () =>
+        lifecycleController?.getState() === "quitting"
+          ? "quitting"
+          : "running"
+    });
+    lifecycleController = new DesktopLifecycleController({
+      app,
+      getMainWindow: () => mainWindow,
+      createMainWindow: createTrackedMainWindow,
+      setMainWindow: (window) => {
+        mainWindow = window;
+      },
+      getCloseButtonBehavior: () =>
+        settingsService?.getDesktopSettings().closeButtonBehavior ??
+        "minimize_to_tray",
+      getTrayController: () => trayController,
+      cleanup: disposeDesktopRuntime,
+      notifyCloseToTray: notifyCloseToTrayOnce
+    });
+    registerDesktopAppLifecycle({
+      app,
+      getMainWindow: () => mainWindow,
+      createMainWindow: createTrackedMainWindow,
+      setMainWindow: (window) => {
+        mainWindow = window;
+      },
+      cleanup: disposeDesktopRuntime,
+      lifecycleController,
+      shouldQuitOnWindowAllClosed: () =>
+        lifecycleController?.getDiagnostics().explicitQuitRequested === true ||
+        lifecycleController?.getDiagnostics().systemShutdownRequested === true ||
+        trayController?.isAvailable() !== true ||
+        settingsService?.getDesktopSettings().closeButtonBehavior === "quit"
+    });
+    trayController.create();
 
     supervisorIpcDisposer = registerSupervisorIpc({
       ipcMain,
@@ -246,7 +295,7 @@ if (!hasSingleInstanceLock) {
       ipcMain,
       voiceController
     });
-    registerSecureStoreIpc({
+    secureStoreIpcDisposer = registerSecureStoreIpc({
       ipcMain,
       getMainWindow: () => mainWindow,
       openTtsSettingsWindow: () =>
@@ -285,7 +334,7 @@ if (!hasSingleInstanceLock) {
           message: "TTS provider is not configured."
         })
     });
-    registerSettingsIpc({
+    settingsIpcDisposer = registerSettingsIpc({
       ipcMain,
       getMainWindow: () => mainWindow,
       settingsService
@@ -295,15 +344,35 @@ if (!hasSingleInstanceLock) {
       qwenRuntimeController,
       getMainWindow: () => mainWindow
     });
-    mainWindow = createMainWindow();
-    mainWindow.on("closed", () => {
-      mainWindow = null;
-    });
+    mainWindow = createTrackedMainWindow();
 
   });
 }
 
+function createTrackedMainWindow(): BrowserWindow {
+  const window = createMainWindow();
+  lifecycleController?.attachWindow(window);
+  return window;
+}
+
+function notifyCloseToTrayOnce(): void {
+  if (!settingsService?.markCloseToTrayNoticeShown()) {
+    return;
+  }
+  if (!Notification.isSupported()) {
+    return;
+  }
+  new Notification({
+    title: "Jarvis-K",
+    body: "Jarvis-K is still running in the system tray."
+  }).show();
+}
+
 function disposeDesktopRuntime(): void {
+  if (desktopRuntimeDisposeStarted) {
+    return;
+  }
+  desktopRuntimeDisposeStarted = true;
   voiceIpcDisposer?.();
   voiceIpcDisposer = null;
   voiceController?.dispose();
@@ -311,8 +380,14 @@ function disposeDesktopRuntime(): void {
   qwenRuntimeIpcDisposer?.();
   qwenRuntimeIpcDisposer = null;
   qwenRuntimeController = null;
+  settingsIpcDisposer?.();
+  settingsIpcDisposer = null;
+  secureStoreIpcDisposer?.();
+  secureStoreIpcDisposer = null;
   supervisorIpcDisposer?.();
   supervisorIpcDisposer = null;
   supervisorController?.stop();
   supervisorController = null;
+  trayController?.dispose();
+  trayController = null;
 }

@@ -6,12 +6,18 @@ import {
   ChatAnswerProductModeStatusSchema,
   CommandRouterProductModeSetResultSchema,
   CommandRouterProductModeStatusSchema,
+  DesktopSettingsSetResultSchema,
+  DesktopSettingsSchema,
+  DesktopUiActionSchema,
   EventEnvelopeSchema,
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
+  IPC_DESKTOP_SETTINGS_SET_CHANNEL,
+  IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
+  IPC_DESKTOP_UI_ACTION_CHANNEL,
   IPC_EVENT_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
@@ -26,6 +32,7 @@ import {
   QwenRuntimeControlSetResultSchema,
   QwenRuntimeControlStatusSchema,
   type QwenRuntimeControlAction,
+  type DesktopCloseButtonBehavior,
   TtsServiceStatusSchema,
   TtsSynthesisResultSchema,
   UiSurfaceCapabilityStatusSchema,
@@ -88,6 +95,18 @@ const bridge: JarvisBridge = {
         enabled
       })
     ),
+  getDesktopSettings: async () =>
+    DesktopSettingsSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_STATUS_CHANNEL)
+    ),
+  setDesktopCloseButtonBehavior: async (
+    behavior: DesktopCloseButtonBehavior
+  ) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_SET_CHANNEL, {
+        closeButtonBehavior: behavior
+      })
+    ),
   getUiSurfaceCapabilityStatus: async () =>
     UiSurfaceCapabilityStatusSchema.parse(
       await ipcRenderer.invoke(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)
@@ -115,6 +134,17 @@ const bridge: JarvisBridge = {
         ...(voiceId ? { voiceId } : {})
       })
     ),
+  onDesktopUiAction: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, rawAction: unknown) => {
+      const parsed = DesktopUiActionSchema.safeParse(rawAction);
+      if (parsed.success) {
+        listener(parsed.data);
+      }
+    };
+    ipcRenderer.on(IPC_DESKTOP_UI_ACTION_CHANNEL, handler);
+    return () =>
+      ipcRenderer.removeListener(IPC_DESKTOP_UI_ACTION_CHANNEL, handler);
+  },
   onEvent: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, rawEvent: unknown) => {
       const parsed = EventEnvelopeSchema.safeParse(rawEvent);

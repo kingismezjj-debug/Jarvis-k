@@ -113,6 +113,7 @@ export default function App() {
     confirmVoiceCommandCorrection,
     connection,
     createConversation,
+    desktopSettings,
     clearVoiceRegressionPendingSamples,
     clearVoiceRegressionRecords,
     cancelPilotSession,
@@ -177,6 +178,7 @@ export default function App() {
     selectConversation,
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
+    setDesktopCloseButtonBehavior,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
@@ -1019,6 +1021,18 @@ export default function App() {
         : `${copy.nav[view]} ${copy.action.viewActive}`,
     );
   }
+
+  useEffect(() => {
+    const unsubscribe = window.jarvis?.onDesktopUiAction((action) => {
+      if (action.type === "desktop.openSettings") {
+        setActiveView("settings");
+        notifyAction(copy.action.settingsViewActive, "accent");
+      }
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [copy.action.settingsViewActive]);
 
   function handleSelectLanguage(language: UiLanguage) {
     setUiLanguage(language);
@@ -2190,6 +2204,13 @@ export default function App() {
                         setInspectorOpen(false);
                       }
                     },
+                    setDesktopCloseButtonBehavior: (behavior) => {
+                      void trackAction(
+                        "Change close behavior",
+                        async () => setDesktopCloseButtonBehavior(behavior),
+                        "Close behavior updated",
+                      );
+                    },
                     toggleInspector: () => {
                       setInspectorOpen((open) => !open);
                       notifyAction(
@@ -2206,6 +2227,9 @@ export default function App() {
                     connection,
                     coreHealth: snapshot?.health ?? connection,
                     developerModeEnabled,
+                    desktopCloseButtonBehavior:
+                      desktopSettings?.closeButtonBehavior ??
+                      "minimize_to_tray",
                     evaluationCapabilityAvailable:
                       uiSurfaceMode.evaluationCapabilityAvailable,
                     inspectorOpen,

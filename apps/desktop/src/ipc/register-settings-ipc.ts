@@ -4,6 +4,8 @@ import {
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
+  IPC_DESKTOP_SETTINGS_SET_CHANNEL,
+  IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import type { SettingsService } from "../settings/settings-service";
@@ -20,6 +22,8 @@ const SETTINGS_CHANNELS = [
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
+  IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
+  IPC_DESKTOP_SETTINGS_SET_CHANNEL,
 ] as const;
 
 export function registerSettingsIpc(
@@ -47,6 +51,22 @@ export function registerSettingsIpc(
   );
   options.ipcMain.handle(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL, () =>
     options.settingsService.getUiSurfaceCapabilityStatus(),
+  );
+  options.ipcMain.handle(IPC_DESKTOP_SETTINGS_STATUS_CHANNEL, () =>
+    options.settingsService.getDesktopSettings(),
+  );
+  options.ipcMain.handle(
+    IPC_DESKTOP_SETTINGS_SET_CHANNEL,
+    (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return {
+          ok: false,
+          settings: options.settingsService.getDesktopSettings(),
+          message: "Desktop settings are unavailable.",
+        };
+      }
+      return options.settingsService.setDesktopCloseButtonBehavior(rawInput);
+    },
   );
   options.ipcMain.handle(
     IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,

@@ -2,8 +2,17 @@ import {
   ChatAnswerProductModeStatus,
   CommandRouterProductModeStatus,
   createCommandRouterQwenProductRoutingActivationStatus,
+  DesktopCloseButtonBehaviorSchema,
+  DesktopSettingsSchema,
 } from "@jarvis-k/contracts";
-import type { UiSurfaceCapabilityStatus } from "@jarvis-k/contracts";
+import type {
+  DesktopCloseButtonBehavior,
+  DesktopSettings,
+  DesktopSettingsSetResult,
+  UiSurfaceCapabilityStatus,
+} from "@jarvis-k/contracts";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import type { ChatAnswerProviderConfiguration } from "../secure-chat-answer-provider-store";
 
 export interface SettingsServiceOptions {
@@ -18,14 +27,18 @@ export interface SettingsServiceOptions {
     configuration?: ChatAnswerProviderConfiguration | undefined;
   }) => void;
   evaluationCapabilityAvailable?: boolean;
+  desktopSettingsPath?: string;
 }
 
 export class SettingsService {
   private commandRouterProductModeEnabled = false;
   private chatAnswerProductModeEnabled = false;
   private chatAnswerProductModeRuntimeArmed = false;
+  private desktopSettings: DesktopSettings;
 
-  public constructor(private readonly options: SettingsServiceOptions) {}
+  public constructor(private readonly options: SettingsServiceOptions) {
+    this.desktopSettings = this.loadDesktopSettings();
+  }
 
   public getUiSurfaceCapabilityStatus(): UiSurfaceCapabilityStatus {
     return {
@@ -35,6 +48,48 @@ export class SettingsService {
       sensitiveValuesExposed: false,
       rendererWritable: false,
     };
+  }
+
+  public getDesktopSettings(): DesktopSettings {
+    return this.desktopSettings;
+  }
+
+  public setDesktopCloseButtonBehavior(
+    rawInput: unknown,
+  ): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    const parsed = DesktopCloseButtonBehaviorSchema.safeParse(
+      raw.closeButtonBehavior,
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Desktop close button behavior is invalid.",
+      };
+    }
+
+    this.desktopSettings = {
+      ...createDesktopSettings(parsed.data),
+      closeToTrayNoticeShown: this.desktopSettings.closeToTrayNoticeShown,
+    };
+    this.persistDesktopSettings();
+    return {
+      ok: true,
+      settings: this.desktopSettings,
+    };
+  }
+
+  public markCloseToTrayNoticeShown(): boolean {
+    if (this.desktopSettings.closeToTrayNoticeShown) {
+      return false;
+    }
+    this.desktopSettings = {
+      ...this.desktopSettings,
+      closeToTrayNoticeShown: true,
+    };
+    this.persistDesktopSettings();
+    return true;
   }
 
   public getCommandRouterProductModeStatus(): CommandRouterProductModeStatus {
@@ -232,6 +287,43 @@ export class SettingsService {
       status: await this.getChatAnswerProductModeStatus(),
     };
   }
+
+  private loadDesktopSettings(): DesktopSettings {
+    if (!this.options.desktopSettingsPath) {
+      return createDesktopSettings("minimize_to_tray");
+    }
+    try {
+      const raw = readFileSync(this.options.desktopSettingsPath, "utf8");
+      return DesktopSettingsSchema.parse(JSON.parse(raw));
+    } catch {
+      return createDesktopSettings("minimize_to_tray");
+    }
+  }
+
+  private persistDesktopSettings(): void {
+    if (!this.options.desktopSettingsPath) {
+      return;
+    }
+    mkdirSync(path.dirname(this.options.desktopSettingsPath), {
+      recursive: true,
+    });
+    writeFileSync(
+      this.options.desktopSettingsPath,
+      `${JSON.stringify(this.desktopSettings, null, 2)}\n`,
+      "utf8",
+    );
+  }
+}
+
+function createDesktopSettings(
+  closeButtonBehavior: DesktopCloseButtonBehavior,
+): DesktopSettings {
+  return {
+    closeButtonBehavior,
+    closeToTrayNoticeShown: false,
+    persistedLocally: true,
+    syncedToCloud: false,
+  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

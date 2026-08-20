@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import {
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import { registerSettingsIpc } from "../src/ipc/register-settings-ipc";
@@ -13,6 +17,7 @@ function createSettingsService(input: {
   secureStorageAvailable?: boolean;
   configuration?: ChatAnswerProviderConfiguration | null;
   evaluationCapabilityAvailable?: boolean;
+  desktopSettingsPath?: string;
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
@@ -26,6 +31,7 @@ function createSettingsService(input: {
     configureCommandRouterProductMode,
     configureChatAnswerProductMode,
     evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
+    desktopSettingsPath: input.desktopSettingsPath,
   });
   return {
     service,
@@ -53,6 +59,51 @@ describe("SettingsService", () => {
       sensitiveValuesExposed: false,
       rendererWritable: false,
     });
+    expect(service.getDesktopSettings()).toEqual({
+      closeButtonBehavior: "minimize_to_tray",
+      closeToTrayNoticeShown: false,
+      persistedLocally: true,
+      syncedToCloud: false,
+    });
+  });
+
+  it("persists close button behavior locally without cloud sync", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-settings-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({ desktopSettingsPath });
+      expect(
+        service.setDesktopCloseButtonBehavior({
+          closeButtonBehavior: "quit",
+        }),
+      ).toMatchObject({
+        ok: true,
+        settings: {
+          closeButtonBehavior: "quit",
+          persistedLocally: true,
+          syncedToCloud: false,
+        },
+      });
+
+      const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
+      expect(stored).toMatchObject({
+        closeButtonBehavior: "quit",
+        syncedToCloud: false,
+      });
+      const reloaded = createSettingsService({ desktopSettingsPath }).service;
+      expect(reloaded.getDesktopSettings().closeButtonBehavior).toBe("quit");
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("records the close-to-tray notice only once", () => {
+    const { service } = createSettingsService();
+    expect(service.markCloseToTrayNoticeShown()).toBe(true);
+    expect(service.markCloseToTrayNoticeShown()).toBe(false);
+    expect(service.getDesktopSettings().closeToTrayNoticeShown).toBe(true);
   });
 
   it("exposes evaluation capability as a read-only safe projection", () => {
@@ -117,7 +168,7 @@ describe("registerSettingsIpc", () => {
       settingsService: service,
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(5);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(7);
     expect(handlers.has(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)).toBe(true);
     unregister();
     expect(handlers.size).toBe(0);
@@ -139,8 +190,8 @@ describe("registerSettingsIpc", () => {
       getMainWindow: () => null,
       settingsService: service,
     });
-    expect(ipcMain.handle).toHaveBeenCalledTimes(10);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(10);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(14);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(14);
   });
 
   it("rejects settings updates from non-main-window senders", async () => {
@@ -164,6 +215,7 @@ describe("registerSettingsIpc", () => {
     const chatAnswerHandler = handlers.get(
       IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
     );
+    const desktopSettingsHandler = handlers.get(IPC_DESKTOP_SETTINGS_SET_CHANNEL);
     await expect(
       Promise.resolve(
         commandRouterHandler?.({ sender: { id: 8 } }, { enabled: true }),
@@ -172,6 +224,14 @@ describe("registerSettingsIpc", () => {
     await expect(
       Promise.resolve(
         chatAnswerHandler?.({ sender: { id: 8 } }, { enabled: true }),
+      ),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      Promise.resolve(
+        desktopSettingsHandler?.(
+          { sender: { id: 8 } },
+          { closeButtonBehavior: "quit" },
+        ),
       ),
     ).resolves.toMatchObject({ ok: false });
   });

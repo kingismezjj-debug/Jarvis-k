@@ -1,4 +1,5 @@
 import type { BrowserWindow, App } from "electron";
+import type { DesktopLifecycleController } from "./lifecycle/desktop-lifecycle-controller";
 
 export interface ConfigureElectronGpuPolicyOptions {
   app: Pick<App, "disableHardwareAcceleration" | "commandLine">;
@@ -18,17 +19,26 @@ export function configureElectronGpuPolicy(
 }
 
 export interface RegisterDesktopAppLifecycleOptions {
-  app: Pick<App, "on" | "quit">;
+  app: {
+    on(eventName: string, listener: (...args: unknown[]) => void): unknown;
+    quit(): void;
+  };
   getMainWindow: () => BrowserWindow | null;
   createMainWindow: () => BrowserWindow;
   setMainWindow: (window: BrowserWindow | null) => void;
-  cleanup: () => void;
+  cleanup: () => void | Promise<void>;
+  lifecycleController?: DesktopLifecycleController | undefined;
+  shouldQuitOnWindowAllClosed?: () => boolean;
 }
 
 export function registerDesktopAppLifecycle(
   options: RegisterDesktopAppLifecycleOptions,
 ): void {
   options.app.on("second-instance", () => {
+    if (options.lifecycleController) {
+      options.lifecycleController.restoreWindow();
+      return;
+    }
     const mainWindow = options.getMainWindow();
     if (!mainWindow) {
       return;
@@ -40,14 +50,28 @@ export function registerDesktopAppLifecycle(
   });
 
   options.app.on("activate", () => {
+    if (options.lifecycleController) {
+      options.lifecycleController.restoreWindow();
+      return;
+    }
     if (!options.getMainWindow()) {
       options.setMainWindow(options.createMainWindow());
     }
   });
 
-  options.app.on("before-quit", options.cleanup);
+  options.app.on("before-quit", () => {
+    options.lifecycleController?.markExplicitQuitRequested();
+    void (options.lifecycleController?.cleanupOnce() ?? options.cleanup());
+  });
+
+  options.app.on("session-end", () => {
+    options.lifecycleController?.markSystemShutdownRequested();
+  });
 
   options.app.on("window-all-closed", () => {
+    if (options.shouldQuitOnWindowAllClosed?.() === false) {
+      return;
+    }
     options.app.quit();
   });
 }
