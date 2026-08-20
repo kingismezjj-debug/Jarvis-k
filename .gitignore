@@ -3,6 +3,8 @@ dist/
 coverage/
 artifacts/*.png
 artifacts/*.json
+artifacts/packaged/
+artifacts/package-verify/
 models/
 *.bin
 *.ckpt

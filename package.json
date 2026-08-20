@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
+  "main": "apps/desktop/dist/main.js",
   "workspaces": [
     "packages/contracts",
     "packages/capabilities",
@@ -74,6 +75,9 @@
     "smoke:desktop:ui-interaction": "npm run build && node tests/desktop-ui-interaction-smoke.mjs",
     "smoke:desktop:ui-surface-mode": "npm run build && node tests/desktop-ui-surface-mode-smoke.mjs",
     "smoke:desktop:tray-lifecycle": "npm run build && node tests/desktop-tray-lifecycle-smoke.mjs",
+    "package:windows:dir": "npm run build && electron-builder --win --x64 --dir",
+    "package:windows:alpha": "npm run build && electron-builder --win nsis --x64",
+    "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-smoke.mjs",
     "smoke:desktop:memory-degraded": "npm run build && node tests/desktop-memory-degraded-smoke.mjs",
     "smoke:desktop:memory-retrieval-env-wiring": "npm run build && node tests/desktop-memory-retrieval-env-wiring-smoke.mjs",
     "smoke:desktop:memory-retrieval-provider-query-vector": "npm run build && node tests/desktop-memory-retrieval-provider-query-vector-smoke.mjs",
@@ -163,6 +167,7 @@
     "@types/node": "^24.10.1",
     "@types/ws": "^8.18.1",
     "electron": "^39.8.5",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.25.12",
     "playwright": "^1.59.1",
     "typescript": "^5.9.3",
@@ -170,6 +175,81 @@
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "build": {
+    "appId": "com.jarvisk.desktop",
+    "productName": "Jarvis-K",
+    "asar": false,
+    "directories": {
+      "output": "artifacts/packaged"
+    },
+    "files": [
+      "package.json",
+      "apps/desktop/package.json",
+      "apps/desktop/dist/**",
+      "apps/desktop/assets/**",
+      "apps/ui/dist/**",
+      "apps/core-host/package.json",
+      "apps/core-host/dist/**",
+      "packages/*/package.json",
+      "packages/*/dist/**",
+      "examples/plugins/stock-analysis/**",
+      "examples/plugins/ecommerce-product-comparison/**",
+      "examples/local-plugins/hello-readonly/**",
+      "node_modules/@jarvis-k/**",
+      "node_modules/zod/**",
+      "node_modules/sql.js/**",
+      "node_modules/ws/**",
+      "!**/*.map",
+      "!**/*.d.ts",
+      "!**/*.d.ts.map",
+      "!**/src/**",
+      "!**/test/**",
+      "!**/tests/**",
+      "!**/.env",
+      "!**/.env.*",
+      "!**/*.log",
+      "!datasets/**",
+      "!reports/**",
+      "!artifacts/**",
+      "!models/**",
+      "!docs/**",
+      "!tests/**",
+      "!scripts/**",
+      "!**/*.sqlite",
+      "!**/*.sqlite3",
+      "!**/*.db",
+      "!**/*.gguf",
+      "!**/*.onnx",
+      "!**/*.safetensors"
+    ],
+    "extraMetadata": {
+      "main": "apps/desktop/dist/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false,
+      "artifactName": "${productName}-${version}-${os}-${arch}-unsigned-alpha.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "${productName}-${version}-windows-${arch}-unsigned-alpha-setup.${ext}"
+    }
   },
   "allowScripts": {
     "electron@39.8.5": true,
