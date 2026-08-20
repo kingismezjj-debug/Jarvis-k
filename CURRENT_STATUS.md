@@ -48,6 +48,8 @@ Voice freeze rules:
 ## Current Blockers
 
 - Windows Alpha package remains unsigned and requires manual install acceptance on Windows.
+- Phase 4A-3C Alpha `0.1.0-alpha.1` manual installation acceptance is **FAILED / BLOCKED**: storage isolation acceptance `PASS`, installer install/uninstall mechanics `PARTIAL PASS`, packaged runtime startup `FAIL`, blocking reason `MODULE_NOT_FOUND @jarvis-k/contracts`; First-run, Tray, CoreHost, second-instance, and quit acceptance were not completed.
+- Alpha `0.1.0-alpha.1` is superseded / not distributable. The next recorded phase from that failure is Phase 4A-3D packaged runtime dependency closure fix; `0.1.0-alpha.2` contains that fix and requires a fresh manual installation acceptance.
 - No signing certificate, auto-update, portable build, or store publishing path is configured.
 - Voice is usable only after explicit provider configuration.
 - Strict Voice Pilot UX remains too costly for manual progress and is deferred.
@@ -58,6 +60,7 @@ Installation and release:
 
 - Current state supports developer-run Electron plus unsigned Windows x64 Alpha packaging.
 - Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.2`.
+- Manual installation acceptance status is not complete for `0.1.0-alpha.2`; do not treat the failed `0.1.0-alpha.1` Phase 4A-3C run as a passing release acceptance.
 - CI runs on `windows-latest` with `npm ci`, typecheck, tests, boundary checks, sensitive artifact guard, and build.
 - Installer packaging uses Electron Builder NSIS, per-user install, no elevation, no auto-run after finish, and user data is retained on uninstall.
 - Signing is explicitly not configured for Alpha; artifacts are named `unsigned-alpha`.
