@@ -398,10 +398,22 @@ export type DesktopCloseButtonBehavior = z.infer<
   typeof DesktopCloseButtonBehaviorSchema
 >;
 
+export const DesktopFirstRunOnboardingStateSchema = z.enum([
+  "pending",
+  "completed",
+  "skipped",
+]);
+export type DesktopFirstRunOnboardingState = z.infer<
+  typeof DesktopFirstRunOnboardingStateSchema
+>;
+
 export const DesktopSettingsSchema = z
   .object({
     closeButtonBehavior: DesktopCloseButtonBehaviorSchema,
     closeToTrayNoticeShown: z.boolean(),
+    firstRunOnboardingVersion: z.literal(1),
+    firstRunOnboardingState: DesktopFirstRunOnboardingStateSchema,
+    firstRunOnboardingStateChangedAt: z.string().datetime().optional(),
     persistedLocally: z.literal(true),
     syncedToCloud: z.literal(false),
   })
@@ -3567,6 +3579,9 @@ export interface JarvisBridge {
   getDesktopSettings(): Promise<DesktopSettings>;
   setDesktopCloseButtonBehavior(
     behavior: DesktopCloseButtonBehavior,
+  ): Promise<DesktopSettingsSetResult>;
+  setDesktopFirstRunOnboardingState(
+    state: DesktopFirstRunOnboardingState,
   ): Promise<DesktopSettingsSetResult>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;

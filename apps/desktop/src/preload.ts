@@ -33,6 +33,7 @@ import {
   QwenRuntimeControlStatusSchema,
   type QwenRuntimeControlAction,
   type DesktopCloseButtonBehavior,
+  type DesktopFirstRunOnboardingState,
   TtsServiceStatusSchema,
   TtsSynthesisResultSchema,
   UiSurfaceCapabilityStatusSchema,
@@ -105,6 +106,14 @@ const bridge: JarvisBridge = {
     DesktopSettingsSetResultSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_SET_CHANNEL, {
         closeButtonBehavior: behavior
+      })
+    ),
+  setDesktopFirstRunOnboardingState: async (
+    state: DesktopFirstRunOnboardingState
+  ) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_SET_CHANNEL, {
+        firstRunOnboardingState: state
       })
     ),
   getUiSurfaceCapabilityStatus: async () =>

@@ -8,6 +8,7 @@ import {
   type CommandRouterProductModeStatus,
   type CoreSnapshot,
   type DesktopCloseButtonBehavior,
+  type DesktopFirstRunOnboardingState,
   type DesktopSettings,
   type EventEnvelope,
   type MemoryAlphaRecallProbeResult,
@@ -340,6 +341,26 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       }
       const result = await window.jarvis.setDesktopCloseButtonBehavior(
         behavior,
+      );
+      setDesktopSettings(result.settings);
+      if (!result.ok) {
+        setError(result.message ?? "Desktop settings were rejected.");
+        return false;
+      }
+      setError(null);
+      return true;
+    },
+    [],
+  );
+
+  const setDesktopFirstRunOnboardingState = useCallback(
+    async (state: DesktopFirstRunOnboardingState) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      const result = await window.jarvis.setDesktopFirstRunOnboardingState(
+        state,
       );
       setDesktopSettings(result.settings);
       if (!result.ok) {
@@ -698,6 +719,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
+    setDesktopFirstRunOnboardingState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
     startPilotPrompt,

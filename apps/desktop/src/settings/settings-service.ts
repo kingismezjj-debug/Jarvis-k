@@ -3,10 +3,12 @@ import {
   CommandRouterProductModeStatus,
   createCommandRouterQwenProductRoutingActivationStatus,
   DesktopCloseButtonBehaviorSchema,
+  DesktopFirstRunOnboardingStateSchema,
   DesktopSettingsSchema,
 } from "@jarvis-k/contracts";
 import type {
   DesktopCloseButtonBehavior,
+  DesktopFirstRunOnboardingState,
   DesktopSettings,
   DesktopSettingsSetResult,
   UiSurfaceCapabilityStatus,
@@ -72,6 +74,33 @@ export class SettingsService {
     this.desktopSettings = {
       ...createDesktopSettings(parsed.data),
       closeToTrayNoticeShown: this.desktopSettings.closeToTrayNoticeShown,
+    };
+    this.persistDesktopSettings();
+    return {
+      ok: true,
+      settings: this.desktopSettings,
+    };
+  }
+
+  public setDesktopFirstRunOnboardingState(
+    rawInput: unknown,
+  ): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    const parsed = DesktopFirstRunOnboardingStateSchema.safeParse(
+      raw.firstRunOnboardingState,
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "First-run onboarding state is invalid.",
+      };
+    }
+
+    this.desktopSettings = {
+      ...this.desktopSettings,
+      firstRunOnboardingState: parsed.data,
+      firstRunOnboardingStateChangedAt: new Date().toISOString(),
     };
     this.persistDesktopSettings();
     return {
@@ -294,7 +323,7 @@ export class SettingsService {
     }
     try {
       const raw = readFileSync(this.options.desktopSettingsPath, "utf8");
-      return DesktopSettingsSchema.parse(JSON.parse(raw));
+      return migrateDesktopSettings(JSON.parse(raw));
     } catch {
       return createDesktopSettings("minimize_to_tray");
     }
@@ -321,8 +350,41 @@ function createDesktopSettings(
   return {
     closeButtonBehavior,
     closeToTrayNoticeShown: false,
+    firstRunOnboardingVersion: 1,
+    firstRunOnboardingState: "pending",
     persistedLocally: true,
     syncedToCloud: false,
+  };
+}
+
+function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
+  const raw = asRecord(rawInput);
+  const closeButtonBehavior =
+    DesktopCloseButtonBehaviorSchema.safeParse(raw.closeButtonBehavior).data ??
+    "minimize_to_tray";
+  const firstRunOnboardingState =
+    DesktopFirstRunOnboardingStateSchema.safeParse(
+      raw.firstRunOnboardingState,
+    ).data ?? "pending";
+  const candidate = {
+    closeButtonBehavior,
+    closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
+    firstRunOnboardingVersion: 1,
+    firstRunOnboardingState,
+    ...(typeof raw.firstRunOnboardingStateChangedAt === "string"
+      ? { firstRunOnboardingStateChangedAt: raw.firstRunOnboardingStateChangedAt }
+      : {}),
+    persistedLocally: true,
+    syncedToCloud: false,
+  };
+  const parsed = DesktopSettingsSchema.safeParse(candidate);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  return {
+    ...createDesktopSettings(closeButtonBehavior),
+    closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
+    firstRunOnboardingState,
   };
 }
 

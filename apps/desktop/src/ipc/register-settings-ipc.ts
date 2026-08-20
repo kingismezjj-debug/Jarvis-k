@@ -65,6 +65,15 @@ export function registerSettingsIpc(
           message: "Desktop settings are unavailable.",
         };
       }
+      const input =
+        typeof rawInput === "object" && rawInput !== null
+          ? (rawInput as Record<string, unknown>)
+          : {};
+      if ("firstRunOnboardingState" in input) {
+        return options.settingsService.setDesktopFirstRunOnboardingState(
+          rawInput,
+        );
+      }
       return options.settingsService.setDesktopCloseButtonBehavior(rawInput);
     },
   );

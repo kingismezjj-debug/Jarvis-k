@@ -73,6 +73,7 @@ import { MemoryBoundaryPanel } from "@/features/memory/memory-boundary-panel";
 import { buildMemoryBoundaryViewModel } from "@/features/memory/memory-boundary-view-model";
 import { MemoryCenter } from "@/features/memory/memory-center";
 import { ModelOperationList } from "@/features/model-management/model-operation-list";
+import { FirstRunOnboarding } from "@/features/onboarding/first-run-onboarding";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
 import { RuntimeInspectorPanel } from "@/features/runtime-inspector/runtime-inspector-panel";
 import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
@@ -179,6 +180,7 @@ export default function App() {
     setChatAnswerProductModeEnabled,
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
+    setDesktopFirstRunOnboardingState,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
@@ -2519,6 +2521,17 @@ export default function App() {
             sending={sending}
             target={commandRouterRealLaunchTarget}
           />
+
+          {desktopSettings?.firstRunOnboardingState === "pending" ? (
+            <FirstRunOnboarding
+              onComplete={() => {
+                void setDesktopFirstRunOnboardingState("completed");
+              }}
+              onSkip={() => {
+                void setDesktopFirstRunOnboardingState("skipped");
+              }}
+            />
+          ) : null}
 
           <ConversationComposer
             copy={copy}

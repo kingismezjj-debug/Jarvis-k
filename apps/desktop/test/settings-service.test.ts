@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -62,6 +62,8 @@ describe("SettingsService", () => {
     expect(service.getDesktopSettings()).toEqual({
       closeButtonBehavior: "minimize_to_tray",
       closeToTrayNoticeShown: false,
+      firstRunOnboardingVersion: 1,
+      firstRunOnboardingState: "pending",
       persistedLocally: true,
       syncedToCloud: false,
     });
@@ -90,6 +92,7 @@ describe("SettingsService", () => {
       const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
       expect(stored).toMatchObject({
         closeButtonBehavior: "quit",
+        firstRunOnboardingState: "pending",
         syncedToCloud: false,
       });
       const reloaded = createSettingsService({ desktopSettingsPath }).service;
@@ -104,6 +107,69 @@ describe("SettingsService", () => {
     expect(service.markCloseToTrayNoticeShown()).toBe(true);
     expect(service.markCloseToTrayNoticeShown()).toBe(false);
     expect(service.getDesktopSettings().closeToTrayNoticeShown).toBe(true);
+  });
+
+  it("persists first-run onboarding completion locally", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-onboarding-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({ desktopSettingsPath });
+      const result = service.setDesktopFirstRunOnboardingState({
+        firstRunOnboardingState: "completed",
+      });
+      expect(result).toMatchObject({
+        ok: true,
+        settings: {
+          firstRunOnboardingVersion: 1,
+          firstRunOnboardingState: "completed",
+          persistedLocally: true,
+          syncedToCloud: false,
+        },
+      });
+      expect(result.settings.firstRunOnboardingStateChangedAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T/,
+      );
+
+      const reloaded = createSettingsService({ desktopSettingsPath }).service;
+      expect(reloaded.getDesktopSettings()).toMatchObject({
+        firstRunOnboardingState: "completed",
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("migrates legacy desktop settings without losing close behavior", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-legacy-settings-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      await writeFile(
+        desktopSettingsPath,
+        JSON.stringify({
+          closeButtonBehavior: "quit",
+          closeToTrayNoticeShown: true,
+          persistedLocally: true,
+          syncedToCloud: false,
+        }),
+        "utf8",
+      );
+
+      const { service } = createSettingsService({ desktopSettingsPath });
+      expect(service.getDesktopSettings()).toMatchObject({
+        closeButtonBehavior: "quit",
+        closeToTrayNoticeShown: true,
+        firstRunOnboardingVersion: 1,
+        firstRunOnboardingState: "pending",
+        persistedLocally: true,
+        syncedToCloud: false,
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
   });
 
   it("exposes evaluation capability as a read-only safe projection", () => {
