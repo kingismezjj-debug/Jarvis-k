@@ -4,7 +4,7 @@ Updated: 2026-08-20
 
 ## Current Product Phase
 
-Jarvis-K is switching from Voice evaluation work back to Desktop Alpha daily-use and release-readiness stabilization.
+Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 
 ## Completed
 
@@ -17,6 +17,10 @@ Jarvis-K is switching from Voice evaluation work back to Desktop Alpha daily-use
 - Voice ASR provider identity and `command/explicit_ui` input mode now flow into regression records.
 - Dual-layer Voice Regression feedback is implemented.
 - Local-only Voice Regression collection, redaction, retention, export, and export review are implemented.
+- Product UI is separated from Developer/Evaluation surfaces by default.
+- Tray lifecycle is implemented: close-to-tray by default, restore from tray, explicit quit, and CoreHost cleanup.
+- Windows unsigned Alpha packaging is configured for x64 NSIS and unpacked runtime verification.
+- First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
 
 ## Frozen
 
@@ -42,19 +46,20 @@ Voice freeze rules:
 
 ## Current Blockers
 
-- No Windows installer, signing, update, uninstall, or portable build configuration is present.
-- Phase 4A-1 now isolates Product UI from Developer/Evaluation surfaces by default; final smoke/verify remains the current gate.
-- No tray/minimize-to-background lifecycle is implemented; closing the last window quits the app.
-- Voice is usable only after explicit provider configuration, and first-run onboarding is not yet productized.
+- Windows Alpha package remains unsigned and requires manual install acceptance on Windows.
+- No signing certificate, auto-update, portable build, or store publishing path is configured.
+- Voice is usable only after explicit provider configuration.
 - Strict Voice Pilot UX remains too costly for manual progress and is deferred.
 
 ## Desktop Alpha Audit
 
 Installation and release:
 
-- Current state is developer-run Electron (`npm run build`, `npm start`).
+- Current state supports developer-run Electron plus unsigned Windows x64 Alpha packaging.
 - CI runs on `windows-latest` with `npm ci`, typecheck, tests, boundary checks, sensitive artifact guard, and build.
-- No installer, signing, auto-update, uninstall cleanup, portable package, or release artifact script was found.
+- Installer packaging uses Electron Builder NSIS, per-user install, no elevation, no auto-run after finish, and user data is retained on uninstall.
+- Signing is explicitly not configured for Alpha; artifacts are named `unsigned-alpha`.
+- Auto-update, portable package, and store publishing remain out of scope.
 - User data and encrypted provider settings use Electron `app.getPath("userData")`; Voice Regression can be redirected with `JARVIS_K_VOICE_REGRESSION_PATH`.
 - Production runtime rejects fixture providers when runtime mode is production.
 
@@ -64,7 +69,8 @@ Desktop lifecycle:
 - Main window creation uses context isolation, sandbox, no Node integration, audio-only media permission, blocked navigation, and external URL handoff.
 - GPU is disabled by default unless `JARVIS_K_ENABLE_ELECTRON_GPU=1`.
 - `before-quit` stops voice, Qwen runtime IPC, and Core supervisor.
-- No tray icon, minimize-to-tray, start-on-login, background mode, or crash-recovery UX was found.
+- Tray icon, close-to-tray, restore, and explicit quit are implemented.
+- Start-on-login, auto-update, and crash-recovery UX remain out of scope.
 
 Voice daily use:
 
@@ -72,6 +78,7 @@ Voice daily use:
 - Provider settings are stored with `safeStorage`; Xunfei and Volcengine are supported.
 - Level 0 Voice Regression is off by default; Level 1 is explicit local text only; Level 2 audio is unsupported; upload is off.
 - Pilot and ASR Regression controls are hidden from ordinary Voice UI and only mount when Developer Mode plus Evaluation capability are enabled.
+- First-run onboarding explains privacy defaults, provider setup, tray behavior, Developer Mode, and safe next steps.
 
 Core user loops evidence:
 
@@ -94,14 +101,13 @@ P0:
 
 P1:
 
-- No installable/signed Desktop Alpha package.
-- No tray/background lifecycle.
-- Ordinary users are exposed to developer and evaluation tooling.
-- First-run provider, microphone, safety, and recovery flow is not productized.
+- Unsigned installer requires manual Windows trust acceptance.
+- No auto-update or startup-at-login release path.
+- First-run provider and microphone setup remains guidance-only, not a full wizard.
 
 P2:
 
-- Settings and diagnostics are dense and developer-oriented.
+- Settings and diagnostics are still dense when Developer Mode is enabled.
 - Error recovery and onboarding copy need consolidation.
 - Runtime and provider terminology is too visible for ordinary use.
 
@@ -111,32 +117,32 @@ P3:
 
 ## Next Stage
 
-Recommended Phase 4A implementation order:
+Recommended next implementation order:
 
-1. Production UI and Developer/Evaluation isolation.
-   - User value: ordinary users see product workflows first.
-   - Scope: hide Pilot, fixture probes, raw diagnostics, provider probes, runtime inspector, and advanced model controls behind a default-off Developer Mode.
-   - Safety: do not delete tooling or change backend contracts.
-   - Acceptance: default UI has no Pilot/fixture/evaluation controls; Developer Mode restores diagnostics, and Evaluation capability restores Pilot tools.
-   - Status: implemented in Phase 4A-1 pending full `npm run verify`.
-   - Blocks: first-run polish and release packaging.
+1. Manual unsigned installer acceptance.
+   - User value: confirm the packaged Alpha installs and launches on a normal Windows desktop.
+   - Scope: user-approved install, first-run onboarding review, tray restore/quit, uninstall behavior observation.
+   - Safety: no real Windows task acceptance, no microphone, no credentials required.
+   - Acceptance: installer launches, onboarding appears once, tray lifecycle works, uninstall behavior matches documentation.
 
-2. Windows tray, minimize, background, and quit lifecycle.
-   - User value: Jarvis behaves like a desktop assistant instead of a transient dev window.
-   - Scope: tray icon, show/hide, close-to-tray policy, explicit quit, cleanup checks.
-   - Safety: voice capture and runtime processes must stop on quit.
-   - Acceptance: single-instance focus, tray restore, explicit quit, no orphan Core/Voice processes.
+2. First-run provider and microphone setup polish.
+   - User value: reduce confusion before daily Voice use.
+   - Scope: clearer provider status, permission copy, recovery path, and no-mic fallback.
+   - Safety: no auto microphone start, no ASR network call without user action.
+   - Acceptance: ordinary user can see what remains to configure and continue text-only use.
 
-3. Installer and first-run readiness.
-   - User value: installable Alpha with clear setup.
-   - Scope: packaging config, user-data policy, credential setup entry, first-run provider/permission guidance.
-   - Safety: no fixture production path; no credential exposure.
-   - Acceptance: clean install, upgrade smoke, uninstall behavior documented, CI build unaffected.
+3. Crash recovery and diagnostic export.
+   - User value: make Alpha failures debuggable without exposing private content.
+   - Scope: safe process/runtime summary export and recovery guidance.
+   - Safety: no credentials, transcripts, file contents, or raw plugin inputs in diagnostics.
+   - Acceptance: user can export a redacted support bundle after a failure.
 
 ## Key Commits
 
 - Current HEAD before Phase 4A-1: `041bb7a974305ad47a2e1105c7359b6ed8df0ac8`
 - Recent prepare-session fix: `06b52a18158f8b1606657ba917bb9ee74f583167`
+- Phase 4A-1 UI isolation: `3318bbfddcb87458b2a0a118756a4ca52a0da73d`
+- Phase 4A-2 tray lifecycle: `0ee738353702eba7cd3541ae636dce9865b7cbdb`
 
 ## Prohibited Until Re-approved
 
