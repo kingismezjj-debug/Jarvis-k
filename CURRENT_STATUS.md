@@ -20,6 +20,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Product UI is separated from Developer/Evaluation surfaces by default.
 - Tray lifecycle is implemented: close-to-tray by default, restore from tray, explicit quit, and CoreHost cleanup.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and unpacked runtime verification.
+- Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
 
 ## Frozen
@@ -56,11 +57,13 @@ Voice freeze rules:
 Installation and release:
 
 - Current state supports developer-run Electron plus unsigned Windows x64 Alpha packaging.
+- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.1`.
 - CI runs on `windows-latest` with `npm ci`, typecheck, tests, boundary checks, sensitive artifact guard, and build.
 - Installer packaging uses Electron Builder NSIS, per-user install, no elevation, no auto-run after finish, and user data is retained on uninstall.
 - Signing is explicitly not configured for Alpha; artifacts are named `unsigned-alpha`.
 - Auto-update, portable package, and store publishing remain out of scope.
-- User data and encrypted provider settings use Electron `app.getPath("userData")`; Voice Regression can be redirected with `JARVIS_K_VOICE_REGRESSION_PATH`.
+- Alpha user data and encrypted provider settings use `%APPDATA%\Jarvis-K-Alpha`; Alpha local repositories, models, logs, Voice Regression, plugin state, and Qwen markers use `%LOCALAPPDATA%\Jarvis-K-Alpha`.
+- Development keeps `%APPDATA%\Jarvis-K` and `%LOCALAPPDATA%\Jarvis-K`; no automatic migration or credential copy is performed.
 - Production runtime rejects fixture providers when runtime mode is production.
 
 Desktop lifecycle:

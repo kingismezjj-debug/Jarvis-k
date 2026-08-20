@@ -9,8 +9,11 @@ The Windows Alpha package is built with Electron Builder for Windows x64.
 - Installer script: `npm run package:windows:alpha`
 - Unpacked verification script: `npm run verify:package:windows`
 - Output directory: `artifacts/packaged`
-- Installer name pattern: `Jarvis-K-0.1.0-windows-x64-unsigned-alpha-setup.exe`
-- Unpacked executable: `artifacts/packaged/win-unpacked/Jarvis-K.exe`
+- Version: `0.1.0-alpha.1`
+- Product name: `Jarvis-K Alpha`
+- App ID / AppUserModelId: `com.jarvis-k.desktop.alpha`
+- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.1-windows-x64-unsigned-alpha-setup.exe`
+- Unpacked executable: `artifacts/packaged/win-unpacked/Jarvis-K Alpha.exe`
 
 ## Signing Status
 
@@ -31,11 +34,18 @@ The NSIS installer is configured for a per-user install.
 
 ## User Data
 
-Runtime data is stored under Electron `app.getPath("userData")`, normally:
+The unsigned Alpha uses an isolated release-channel namespace. It does not read, write, migrate, or copy development data.
 
-`%APPDATA%\Jarvis-K`
+- Alpha roaming / Electron `userData`: `%APPDATA%\Jarvis-K-Alpha`
+- Alpha local data: `%LOCALAPPDATA%\Jarvis-K-Alpha`
+- Development roaming: `%APPDATA%\Jarvis-K`
+- Development local data: `%LOCALAPPDATA%\Jarvis-K`
 
-Credential-backed provider settings use Electron safe storage through the desktop secure store service. Do not place Voice Regression pilot repositories in the project, `Documents`, `datasets`, or `reports`; use `%LOCALAPPDATA%\Jarvis-K` when redirecting them for manual evaluation.
+Settings, onboarding state, Developer Mode preference, and Electron safe-storage provider settings live under the Alpha roaming namespace. Task, Memory, aliases, plugin local state, model registry/cache, logs, Voice Regression, Pilot repositories, session/cache files, SQLite databases, and retained Qwen markers live under the Alpha local namespace.
+
+Credential-backed provider settings use Electron safe storage through the desktop secure store service. Alpha starts with blank provider configuration and does not read development API keys. Do not place Voice Regression pilot repositories in the project, `Documents`, `datasets`, or `reports`; use `%LOCALAPPDATA%\Jarvis-K-Alpha` when redirecting them for manual evaluation.
+
+Uninstall removes Alpha program files and shortcuts only. User data is retained by default and is separate from development data.
 
 ## First Run
 
@@ -47,6 +57,7 @@ It explains:
 - Voice Regression Level 0 is off by default;
 - audio collection is unsupported;
 - upload is off;
+- Alpha uses blank settings and requires provider setup again;
 - microphone and provider setup are explicit user actions;
 - close hides to tray by default;
 - Developer and Evaluation tools are hidden from ordinary product mode.
