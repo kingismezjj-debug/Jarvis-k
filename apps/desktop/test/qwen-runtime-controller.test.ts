@@ -62,6 +62,19 @@ function createController(options: {
 }
 
 describe("QwenRuntimeController", () => {
+  it("uses an injected storage profile marker path for packaged Alpha", () => {
+    const markerPath =
+      "C:\\Users\\tester\\AppData\\Local\\Jarvis-K-Alpha\\models\\qwen-retained-product-session-2026-08-10\\session-marker.sanitized.json";
+    const config = createQwenRuntimeConfig({
+      baseDirectory: "C:/repo/apps/desktop/dist",
+      env: {
+        JARVIS_K_QWEN_RETAINED_SESSION_MARKER_PATH: markerPath,
+      },
+    });
+
+    expect(config.retainedSessionMarkerPath).toBe(markerPath);
+  });
+
   it("keeps Qwen blocked when the retained session marker is missing", () => {
     const controller = createController();
 

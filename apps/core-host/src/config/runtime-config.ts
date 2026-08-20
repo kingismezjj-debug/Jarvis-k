@@ -1,3 +1,5 @@
+import path from "node:path";
+
 export type RuntimeMode = "production" | "development" | "test" | "fixture";
 
 export interface RuntimeConfig {
@@ -67,6 +69,9 @@ const PATH_ENV_KEYS = [
   "JARVIS_K_USER_PREFERENCE_MEMORY_PATH",
   "JARVIS_K_VOICE_REGRESSION_PATH",
   "JARVIS_K_MODEL_DIR",
+  "JARVIS_K_USER_DATA_PATH",
+  "JARVIS_K_LOCAL_DATA_PATH",
+  "JARVIS_K_QWEN_RETAINED_SESSION_MARKER_PATH",
   "JARVIS_K_LOCAL_PLUGIN_DIRS",
 ] as const;
 
@@ -208,5 +213,26 @@ function validatePathEnvironment(env: Readonly<NodeJS.ProcessEnv>): void {
     if (raw !== undefined && raw.includes("\0")) {
       throw new Error(`Invalid path environment value for ${key}.`);
     }
+    if (raw !== undefined && raw.trim().length > 0) {
+      validateAbsolutePathEnvironmentValue(key, raw);
+    }
   }
+}
+
+function validateAbsolutePathEnvironmentValue(key: string, raw: string): void {
+  if (key === "JARVIS_K_LOCAL_PLUGIN_DIRS") {
+    for (const directory of raw.split(path.delimiter)) {
+      if (directory.trim().length > 0 && !isAbsolutePath(directory.trim())) {
+        throw new Error(`Invalid path environment value for ${key}.`);
+      }
+    }
+    return;
+  }
+  if (!isAbsolutePath(raw.trim())) {
+    throw new Error(`Invalid path environment value for ${key}.`);
+  }
+}
+
+function isAbsolutePath(value: string): boolean {
+  return path.isAbsolute(value);
 }

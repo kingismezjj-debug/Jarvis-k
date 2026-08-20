@@ -19,17 +19,21 @@ export function createQwenRuntimeConfig(
 ): QwenRuntimeConfig {
   const baseDirectory = options.baseDirectory ?? __dirname;
   const env = options.env ?? process.env;
+  const retainedSessionMarkerPath =
+    env.JARVIS_K_QWEN_RETAINED_SESSION_MARKER_PATH?.trim();
   return {
     retainedSessionId: QWEN_RETAINED_SESSION_ID,
-    retainedSessionMarkerPath: path.join(
-      baseDirectory,
-      "..",
-      "..",
-      "..",
-      "models",
-      QWEN_RETAINED_SESSION_ID,
-      "session-marker.sanitized.json",
-    ),
+    retainedSessionMarkerPath: retainedSessionMarkerPath
+      ? path.resolve(retainedSessionMarkerPath)
+      : path.join(
+          baseDirectory,
+          "..",
+          "..",
+          "..",
+          "models",
+          QWEN_RETAINED_SESSION_ID,
+          "session-marker.sanitized.json",
+        ),
     routeRequestLimit: qwenConversationSurfaceRouteLimit(env),
   };
 }

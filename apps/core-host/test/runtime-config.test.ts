@@ -109,6 +109,29 @@ describe("Core Host runtime config", () => {
     expect(() =>
       loadRuntimeConfig({ JARVIS_K_MEMORY_DB_PATH: "bad\0path.sqlite" }),
     ).toThrow("Invalid path environment value");
+    expect(() =>
+      loadRuntimeConfig({ JARVIS_K_MEMORY_DB_PATH: "relative-memory.sqlite" }),
+    ).toThrow("Invalid path environment value");
+    expect(() =>
+      loadRuntimeConfig({ JARVIS_K_LOCAL_DATA_PATH: "relative-local-data" }),
+    ).toThrow("Invalid path environment value");
+    expect(() =>
+      loadRuntimeConfig({
+        JARVIS_K_LOCAL_PLUGIN_DIRS: "relative-plugin-directory",
+        JARVIS_K_ENABLE_LOCAL_PLUGIN_MANIFESTS: "1",
+      }),
+    ).toThrow("Invalid path environment value");
+    expect(() =>
+      loadRuntimeConfig({
+        JARVIS_K_MEMORY_DB_PATH:
+          "C:\\Users\\tester\\AppData\\Local\\Jarvis-K-Alpha\\memory.sqlite",
+        JARVIS_K_LOCAL_DATA_PATH:
+          "C:\\Users\\tester\\AppData\\Local\\Jarvis-K-Alpha",
+        JARVIS_K_LOCAL_PLUGIN_DIRS:
+          "C:\\Users\\tester\\AppData\\Local\\Jarvis-K-Alpha\\plugins",
+        JARVIS_K_ENABLE_LOCAL_PLUGIN_MANIFESTS: "1",
+      }),
+    ).not.toThrow();
   });
 
   it("rejects conflicting heavy planner modes", () => {

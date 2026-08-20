@@ -38,6 +38,11 @@ import {
   configureElectronGpuPolicy,
   registerDesktopAppLifecycle
 } from "./app-lifecycle";
+import {
+  applyDesktopStorageProfile,
+  createCoreHostStorageEnvironment,
+  createDesktopStorageProfile
+} from "./storage/storage-profile";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -61,6 +66,15 @@ let secureStoreService: SecureStoreService | null = null;
 let desktopRuntimeDisposeStarted = false;
 
 configureElectronGpuPolicy({ app });
+const storageProfile = createDesktopStorageProfile({
+  app,
+  env: process.env,
+  cwd: process.cwd(),
+  installDirectory: path.dirname(process.execPath)
+});
+applyDesktopStorageProfile(app, storageProfile);
+const coreHostStorageEnvironment =
+  createCoreHostStorageEnvironment(storageProfile);
 
 function getSecureStoreService(): SecureStoreService {
   if (!secureStoreService) {
@@ -170,7 +184,7 @@ if (!hasSingleInstanceLock) {
       "index.js"
     );
     voiceController = new VoiceController({
-      userDataPath: app.getPath("userData"),
+      userDataPath: storageProfile.userDataPath,
       secureStoreService: getSecureStoreService(),
       getMainWindow: () => mainWindow,
       restartCore: (reason) => {
@@ -184,10 +198,17 @@ if (!hasSingleInstanceLock) {
       }
     });
     qwenRuntimeController = new QwenRuntimeController({
-      config: createQwenRuntimeConfig({ baseDirectory: __dirname })
+      config: createQwenRuntimeConfig({
+        baseDirectory: __dirname,
+        env: {
+          ...process.env,
+          ...coreHostStorageEnvironment
+        }
+      })
     });
     supervisorController = new DesktopSupervisorController({
       coreEntry,
+      env: coreHostStorageEnvironment,
       getMainWindow: () => mainWindow,
       loadVoiceProviderConfiguration: () =>
         voiceController!.loadVoiceProviderConfiguration(),
@@ -234,10 +255,7 @@ if (!hasSingleInstanceLock) {
       },
       evaluationCapabilityAvailable:
         process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1",
-      desktopSettingsPath: path.join(
-        app.getPath("userData"),
-        "jarvis-k-desktop-settings.json"
-      )
+      desktopSettingsPath: storageProfile.desktopSettingsPath
     });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,

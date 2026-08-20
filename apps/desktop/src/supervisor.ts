@@ -35,6 +35,7 @@ export interface CoreSupervisorOptions {
   maxRestartAttempts?: number;
   maxAudioQueueFrames?: number;
   maxAudioQueueBytes?: number;
+  env?: NodeJS.ProcessEnv;
   loadVoiceProviderConfiguration?: () => Promise<VoiceProviderConfiguration | null>;
   loadHeavyPlannerProviderConfiguration?: () => Promise<HeavyPlannerProviderConfiguration | null>;
   loadChatAnswerProviderConfiguration?: () => Promise<ChatAnswerProviderConfiguration | null>;
@@ -310,7 +311,11 @@ export class CoreSupervisor {
     this.emitLifecycle("starting", reason);
     const child = fork(this.options.coreEntry, [], {
       stdio: ["ignore", "pipe", "pipe", "ipc"],
-      serialization: "advanced"
+      serialization: "advanced",
+      env: {
+        ...process.env,
+        ...(this.options.env ?? {})
+      }
     });
     this.child = child;
 

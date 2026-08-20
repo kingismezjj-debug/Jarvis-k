@@ -53,6 +53,48 @@ describe("Core Host storage paths", () => {
     });
   });
 
+  it("uses the Desktop-provided Alpha local data root for all Core Host stores", () => {
+    const alphaRoot = path.join(
+      "C:",
+      "Users",
+      "tester",
+      "AppData",
+      "Local",
+      "Jarvis-K-Alpha",
+    );
+    vi.stubEnv("JARVIS_K_LOCAL_DATA_PATH", alphaRoot);
+
+    const paths = loadCoreHostStoragePaths({ memoryDisabled: false });
+
+    expect(paths.memoryDatabasePath).toBe(path.join(alphaRoot, "memory.sqlite"));
+    expect(paths.taskDatabasePath).toBe(path.join(alphaRoot, "task-runtime.sqlite"));
+    expect(paths.modelDirectoryPath).toBe(path.join(alphaRoot, "models"));
+    expect(paths.localPluginStatePath).toBe(
+      path.join(alphaRoot, "local-plugin-state.json"),
+    );
+    expect(paths.voiceCommandAliasPath).toBe(
+      path.join(alphaRoot, "voice-command-aliases.json"),
+    );
+    expect(paths.userRouteAliasPath).toBe(
+      path.join(alphaRoot, "user-route-aliases.json"),
+    );
+    expect(paths.userPreferenceMemoryPath).toBe(
+      path.join(alphaRoot, "user-preference-memories.json"),
+    );
+    expect(paths.voiceRegressionPath).toBe(
+      path.join(alphaRoot, "voice-regression-records.json"),
+    );
+    expect(JSON.stringify(paths)).not.toContain("Local\\Jarvis-K\\");
+  });
+
+  it("rejects relative Core Host storage path overrides", () => {
+    vi.stubEnv("JARVIS_K_LOCAL_DATA_PATH", "relative-local-data");
+
+    expect(() =>
+      loadCoreHostStoragePaths({ memoryDisabled: false }),
+    ).toThrow("JARVIS_K_LOCAL_DATA_PATH must be an absolute path");
+  });
+
   it("keeps text-only acceptance memory disabled without changing other paths", () => {
     vi.stubEnv("LOCALAPPDATA", path.join("C:", "Users", "tester", "AppData", "Local"));
 
