@@ -19,7 +19,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Local-only Voice Regression collection, redaction, retention, export, and export review are implemented.
 - Product UI is separated from Developer/Evaluation surfaces by default.
 - Tray lifecycle is implemented: close-to-tray by default, restore from tray, explicit quit, and CoreHost cleanup.
-- Windows unsigned Alpha packaging is configured for x64 NSIS and unpacked runtime verification.
+- Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.2` supersedes `0.1.0-alpha.1` after fixing the packaged runtime dependency closure.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
 
@@ -57,7 +57,7 @@ Voice freeze rules:
 Installation and release:
 
 - Current state supports developer-run Electron plus unsigned Windows x64 Alpha packaging.
-- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.1`.
+- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.2`.
 - CI runs on `windows-latest` with `npm ci`, typecheck, tests, boundary checks, sensitive artifact guard, and build.
 - Installer packaging uses Electron Builder NSIS, per-user install, no elevation, no auto-run after finish, and user data is retained on uninstall.
 - Signing is explicitly not configured for Alpha; artifacts are named `unsigned-alpha`.

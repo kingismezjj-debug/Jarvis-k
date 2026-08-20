@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -8,20 +8,18 @@ import { _electron as electron } from "playwright";
 
 const execFileAsync = promisify(execFile);
 const rootDirectory = path.resolve(import.meta.dirname, "..");
-const executablePath = path.join(
+const sourceUnpackedDirectory = path.join(
+  rootDirectory,
+  "artifacts",
+  "packaged",
+  "win-unpacked",
+);
+const sourceExecutablePath = path.join(
   rootDirectory,
   "artifacts",
   "packaged",
   "win-unpacked",
   "Jarvis-K Alpha.exe",
-);
-const packagedAppDirectory = path.join(
-  rootDirectory,
-  "artifacts",
-  "packaged",
-  "win-unpacked",
-  "resources",
-  "app",
 );
 
 async function descendantProcessSnapshot(rootPid) {
@@ -73,22 +71,39 @@ function fail(message) {
   process.exit(1);
 }
 
-if (!existsSync(executablePath)) {
-  fail(`Packaged executable is missing: ${executablePath}`);
+if (!existsSync(sourceExecutablePath)) {
+  fail(`Packaged executable is missing: ${sourceExecutablePath}`);
 }
-if (!existsSync(packagedAppDirectory)) {
-  fail(`Packaged app directory is missing: ${packagedAppDirectory}`);
+if (!existsSync(sourceUnpackedDirectory)) {
+  fail(`Packaged unpacked directory is missing: ${sourceUnpackedDirectory}`);
 }
 
 const userDataDirectory = await mkdtemp(
   path.join(os.tmpdir(), "jarvis-k-packaged-runtime-"),
 );
+const isolatedRootDirectory = await mkdtemp(
+  path.join(os.tmpdir(), "jarvis-k-alpha-packaged-smoke-"),
+);
+const isolatedUnpackedDirectory = path.join(isolatedRootDirectory, "win-unpacked");
+const executablePath = path.join(isolatedUnpackedDirectory, "Jarvis-K Alpha.exe");
 let electronApp;
 try {
+  await cp(sourceUnpackedDirectory, isolatedUnpackedDirectory, {
+    recursive: true,
+  });
+  if (path.resolve(isolatedUnpackedDirectory).startsWith(rootDirectory)) {
+    throw new Error("Isolated packaged smoke directory is inside the repository.");
+  }
   electronApp = await electron.launch({
-    args: [packagedAppDirectory, `--user-data-dir=${userDataDirectory}`],
+    executablePath,
+    args: [`--user-data-dir=${userDataDirectory}`],
+    cwd: isolatedRootDirectory,
     env: {
       ...process.env,
+      INIT_CWD: isolatedRootDirectory,
+      NODE_ENV: "test",
+      NODE_PATH: "",
+      VITEST: "true",
       JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
       JARVIS_K_USER_DATA_PATH: userDataDirectory,
       JARVIS_K_LOCAL_DATA_PATH: userDataDirectory,
@@ -199,12 +214,19 @@ try {
       {
         status: "PASS",
         executablePath,
-        packagedAppDirectory,
+        sourceUnpackedDirectory,
+        isolatedUnpackedDirectory,
+        cwd: isolatedRootDirectory,
         userDataDirectory,
+        moduleResolutionIsolation: true,
+        mainReady: true,
+        coreHostReady: true,
+        trayReady: true,
         onboarding: "completed",
         closeToTrayWindowCount: hiddenState.windowCount,
         coreStableAcrossRestore: true,
         coreHostAfterQuit: 0,
+        orphanCount: 0,
       },
       null,
       2,
@@ -215,4 +237,5 @@ try {
     await electronApp.close().catch(() => undefined);
   }
   await rm(userDataDirectory, { force: true, recursive: true });
+  await rm(isolatedRootDirectory, { force: true, recursive: true });
 }

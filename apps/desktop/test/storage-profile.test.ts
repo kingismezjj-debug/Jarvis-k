@@ -223,7 +223,7 @@ describe("Desktop storage profile", () => {
       provider: "volcengine",
       language: "zh",
       credentials: {
-        apiKey: "development-only-api-key",
+        apiKey: "not-a-credential-development-only",
         resourceId: "volc.seedasr.sauc.duration",
       },
     });

@@ -9,11 +9,15 @@ The Windows Alpha package is built with Electron Builder for Windows x64.
 - Installer script: `npm run package:windows:alpha`
 - Unpacked verification script: `npm run verify:package:windows`
 - Output directory: `artifacts/packaged`
-- Version: `0.1.0-alpha.1`
+- Version: `0.1.0-alpha.2`
 - Product name: `Jarvis-K Alpha`
 - App ID / AppUserModelId: `com.jarvis-k.desktop.alpha`
-- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.1-windows-x64-unsigned-alpha-setup.exe`
+- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.2-windows-x64-unsigned-alpha-setup.exe`
 - Unpacked executable: `artifacts/packaged/win-unpacked/Jarvis-K Alpha.exe`
+
+`0.1.0-alpha.1` is superseded and should not be installed or shared. Its
+packaged main process could not resolve workspace runtime dependencies outside
+the monorepo.
 
 ## Signing Status
 
@@ -84,9 +88,13 @@ npm run verify
 
 The packaged verification checks:
 
+- every packaged runtime bare import resolves from `resources/app` rather than
+  the monorepo or developer `node_modules`;
 - required runtime resources are present;
 - development datasets, reports, docs, tests, scripts, model artifacts, logs, and database files are absent from the package;
 - no developer-machine absolute path is present in packaged text resources;
+- the copied packaged executable can launch from a temporary directory with
+  module resolution isolated from the repository;
 - first-run onboarding can complete;
 - packaged close-to-tray works;
 - restore does not restart CoreHost;

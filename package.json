@@ -1,6 +1,6 @@
 {
   "name": "jarvis-k",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
   "main": "apps/desktop/dist/main.js",
@@ -77,7 +77,7 @@
     "smoke:desktop:tray-lifecycle": "npm run build && node tests/desktop-tray-lifecycle-smoke.mjs",
     "package:windows:dir": "npm run build && electron-builder --win --x64 --dir",
     "package:windows:alpha": "npm run build && electron-builder --win nsis --x64",
-    "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-smoke.mjs",
+    "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-dependency-closure.mjs && node tests/packaged-runtime-smoke.mjs",
     "smoke:desktop:memory-degraded": "npm run build && node tests/desktop-memory-degraded-smoke.mjs",
     "smoke:desktop:memory-retrieval-env-wiring": "npm run build && node tests/desktop-memory-retrieval-env-wiring-smoke.mjs",
     "smoke:desktop:memory-retrieval-provider-query-vector": "npm run build && node tests/desktop-memory-retrieval-provider-query-vector-smoke.mjs",
@@ -186,20 +186,288 @@
     "files": [
       "package.json",
       "apps/desktop/package.json",
-      "apps/desktop/dist/**",
+      {
+        "from": "apps/desktop/dist",
+        "to": "apps/desktop/dist",
+        "filter": [
+          "**/*",
+          "!**/*.map",
+          "!**/*.d.ts",
+          "!**/*.d.ts.map"
+        ]
+      },
       "apps/desktop/assets/**",
       "apps/ui/dist/**",
       "apps/core-host/package.json",
-      "apps/core-host/dist/**",
-      "packages/*/package.json",
-      "packages/*/dist/**",
+      {
+        "from": "apps/core-host/dist",
+        "to": "apps/core-host/dist",
+        "filter": [
+          "**/*",
+          "!**/*.map",
+          "!**/*.d.ts",
+          "!**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/capabilities",
+        "to": "node_modules/@jarvis-k/capabilities",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/contracts",
+        "to": "node_modules/@jarvis-k/contracts",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/core",
+        "to": "node_modules/@jarvis-k/core",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-embedding-local",
+        "to": "node_modules/@jarvis-k/inference-adapter-embedding-local",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-fixture",
+        "to": "node_modules/@jarvis-k/inference-adapter-fixture",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-glm-chat-answer-runtime",
+        "to": "node_modules/@jarvis-k/inference-adapter-glm-chat-answer-runtime",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-glm-planner",
+        "to": "node_modules/@jarvis-k/inference-adapter-glm-planner",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-glm-runtime",
+        "to": "node_modules/@jarvis-k/inference-adapter-glm-runtime",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-openai-chat-answer",
+        "to": "node_modules/@jarvis-k/inference-adapter-openai-chat-answer",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-openai-planner",
+        "to": "node_modules/@jarvis-k/inference-adapter-openai-planner",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-qwen-router",
+        "to": "node_modules/@jarvis-k/inference-adapter-qwen-router",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-runtime-transformers-local",
+        "to": "node_modules/@jarvis-k/inference-runtime-transformers-local",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/memory",
+        "to": "node_modules/@jarvis-k/memory",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/memory-sqlite",
+        "to": "node_modules/@jarvis-k/memory-sqlite",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/plugin-sdk",
+        "to": "node_modules/@jarvis-k/plugin-sdk",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/voice",
+        "to": "node_modules/@jarvis-k/voice",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/voice-adapter-volcengine",
+        "to": "node_modules/@jarvis-k/voice-adapter-volcengine",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/voice-adapter-xunfei",
+        "to": "node_modules/@jarvis-k/voice-adapter-xunfei",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/voice-capture-browser",
+        "to": "node_modules/@jarvis-k/voice-capture-browser",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "node_modules/zod",
+        "to": "node_modules/zod",
+        "filter": [
+          "package.json",
+          "index.cjs",
+          "index.js",
+          "v3/**/*.cjs",
+          "v3/**/*.js",
+          "v4/**/*.cjs",
+          "v4/**/*.js",
+          "v4-mini/**/*.cjs",
+          "v4-mini/**/*.js",
+          "!**/*.map",
+          "!**/*.d.ts",
+          "!**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "node_modules/sql.js",
+        "to": "node_modules/sql.js",
+        "filter": [
+          "package.json",
+          "dist/sql-wasm.js",
+          "dist/sql-wasm.wasm",
+          "!**/*.map",
+          "!**/*.d.ts",
+          "!**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "node_modules/ws",
+        "to": "node_modules/ws",
+        "filter": [
+          "package.json",
+          "browser.js",
+          "index.js",
+          "lib/**/*.js",
+          "wrapper.mjs",
+          "!**/*.map",
+          "!**/*.d.ts",
+          "!**/*.d.ts.map"
+        ]
+      },
       "examples/plugins/stock-analysis/**",
       "examples/plugins/ecommerce-product-comparison/**",
       "examples/local-plugins/hello-readonly/**",
-      "node_modules/@jarvis-k/**",
-      "node_modules/zod/**",
-      "node_modules/sql.js/**",
-      "node_modules/ws/**",
+      "!apps/**/*.map",
+      "!packages/**/*.map",
+      "!node_modules/@jarvis-k/**/*.map",
       "!**/*.map",
       "!**/*.d.ts",
       "!**/*.d.ts.map",

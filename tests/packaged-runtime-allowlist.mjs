@@ -21,8 +21,12 @@ const requiredPaths = [
   "apps/desktop/assets/tray-icon.png.base64",
   "apps/ui/dist/index.html",
   "apps/core-host/dist/index.js",
-  "packages/contracts/dist/index.js",
-  "packages/core/dist/index.js",
+  "node_modules/@jarvis-k/contracts/package.json",
+  "node_modules/@jarvis-k/contracts/dist/index.js",
+  "node_modules/@jarvis-k/core/package.json",
+  "node_modules/@jarvis-k/core/dist/index.js",
+  "node_modules/@jarvis-k/capabilities/package.json",
+  "node_modules/@jarvis-k/capabilities/dist/index.js",
 ];
 
 const deniedTopLevelPaths = [
@@ -88,6 +92,9 @@ if (packageJson.build?.appId !== "com.jarvis-k.desktop.alpha") {
 }
 if (packageJson.build?.productName !== "Jarvis-K Alpha") {
   fail("Electron builder productName is not Jarvis-K Alpha.");
+}
+if (packageJson.version !== "0.1.0-alpha.2") {
+  fail("Packaged Alpha version is not 0.1.0-alpha.2.");
 }
 if (packageJson.build?.asar !== false) {
   fail("Alpha packaged runtime must keep asar disabled for child process paths.");
