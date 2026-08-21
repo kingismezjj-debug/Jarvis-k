@@ -25,14 +25,18 @@ function Pet() {
 
   useEffect(() => {
     let disposed = false
+    const refreshSettings = () => {
+      void window.jarvisPet?.getPetSettings().then((nextSettings) => {
+        if (!disposed) setSettings(nextSettings)
+      })
+    }
     void window.jarvisPet?.getPetState().then((nextState) => {
       if (!disposed) setState(nextState)
     })
-    void window.jarvisPet?.getPetSettings().then((nextSettings) => {
-      if (!disposed) setSettings(nextSettings)
-    })
+    refreshSettings()
     const unsubscribe = window.jarvisPet?.onPetState((nextState) => {
       setState(nextState)
+      refreshSettings()
     })
     return () => {
       disposed = true

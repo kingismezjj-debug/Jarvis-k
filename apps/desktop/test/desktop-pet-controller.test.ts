@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { IPC_DESKTOP_PET_EVENT_CHANNEL } from "@jarvis-k/contracts";
 
 const menuTemplates: unknown[] = [];
 
@@ -191,6 +192,85 @@ describe("DesktopPetController", () => {
     expect(serialized).not.toContain("Run command");
     expect(serialized).not.toContain("microphone");
     expect(serialized).not.toContain("Evaluation");
+  });
+
+  it("notifies the Pet renderer after settings sync", () => {
+    const settingsService = createSettingsService();
+    settingsService.setDesktopPetEnabled({ enabled: true });
+    const petWindow = createWindowFactory();
+    const controller = new DesktopPetController({
+      settingsService: settingsService as never,
+      getMainWindow: () => null,
+      createMainWindow: vi.fn(),
+      setMainWindow: vi.fn(),
+      openSettings: vi.fn(),
+      quit: vi.fn(),
+      isQuitting: () => false,
+      createWindow: vi.fn(() => petWindow as never),
+    });
+    controller.syncFromSettings();
+    petWindow.webContents.send.mockClear();
+
+    controller.syncFromSettings();
+
+    expect(petWindow.webContents.send).toHaveBeenCalledWith(
+      IPC_DESKTOP_PET_EVENT_CHANNEL,
+      expect.objectContaining({ sensitiveContentExposed: false }),
+    );
+  });
+
+  it("persists moved positions and flushes the latest position before destroy", () => {
+    vi.useFakeTimers();
+    const settingsService = createSettingsService();
+    settingsService.setDesktopPetEnabled({ enabled: true });
+    const petWindow = createWindowFactory();
+    petWindow.getBounds.mockReturnValue({
+      x: 320,
+      y: 240,
+      width: 112,
+      height: 112,
+    });
+    const controller = new DesktopPetController({
+      settingsService: settingsService as never,
+      getMainWindow: () => null,
+      createMainWindow: vi.fn(),
+      setMainWindow: vi.fn(),
+      openSettings: vi.fn(),
+      quit: vi.fn(),
+      isQuitting: () => false,
+      createWindow: vi.fn(() => petWindow as never),
+    });
+    controller.syncFromSettings();
+    settingsService.saveDesktopPetPosition.mockClear();
+
+    petWindow.listeners.get("move")?.();
+    vi.advanceTimersByTime(299);
+    expect(settingsService.saveDesktopPetPosition).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(settingsService.saveDesktopPetPosition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 320,
+        y: 240,
+      }),
+    );
+
+    settingsService.saveDesktopPetPosition.mockClear();
+    petWindow.getBounds.mockReturnValue({
+      x: 420,
+      y: 260,
+      width: 112,
+      height: 112,
+    });
+    petWindow.listeners.get("moved")?.();
+    controller.hidePet();
+
+    expect(settingsService.saveDesktopPetPosition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 420,
+        y: 260,
+      }),
+    );
+    expect(petWindow.destroy).toHaveBeenCalledTimes(1);
   });
 });
 

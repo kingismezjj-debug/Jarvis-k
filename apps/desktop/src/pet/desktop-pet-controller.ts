@@ -68,6 +68,7 @@ export class DesktopPetController {
     }
     this.showPetWindow();
     this.petWindow?.setAlwaysOnTop(settings.alwaysOnTop);
+    this.publishState();
   }
 
   public showPetWindow(): void {
@@ -80,6 +81,7 @@ export class DesktopPetController {
       existing.setAlwaysOnTop(
         this.options.settingsService.getDesktopPetSettings().alwaysOnTop,
       );
+      this.publishState();
       return;
     }
 
@@ -218,6 +220,7 @@ export class DesktopPetController {
       this.destroyPetWindow();
     });
     window.on("move", () => this.queuePositionSave());
+    window.on("moved", () => this.queuePositionSave());
     window.on("closed", () => {
       if (this.petWindow === window) {
         this.petWindow = null;
@@ -253,17 +256,21 @@ export class DesktopPetController {
   private queuePositionSave(): void {
     this.clearMoveTimer();
     this.moveTimer = setTimeout(() => {
-      const window = this.petWindow;
-      if (!window || window.isDestroyed()) {
-        return;
-      }
-      const bounds = window.getBounds();
-      const position = clampPetPosition(this.screen(), {
-        x: bounds.x,
-        y: bounds.y,
-      });
-      this.options.settingsService.saveDesktopPetPosition(position);
+      this.persistCurrentPosition();
     }, 300);
+  }
+
+  private persistCurrentPosition(): void {
+    const window = this.petWindow;
+    if (!window || window.isDestroyed()) {
+      return;
+    }
+    const bounds = window.getBounds();
+    const position = clampPetPosition(this.screen(), {
+      x: bounds.x,
+      y: bounds.y,
+    });
+    this.options.settingsService.saveDesktopPetPosition(position);
   }
 
   private scheduleRecentStateExpiry(untilMs: number): void {
@@ -277,9 +284,12 @@ export class DesktopPetController {
 
   private destroyPetWindow(): void {
     const window = this.petWindow;
-    this.petWindow = null;
     if (window && !window.isDestroyed()) {
+      this.persistCurrentPosition();
+      this.petWindow = null;
       window.destroy();
+    } else {
+      this.petWindow = null;
     }
     this.clearMoveTimer();
   }

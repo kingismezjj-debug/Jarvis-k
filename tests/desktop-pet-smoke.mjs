@@ -96,6 +96,29 @@ try {
       );
     }
   }
+  const petSurface = await petPage.evaluate(() => {
+    const shell = document.querySelector(".pet-shell");
+    const dragHandle = document.querySelector(".pet-drag-handle");
+    return {
+      bodyBackground: window.getComputedStyle(document.body).backgroundColor,
+      rootBackground: window.getComputedStyle(
+        document.getElementById("pet-root"),
+      ).backgroundColor,
+      shellBackground: shell
+        ? window.getComputedStyle(shell).backgroundColor
+        : null,
+      dragHandleBounds: dragHandle?.getBoundingClientRect().toJSON(),
+    };
+  });
+  if (
+    !["rgba(0, 0, 0, 0)", "transparent"].includes(petSurface.bodyBackground) ||
+    !["rgba(0, 0, 0, 0)", "transparent"].includes(petSurface.rootBackground) ||
+    !petSurface.dragHandleBounds ||
+    petSurface.dragHandleBounds.width < 40 ||
+    petSurface.dragHandleBounds.height < 16
+  ) {
+    throw new Error(`Unexpected Pet transparent/drag surface: ${JSON.stringify(petSurface)}`);
+  }
 
   const petWindowState = await electronApp.evaluate(({ BrowserWindow }) => {
     const petWindow = BrowserWindow.getAllWindows().find((candidate) =>
@@ -118,6 +141,71 @@ try {
     petWindowState.resizable
   ) {
     throw new Error(`Unexpected Pet window state: ${JSON.stringify(petWindowState)}`);
+  }
+
+  const movedBounds = await electronApp.evaluate(({ BrowserWindow }) => {
+    const petWindow = BrowserWindow.getAllWindows().find((candidate) =>
+      candidate.webContents.getURL().includes("pet.html"),
+    );
+    if (!petWindow) throw new Error("Pet window missing before move.");
+    petWindow.setBounds({
+      x: 160,
+      y: 180,
+      width: 112,
+      height: 112,
+    });
+    return petWindow.getBounds();
+  });
+  await mainPage.waitForTimeout(650);
+  const settingsAfterMove = await mainPage.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
+    return window.jarvis.getDesktopSettings();
+  });
+  if (
+    settingsAfterMove.desktopPetPosition?.x !== movedBounds.x ||
+    settingsAfterMove.desktopPetPosition?.y !== movedBounds.y
+  ) {
+    throw new Error(
+      `Pet position did not persist after move: ${JSON.stringify({
+        movedBounds,
+        position: settingsAfterMove.desktopPetPosition,
+      })}`,
+    );
+  }
+
+  const reducedMotionResult = await mainPage.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
+    return window.jarvis.setDesktopPetReducedMotion("on");
+  });
+  if (
+    !reducedMotionResult.ok ||
+    reducedMotionResult.settings.desktopPetReducedMotion !== "on"
+  ) {
+    throw new Error(
+      `Desktop Pet reduced motion enable failed: ${JSON.stringify(reducedMotionResult)}`,
+    );
+  }
+  await petPage.waitForFunction(
+    () =>
+      document
+        .querySelector(".pet-shell")
+        ?.getAttribute("data-motion") === "reduced",
+    undefined,
+    { timeout: 5_000 },
+  );
+  const reducedMotionState = await petPage.evaluate(() => {
+    const shell = document.querySelector(".pet-shell");
+    const orb = document.querySelector(".pet-orb");
+    return {
+      motion: shell?.getAttribute("data-motion"),
+      orbAnimationName: orb ? window.getComputedStyle(orb).animationName : null,
+    };
+  });
+  if (
+    reducedMotionState.motion !== "reduced" ||
+    reducedMotionState.orbAnimationName !== "none"
+  ) {
+    throw new Error(`Reduced motion did not apply: ${JSON.stringify(reducedMotionState)}`);
   }
 
   await electronApp.evaluate(({ BrowserWindow }) => {
@@ -169,8 +257,12 @@ try {
     JSON.stringify({
       status: "PASS",
       desktopPetDefault: "OFF",
+      petSurface,
       petBridgeSurface,
       petWindowState,
+      movedBounds,
+      persistedPosition: settingsAfterMove.desktopPetPosition,
+      reducedMotionState,
       mainVisibleAfterPetClick,
       petCountAfterHide,
       desktopPetFinal: "OFF",
