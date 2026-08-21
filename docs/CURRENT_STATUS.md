@@ -13,20 +13,27 @@ Desktop Alpha stabilization and Windows packaging.
 - Unsigned Alpha storage isolation passed.
 - `0.1.0-alpha.2` packaged runtime dependency closure passed and launched from an isolated package.
 - `0.1.0-alpha.3` added user-controlled launch at login.
+- Phase 4A-3 alpha.2 manual acceptance: **PASS WITH MINOR CAVEAT**.
+- Phase 4A-4 implementation: **COMPLETE**.
 
 ## Current Status
 
-- `0.1.0-alpha.3` launch-at-login manual acceptance: **FAILED / SUPERSEDED**.
-- Root cause: Windows login item could be created, but the desktop status projection could read the registered item as disabled.
-- `0.1.0-alpha.4` fixes Launch at Login status projection by separating Electron write settings from read-only login item probes.
+- Phase 4A-4A manual launch-at-login acceptance: **DEFERRED**.
+- Launch-at-login implementation status: implementation complete; manual login acceptance deferred to next release candidate.
+- Installer validation cadence: moved to release-candidate validation instead of every ordinary feature slice.
+
+## Verification Cadence
+
+- Daily development validation: targeted tests, `npm test`, `npm run verify`, relevant ordinary smoke, and isolated unpacked packaged smoke only when Desktop packaged runtime is affected.
+- Daily development does not default to generating a new Installer, installing, uninstalling, signing out of Windows, or modifying real startup items.
+- Release-candidate validation covers installer hash/signature, in-place upgrade, clean install, first-run, tray/quit, login item, uninstall, orphan checks, and storage preservation.
+- Manual Installer acceptance is reserved for packaging/runtime closure, storage profile, installer/uninstaller, login item, code signing/update, or external Alpha/Beta release candidate changes.
 
 ## Frozen
 
 - Do not continue Voice Pilot, Qwen rerank, or 100-sample expansion until Desktop Alpha is stable.
-- Do not distribute superseded Alpha installers.
+- Do not run per-slice manual Installer install/uninstall unless the current slice is a release-candidate validation slice.
 
 ## Next Stage
 
-- Rebuild and verify `0.1.0-alpha.4`.
-- If packaged smoke passes, rerun Launch at Login manual acceptance with the alpha.4 installer.
-
+- Wait for Phase 4B Desktop Pet MVP instructions.
