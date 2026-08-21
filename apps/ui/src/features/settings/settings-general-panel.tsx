@@ -2,6 +2,7 @@ import { PanelLeft, RefreshCw } from "lucide-react";
 import type {
   DesktopCloseButtonBehavior,
   DesktopLaunchAtLoginStatus,
+  DesktopPetReducedMotion,
 } from "@jarvis-k/contracts";
 
 import type { stage5Copy, uiCopy } from "@/app/copy";
@@ -26,6 +27,9 @@ export type SettingsGeneralViewModel = {
   desktopCloseButtonBehavior: DesktopCloseButtonBehavior;
   desktopLaunchAtLoginEnabled: boolean;
   desktopLaunchAtLoginStatus: DesktopLaunchAtLoginStatus | null;
+  desktopPetAlwaysOnTop: boolean;
+  desktopPetEnabled: boolean;
+  desktopPetReducedMotion: DesktopPetReducedMotion;
   evaluationCapabilityAvailable: boolean;
   showDeveloperControls: boolean;
 };
@@ -38,6 +42,10 @@ export type SettingsGeneralActions = {
     behavior: DesktopCloseButtonBehavior,
   ) => void;
   setDesktopLaunchAtLoginEnabled: (enabled: boolean) => void;
+  setDesktopPetAlwaysOnTop: (enabled: boolean) => void;
+  setDesktopPetEnabled: (enabled: boolean) => void;
+  setDesktopPetReducedMotion: (mode: DesktopPetReducedMotion) => void;
+  resetDesktopPetPosition: () => void;
   refreshDesktopSettings: () => void;
   toggleInspector: () => void;
 };
@@ -237,6 +245,80 @@ export function SettingsGeneralPanel({
           <RefreshCw className={cn("size-3.5", viewModel.sending && "animate-spin")} />
           Retry
         </Button>
+      </div>
+      <div
+        className="mt-3 border-y py-2 text-[11px]"
+        data-testid="settings-desktop-pet"
+      >
+        <div className="mb-2 font-medium">Desktop Pet</div>
+        <label className="flex items-center justify-between gap-3 py-1">
+          <span className="min-w-0">
+            <span className="block font-medium">Show Desktop Pet</span>
+            <span className="mt-0.5 block text-muted-foreground">
+              Local floating assistant; no microphone, executor, plugins, or memory access.
+            </span>
+          </span>
+          <input
+            aria-label="Show Desktop Pet"
+            checked={viewModel.desktopPetEnabled}
+            className="size-4 accent-primary"
+            data-testid="settings-desktop-pet-toggle"
+            disabled={viewModel.sending}
+            onChange={(event) =>
+              actions.setDesktopPetEnabled(event.target.checked)
+            }
+            type="checkbox"
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 py-1">
+          <span className="font-medium">Keep Pet on top</span>
+          <input
+            aria-label="Keep Desktop Pet on top"
+            checked={viewModel.desktopPetAlwaysOnTop}
+            className="size-4 accent-primary"
+            data-testid="settings-desktop-pet-on-top-toggle"
+            disabled={viewModel.sending}
+            onChange={(event) =>
+              actions.setDesktopPetAlwaysOnTop(event.target.checked)
+            }
+            type="checkbox"
+          />
+        </label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(["system", "on", "off"] as const).map((mode) => (
+            <Button
+              aria-pressed={viewModel.desktopPetReducedMotion === mode}
+              className="h-8 rounded-md px-2.5 text-xs capitalize"
+              data-testid={`settings-desktop-pet-motion-${mode}`}
+              disabled={viewModel.sending}
+              key={mode}
+              onClick={() => actions.setDesktopPetReducedMotion(mode)}
+              type="button"
+              variant={
+                viewModel.desktopPetReducedMotion === mode
+                  ? "secondary"
+                  : "outline"
+              }
+            >
+              Motion: {mode}
+            </Button>
+          ))}
+          <Button
+            className="h-8 rounded-md px-2.5 text-xs"
+            data-testid="settings-desktop-pet-reset-position"
+            disabled={viewModel.sending}
+            onClick={actions.resetDesktopPetPosition}
+            type="button"
+            variant="outline"
+          >
+            Reset Pet Position
+          </Button>
+        </div>
+        <Metric
+          label="Persistence"
+          tone="accent"
+          value="local only"
+        />
       </div>
       <div
         className="mt-3 border-y py-2 text-[11px]"

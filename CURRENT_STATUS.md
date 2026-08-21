@@ -20,6 +20,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Product UI is separated from Developer/Evaluation surfaces by default.
 - Tray lifecycle is implemented: close-to-tray by default, restore from tray, explicit quit, and CoreHost cleanup.
 - User-controlled Windows launch at login is implemented for packaged Alpha/Stable only; it is OFF by default, uses Electron login item APIs, and starts hidden to tray on login.
+- Phase 4B-1 Desktop Pet safe floating-window MVP is implemented: default OFF, product-controlled local setting, separate minimal Pet renderer/preload, fixed safe context menu, read-only state projection, position persistence with screen clamping, tray show/hide, and destroy-on-hide/quit cleanup.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -120,7 +121,7 @@ P2:
 
 P3:
 
-- Desktop Pet, Skin Studio, plugin marketplace/community, and advanced appearance packaging remain out of scope.
+- Advanced Desktop Pet animation/skins, Skin Studio, plugin marketplace/community, and advanced appearance packaging remain out of scope.
 
 ## Next Stage
 

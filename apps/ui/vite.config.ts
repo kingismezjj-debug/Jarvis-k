@@ -8,6 +8,14 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   base: "./",
+  build: {
+    rollupOptions: {
+      input: {
+        index: path.resolve(currentDirectory, "index.html"),
+        pet: path.resolve(currentDirectory, "pet.html"),
+      },
+    },
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

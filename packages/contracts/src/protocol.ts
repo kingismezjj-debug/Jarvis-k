@@ -46,6 +46,21 @@ export const IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL =
 export const IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL =
   "jarvis-k:desktop-launch-at-login-set";
 export const IPC_DESKTOP_UI_ACTION_CHANNEL = "jarvis-k:desktop-ui-action";
+export const IPC_DESKTOP_PET_STATE_CHANNEL = "jarvis-k:desktop-pet-state";
+export const IPC_DESKTOP_PET_SETTINGS_CHANNEL =
+  "jarvis-k:desktop-pet-settings";
+export const IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL =
+  "jarvis-k:desktop-pet-settings-set";
+export const IPC_DESKTOP_PET_OPEN_MAIN_WINDOW_CHANNEL =
+  "jarvis-k:desktop-pet-open-main-window";
+export const IPC_DESKTOP_PET_HIDE_CHANNEL = "jarvis-k:desktop-pet-hide";
+export const IPC_DESKTOP_PET_CONTEXT_MENU_CHANNEL =
+  "jarvis-k:desktop-pet-context-menu";
+export const IPC_DESKTOP_PET_SAVE_POSITION_CHANNEL =
+  "jarvis-k:desktop-pet-save-position";
+export const IPC_DESKTOP_PET_RESET_POSITION_CHANNEL =
+  "jarvis-k:desktop-pet-reset-position";
+export const IPC_DESKTOP_PET_EVENT_CHANNEL = "jarvis-k:desktop-pet-event";
 export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
 export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
@@ -411,11 +426,33 @@ export type DesktopFirstRunOnboardingState = z.infer<
   typeof DesktopFirstRunOnboardingStateSchema
 >;
 
+export const DesktopPetReducedMotionSchema = z.enum([
+  "system",
+  "on",
+  "off",
+]);
+export type DesktopPetReducedMotion = z.infer<
+  typeof DesktopPetReducedMotionSchema
+>;
+
+export const DesktopPetPositionSchema = z
+  .object({
+    x: z.number().int(),
+    y: z.number().int(),
+    displayId: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+export type DesktopPetPosition = z.infer<typeof DesktopPetPositionSchema>;
+
 export const DesktopSettingsSchema = z
   .object({
     closeButtonBehavior: DesktopCloseButtonBehaviorSchema,
     closeToTrayNoticeShown: z.boolean(),
     launchAtLoginEnabled: z.boolean(),
+    desktopPetEnabled: z.boolean(),
+    desktopPetAlwaysOnTop: z.boolean(),
+    desktopPetReducedMotion: DesktopPetReducedMotionSchema,
+    desktopPetPosition: DesktopPetPositionSchema.optional(),
     firstRunOnboardingVersion: z.literal(1),
     firstRunOnboardingState: DesktopFirstRunOnboardingStateSchema,
     firstRunOnboardingStateChangedAt: z.string().datetime().optional(),
@@ -434,6 +471,63 @@ export const DesktopSettingsSetResultSchema = z
   .strict();
 export type DesktopSettingsSetResult = z.infer<
   typeof DesktopSettingsSetResultSchema
+>;
+
+export const DesktopPetStateNameSchema = z.enum([
+  "idle",
+  "listening",
+  "thinking",
+  "success",
+  "error",
+  "offline",
+]);
+export type DesktopPetStateName = z.infer<typeof DesktopPetStateNameSchema>;
+
+export const DesktopPetSettingsSchema = z
+  .object({
+    enabled: z.boolean(),
+    alwaysOnTop: z.boolean(),
+    reducedMotion: DesktopPetReducedMotionSchema,
+    position: DesktopPetPositionSchema.optional(),
+    persistedLocally: z.literal(true),
+    syncedToCloud: z.literal(false),
+  })
+  .strict();
+export type DesktopPetSettings = z.infer<typeof DesktopPetSettingsSchema>;
+
+export const DesktopPetSettingsUpdateSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    alwaysOnTop: z.boolean().optional(),
+    reducedMotion: DesktopPetReducedMotionSchema.optional(),
+  })
+  .strict();
+export type DesktopPetSettingsUpdate = z.infer<
+  typeof DesktopPetSettingsUpdateSchema
+>;
+
+export const DesktopPetStateSchema = z
+  .object({
+    state: DesktopPetStateNameSchema,
+    updatedAt: z.string().datetime(),
+    reasonCategory: z
+      .enum(["core", "voice", "task", "recent_success", "recent_error", "user"])
+      .optional(),
+    sensitiveContentExposed: z.literal(false),
+  })
+  .strict();
+export type DesktopPetState = z.infer<typeof DesktopPetStateSchema>;
+
+export const DesktopPetCommandResultSchema = z
+  .object({
+    ok: z.boolean(),
+    settings: DesktopPetSettingsSchema.optional(),
+    state: DesktopPetStateSchema.optional(),
+    message: z.string().min(1).max(300).optional(),
+  })
+  .strict();
+export type DesktopPetCommandResult = z.infer<
+  typeof DesktopPetCommandResultSchema
 >;
 
 export const DesktopLaunchAtLoginReleaseChannelSchema = z.enum([
@@ -3632,6 +3726,12 @@ export interface JarvisBridge {
   setDesktopFirstRunOnboardingState(
     state: DesktopFirstRunOnboardingState,
   ): Promise<DesktopSettingsSetResult>;
+  setDesktopPetEnabled(enabled: boolean): Promise<DesktopSettingsSetResult>;
+  setDesktopPetAlwaysOnTop(enabled: boolean): Promise<DesktopSettingsSetResult>;
+  setDesktopPetReducedMotion(
+    reducedMotion: DesktopPetReducedMotion,
+  ): Promise<DesktopSettingsSetResult>;
+  resetDesktopPetPosition(): Promise<DesktopSettingsSetResult>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;
@@ -3639,4 +3739,14 @@ export interface JarvisBridge {
   synthesizeTts(text: string, voiceId?: string): Promise<TtsSynthesisResult>;
   onDesktopUiAction(listener: (action: DesktopUiAction) => void): () => void;
   onEvent(listener: (event: EventEnvelope) => void): () => void;
+}
+
+export interface JarvisPetBridge {
+  getPetState(): Promise<DesktopPetState>;
+  getPetSettings(): Promise<DesktopPetSettings>;
+  onPetState(listener: (state: DesktopPetState) => void): () => void;
+  openMainWindow(): Promise<DesktopPetCommandResult>;
+  hidePet(): Promise<DesktopPetCommandResult>;
+  requestContextMenu(): Promise<DesktopPetCommandResult>;
+  savePosition(position: DesktopPetPosition): Promise<DesktopPetCommandResult>;
 }

@@ -69,6 +69,9 @@ describe("SettingsService", () => {
       closeButtonBehavior: "minimize_to_tray",
       closeToTrayNoticeShown: false,
       launchAtLoginEnabled: false,
+      desktopPetEnabled: false,
+      desktopPetAlwaysOnTop: true,
+      desktopPetReducedMotion: "system",
       firstRunOnboardingVersion: 1,
       firstRunOnboardingState: "pending",
       persistedLocally: true,
@@ -100,6 +103,9 @@ describe("SettingsService", () => {
       expect(stored).toMatchObject({
         closeButtonBehavior: "quit",
         launchAtLoginEnabled: false,
+        desktopPetEnabled: false,
+        desktopPetAlwaysOnTop: true,
+        desktopPetReducedMotion: "system",
         firstRunOnboardingState: "pending",
         syncedToCloud: false,
       });
@@ -171,6 +177,9 @@ describe("SettingsService", () => {
         closeButtonBehavior: "quit",
         closeToTrayNoticeShown: true,
         launchAtLoginEnabled: false,
+        desktopPetEnabled: false,
+        desktopPetAlwaysOnTop: true,
+        desktopPetReducedMotion: "system",
         firstRunOnboardingVersion: 1,
         firstRunOnboardingState: "pending",
         persistedLocally: true,
@@ -244,6 +253,59 @@ describe("SettingsService", () => {
       supported: false,
       openAtLogin: false,
     });
+  });
+
+  it("persists Desktop Pet settings locally", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-pet-settings-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({ desktopSettingsPath });
+      expect(service.setDesktopPetEnabled({ enabled: true })).toMatchObject({
+        ok: true,
+        settings: { desktopPetEnabled: true },
+      });
+      expect(
+        service.setDesktopPetAlwaysOnTop({ alwaysOnTop: false }),
+      ).toMatchObject({
+        ok: true,
+        settings: { desktopPetAlwaysOnTop: false },
+      });
+      expect(
+        service.setDesktopPetReducedMotion({ reducedMotion: "on" }),
+      ).toMatchObject({
+        ok: true,
+        settings: { desktopPetReducedMotion: "on" },
+      });
+      expect(
+        service.saveDesktopPetPosition({
+          x: 12,
+          y: 34,
+          displayId: "1",
+        }),
+      ).toMatchObject({
+        ok: true,
+        settings: { desktopPetPosition: { x: 12, y: 34, displayId: "1" } },
+      });
+      expect(service.getDesktopPetSettings()).toEqual({
+        enabled: true,
+        alwaysOnTop: false,
+        reducedMotion: "on",
+        position: { x: 12, y: 34, displayId: "1" },
+        persistedLocally: true,
+        syncedToCloud: false,
+      });
+
+      expect(service.resetDesktopPetPosition()).toMatchObject({ ok: true });
+      expect(service.getDesktopPetSettings().position).toBeUndefined();
+      const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
+      expect(JSON.stringify(stored)).not.toContain("credential");
+      expect(stored.desktopPetEnabled).toBe(true);
+      expect(stored.desktopPetPosition).toBeUndefined();
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
   });
 
   it("updates command router product mode without enabling fixture execution", () => {

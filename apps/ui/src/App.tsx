@@ -184,6 +184,9 @@ export default function App() {
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
     setDesktopLaunchAtLoginEnabled,
+    setDesktopPetAlwaysOnTop,
+    setDesktopPetEnabled,
+    setDesktopPetReducedMotion,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
@@ -1001,7 +1004,8 @@ export default function App() {
   async function handleRefreshUserRouteAliases() {
     await trackAction(
       "Refresh route aliases",
-      refreshUserRouteAliases,
+    refreshUserRouteAliases,
+    resetDesktopPetPosition,
       "Route aliases refreshed",
     );
   }
@@ -2227,6 +2231,36 @@ export default function App() {
                           : "Launch at login disabled",
                       );
                     },
+                    setDesktopPetEnabled: (enabled) => {
+                      void trackAction(
+                        enabled ? "Show Desktop Pet" : "Hide Desktop Pet",
+                        async () => setDesktopPetEnabled(enabled),
+                        enabled ? "Desktop Pet shown" : "Desktop Pet hidden",
+                      );
+                    },
+                    setDesktopPetAlwaysOnTop: (enabled) => {
+                      void trackAction(
+                        enabled
+                          ? "Keep Desktop Pet on top"
+                          : "Disable Desktop Pet on top",
+                        async () => setDesktopPetAlwaysOnTop(enabled),
+                        "Desktop Pet setting updated",
+                      );
+                    },
+                    setDesktopPetReducedMotion: (mode) => {
+                      void trackAction(
+                        "Change Desktop Pet motion",
+                        async () => setDesktopPetReducedMotion(mode),
+                        "Desktop Pet motion updated",
+                      );
+                    },
+                    resetDesktopPetPosition: () => {
+                      void trackAction(
+                        "Reset Desktop Pet position",
+                        resetDesktopPetPosition,
+                        "Desktop Pet position reset",
+                      );
+                    },
                     refreshDesktopSettings: () => {
                       void trackAction(
                         "Refresh desktop settings",
@@ -2256,6 +2290,12 @@ export default function App() {
                     desktopLaunchAtLoginEnabled:
                       desktopSettings?.launchAtLoginEnabled ?? false,
                     desktopLaunchAtLoginStatus,
+                    desktopPetAlwaysOnTop:
+                      desktopSettings?.desktopPetAlwaysOnTop ?? true,
+                    desktopPetEnabled:
+                      desktopSettings?.desktopPetEnabled ?? false,
+                    desktopPetReducedMotion:
+                      desktopSettings?.desktopPetReducedMotion ?? "system",
                     evaluationCapabilityAvailable:
                       uiSurfaceMode.evaluationCapabilityAvailable,
                     inspectorOpen,

@@ -2,6 +2,7 @@ import type { BrowserWindow } from "electron";
 import {
   type CommandEnvelope,
   type CommandResult,
+  type EventEnvelope,
   IPC_EVENT_CHANNEL,
 } from "@jarvis-k/contracts";
 import {
@@ -14,6 +15,7 @@ import type { ChatAnswerProviderConfiguration } from "../secure-chat-answer-prov
 export interface DesktopSupervisorControllerOptions
   extends CoreSupervisorOptions {
   getMainWindow: () => BrowserWindow | null;
+  onSafeEvent?: (event: EventEnvelope) => void;
 }
 
 export class DesktopSupervisorController {
@@ -25,6 +27,7 @@ export class DesktopSupervisorController {
   ) {
     this.supervisor = new CoreSupervisor(options);
     this.disposeEventForwarding = this.supervisor.onEvent((event) => {
+      this.options.onSafeEvent?.(event);
       const mainWindow = this.options.getMainWindow();
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(IPC_EVENT_CHANNEL, event);

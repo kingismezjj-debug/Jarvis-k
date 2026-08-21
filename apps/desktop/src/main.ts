@@ -48,6 +48,8 @@ import {
   resolveDesktopStartupSource,
   type DesktopStartupSource
 } from "./startup/startup-source";
+import { DesktopPetController } from "./pet/desktop-pet-controller";
+import { registerPetIpc } from "./ipc/register-pet-ipc";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -68,6 +70,8 @@ let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
   null;
 let settingsService: SettingsService | null = null;
 let secureStoreService: SecureStoreService | null = null;
+let petController: DesktopPetController | null = null;
+let petIpcDisposer: (() => void) | null = null;
 let desktopRuntimeDisposeStarted = false;
 let startupSource: DesktopStartupSource = resolveDesktopStartupSource();
 let loginItemController: LoginItemController | null = null;
@@ -222,7 +226,10 @@ if (!hasSingleInstanceLock) {
       loadHeavyPlannerProviderConfiguration:
         getHeavyPlannerProviderConfiguration,
       loadChatAnswerProviderConfiguration:
-        getChatAnswerProviderConfiguration
+        getChatAnswerProviderConfiguration,
+      onSafeEvent: (event) => {
+        petController?.handleCoreEvent(event);
+      }
     });
     supervisorController.start();
     loginItemController = new LoginItemController({
@@ -271,6 +278,21 @@ if (!hasSingleInstanceLock) {
         process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1",
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
+    petController = new DesktopPetController({
+      settingsService,
+      getMainWindow: () => mainWindow,
+      createMainWindow: createTrackedMainWindow,
+      setMainWindow: (window) => {
+        mainWindow = window;
+      },
+      openSettings: () => {
+        lifecycleController?.openSettings();
+      },
+      quit: () => {
+        lifecycleController?.requestExplicitQuit();
+      },
+      isQuitting: () => lifecycleController?.getState() === "quitting"
+    });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,
       createMainWindow: createTrackedMainWindow,
@@ -279,6 +301,28 @@ if (!hasSingleInstanceLock) {
       },
       onOpenSettings: () => {
         lifecycleController?.openSettings();
+      },
+      onShowPet: () => {
+        const result = settingsService?.setDesktopPetEnabled({
+          enabled: true
+        });
+        petController?.syncFromSettings();
+        return result?.ok === true;
+      },
+      onHidePet: () => {
+        const result = settingsService?.setDesktopPetEnabled({
+          enabled: false
+        });
+        petController?.syncFromSettings();
+        return result?.ok === true;
+      },
+      isPetVisible: () => {
+        const petWindow = petController?.getWindow();
+        return (
+          petWindow !== null &&
+          petWindow !== undefined &&
+          !petWindow.isDestroyed()
+        );
       },
       onQuit: () => {
         lifecycleController?.requestExplicitQuit();
@@ -371,12 +415,20 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       settingsService
     });
+    petIpcDisposer = registerPetIpc({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      getPetWindow: () => petController?.getWindow() ?? null,
+      settingsService,
+      petController
+    });
     qwenRuntimeIpcDisposer = registerQwenRuntimeIpc({
       ipcMain,
       qwenRuntimeController,
       getMainWindow: () => mainWindow
     });
     mainWindow = createTrackedMainWindow();
+    petController.syncFromSettings();
 
   });
 }
@@ -414,6 +466,10 @@ function disposeDesktopRuntime(): void {
   qwenRuntimeIpcDisposer?.();
   qwenRuntimeIpcDisposer = null;
   qwenRuntimeController = null;
+  petIpcDisposer?.();
+  petIpcDisposer = null;
+  petController?.dispose();
+  petController = null;
   settingsIpcDisposer?.();
   settingsIpcDisposer = null;
   secureStoreIpcDisposer?.();

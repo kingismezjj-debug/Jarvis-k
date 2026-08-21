@@ -17,6 +17,9 @@ export interface DesktopTrayControllerOptions {
   createMainWindow: () => BrowserWindow;
   setMainWindow: (window: BrowserWindow | null) => void;
   onOpenSettings: () => void;
+  onShowPet?: () => boolean;
+  onHidePet?: () => boolean;
+  isPetVisible?: () => boolean;
   onQuit: () => void;
   getStatus?: () => DesktopTrayStatus;
   iconPath?: string;
@@ -107,6 +110,7 @@ export class DesktopTrayController {
     const windowVisible =
       window !== null && !window.isDestroyed() && window.isVisible();
     const status = this.options.getStatus?.() ?? "running";
+    const petVisible = this.options.isPetVisible?.() === true;
     const template: MenuItemConstructorOptions[] = [
       {
         label: "Open Jarvis-K",
@@ -122,6 +126,17 @@ export class DesktopTrayController {
       {
         label: "Settings",
         click: () => this.openSettings(),
+      },
+      {
+        label: petVisible ? "Hide Desktop Pet" : "Show Desktop Pet",
+        click: () => {
+          if (petVisible) {
+            this.options.onHidePet?.();
+          } else {
+            this.options.onShowPet?.();
+          }
+          this.updateMenu();
+        },
       },
       { type: "separator" },
       {

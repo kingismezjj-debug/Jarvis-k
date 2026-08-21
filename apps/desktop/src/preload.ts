@@ -18,6 +18,8 @@ import {
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
   IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL,
+  IPC_DESKTOP_PET_RESET_POSITION_CHANNEL,
+  IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
@@ -34,6 +36,7 @@ import {
   JarvisBridge,
   QwenRuntimeControlSetResultSchema,
   QwenRuntimeControlStatusSchema,
+  type DesktopPetReducedMotion,
   type QwenRuntimeControlAction,
   type DesktopCloseButtonBehavior,
   type DesktopFirstRunOnboardingState,
@@ -128,6 +131,28 @@ const bridge: JarvisBridge = {
       await ipcRenderer.invoke(IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL, {
         launchAtLoginEnabled: enabled
       })
+    ),
+  setDesktopPetEnabled: async (enabled) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL, {
+        enabled
+      })
+    ),
+  setDesktopPetAlwaysOnTop: async (enabled) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL, {
+        alwaysOnTop: enabled
+      })
+    ),
+  setDesktopPetReducedMotion: async (reducedMotion: DesktopPetReducedMotion) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL, {
+        reducedMotion
+      })
+    ),
+  resetDesktopPetPosition: async () =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_RESET_POSITION_CHANNEL)
     ),
   getUiSurfaceCapabilityStatus: async () =>
     UiSurfaceCapabilityStatusSchema.parse(

@@ -1,0 +1,184 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { _electron as electron } from "playwright";
+
+const rootDirectory = path.resolve(import.meta.dirname, "..");
+const userDataDirectory = await mkdtemp(
+  path.join(os.tmpdir(), "jarvis-k-desktop-pet-smoke-"),
+);
+let electronApp;
+
+async function waitForPetWindow() {
+  await electronApp.waitForEvent("window", {
+    predicate: (page) => page.url().includes("pet.html"),
+    timeout: 10_000,
+  }).catch(() => undefined);
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const petPage = electronApp
+      .windows()
+      .find((page) => page.url().includes("pet.html"));
+    if (petPage) {
+      return petPage;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Desktop Pet window did not appear.");
+}
+
+try {
+  electronApp = await electron.launch({
+    args: [
+      `--user-data-dir=${userDataDirectory}`,
+      "apps/desktop/dist/main.js",
+    ],
+    cwd: rootDirectory,
+    env: {
+      ...process.env,
+      JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
+      JARVIS_K_USER_DATA_PATH: userDataDirectory,
+      JARVIS_K_LOCAL_DATA_PATH: userDataDirectory,
+      JARVIS_K_MEMORY_DB_PATH: path.join(userDataDirectory, "memory.sqlite"),
+      JARVIS_K_MODEL_DIR: path.join(userDataDirectory, "models"),
+      JARVIS_K_VOICE_REGRESSION_PATH: path.join(
+        userDataDirectory,
+        "voice-regression.json",
+      ),
+    },
+  });
+
+  const mainPage = await electronApp.firstWindow();
+  await mainPage.setViewportSize({ width: 1280, height: 820 });
+  await mainPage.getByTestId("jarvis-app").waitFor();
+  await mainPage.getByTestId("core-status").getByText("ONLINE").waitFor({
+    timeout: 15_000,
+  });
+
+  const initialSettings = await mainPage.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
+    return window.jarvis.getDesktopSettings();
+  });
+  if (initialSettings.desktopPetEnabled !== false) {
+    throw new Error("Desktop Pet default is not OFF.");
+  }
+
+  const enableResult = await mainPage.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
+    return window.jarvis.setDesktopPetEnabled(true);
+  });
+  if (!enableResult.ok || enableResult.settings.desktopPetEnabled !== true) {
+    throw new Error(`Desktop Pet enable failed: ${JSON.stringify(enableResult)}`);
+  }
+
+  const petPage = await waitForPetWindow();
+  await petPage.locator(".pet-shell").waitFor({ timeout: 10_000 });
+  const petBridgeSurface = await petPage.evaluate(() => ({
+    hasMainBridge: typeof window.jarvis !== "undefined",
+    petKeys: Object.keys(window.jarvisPet ?? {}).sort(),
+  }));
+  const expectedPetKeys = [
+    "getPetSettings",
+    "getPetState",
+    "hidePet",
+    "onPetState",
+    "openMainWindow",
+    "requestContextMenu",
+    "savePosition",
+  ];
+  if (petBridgeSurface.hasMainBridge) {
+    throw new Error("Pet renderer can access the full Jarvis bridge.");
+  }
+  for (const key of expectedPetKeys) {
+    if (!petBridgeSurface.petKeys.includes(key)) {
+      throw new Error(
+        `Pet bridge missing ${key}: ${JSON.stringify(petBridgeSurface)}`,
+      );
+    }
+  }
+
+  const petWindowState = await electronApp.evaluate(({ BrowserWindow }) => {
+    const petWindow = BrowserWindow.getAllWindows().find((candidate) =>
+      candidate.webContents.getURL().includes("pet.html"),
+    );
+    return {
+      count: BrowserWindow.getAllWindows().filter((candidate) =>
+        candidate.webContents.getURL().includes("pet.html"),
+      ).length,
+      visible: petWindow?.isVisible() ?? false,
+      alwaysOnTop: petWindow?.isAlwaysOnTop() ?? false,
+      resizable: petWindow?.isResizable() ?? true,
+      bounds: petWindow?.getBounds(),
+    };
+  });
+  if (
+    petWindowState.count !== 1 ||
+    !petWindowState.visible ||
+    !petWindowState.alwaysOnTop ||
+    petWindowState.resizable
+  ) {
+    throw new Error(`Unexpected Pet window state: ${JSON.stringify(petWindowState)}`);
+  }
+
+  await electronApp.evaluate(({ BrowserWindow }) => {
+    const mainWindow = BrowserWindow.getAllWindows().find((candidate) =>
+      candidate.webContents.getURL().includes("index.html"),
+    );
+    mainWindow?.hide();
+  });
+  await petPage.locator(".pet-shell").click();
+  await mainPage.waitForFunction(() => document.hasFocus(), undefined, {
+    timeout: 5_000,
+  }).catch(() => undefined);
+  const mainVisibleAfterPetClick = await electronApp.evaluate(({ BrowserWindow }) => {
+    const mainWindow = BrowserWindow.getAllWindows().find((candidate) =>
+      candidate.webContents.getURL().includes("index.html"),
+    );
+    return mainWindow?.isVisible() ?? false;
+  });
+  if (!mainVisibleAfterPetClick) {
+    throw new Error("Pet click did not restore the main window.");
+  }
+
+  const hideResult = await mainPage.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
+    return window.jarvis.setDesktopPetEnabled(false);
+  });
+  if (!hideResult.ok) {
+    throw new Error(`Pet hide failed: ${JSON.stringify(hideResult)}`);
+  }
+  await mainPage.waitForTimeout(500);
+  const petCountAfterHide = await electronApp.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().filter((candidate) =>
+      candidate.webContents.getURL().includes("pet.html"),
+    ).length,
+  );
+  if (petCountAfterHide !== 0) {
+    throw new Error("Pet window remained after hide.");
+  }
+
+  const finalSettings = await mainPage.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
+    return window.jarvis.getDesktopSettings();
+  });
+  if (finalSettings.desktopPetEnabled !== false) {
+    throw new Error("Desktop Pet setting stayed enabled after hide.");
+  }
+
+  console.log(
+    JSON.stringify({
+      status: "PASS",
+      desktopPetDefault: "OFF",
+      petBridgeSurface,
+      petWindowState,
+      mainVisibleAfterPetClick,
+      petCountAfterHide,
+      desktopPetFinal: "OFF",
+    }),
+  );
+} finally {
+  if (electronApp) {
+    await electronApp.close();
+  }
+  await rm(userDataDirectory, { force: true, recursive: true });
+}

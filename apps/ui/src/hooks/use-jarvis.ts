@@ -10,6 +10,7 @@ import {
   type DesktopCloseButtonBehavior,
   type DesktopFirstRunOnboardingState,
   type DesktopLaunchAtLoginStatus,
+  type DesktopPetReducedMotion,
   type DesktopSettings,
   type EventEnvelope,
   type MemoryAlphaRecallProbeResult,
@@ -403,6 +404,70 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     return true;
   }, []);
 
+  const setDesktopPetEnabled = useCallback(async (enabled: boolean) => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    const result = await window.jarvis.setDesktopPetEnabled(enabled);
+    setDesktopSettings(result.settings);
+    if (!result.ok) {
+      setError(result.message ?? "Desktop Pet setting was rejected.");
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
+
+  const setDesktopPetAlwaysOnTop = useCallback(async (enabled: boolean) => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    const result = await window.jarvis.setDesktopPetAlwaysOnTop(enabled);
+    setDesktopSettings(result.settings);
+    if (!result.ok) {
+      setError(result.message ?? "Desktop Pet setting was rejected.");
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
+
+  const setDesktopPetReducedMotion = useCallback(
+    async (reducedMotion: DesktopPetReducedMotion) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      const result =
+        await window.jarvis.setDesktopPetReducedMotion(reducedMotion);
+      setDesktopSettings(result.settings);
+      if (!result.ok) {
+        setError(result.message ?? "Desktop Pet setting was rejected.");
+        return false;
+      }
+      setError(null);
+      return true;
+    },
+    [],
+  );
+
+  const resetDesktopPetPosition = useCallback(async () => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    const result = await window.jarvis.resetDesktopPetPosition();
+    setDesktopSettings(result.settings);
+    if (!result.ok) {
+      setError(result.message ?? "Desktop Pet position reset was rejected.");
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
+
   const {
     clearSessionHistory,
     createConversation,
@@ -751,7 +816,11 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopLaunchAtLoginEnabled,
+    setDesktopPetAlwaysOnTop,
+    setDesktopPetEnabled,
+    setDesktopPetReducedMotion,
     setDesktopFirstRunOnboardingState,
+    resetDesktopPetPosition,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,
     startPilotPrompt,

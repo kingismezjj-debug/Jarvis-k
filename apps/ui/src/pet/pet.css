@@ -1,0 +1,161 @@
+@import "../index.css";
+
+html,
+body,
+#pet-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pet-shell {
+  -webkit-app-region: no-drag;
+  position: relative;
+  display: grid;
+  width: 112px;
+  height: 112px;
+  place-items: center;
+  color: #e8eefc;
+  cursor: pointer;
+}
+
+.pet-drag-handle {
+  -webkit-app-region: drag;
+  position: absolute;
+  top: 0;
+  right: 32px;
+  left: 14px;
+  z-index: 3;
+  height: 18px;
+  cursor: grab;
+}
+
+.pet-hide {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: rgba(226, 232, 240, 0.88);
+  font: 600 15px/1 system-ui, sans-serif;
+}
+
+.pet-orb {
+  position: relative;
+  display: grid;
+  width: 78px;
+  height: 78px;
+  place-items: center;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.95), transparent 0 9px),
+    radial-gradient(circle at 50% 58%, rgba(37, 99, 235, 0.9), rgba(15, 23, 42, 0.96));
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.34),
+    0 0 24px rgba(59, 130, 246, 0.22);
+}
+
+.pet-core {
+  z-index: 1;
+  letter-spacing: 0;
+  font: 700 15px/1 system-ui, sans-serif;
+}
+
+.pet-ring {
+  position: absolute;
+  inset: -8px;
+  border: 2px solid rgba(96, 165, 250, 0.35);
+  border-radius: 999px;
+  opacity: 0;
+}
+
+.pet-label {
+  position: absolute;
+  bottom: 4px;
+  max-width: 92px;
+  overflow: hidden;
+  color: rgba(226, 232, 240, 0.86);
+  font: 600 10px/1.2 system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pet-shell[data-state="idle"] .pet-orb {
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+.pet-shell[data-state="listening"] .pet-ring {
+  animation: pulse 1.2s ease-out infinite;
+  border-color: rgba(34, 211, 238, 0.72);
+  opacity: 1;
+}
+
+.pet-shell[data-state="thinking"] .pet-ring {
+  animation: rotate 2s linear infinite;
+  border-color: transparent rgba(129, 140, 248, 0.78) rgba(129, 140, 248, 0.78);
+  opacity: 1;
+}
+
+.pet-shell[data-state="success"] .pet-orb {
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.34),
+    0 0 28px rgba(34, 197, 94, 0.72);
+}
+
+.pet-shell[data-state="error"] .pet-orb {
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.34),
+    0 0 28px rgba(239, 68, 68, 0.7);
+}
+
+.pet-shell[data-state="offline"] .pet-orb {
+  filter: grayscale(1);
+  opacity: 0.72;
+}
+
+.pet-shell[data-motion="reduced"] .pet-orb,
+.pet-shell[data-motion="reduced"] .pet-ring {
+  animation: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.98);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -75,6 +75,7 @@
     "smoke:desktop:ui-interaction": "npm run build && node tests/desktop-ui-interaction-smoke.mjs",
     "smoke:desktop:ui-surface-mode": "npm run build && node tests/desktop-ui-surface-mode-smoke.mjs",
     "smoke:desktop:tray-lifecycle": "npm run build && node tests/desktop-tray-lifecycle-smoke.mjs",
+    "smoke:desktop:pet": "npm run build && node tests/desktop-pet-smoke.mjs",
     "package:windows:dir": "npm run build && electron-builder --win --x64 --dir",
     "package:windows:alpha": "npm run build && electron-builder --win nsis --x64",
     "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-dependency-closure.mjs && node tests/packaged-runtime-smoke.mjs",

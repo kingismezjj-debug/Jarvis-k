@@ -4,6 +4,8 @@ import {
   createCommandRouterQwenProductRoutingActivationStatus,
   DesktopCloseButtonBehaviorSchema,
   DesktopFirstRunOnboardingStateSchema,
+  DesktopPetPositionSchema,
+  DesktopPetReducedMotionSchema,
   DesktopSettingsSchema,
 } from "@jarvis-k/contracts";
 import type {
@@ -12,6 +14,8 @@ import type {
   DesktopLaunchAtLoginStatus,
   DesktopSettings,
   DesktopSettingsSetResult,
+  DesktopPetSettings,
+  DesktopPetPosition,
   UiSurfaceCapabilityStatus,
 } from "@jarvis-k/contracts";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -125,6 +129,80 @@ export class SettingsService {
       ok: result.ok,
       settings: this.desktopSettings,
       ...(result.message ? { message: result.message } : {}),
+    };
+  }
+
+  public getDesktopPetSettings(): DesktopPetSettings {
+    return {
+      enabled: this.desktopSettings.desktopPetEnabled,
+      alwaysOnTop: this.desktopSettings.desktopPetAlwaysOnTop,
+      reducedMotion: this.desktopSettings.desktopPetReducedMotion,
+      ...(this.desktopSettings.desktopPetPosition
+        ? { position: this.desktopSettings.desktopPetPosition }
+        : {}),
+      persistedLocally: true,
+      syncedToCloud: false,
+    };
+  }
+
+  public setDesktopPetEnabled(rawInput: unknown): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    if (typeof raw.enabled !== "boolean") {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Desktop Pet setting is invalid.",
+      };
+    }
+    return this.updateDesktopSettings({
+      desktopPetEnabled: raw.enabled,
+    });
+  }
+
+  public setDesktopPetAlwaysOnTop(rawInput: unknown): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    if (typeof raw.alwaysOnTop !== "boolean") {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Desktop Pet on-top setting is invalid.",
+      };
+    }
+    return this.updateDesktopSettings({
+      desktopPetAlwaysOnTop: raw.alwaysOnTop,
+    });
+  }
+
+  public setDesktopPetReducedMotion(rawInput: unknown): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    const parsed = DesktopPetReducedMotionSchema.safeParse(raw.reducedMotion);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Desktop Pet motion setting is invalid.",
+      };
+    }
+    return this.updateDesktopSettings({
+      desktopPetReducedMotion: parsed.data,
+    });
+  }
+
+  public saveDesktopPetPosition(
+    position: DesktopPetPosition,
+  ): DesktopSettingsSetResult {
+    return this.updateDesktopSettings({
+      desktopPetPosition: position,
+    });
+  }
+
+  public resetDesktopPetPosition(): DesktopSettingsSetResult {
+    const { desktopPetPosition: _position, ...settings } = this.desktopSettings;
+    this.desktopSettings = settings;
+    this.persistDesktopSettings();
+    return {
+      ok: true,
+      settings: this.desktopSettings,
     };
   }
 
@@ -388,6 +466,28 @@ export class SettingsService {
       "utf8",
     );
   }
+
+  private updateDesktopSettings(
+    patch: Partial<
+      Pick<
+        DesktopSettings,
+        | "desktopPetEnabled"
+        | "desktopPetAlwaysOnTop"
+        | "desktopPetReducedMotion"
+        | "desktopPetPosition"
+      >
+    >,
+  ): DesktopSettingsSetResult {
+    this.desktopSettings = {
+      ...this.desktopSettings,
+      ...patch,
+    };
+    this.persistDesktopSettings();
+    return {
+      ok: true,
+      settings: this.desktopSettings,
+    };
+  }
 }
 
 function createDesktopSettings(
@@ -397,6 +497,9 @@ function createDesktopSettings(
     closeButtonBehavior,
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
+    desktopPetEnabled: false,
+    desktopPetAlwaysOnTop: true,
+    desktopPetReducedMotion: "system",
     firstRunOnboardingVersion: 1,
     firstRunOnboardingState: "pending",
     persistedLocally: true,
@@ -417,6 +520,19 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
     closeButtonBehavior,
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
     launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
+    desktopPetEnabled: raw.desktopPetEnabled === true,
+    desktopPetAlwaysOnTop:
+      typeof raw.desktopPetAlwaysOnTop === "boolean"
+        ? raw.desktopPetAlwaysOnTop
+        : true,
+    desktopPetReducedMotion:
+      DesktopPetReducedMotionSchema.safeParse(raw.desktopPetReducedMotion)
+        .data ?? "system",
+    ...(DesktopPetPositionSchema.safeParse(raw.desktopPetPosition).success
+      ? {
+          desktopPetPosition: raw.desktopPetPosition as DesktopPetPosition,
+        }
+      : {}),
     firstRunOnboardingVersion: 1,
     firstRunOnboardingState,
     ...(typeof raw.firstRunOnboardingStateChangedAt === "string"
@@ -433,6 +549,14 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
     ...createDesktopSettings(closeButtonBehavior),
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
     launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
+    desktopPetEnabled: raw.desktopPetEnabled === true,
+    desktopPetAlwaysOnTop:
+      typeof raw.desktopPetAlwaysOnTop === "boolean"
+        ? raw.desktopPetAlwaysOnTop
+        : true,
+    desktopPetReducedMotion:
+      DesktopPetReducedMotionSchema.safeParse(raw.desktopPetReducedMotion)
+        .data ?? "system",
     firstRunOnboardingState,
   };
 }
