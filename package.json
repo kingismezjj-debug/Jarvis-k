@@ -1,6 +1,6 @@
 {
   "name": "jarvis-k",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
   "main": "apps/desktop/dist/main.js",

@@ -47,10 +47,7 @@ export class LoginItemController {
       return this.createUnsupportedStatus(requested);
     }
     try {
-      const status = this.options.app.getLoginItemSettings(
-        this.loginItemSettings(requested),
-      );
-      const openAtLogin = status.openAtLogin === true;
+      const openAtLogin = this.readOpenAtLogin();
       return {
         requested,
         openAtLogin,
@@ -83,7 +80,9 @@ export class LoginItemController {
       };
     }
     try {
-      this.options.app.setLoginItemSettings(this.loginItemSettings(enabled));
+      this.options.app.setLoginItemSettings(
+        this.loginItemWriteSettings(enabled),
+      );
       const status = this.getStatus(enabled);
       return {
         ok: status.openAtLogin === enabled,
@@ -113,7 +112,7 @@ export class LoginItemController {
     );
   }
 
-  private loginItemSettings(openAtLogin: boolean): ElectronLoginItemSettings {
+  private loginItemWriteSettings(openAtLogin: boolean): ElectronLoginItemSettings {
     return {
       openAtLogin,
       openAsHidden: true,
@@ -121,6 +120,30 @@ export class LoginItemController {
       args: [LOGIN_STARTUP_ARGUMENT],
       name: this.options.productName,
     };
+  }
+
+  private loginItemReadSettings(): ElectronLoginItemSettings[] {
+    const executablePath = this.options.app.getPath("exe");
+    return [
+      {
+        path: executablePath,
+        args: [LOGIN_STARTUP_ARGUMENT],
+      },
+      {
+        path: executablePath,
+      },
+    ];
+  }
+
+  private readOpenAtLogin(): boolean {
+    const statuses = this.loginItemReadSettings().map((settings) =>
+      this.options.app.getLoginItemSettings(settings),
+    );
+    return statuses.some(
+      (status) =>
+        status.openAtLogin === true ||
+        status.executableWillLaunchAtLogin === true,
+    );
   }
 
   private createUnsupportedStatus(requested: boolean): DesktopLaunchAtLoginStatus {

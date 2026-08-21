@@ -9,15 +9,19 @@ The Windows Alpha package is built with Electron Builder for Windows x64.
 - Installer script: `npm run package:windows:alpha`
 - Unpacked verification script: `npm run verify:package:windows`
 - Output directory: `artifacts/packaged`
-- Version: `0.1.0-alpha.3`
+- Version: `0.1.0-alpha.4`
 - Product name: `Jarvis-K Alpha`
 - App ID / AppUserModelId: `com.jarvis-k.desktop.alpha`
-- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.3-windows-x64-unsigned-alpha-setup.exe`
+- Installer name pattern: `Jarvis-K Alpha-0.1.0-alpha.4-windows-x64-unsigned-alpha-setup.exe`
 - Unpacked executable: `artifacts/packaged/win-unpacked/Jarvis-K Alpha.exe`
 
 `0.1.0-alpha.1` is superseded and should not be installed or shared. Its
 packaged main process could not resolve workspace runtime dependencies outside
 the monorepo.
+
+`0.1.0-alpha.3` is superseded and should not be used for launch-at-login
+acceptance. Windows could create the login item, but the desktop status
+projection could misread the registered item as disabled.
 
 ## Signing Status
 
