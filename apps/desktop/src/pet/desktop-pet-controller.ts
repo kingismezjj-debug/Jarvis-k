@@ -5,6 +5,7 @@ import type {
   DesktopPetPosition,
   DesktopPetState,
   EventEnvelope,
+  DesktopPetActiveSkinDescriptor,
 } from "@jarvis-k/contracts";
 import { IPC_DESKTOP_PET_EVENT_CHANNEL } from "@jarvis-k/contracts";
 import type { SettingsService } from "../settings/settings-service";
@@ -31,6 +32,7 @@ export interface DesktopPetControllerOptions {
   readonly screen?: PetScreen;
   readonly createWindow?: typeof createPetWindow;
   readonly now?: () => Date;
+  readonly getActiveSkinDescriptor?: () => DesktopPetActiveSkinDescriptor | undefined;
 }
 
 export class DesktopPetController {
@@ -302,13 +304,15 @@ export class DesktopPetController {
 
   private computeState(): DesktopPetState {
     const now = this.now();
-    return createDesktopPetState({
+    const state = createDesktopPetState({
       nowIso: now.toISOString(),
       nowMs: now.getTime(),
       coreOnline: this.coreOnline,
       ...(this.lastSnapshot ? { snapshot: this.lastSnapshot } : {}),
       ...(this.recentState ? { recentState: this.recentState } : {}),
     });
+    const activeSkin = this.options.getActiveSkinDescriptor?.();
+    return activeSkin ? { ...state, activeSkin } : state;
   }
 
   private clearTimers(): void {

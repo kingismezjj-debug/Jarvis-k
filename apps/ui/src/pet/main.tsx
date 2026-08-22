@@ -35,6 +35,7 @@ function Pet() {
     useState<DesktopPetSettings>(fallbackSettings)
   const dragSessionRef = useRef<DragSession | null>(null)
   const suppressClickRef = useRef(false)
+  const reportedSkinFailureRef = useRef<string | null>(null)
 
   const flushPendingPosition = () => {
     const session = dragSessionRef.current
@@ -117,6 +118,30 @@ function Pet() {
     settings.reducedMotion === "on" ||
     (settings.reducedMotion === "system" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+  const activeSkinVisual = useMemo(() => {
+    const activeSkin = state.activeSkin
+    if (!activeSkin) return null
+    const states = reducedMotion
+      ? activeSkin.reducedMotionStates
+      : activeSkin.states
+    const visual = states[state.state]
+    const assetId =
+      visual.staticVariantAssetId ??
+      visual.stateGlyphAssetId ??
+      visual.baseAssetId
+    const resource = activeSkin.resources[assetId]
+    if (!resource) return null
+    return {
+      assetId,
+      identity: activeSkin.identity,
+      resourceUrl: resource.resourceUrl,
+      displayName: activeSkin.displayName,
+    }
+  }, [reducedMotion, state.activeSkin, state.state])
+
+  useEffect(() => {
+    reportedSkinFailureRef.current = null
+  }, [activeSkinVisual?.identity.packageDigest])
 
   return (
     <main
@@ -173,7 +198,28 @@ function Pet() {
         endDragSession(event.pointerId, event.currentTarget)
       }}
     >
-      <div className="pet-robot" aria-hidden="true">
+      <div
+        className={`pet-robot${activeSkinVisual ? " pet-robot-custom" : ""}`}
+        aria-hidden="true"
+      >
+        {activeSkinVisual ? (
+          <img
+            alt=""
+            className="pet-skin-image"
+            draggable={false}
+            onError={() => {
+              const key = `${activeSkinVisual.identity.packageDigest}:${activeSkinVisual.assetId}`
+              if (reportedSkinFailureRef.current === key) return
+              reportedSkinFailureRef.current = key
+              void window.jarvisPet?.reportSkinRenderFailure({
+                packageDigest: activeSkinVisual.identity.packageDigest,
+                assetId: activeSkinVisual.assetId,
+                reasonCode: "image_load_failed",
+              })
+            }}
+            src={activeSkinVisual.resourceUrl}
+          />
+        ) : null}
         <div className="pet-halo" />
         <div className="pet-ear pet-ear-left" />
         <div className="pet-ear pet-ear-right" />

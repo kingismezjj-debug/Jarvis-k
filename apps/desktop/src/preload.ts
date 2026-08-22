@@ -20,9 +20,14 @@ import {
   IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL,
   IPC_DESKTOP_PET_RESET_POSITION_CHANNEL,
   IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_ACTIVATE_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_INSTALL_PREVIEW_CHANNEL,
   IPC_DESKTOP_PET_SKIN_PREVIEW_CANCEL_CHANNEL,
   IPC_DESKTOP_PET_SKIN_PREVIEW_RESOURCE_CHANNEL,
   IPC_DESKTOP_PET_SKIN_PREVIEW_SELECT_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_REGISTRY_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_REMOVE_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_RETURN_BUILT_IN_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
@@ -49,10 +54,15 @@ import {
   VoiceServiceStatusSchema,
   VoiceAudioFrame,
   VoiceAudioFrameSchema,
+  PetSkinActivateRequestSchema,
+  PetSkinInstallFromPreviewRequestSchema,
+  PetSkinManagementResultSchema,
   PetSkinPreviewCancelResultSchema,
   PetSkinPreviewResourceRequestSchema,
   PetSkinPreviewResourceResultSchema,
   PetSkinPreviewSelectResultSchema,
+  PetSkinRegistryProjectionSchema,
+  PetSkinRemoveRequestSchema,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 
@@ -175,6 +185,35 @@ const bridge: JarvisBridge = {
   cancelDesktopPetSkinPreview: async () =>
     PetSkinPreviewCancelResultSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_PREVIEW_CANCEL_CHANNEL)
+    ),
+  installDesktopPetSkinPreview: async (request) =>
+    PetSkinManagementResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_INSTALL_PREVIEW_CHANNEL,
+        PetSkinInstallFromPreviewRequestSchema.parse(request)
+      )
+    ),
+  getDesktopPetSkinRegistry: async () =>
+    PetSkinRegistryProjectionSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_REGISTRY_CHANNEL)
+    ),
+  activateDesktopPetSkin: async (request) =>
+    PetSkinManagementResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_ACTIVATE_CHANNEL,
+        PetSkinActivateRequestSchema.parse(request)
+      )
+    ),
+  returnDesktopPetSkinToBuiltIn: async () =>
+    PetSkinManagementResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_RETURN_BUILT_IN_CHANNEL)
+    ),
+  removeDesktopPetSkin: async (request) =>
+    PetSkinManagementResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_REMOVE_CHANNEL,
+        PetSkinRemoveRequestSchema.parse(request)
+      )
     ),
   getUiSurfaceCapabilityStatus: async () =>
     UiSurfaceCapabilityStatusSchema.parse(

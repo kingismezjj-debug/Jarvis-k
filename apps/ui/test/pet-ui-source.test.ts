@@ -75,6 +75,19 @@ describe("Desktop Pet UI source", () => {
 
     expect(source).toContain("window.jarvisPet");
     expect(source).not.toContain("window.jarvis.");
+    expect(source).toContain("reportSkinRenderFailure");
+    expect(source).toContain("activeSkinVisual");
+    for (const forbiddenRuntime of [
+      "node:fs",
+      "node:path",
+      "electron",
+      "readFile",
+      "writeFile",
+      "showOpenDialog",
+      "file://",
+    ]) {
+      expect(source).not.toContain(forbiddenRuntime);
+    }
     for (const forbidden of [
       "transcript",
       "slots",

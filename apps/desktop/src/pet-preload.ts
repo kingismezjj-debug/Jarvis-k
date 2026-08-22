@@ -11,6 +11,8 @@ import {
   IPC_DESKTOP_PET_SAVE_POSITION_CHANNEL,
   IPC_DESKTOP_PET_SETTINGS_CHANNEL,
   IPC_DESKTOP_PET_STATE_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_RENDER_FAILURE_CHANNEL,
+  PetSkinRenderFailureReportSchema,
   type DesktopPetPosition,
   type JarvisPetBridge,
 } from "@jarvis-k/contracts";
@@ -53,6 +55,13 @@ const bridge: JarvisPetBridge = {
       await ipcRenderer.invoke(
         IPC_DESKTOP_PET_SAVE_POSITION_CHANNEL,
         DesktopPetPositionSchema.parse(position),
+      ),
+    ),
+  reportSkinRenderFailure: async (report) =>
+    DesktopPetCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_RENDER_FAILURE_CHANNEL,
+        PetSkinRenderFailureReportSchema.parse(report),
       ),
     ),
 };

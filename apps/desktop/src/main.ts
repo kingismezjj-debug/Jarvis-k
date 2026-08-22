@@ -8,7 +8,10 @@ import {
   protocol,
   safeStorage
 } from "electron";
-import { PET_SKIN_PREVIEW_PROTOCOL } from "@jarvis-k/contracts";
+import {
+  PET_SKIN_INSTALLED_PROTOCOL,
+  PET_SKIN_PREVIEW_PROTOCOL
+} from "@jarvis-k/contracts";
 import {
   SecureHeavyPlannerProviderStore,
   type HeavyPlannerProviderConfiguration,
@@ -55,6 +58,8 @@ import { DesktopPetController } from "./pet/desktop-pet-controller";
 import { registerPetIpc } from "./ipc/register-pet-ipc";
 import { PetSkinPreviewService } from "./pet-skin/pet-skin-preview-service";
 import { registerPetSkinPreviewIpc } from "./ipc/register-pet-skin-preview-ipc";
+import { PetSkinLocalRegistryService } from "./pet-skin/pet-skin-local-registry-service";
+import { registerPetSkinIpc } from "./ipc/register-pet-skin-ipc";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -79,6 +84,8 @@ let petController: DesktopPetController | null = null;
 let petIpcDisposer: (() => void) | null = null;
 let petSkinPreviewService: PetSkinPreviewService | null = null;
 let petSkinPreviewIpcDisposer: (() => void) | null = null;
+let petSkinRegistryService: PetSkinLocalRegistryService | null = null;
+let petSkinIpcDisposer: (() => void) | null = null;
 let desktopRuntimeDisposeStarted = false;
 let startupSource: DesktopStartupSource = resolveDesktopStartupSource();
 let loginItemController: LoginItemController | null = null;
@@ -87,6 +94,16 @@ configureElectronGpuPolicy({ app });
 protocol.registerSchemesAsPrivileged([
   {
     scheme: PET_SKIN_PREVIEW_PROTOCOL,
+    privileges: {
+      bypassCSP: false,
+      corsEnabled: false,
+      secure: true,
+      standard: true,
+      supportFetchAPI: false
+    }
+  },
+  {
+    scheme: PET_SKIN_INSTALLED_PROTOCOL,
     privileges: {
       bypassCSP: false,
       corsEnabled: false,
@@ -310,11 +327,19 @@ if (!hasSingleInstanceLock) {
       quit: () => {
         lifecycleController?.requestExplicitQuit();
       },
-      isQuitting: () => lifecycleController?.getState() === "quitting"
+      isQuitting: () => lifecycleController?.getState() === "quitting",
+      getActiveSkinDescriptor: () =>
+        petSkinRegistryService?.getActiveSkinDescriptor()
     });
     petSkinPreviewService = new PetSkinPreviewService();
     petSkinPreviewService.registerProtocol(protocol);
     void petSkinPreviewService.cleanupStalePreviewDirectories();
+    petSkinRegistryService = new PetSkinLocalRegistryService({
+      rootDirectory: storageProfile.petSkinRootPath,
+      registryPath: storageProfile.petSkinRegistryPath,
+      rendererPreflight: async () => true
+    });
+    petSkinRegistryService.registerProtocol(protocol);
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,
       createMainWindow: createTrackedMainWindow,
@@ -450,6 +475,16 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       previewService: petSkinPreviewService
     });
+    petSkinIpcDisposer = registerPetSkinIpc({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      getPetWindow: () => petController?.getWindow() ?? null,
+      previewService: petSkinPreviewService,
+      registryService: petSkinRegistryService,
+      onRegistryChanged: () => {
+        petController?.publishState();
+      }
+    });
     qwenRuntimeIpcDisposer = registerQwenRuntimeIpc({
       ipcMain,
       qwenRuntimeController,
@@ -498,10 +533,16 @@ function disposeDesktopRuntime(): void {
   petIpcDisposer = null;
   petSkinPreviewIpcDisposer?.();
   petSkinPreviewIpcDisposer = null;
+  petSkinIpcDisposer?.();
+  petSkinIpcDisposer = null;
   if (petSkinPreviewService) {
     void petSkinPreviewService.dispose();
     petSkinPreviewService.unregisterProtocol(protocol);
     petSkinPreviewService = null;
+  }
+  if (petSkinRegistryService) {
+    petSkinRegistryService.unregisterProtocol(protocol);
+    petSkinRegistryService = null;
   }
   petController?.dispose();
   petController = null;

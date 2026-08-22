@@ -47,6 +47,20 @@ body {
   transform-origin: 50% 62%;
 }
 
+.pet-skin-image {
+  position: absolute;
+  z-index: 5;
+  width: 96px;
+  height: 92px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pet-robot-custom > :not(.pet-skin-image):not(.pet-shadow) {
+  opacity: 0;
+}
+
 .pet-halo {
   position: absolute;
   bottom: 4px;
