@@ -17,10 +17,25 @@ import {
 } from "./plugin-protocol";
 import { CommandRouterQwenProductRoutingActivationStatusSchema } from "./qwen-product-routing-activation";
 import type {
+  PetSkinActivateRequest,
+  PetSkinInstallFromPreviewRequest,
+  PetSkinManagementResult,
   PetSkinPreviewCancelResult,
   PetSkinPreviewResourceRequest,
   PetSkinPreviewResourceResult,
   PetSkinPreviewSelectResult,
+  PetSkinRemoveRequest,
+} from "./pet-skin-protocol";
+import {
+  DesktopPetActiveSkinDescriptorSchema,
+  PetSkinActivateRequestSchema,
+  PetSkinInstallFromPreviewRequestSchema,
+  PetSkinManagementResultSchema,
+  PetSkinRegistryProjectionSchema,
+  PetSkinRemoveRequestSchema,
+  PetSkinRenderFailureReportSchema,
+  type PetSkinRegistryProjection,
+  type PetSkinRenderFailureReport,
 } from "./pet-skin-protocol";
 
 export const PROTOCOL_VERSION = 1 as const;
@@ -73,6 +88,18 @@ export const IPC_DESKTOP_PET_SKIN_PREVIEW_RESOURCE_CHANNEL =
   "jarvis-k:desktop-pet-skin-preview-resource";
 export const IPC_DESKTOP_PET_SKIN_PREVIEW_CANCEL_CHANNEL =
   "jarvis-k:desktop-pet-skin-preview-cancel";
+export const IPC_DESKTOP_PET_SKIN_INSTALL_PREVIEW_CHANNEL =
+  "jarvis-k:desktop-pet-skin-install-preview";
+export const IPC_DESKTOP_PET_SKIN_REGISTRY_CHANNEL =
+  "jarvis-k:desktop-pet-skin-registry";
+export const IPC_DESKTOP_PET_SKIN_ACTIVATE_CHANNEL =
+  "jarvis-k:desktop-pet-skin-activate";
+export const IPC_DESKTOP_PET_SKIN_RETURN_BUILT_IN_CHANNEL =
+  "jarvis-k:desktop-pet-skin-return-built-in";
+export const IPC_DESKTOP_PET_SKIN_REMOVE_CHANNEL =
+  "jarvis-k:desktop-pet-skin-remove";
+export const IPC_DESKTOP_PET_SKIN_RENDER_FAILURE_CHANNEL =
+  "jarvis-k:desktop-pet-skin-render-failure";
 export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
 export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
@@ -525,6 +552,7 @@ export const DesktopPetStateSchema = z
     reasonCategory: z
       .enum(["core", "voice", "task", "recent_success", "recent_error", "user"])
       .optional(),
+    activeSkin: DesktopPetActiveSkinDescriptorSchema.optional(),
     sensitiveContentExposed: z.literal(false),
   })
   .strict();
@@ -3749,6 +3777,17 @@ export interface JarvisBridge {
     request: PetSkinPreviewResourceRequest,
   ): Promise<PetSkinPreviewResourceResult>;
   cancelDesktopPetSkinPreview(): Promise<PetSkinPreviewCancelResult>;
+  installDesktopPetSkinPreview(
+    request: PetSkinInstallFromPreviewRequest,
+  ): Promise<PetSkinManagementResult>;
+  getDesktopPetSkinRegistry(): Promise<PetSkinRegistryProjection>;
+  activateDesktopPetSkin(
+    request: PetSkinActivateRequest,
+  ): Promise<PetSkinManagementResult>;
+  returnDesktopPetSkinToBuiltIn(): Promise<PetSkinManagementResult>;
+  removeDesktopPetSkin(
+    request: PetSkinRemoveRequest,
+  ): Promise<PetSkinManagementResult>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;
@@ -3766,4 +3805,16 @@ export interface JarvisPetBridge {
   hidePet(): Promise<DesktopPetCommandResult>;
   requestContextMenu(): Promise<DesktopPetCommandResult>;
   savePosition(position: DesktopPetPosition): Promise<DesktopPetCommandResult>;
+  reportSkinRenderFailure(
+    report: PetSkinRenderFailureReport,
+  ): Promise<DesktopPetCommandResult>;
 }
+
+export {
+  PetSkinActivateRequestSchema,
+  PetSkinInstallFromPreviewRequestSchema,
+  PetSkinManagementResultSchema,
+  PetSkinRegistryProjectionSchema,
+  PetSkinRemoveRequestSchema,
+  PetSkinRenderFailureReportSchema,
+};

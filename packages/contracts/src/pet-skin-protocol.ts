@@ -16,6 +16,7 @@ export type PetSkinFormalState = (typeof PET_SKIN_FORMAL_STATES)[number];
 export const BUILTIN_DESKTOP_PET_SKIN_ID = "builtin.jarvis-k.robot" as const;
 export const PET_SKIN_V1_MANIFEST_PATH = "manifest.json" as const;
 export const PET_SKIN_PREVIEW_PROTOCOL = "jarvis-pet-skin-preview" as const;
+export const PET_SKIN_INSTALLED_PROTOCOL = "jarvis-pet-skin" as const;
 
 export const PET_SKIN_V1_POLICY = {
   maxArchiveBytes: 10 * 1024 * 1024,
@@ -78,6 +79,18 @@ const SkinIdSchema = z
   .regex(/^[a-z0-9][a-z0-9._-]*$/);
 
 const PreviewIdSchema = z.string().min(8).max(80).regex(/^[A-Za-z0-9_-]+$/);
+const ActiveSkinErrorCodeSchema = z.enum([
+  "active_skin_unavailable",
+  "install_unavailable",
+  "install_conflict",
+  "install_failed",
+  "activation_unavailable",
+  "activation_failed",
+  "renderer_preflight_failed",
+  "remove_unavailable",
+  "remove_failed",
+  "built_in_fallback",
+]);
 
 export const PetSkinAssetSchema = z
   .object({
@@ -400,6 +413,147 @@ export const PetSkinPreviewCancelResultSchema = z
   .strict();
 export type PetSkinPreviewCancelResult = z.infer<
   typeof PetSkinPreviewCancelResultSchema
+>;
+
+export const PetSkinIdentitySchema = z
+  .object({
+    skinId: SkinIdSchema,
+    skinVersion: SemverSchema,
+    packageDigest: Sha256Schema,
+  })
+  .strict();
+export type PetSkinIdentity = z.infer<typeof PetSkinIdentitySchema>;
+
+export const PetSkinInstalledResourceDescriptorSchema =
+  PetSkinPreviewResourceDescriptorSchema.omit({ resourceUrl: true }).extend({
+    resourceUrl: z
+      .string()
+      .regex(
+        /^jarvis-pet-skin:\/\/[a-f0-9]{64}\/[a-z0-9][a-z0-9._-]*$/,
+      ),
+  });
+export type PetSkinInstalledResourceDescriptor = z.infer<
+  typeof PetSkinInstalledResourceDescriptorSchema
+>;
+
+const PetSkinInstalledResourceMapSchema = z.record(
+  AssetIdSchema,
+  PetSkinInstalledResourceDescriptorSchema,
+);
+
+export const DesktopPetActiveSkinDescriptorSchema = z
+  .object({
+    identity: PetSkinIdentitySchema,
+    displayName: z.string().min(1).max(PET_SKIN_V1_POLICY.maxDisplayNameLength),
+    author: z.string().min(1).max(PET_SKIN_V1_POLICY.maxAuthorLength),
+    license: z.string().min(1).max(PET_SKIN_V1_POLICY.maxLicenseLength),
+    trustState: z.literal("active_skin"),
+    states: PetSkinPreviewStateMapSchema,
+    reducedMotionStates: PetSkinPreviewStateMapSchema,
+    resources: PetSkinInstalledResourceMapSchema,
+    sensitiveContentExposed: z.literal(false),
+  })
+  .strict();
+export type DesktopPetActiveSkinDescriptor = z.infer<
+  typeof DesktopPetActiveSkinDescriptorSchema
+>;
+
+export const PetSkinInstalledRegistryEntrySchema = z
+  .object({
+    identity: PetSkinIdentitySchema,
+    displayName: z.string().min(1).max(PET_SKIN_V1_POLICY.maxDisplayNameLength),
+    author: z.string().min(1).max(PET_SKIN_V1_POLICY.maxAuthorLength),
+    license: z.string().min(1).max(PET_SKIN_V1_POLICY.maxLicenseLength),
+    description: z
+      .string()
+      .max(PET_SKIN_V1_POLICY.maxDescriptionLength)
+      .optional(),
+    minimumJarvisVersion: SemverSchema,
+    trustState: z.literal("installed_local_skin"),
+    installStatus: z.literal("installed"),
+    installedAt: z.string().datetime(),
+    lastValidatedAt: z.string().datetime(),
+    compatibilityStatus: z.enum(["compatible", "incompatible"]),
+    assetCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type PetSkinInstalledRegistryEntry = z.infer<
+  typeof PetSkinInstalledRegistryEntrySchema
+>;
+
+export const PetSkinRegistryProjectionSchema = z
+  .object({
+    activeSkin: DesktopPetActiveSkinDescriptorSchema.optional(),
+    activeSkinIdentity: PetSkinIdentitySchema.optional(),
+    lastKnownGoodSkinIdentity: PetSkinIdentitySchema.optional(),
+    builtInFallback: z
+      .object({
+        skinId: z.literal(BUILTIN_DESKTOP_PET_SKIN_ID),
+        trustState: z.literal("built_in_fallback"),
+        removable: z.literal(false),
+      })
+      .strict(),
+    installedSkins: z.array(PetSkinInstalledRegistryEntrySchema),
+    registryHealthy: z.boolean(),
+    safeMessage: z.string().min(1).max(240).optional(),
+  })
+  .strict();
+export type PetSkinRegistryProjection = z.infer<
+  typeof PetSkinRegistryProjectionSchema
+>;
+
+export const PetSkinInstallFromPreviewRequestSchema = z
+  .object({
+    previewId: PreviewIdSchema,
+  })
+  .strict();
+export type PetSkinInstallFromPreviewRequest = z.infer<
+  typeof PetSkinInstallFromPreviewRequestSchema
+>;
+
+export const PetSkinActivateRequestSchema = PetSkinIdentitySchema;
+export type PetSkinActivateRequest = PetSkinIdentity;
+
+export const PetSkinRemoveRequestSchema = PetSkinIdentitySchema;
+export type PetSkinRemoveRequest = PetSkinIdentity;
+
+export const PetSkinRenderFailureReportSchema = z
+  .object({
+    packageDigest: Sha256Schema,
+    assetId: AssetIdSchema.optional(),
+    reasonCode: z.enum([
+      "image_load_failed",
+      "decode_failed",
+      "renderer_timeout",
+      "unknown",
+    ]),
+  })
+  .strict();
+export type PetSkinRenderFailureReport = z.infer<
+  typeof PetSkinRenderFailureReportSchema
+>;
+
+export const PetSkinManagementResultSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      ok: z.literal(true),
+      registry: PetSkinRegistryProjectionSchema,
+      installedSkin: PetSkinInstalledRegistryEntrySchema.optional(),
+      activeSkin: DesktopPetActiveSkinDescriptorSchema.optional(),
+      safeMessage: z.string().min(1).max(240).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ok: z.literal(false),
+      reasonCode: ActiveSkinErrorCodeSchema,
+      safeMessage: z.string().min(1).max(240),
+      registry: PetSkinRegistryProjectionSchema.optional(),
+    })
+    .strict(),
+]);
+export type PetSkinManagementResult = z.infer<
+  typeof PetSkinManagementResultSchema
 >;
 
 const windowsReservedNames = new Set([

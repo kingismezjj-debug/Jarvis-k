@@ -76,8 +76,11 @@ describe("Desktop storage profile", () => {
     });
     expect(profile.userDataPath).toContain("Jarvis-K");
     expect(profile.localDataPath).toContain("Jarvis-K");
+    expect(profile.petSkinRootPath).toContain("Jarvis-K");
+    expect(profile.petSkinRegistryPath).toContain("Jarvis-K");
     expect(profile.userDataPath).not.toContain("Jarvis-K-Alpha");
     expect(profile.localDataPath).not.toContain("Jarvis-K-Alpha");
+    expect(profile.petSkinRootPath).not.toContain("Jarvis-K-Alpha");
   });
 
   it("uses an isolated packaged Alpha identity and namespace", () => {
@@ -102,6 +105,12 @@ describe("Desktop storage profile", () => {
     expect(profile.memoryDatabasePath).toContain("Jarvis-K-Alpha");
     expect(profile.taskDatabasePath).toContain("Jarvis-K-Alpha");
     expect(profile.modelDirectoryPath).toContain("Jarvis-K-Alpha");
+    expect(profile.petSkinRootPath).toContain(
+      path.join("Jarvis-K-Alpha", "pet-skins", "v1"),
+    );
+    expect(profile.petSkinRegistryPath).toContain(
+      path.join("Jarvis-K-Alpha", "pet-skins", "v1", "registry.json"),
+    );
 
     applyDesktopStorageProfile(app, profile);
     expect(app.setName).toHaveBeenCalledWith("Jarvis-K Alpha");
@@ -124,6 +133,7 @@ describe("Desktop storage profile", () => {
     expect(profile.releaseChannel).toBe("test");
     expect(profile.userDataPath).toContain("Jarvis-K-Test");
     expect(profile.localDataPath).toContain("Jarvis-K-Test");
+    expect(profile.petSkinRootPath).toContain("Jarvis-K-Test");
   });
 
   it("creates a complete Core Host storage environment", () => {

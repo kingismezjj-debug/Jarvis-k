@@ -27,6 +27,8 @@ export interface StorageProfile {
   readonly userPreferenceMemoryPath: string;
   readonly voiceRegressionPath: string;
   readonly qwenRetainedSessionMarkerPath: string;
+  readonly petSkinRootPath: string;
+  readonly petSkinRegistryPath: string;
 }
 
 export interface CreateStorageProfileOptions {
@@ -106,6 +108,13 @@ export function createDesktopStorageProfile(
       "user-preference-memories.json",
     ),
     voiceRegressionPath: path.join(localDataPath, "voice-regression-records.json"),
+    petSkinRootPath: path.join(localDataPath, "pet-skins", "v1"),
+    petSkinRegistryPath: path.join(
+      localDataPath,
+      "pet-skins",
+      "v1",
+      "registry.json",
+    ),
     qwenRetainedSessionMarkerPath: path.join(
       localDataPath,
       "models",

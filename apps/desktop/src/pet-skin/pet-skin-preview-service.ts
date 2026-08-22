@@ -46,12 +46,22 @@ type ResourceRecord = {
   byteLength: number;
   width: number;
   height: number;
+  sha256: string;
+  packagePath: string;
 };
 
 type ActivePreview = {
   previewId: string;
   directory: string;
+  manifest: PetSkinManifestV1;
   metadata: PetSkinPreviewMetadata;
+  resources: Map<string, ResourceRecord>;
+};
+
+export type PetSkinValidatedPreviewInstallSource = {
+  previewId: string;
+  manifest: PetSkinManifestV1;
+  directory: string;
   resources: Map<string, ResourceRecord>;
 };
 
@@ -163,6 +173,8 @@ export class PetSkinPreviewService {
           byteLength: source.bytes.length,
           width: source.resource.width,
           height: source.resource.height,
+          sha256: source.resource.sha256 ?? "",
+          packagePath: asset.path,
         });
       }
       const metadata = this.createMetadata({
@@ -173,6 +185,7 @@ export class PetSkinPreviewService {
       this.activePreview = {
         previewId,
         directory: previewDirectory,
+        manifest: packageResult.manifest,
         metadata,
         resources,
       };
@@ -211,6 +224,20 @@ export class PetSkinPreviewService {
     this.activePreview = null;
     await this.cleanupPreview(previous);
     return { ok: true, safeMessage: "Skin preview cleared." };
+  }
+
+  public getInstallSource(
+    previewId: string,
+  ): PetSkinValidatedPreviewInstallSource | null {
+    if (!this.activePreview || this.activePreview.previewId !== previewId) {
+      return null;
+    }
+    return {
+      previewId: this.activePreview.previewId,
+      manifest: this.activePreview.manifest,
+      directory: this.activePreview.directory,
+      resources: new Map(this.activePreview.resources),
+    };
   }
 
   public async dispose(): Promise<void> {
