@@ -49,6 +49,26 @@ body {
     0 0 24px rgba(59, 130, 246, 0.22);
 }
 
+.pet-orb::before,
+.pet-orb::after {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+}
+
+.pet-orb::before {
+  inset: 10px;
+  border-radius: 999px;
+}
+
+.pet-orb::after {
+  bottom: 12px;
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.58);
+}
+
 .pet-core {
   z-index: 1;
   letter-spacing: 0;
@@ -75,7 +95,7 @@ body {
 }
 
 .pet-shell[data-state="idle"] .pet-orb {
-  animation: breathe 2.8s ease-in-out infinite;
+  animation: breathe 3.2s ease-in-out infinite;
 }
 
 .pet-shell[data-state="listening"] .pet-ring {
@@ -84,30 +104,90 @@ body {
   opacity: 1;
 }
 
+.pet-shell[data-state="listening"] .pet-orb::before {
+  inset: -2px 8px;
+  border: 2px solid transparent;
+  border-right-color: rgba(103, 232, 249, 0.76);
+  border-left-color: rgba(103, 232, 249, 0.76);
+  animation: listen-wave 1.4s ease-in-out infinite;
+}
+
 .pet-shell[data-state="thinking"] .pet-ring {
   animation: rotate 2s linear infinite;
   border-color: transparent rgba(129, 140, 248, 0.78) rgba(129, 140, 248, 0.78);
   opacity: 1;
 }
 
+.pet-shell[data-state="thinking"] .pet-orb::before {
+  width: 10px;
+  height: 10px;
+  inset: 12px auto auto 54px;
+  background: rgba(196, 181, 253, 0.92);
+  box-shadow:
+    -18px 12px 0 rgba(129, 140, 248, 0.82),
+    -8px 34px 0 rgba(165, 180, 252, 0.72);
+  animation: think-orbit 1.8s ease-in-out infinite;
+}
+
 .pet-shell[data-state="success"] .pet-orb {
+  border-color: rgba(74, 222, 128, 0.52);
   box-shadow:
     0 12px 30px rgba(15, 23, 42, 0.34),
     0 0 28px rgba(34, 197, 94, 0.72);
 }
 
+.pet-shell[data-state="success"] .pet-orb::before {
+  top: 26px;
+  left: 27px;
+  width: 22px;
+  height: 12px;
+  border: 3px solid rgba(187, 247, 208, 0.94);
+  border-top: 0;
+  border-right: 0;
+  border-radius: 0;
+  transform: rotate(-45deg);
+}
+
 .pet-shell[data-state="error"] .pet-orb {
+  border-color: rgba(251, 146, 60, 0.56);
   box-shadow:
     0 12px 30px rgba(15, 23, 42, 0.34),
-    0 0 28px rgba(239, 68, 68, 0.7);
+    0 0 26px rgba(248, 113, 113, 0.66);
+}
+
+.pet-shell[data-state="error"] .pet-orb::before {
+  top: 18px;
+  width: 5px;
+  height: 28px;
+  background: rgba(254, 202, 202, 0.94);
+  border-radius: 999px;
+}
+
+.pet-shell[data-state="error"] .pet-orb::after {
+  bottom: 17px;
+  width: 6px;
+  height: 6px;
+  background: rgba(254, 202, 202, 0.94);
+  border-radius: 999px;
 }
 
 .pet-shell[data-state="offline"] .pet-orb {
   filter: grayscale(1);
-  opacity: 0.72;
+  opacity: 0.66;
 }
 
+.pet-shell[data-state="offline"] .pet-orb::before {
+  top: 36px;
+  left: 18px;
+  width: 42px;
+  height: 3px;
+  background: rgba(226, 232, 240, 0.42);
+  border-radius: 999px;
+}
+
+.pet-shell[data-state="offline"] .pet-ring,
 .pet-shell[data-motion="reduced"] .pet-orb,
+.pet-shell[data-motion="reduced"] .pet-orb::before,
 .pet-shell[data-motion="reduced"] .pet-ring {
   animation: none;
 }
@@ -120,7 +200,32 @@ body {
 }
 
 .pet-shell[data-motion="reduced"] .pet-ring {
-  opacity: 0;
+  opacity: 1;
+}
+
+.pet-shell[data-motion="reduced"][data-state="idle"] .pet-ring {
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.pet-shell[data-motion="reduced"][data-state="listening"] .pet-ring {
+  border-color: rgba(34, 211, 238, 0.72);
+}
+
+.pet-shell[data-motion="reduced"][data-state="thinking"] .pet-ring {
+  border-color: rgba(165, 180, 252, 0.78);
+  border-top-color: transparent;
+}
+
+.pet-shell[data-motion="reduced"][data-state="success"] .pet-ring {
+  border-color: rgba(74, 222, 128, 0.74);
+}
+
+.pet-shell[data-motion="reduced"][data-state="error"] .pet-ring {
+  border-color: rgba(248, 113, 113, 0.72);
+}
+
+.pet-shell[data-motion="reduced"][data-state="offline"] .pet-ring {
+  border-color: rgba(148, 163, 184, 0.36);
 }
 
 .pet-shell[data-motion="reduced"]::after {
@@ -154,8 +259,32 @@ body {
   }
 }
 
+@keyframes listen-wave {
+  0%,
+  100% {
+    transform: scaleX(0.84);
+    opacity: 0.54;
+  }
+  50% {
+    transform: scaleX(1.08);
+    opacity: 0.92;
+  }
+}
+
 @keyframes rotate {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes think-orbit {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(4px);
   }
 }

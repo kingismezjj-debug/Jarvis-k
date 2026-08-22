@@ -32,4 +32,43 @@ describe("Desktop Pet UI source", () => {
     expect(css).toContain("animation: none");
     expect(source).not.toContain("window.jarvis.");
   });
+
+  it("defines local visual treatments for all formal Pet states", () => {
+    const css = readPetSource("pet.css");
+
+    for (const state of [
+      "idle",
+      "listening",
+      "thinking",
+      "success",
+      "error",
+      "offline",
+    ]) {
+      expect(css).toContain(`data-state="${state}"`);
+      expect(css).toContain(
+        `.pet-shell[data-motion="reduced"][data-state="${state}"]`,
+      );
+    }
+    expect(css).not.toContain("http://");
+    expect(css).not.toContain("https://");
+  });
+
+  it("keeps the Pet bridge projection free of user-content fields", () => {
+    const source = readPetSource("main.tsx");
+    const css = readPetSource("pet.css");
+    const combined = `${source}\n${css}`.toLowerCase();
+
+    expect(source).toContain("window.jarvisPet");
+    expect(source).not.toContain("window.jarvis.");
+    for (const forbidden of [
+      "transcript",
+      "slots",
+      "credential",
+      "api key",
+      "bearer",
+      "password",
+    ]) {
+      expect(combined).not.toContain(forbidden);
+    }
+  });
 });
