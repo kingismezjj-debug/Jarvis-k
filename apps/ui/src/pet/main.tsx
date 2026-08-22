@@ -173,9 +173,23 @@ function Pet() {
         endDragSession(event.pointerId, event.currentTarget)
       }}
     >
-      <div className="pet-orb" aria-hidden="true">
-        <div className="pet-core">JK</div>
+      <div className="pet-robot" aria-hidden="true">
+        <div className="pet-halo" />
+        <div className="pet-ear pet-ear-left" />
+        <div className="pet-ear pet-ear-right" />
+        <div className="pet-arm pet-arm-left" />
+        <div className="pet-arm pet-arm-right" />
+        <div className="pet-orb">
+          <div className="pet-antenna" />
+          <div className="pet-face">
+            <span className="pet-eye pet-eye-left" />
+            <span className="pet-eye pet-eye-right" />
+            <span className="pet-mouth" />
+            <span className="pet-status-glyph" />
+          </div>
+        </div>
         <div className="pet-ring" />
+        <div className="pet-shadow" />
       </div>
       <span className="pet-label">{label}</span>
     </main>

@@ -35,7 +35,22 @@ describe("Desktop Pet UI source", () => {
 
   it("defines local visual treatments for all formal Pet states", () => {
     const css = readPetSource("pet.css");
+    const source = readPetSource("main.tsx");
 
+    for (const layer of [
+      "pet-robot",
+      "pet-halo",
+      "pet-ear",
+      "pet-arm",
+      "pet-antenna",
+      "pet-face",
+      "pet-eye",
+      "pet-mouth",
+      "pet-status-glyph",
+    ]) {
+      expect(source).toContain(layer);
+      expect(css).toContain(`.${layer}`);
+    }
     for (const state of [
       "idle",
       "listening",
