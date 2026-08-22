@@ -39,6 +39,17 @@ const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
 
+export const PET_SKIN_STUDIO_SOURCE_IMAGE_POLICY = {
+  maxSourceFileBytes: 25 * 1024 * 1024,
+  maxSourceWidth: 8192,
+  maxSourceHeight: 8192,
+  maxSourcePixels: 32 * 1024 * 1024,
+  normalizedMaxDimension: Math.min(
+    PET_SKIN_V1_POLICY.maxImageWidth,
+    PET_SKIN_V1_POLICY.maxImageHeight,
+  ),
+} as const;
+
 type Dialog = Pick<typeof electronDialog, "showOpenDialog" | "showSaveDialog">;
 type Shell = Pick<typeof electronShell, "showItemInFolder">;
 
@@ -75,11 +86,18 @@ export type PetSkinAssetSource = {
 };
 
 type NativeImageLike = {
-  createFromBuffer(bytes: Buffer): {
-    isEmpty(): boolean;
-    getSize(): { width: number; height: number };
-    toPNG(): Buffer | Uint8Array;
-  };
+  createFromBuffer(bytes: Buffer): NativeImageInstanceLike;
+};
+
+type NativeImageInstanceLike = {
+  isEmpty(): boolean;
+  getSize(): { width: number; height: number };
+  resize(options: {
+    width?: number;
+    height?: number;
+    quality?: "best" | "good" | "better" | "nearest";
+  }): NativeImageInstanceLike;
+  toPNG(): Buffer | Uint8Array;
 };
 
 type StateDraft = {
@@ -622,52 +640,147 @@ export function createElectronPetSkinAssetSource(
           safeMessage: "Image file could not be read.",
         };
       }
-      if (!stat.isFile() || stat.size > PET_SKIN_V1_POLICY.maxFileBytes) {
-        return {
-          ok: false,
-          reasonCode: "resource_limit_exceeded",
-          safeMessage: "Image file exceeds Pet Skin limits.",
-        };
-      }
-      const bytes = await fs.readFile(input.sourcePath);
-      if (!hasAllowedImageMagic(bytes)) {
+      if (!stat.isFile()) {
         return {
           ok: false,
           reasonCode: "invalid_image_metadata",
-          safeMessage: "Image file type is not supported.",
+          safeMessage: "Image source is not a supported file.",
         };
       }
-      const image = nativeImage.createFromBuffer(bytes);
-      if (image.isEmpty()) {
+      if (stat.size > PET_SKIN_STUDIO_SOURCE_IMAGE_POLICY.maxSourceFileBytes) {
+        return {
+          ok: false,
+          reasonCode: "source_image_too_large",
+          safeMessage: "Source image exceeds Skin Studio limits.",
+        };
+      }
+      let bytes: Buffer;
+      try {
+        bytes = await fs.readFile(input.sourcePath);
+      } catch {
         return {
           ok: false,
           reasonCode: "invalid_image_metadata",
-          safeMessage: "Image file could not be decoded.",
+          safeMessage: "Image file could not be read.",
         };
       }
-      const size = image.getSize();
+      const sourceMetadata = inspectImageMetadata(bytes);
+      if (!sourceMetadata.ok) {
+        return {
+          ok: false,
+          reasonCode: "invalid_image_metadata",
+          safeMessage: "Image file type or metadata is not supported.",
+        };
+      }
       if (
-        size.width <= 0 ||
-        size.height <= 0 ||
-        size.width > PET_SKIN_V1_POLICY.maxImageWidth ||
-        size.height > PET_SKIN_V1_POLICY.maxImageHeight ||
-        size.width * size.height > PET_SKIN_V1_POLICY.maxImagePixels
+        sourceMetadata.width > PET_SKIN_STUDIO_SOURCE_IMAGE_POLICY.maxSourceWidth ||
+        sourceMetadata.height > PET_SKIN_STUDIO_SOURCE_IMAGE_POLICY.maxSourceHeight ||
+        sourceMetadata.width * sourceMetadata.height >
+          PET_SKIN_STUDIO_SOURCE_IMAGE_POLICY.maxSourcePixels
       ) {
         return {
           ok: false,
-          reasonCode: "resource_limit_exceeded",
-          safeMessage: "Image dimensions exceed Pet Skin limits.",
+          reasonCode: "source_image_too_large",
+          safeMessage: "Source image dimensions exceed Skin Studio limits.",
         };
       }
-      const png = Buffer.from(image.toPNG());
-      if (png.length > PET_SKIN_V1_POLICY.maxFileBytes || !isPng(png)) {
+      let image: NativeImageInstanceLike;
+      try {
+        image = nativeImage.createFromBuffer(bytes);
+        if (image.isEmpty()) {
+          return {
+            ok: false,
+            reasonCode: "image_decode_failed",
+            safeMessage: "Image file could not be decoded.",
+          };
+        }
+      } catch {
         return {
           ok: false,
-          reasonCode: "invalid_image_metadata",
+          reasonCode: "image_decode_failed",
+          safeMessage: "Image file could not be decoded.",
+        };
+      }
+      let decodedSize: { width: number; height: number };
+      try {
+        decodedSize = image.getSize();
+      } catch {
+        return {
+          ok: false,
+          reasonCode: "image_decode_failed",
+          safeMessage: "Image file could not be decoded.",
+        };
+      }
+      if (decodedSize.width <= 0 || decodedSize.height <= 0) {
+        return {
+          ok: false,
+          reasonCode: "image_decode_failed",
+          safeMessage: "Image file could not be decoded.",
+        };
+      }
+      const normalizedSize = normalizedContainSize(decodedSize);
+      let normalizedImage = image;
+      if (
+        normalizedSize.width !== decodedSize.width ||
+        normalizedSize.height !== decodedSize.height
+      ) {
+        try {
+          normalizedImage = image.resize({
+            width: normalizedSize.width,
+            height: normalizedSize.height,
+            quality: "best",
+          });
+          if (normalizedImage.isEmpty()) {
+            return {
+              ok: false,
+              reasonCode: "image_normalization_failed",
+              safeMessage: "Image normalization failed.",
+            };
+          }
+        } catch {
+          return {
+            ok: false,
+            reasonCode: "image_normalization_failed",
+            safeMessage: "Image normalization failed.",
+          };
+        }
+      }
+      let png: Buffer;
+      try {
+        png = Buffer.from(normalizedImage.toPNG());
+      } catch {
+        return {
+          ok: false,
+          reasonCode: "image_normalization_failed",
           safeMessage: "Image normalization failed.",
         };
       }
-      await fs.writeFile(input.destinationPath, png);
+      const normalizedMetadata = inspectImageMetadata(png);
+      if (
+        png.length === 0 ||
+        !normalizedMetadata.ok ||
+        normalizedMetadata.contentType !== "image/png" ||
+        png.length > PET_SKIN_V1_POLICY.maxFileBytes ||
+        normalizedMetadata.width > PET_SKIN_V1_POLICY.maxImageWidth ||
+        normalizedMetadata.height > PET_SKIN_V1_POLICY.maxImageHeight ||
+        normalizedMetadata.width * normalizedMetadata.height >
+          PET_SKIN_V1_POLICY.maxImagePixels
+      ) {
+        return {
+          ok: false,
+          reasonCode: "image_normalization_failed",
+          safeMessage: "Image normalization failed.",
+        };
+      }
+      try {
+        await writeFileAtomic(input.destinationPath, png);
+      } catch {
+        return {
+          ok: false,
+          reasonCode: "studio_write_failed",
+          safeMessage: "Skin Studio could not save the normalized image.",
+        };
+      }
       return {
         ok: true,
         asset: {
@@ -675,8 +788,8 @@ export function createElectronPetSkinAssetSource(
           contentType: "image/png",
           bytes: png,
           byteLength: png.length,
-          width: size.width,
-          height: size.height,
+          width: normalizedMetadata.width,
+          height: normalizedMetadata.height,
           sha256: sha256(png),
           source: "local_file",
           packagePath: input.packagePath,
@@ -747,10 +860,6 @@ function ensureJkskinExtension(filePath: string): string {
     : `${filePath}.jkskin`;
 }
 
-function hasAllowedImageMagic(bytes: Buffer): boolean {
-  return isPng(bytes) || isWebp(bytes);
-}
-
 function isPng(bytes: Buffer): boolean {
   return bytes.length >= 8 && bytes.subarray(0, 8).equals(PNG_SIGNATURE);
 }
@@ -761,6 +870,89 @@ function isWebp(bytes: Buffer): boolean {
     bytes.toString("ascii", 0, 4) === "RIFF" &&
     bytes.toString("ascii", 8, 12) === "WEBP"
   );
+}
+
+function inspectImageMetadata(
+  bytes: Buffer,
+):
+  | {
+      ok: true;
+      contentType: "image/png" | "image/webp";
+      width: number;
+      height: number;
+    }
+  | { ok: false } {
+  if (isPng(bytes) && bytes.length >= 24) {
+    const width = bytes.readUInt32BE(16);
+    const height = bytes.readUInt32BE(20);
+    return width > 0 && height > 0
+      ? { ok: true, contentType: "image/png", width, height }
+      : { ok: false };
+  }
+  if (isWebp(bytes)) {
+    const metadata = inspectWebpMetadata(bytes);
+    return metadata
+      ? { ok: true, contentType: "image/webp", ...metadata }
+      : { ok: false };
+  }
+  return { ok: false };
+}
+
+function inspectWebpMetadata(
+  bytes: Buffer,
+): { width: number; height: number } | null {
+  const format = bytes.toString("ascii", 12, 16);
+  if (format === "VP8 " && bytes.length >= 30) {
+    const width = bytes.readUInt16LE(26) & 0x3fff;
+    const height = bytes.readUInt16LE(28) & 0x3fff;
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+  if (format === "VP8L" && bytes.length >= 25) {
+    const b0 = bytes[21] ?? 0;
+    const b1 = bytes[22] ?? 0;
+    const b2 = bytes[23] ?? 0;
+    const b3 = bytes[24] ?? 0;
+    const width = 1 + (((b1 & 0x3f) << 8) | b0);
+    const height = 1 + ((b3 << 6) | (b2 >> 2) | ((b1 & 0xc0) << 2));
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+  if (format === "VP8X" && bytes.length >= 30) {
+    const width = 1 + bytes.readUIntLE(24, 3);
+    const height = 1 + bytes.readUIntLE(27, 3);
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+  return null;
+}
+
+function normalizedContainSize(size: { width: number; height: number }): {
+  width: number;
+  height: number;
+} {
+  const maxDimension = PET_SKIN_STUDIO_SOURCE_IMAGE_POLICY.normalizedMaxDimension;
+  if (
+    size.width <= 0 ||
+    size.height <= 0 ||
+    (size.width <= maxDimension && size.height <= maxDimension)
+  ) {
+    return size;
+  }
+  const scale = Math.min(maxDimension / size.width, maxDimension / size.height);
+  return {
+    width: Math.max(1, Math.round(size.width * scale)),
+    height: Math.max(1, Math.round(size.height * scale)),
+  };
+}
+
+async function writeFileAtomic(destinationPath: string, bytes: Buffer): Promise<void> {
+  await fs.mkdir(path.dirname(destinationPath), { recursive: true });
+  const tempPath = `${destinationPath}.${crypto.randomBytes(6).toString("hex")}.tmp`;
+  try {
+    await fs.writeFile(tempPath, bytes, { flag: "wx" });
+    await fs.rename(tempPath, destinationPath);
+  } catch (error) {
+    await fs.rm(tempPath, { force: true });
+    throw error;
+  }
 }
 
 function sha256(bytes: Buffer): string {

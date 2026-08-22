@@ -78,7 +78,7 @@
     "smoke:desktop:tray-lifecycle": "npm run build && node tests/desktop-tray-lifecycle-smoke.mjs",
     "smoke:desktop:pet": "npm run build && node tests/desktop-pet-smoke.mjs",
     "smoke:desktop:pet-skin-lifecycle": "npm run build && node tests/desktop-pet-skin-lifecycle-smoke.mjs",
-    "smoke:desktop:pet-skin-studio": "npm run build && node tests/desktop-pet-skin-studio-smoke.mjs",
+    "smoke:desktop:pet-skin-studio": "npm run build && electron tests/desktop-pet-skin-studio-smoke.cjs",
     "package:windows:dir": "npm run build && electron-builder --win --x64 --dir",
     "package:windows:alpha": "npm run build && electron-builder --win nsis --x64",
     "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-dependency-closure.mjs && node tests/packaged-runtime-smoke.mjs",

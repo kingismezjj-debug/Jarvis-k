@@ -102,6 +102,48 @@ describe("registerPetSkinStudioIpc", () => {
     unregister();
     expect(ipcMain.handlers.size).toBe(0);
   });
+
+  it("returns Studio image errors through IPC without throwing handler exceptions", async () => {
+    const ipcMain = new FakeIpcMain();
+    const mainWebContents = { id: 1 };
+    ipcMain.senders.set(1, mainWebContents);
+    const studioService = {
+      exportDraft: vi.fn(),
+      getDraft: vi.fn(),
+      openExportFolder: vi.fn(),
+      previewDraft: vi.fn(),
+      reset: vi.fn(),
+      selectAsset: vi.fn(async () => ({
+        ok: false,
+        reasonCode: "image_normalization_failed",
+        safeMessage: "Image normalization failed.",
+      })),
+      updateMetadata: vi.fn(),
+    };
+
+    const unregister = registerPetSkinStudioIpc({
+      ipcMain: ipcMain as never,
+      dialog: {
+        showOpenDialog: vi.fn(),
+        showSaveDialog: vi.fn(),
+      } as never,
+      shell: { showItemInFolder: vi.fn() } as never,
+      getMainWindow: () => ({ webContents: mainWebContents }) as never,
+      studioService: studioService as never,
+    });
+
+    await expect(
+      ipcMain.invoke(IPC_DESKTOP_PET_SKIN_STUDIO_SELECT_ASSET_CHANNEL, 1, {
+        state: "idle",
+        role: "base",
+        source: "local_file",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      reasonCode: "image_normalization_failed",
+    });
+    unregister();
+  });
 });
 
 function minimalDraft() {
