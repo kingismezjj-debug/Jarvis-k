@@ -17,6 +17,7 @@ import {
 import {
   createDesktopPetState,
   recentPetStateFromEvent,
+  type RecentDesktopPetState,
 } from "./pet-state-projector";
 
 export interface DesktopPetControllerOptions {
@@ -41,6 +42,7 @@ export class DesktopPetController {
   private recentState: Parameters<
     typeof createDesktopPetState
   >[0]["recentState"] = null;
+  private lastRecentSignature: string | null = null;
   private moveTimer: NodeJS.Timeout | null = null;
   private recentTimer: NodeJS.Timeout | null = null;
   private crashRecoveryAttempted = false;
@@ -175,20 +177,13 @@ export class DesktopPetController {
     }
     const recent = recentPetStateFromEvent(envelope, this.now().getTime());
     if (recent) {
-      this.recentState = recent;
-      this.scheduleRecentStateExpiry(recent.untilMs);
+      this.applyRecentState(recent);
     }
     this.publishState();
   }
 
   public publishState(): void {
-    this.latestState = createDesktopPetState({
-      nowIso: this.now().toISOString(),
-      nowMs: this.now().getTime(),
-      coreOnline: this.coreOnline,
-      ...(this.lastSnapshot ? { snapshot: this.lastSnapshot } : {}),
-      ...(this.recentState ? { recentState: this.recentState } : {}),
-    });
+    this.latestState = this.computeState();
     const window = this.petWindow;
     if (window && !window.isDestroyed()) {
       window.webContents.send(IPC_DESKTOP_PET_EVENT_CHANNEL, this.latestState);
@@ -282,6 +277,15 @@ export class DesktopPetController {
     }, delayMs);
   }
 
+  private applyRecentState(recent: RecentDesktopPetState): void {
+    if (recent.signature && recent.signature === this.lastRecentSignature) {
+      return;
+    }
+    this.lastRecentSignature = recent.signature ?? null;
+    this.recentState = recent;
+    this.scheduleRecentStateExpiry(recent.untilMs);
+  }
+
   private destroyPetWindow(): void {
     const window = this.petWindow;
     if (window && !window.isDestroyed()) {
@@ -291,7 +295,20 @@ export class DesktopPetController {
     } else {
       this.petWindow = null;
     }
-    this.clearMoveTimer();
+    this.recentState = null;
+    this.latestState = this.computeState();
+    this.clearTimers();
+  }
+
+  private computeState(): DesktopPetState {
+    const now = this.now();
+    return createDesktopPetState({
+      nowIso: now.toISOString(),
+      nowMs: now.getTime(),
+      coreOnline: this.coreOnline,
+      ...(this.lastSnapshot ? { snapshot: this.lastSnapshot } : {}),
+      ...(this.recentState ? { recentState: this.recentState } : {}),
+    });
   }
 
   private clearTimers(): void {

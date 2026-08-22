@@ -272,8 +272,100 @@ describe("DesktopPetController", () => {
     );
     expect(petWindow.destroy).toHaveBeenCalledTimes(1);
   });
+
+  it("does not extend temporary states for repeated completed task snapshots", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(nowIso));
+    const controller = new DesktopPetController({
+      settingsService: createSettingsService() as never,
+      getMainWindow: () => null,
+      createMainWindow: vi.fn(),
+      setMainWindow: vi.fn(),
+      openSettings: vi.fn(),
+      quit: vi.fn(),
+      isQuitting: () => false,
+    });
+
+    controller.handleCoreEvent(snapshotEnvelope("completed", 1));
+    expect(controller.getState()).toMatchObject({ state: "success" });
+
+    vi.advanceTimersByTime(1_000);
+    controller.handleCoreEvent(snapshotEnvelope("completed", 2));
+    expect(controller.getState()).toMatchObject({ state: "success" });
+
+    vi.advanceTimersByTime(500);
+    expect(controller.getState()).toMatchObject({ state: "idle" });
+  });
+
+  it("clears temporary state timers when the Pet is hidden", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(nowIso));
+    const settingsService = createSettingsService();
+    settingsService.setDesktopPetEnabled({ enabled: true });
+    const petWindow = createWindowFactory();
+    const controller = new DesktopPetController({
+      settingsService: settingsService as never,
+      getMainWindow: () => null,
+      createMainWindow: vi.fn(),
+      setMainWindow: vi.fn(),
+      openSettings: vi.fn(),
+      quit: vi.fn(),
+      isQuitting: () => false,
+      createWindow: vi.fn(() => petWindow as never),
+    });
+    controller.syncFromSettings();
+    controller.handleCoreEvent(snapshotEnvelope("completed", 1));
+    expect(controller.getState()).toMatchObject({ state: "success" });
+    petWindow.webContents.send.mockClear();
+
+    controller.hidePet();
+    vi.advanceTimersByTime(1_500);
+
+    expect(petWindow.webContents.send).not.toHaveBeenCalled();
+    expect(controller.getState()).not.toMatchObject({ state: "success" });
+  });
 });
 
 function createWindowFactory() {
   return createWindow();
+}
+
+const nowIso = "2026-08-20T00:00:00.000Z";
+
+function snapshotEnvelope(taskState: "completed" | "failed", sequenceId: number) {
+  return {
+    protocolVersion: 1,
+    sequenceId,
+    timestamp: nowIso,
+    event: {
+      type: "state.snapshot",
+      payload: {
+        protocolVersion: 1,
+        coreInstanceId: "core-1",
+        sequenceId,
+        health: "ready",
+        startedAt: nowIso,
+        updatedAt: nowIso,
+        voice: {
+          state: "idle",
+          mode: "disabled",
+        },
+        messages: [],
+        conversations: [],
+        sessionHistory: [],
+        tasks: [
+          {
+            id: "task-1",
+            title: "Safe task",
+            state: taskState,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            routeSource: "unknown",
+            steps: [],
+            events: [],
+          },
+        ],
+      },
+    },
+  } as never;
 }
