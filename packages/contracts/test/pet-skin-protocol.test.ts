@@ -6,6 +6,8 @@ import {
   PET_SKIN_FORMAL_STATES,
   PET_SKIN_V1_POLICY,
   type PetSkinManifestV1,
+  canonicalizePetSkinManifestForDigest,
+  createPetSkinPackageDigestPayload,
   validatePetSkinManifestV1,
 } from "../src";
 
@@ -126,6 +128,32 @@ describe("Pet Skin v1 protocol", () => {
         "offline",
       ]);
     }
+  });
+
+  it("defines one canonical package digest payload that excludes the digest field itself", () => {
+    const manifest = makeManifest({ packageDigest: shaA });
+    const sameContentDifferentDigest = makeManifest({ packageDigest: shaB });
+    expect(canonicalizePetSkinManifestForDigest(manifest)).toEqual(
+      canonicalizePetSkinManifestForDigest(sameContentDifferentDigest),
+    );
+    const payload = createPetSkinPackageDigestPayload({
+      manifest,
+      resources: [
+        { ...manifest.assets["idle.base"], sha256: shaB },
+        { ...manifest.assets["error.base"], sha256: shaA },
+      ],
+    });
+    const reversedPayload = createPetSkinPackageDigestPayload({
+      manifest,
+      resources: [
+        { ...manifest.assets["error.base"], sha256: shaA },
+        { ...manifest.assets["idle.base"], sha256: shaB },
+      ],
+    });
+    expect(payload).toEqual(reversedPayload);
+    expect(payload).toContain("jarvis-k-pet-skin-v1");
+    expect(payload).not.toContain(`"packageDigest":"${shaA}"`);
+    expect(payload).not.toContain(`"packageDigest":"${shaB}"`);
   });
 
   it("requires reduced-motion static glyphs or variants for every state", () => {

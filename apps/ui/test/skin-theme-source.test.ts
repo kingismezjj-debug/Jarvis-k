@@ -30,10 +30,12 @@ describe("skin theme source", () => {
     expect(cssSource).toContain("--accent:");
   });
 
-  it("does not expose executable skin package behavior", () => {
-    expect(appSource).not.toContain(".jkskin");
+  it("does not expose executable or installable skin package behavior", () => {
+    expect(appSource).toContain("Local Pet Skin Preview");
     expect(appSource).not.toContain("importSkin");
     expect(appSource).not.toContain("installSkin");
+    expect(appSource).not.toContain("activateSkin");
+    expect(appSource).not.toContain("Set as default");
     expect(appSource).not.toContain("eval(");
     expect(appSource).not.toContain("dangerouslySetInnerHTML");
     expect(cssSource).not.toContain("javascript:");
