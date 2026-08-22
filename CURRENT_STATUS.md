@@ -27,6 +27,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase 4B-2B Desktop Pet built-in default visual is implemented: the local CSS-only floating mini AI robot uses layered shell, face, halo, ears, arms, and status glyphs; all six formal states have distinct non-sensitive visual feedback and Reduced Motion keeps static state cues.
 - Phase 4B-3A Desktop Pet Skin v1 contract is defined at the contracts layer: asset-only manifest schema, centralized resource policy, pure fail-closed validator, safe reason codes, trust-state boundaries, non-removable built-in fallback protection, Reduced Motion static-state requirement, and a concise threat model.
 - Phase 4B-3B Desktop Pet Skin secure temporary preview is implemented up to `validated_preview_package`: `.jkskin` ZIP packages are read in Desktop Main, package digests are canonicalized without the manifest `packageDigest` field, resources are exposed only through a scoped preview protocol, Renderer receives safe metadata only, and previews are not installed or activated.
+- Phase 4B-3C Desktop Pet Skin local install/activate/rollback is implemented up to `installed_local_skin` and `active_skin`: validated previews install into release-channel local data, the registry is atomically persisted and corruption-isolated, installed resources use a separate scoped protocol, activation preflights before persistence, renderer failures roll back to last-known-good or the built-in robot, and Appearance exposes Developer-gated local management.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -137,23 +138,23 @@ Phase 4B-3 Skin Contract requirement:
 
 - Every Pet skin must provide either explicit `stateGlyph` assets or static per-state variants for all six formal states, so Reduced Motion remains visually distinguishable without relying on continuous animation.
 
-1. Desktop Pet local skin install/enable/rollback.
-   - User value: allow safe local skin use after preview validation.
-   - Scope: install to Alpha-local skin storage, activate/deactivate, rollback to built-in robot fallback.
-   - Safety: no executable skin content, no community upload, no arbitrary file access.
-   - Acceptance: validated preview can be installed locally, activation survives restart, invalid skins fall back to built-in robot.
-
-2. First-run provider and microphone setup polish.
+1. First-run provider and microphone setup polish.
    - User value: reduce confusion before daily Voice use.
    - Scope: clearer provider status, permission copy, recovery path, and no-mic fallback.
    - Safety: no auto microphone start, no ASR network call without user action.
    - Acceptance: ordinary user can see what remains to configure and continue text-only use.
 
-3. Crash recovery and diagnostic export.
+2. Crash recovery and diagnostic export.
    - User value: make Alpha failures debuggable without exposing private content.
    - Scope: safe process/runtime summary export and recovery guidance.
    - Safety: no credentials, transcripts, file contents, or raw plugin inputs in diagnostics.
    - Acceptance: user can export a redacted support bundle after a failure.
+
+3. Desktop Pet Skin manual local lifecycle acceptance.
+   - User value: confirm local install, activate, remove, and fallback behavior in development UI.
+   - Scope: use validated local `.jkskin` samples only; no installer and no community upload.
+   - Safety: built-in robot remains available and third-party skins remain asset-only.
+   - Acceptance: install does not auto-activate, active skin survives restart, damaged skin rolls back, and remove active returns to fallback.
 
 ## Key Commits
 
@@ -167,4 +168,4 @@ Phase 4B-3 Skin Contract requirement:
 - Voice Pilot reruns or 100-record expansion.
 - Resolver, ASR, Qwen rerank, or Pilot Manifest changes.
 - Real Windows acceptance without explicit user approval and safety variable.
-- Skin Runtime, Skin Studio, Marketplace, or community upload work before explicit approval.
+- Skin Studio, Marketplace, remote skin download, or community upload work before explicit approval.
