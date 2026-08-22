@@ -25,6 +25,10 @@ import type {
   PetSkinPreviewResourceResult,
   PetSkinPreviewSelectResult,
   PetSkinRemoveRequest,
+  PetSkinStudioMetadataUpdateRequest,
+  PetSkinStudioOpenExportFolderRequest,
+  PetSkinStudioResult,
+  PetSkinStudioSelectAssetRequest,
 } from "./pet-skin-protocol";
 import {
   DesktopPetActiveSkinDescriptorSchema,
@@ -34,6 +38,10 @@ import {
   PetSkinRegistryProjectionSchema,
   PetSkinRemoveRequestSchema,
   PetSkinRenderFailureReportSchema,
+  PetSkinStudioMetadataUpdateRequestSchema,
+  PetSkinStudioOpenExportFolderRequestSchema,
+  PetSkinStudioResultSchema,
+  PetSkinStudioSelectAssetRequestSchema,
   type PetSkinRegistryProjection,
   type PetSkinRenderFailureReport,
 } from "./pet-skin-protocol";
@@ -100,6 +108,20 @@ export const IPC_DESKTOP_PET_SKIN_REMOVE_CHANNEL =
   "jarvis-k:desktop-pet-skin-remove";
 export const IPC_DESKTOP_PET_SKIN_RENDER_FAILURE_CHANNEL =
   "jarvis-k:desktop-pet-skin-render-failure";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_DRAFT_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-draft";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_METADATA_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-metadata";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_SELECT_ASSET_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-select-asset";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_PREVIEW_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-preview";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_EXPORT_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-export";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_RESET_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-reset";
+export const IPC_DESKTOP_PET_SKIN_STUDIO_OPEN_EXPORT_FOLDER_CHANNEL =
+  "jarvis-k:desktop-pet-skin-studio-open-export-folder";
 export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
 export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
@@ -3788,6 +3810,19 @@ export interface JarvisBridge {
   removeDesktopPetSkin(
     request: PetSkinRemoveRequest,
   ): Promise<PetSkinManagementResult>;
+  getDesktopPetSkinStudioDraft(): Promise<PetSkinStudioResult>;
+  updateDesktopPetSkinStudioMetadata(
+    request: PetSkinStudioMetadataUpdateRequest,
+  ): Promise<PetSkinStudioResult>;
+  selectDesktopPetSkinStudioAsset(
+    request: PetSkinStudioSelectAssetRequest,
+  ): Promise<PetSkinStudioResult>;
+  previewDesktopPetSkinStudioDraft(): Promise<PetSkinStudioResult>;
+  exportDesktopPetSkinStudioDraft(): Promise<PetSkinStudioResult>;
+  resetDesktopPetSkinStudioDraft(): Promise<PetSkinStudioResult>;
+  openDesktopPetSkinStudioExportFolder(
+    request: PetSkinStudioOpenExportFolderRequest,
+  ): Promise<PetSkinStudioResult>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;
@@ -3817,4 +3852,8 @@ export {
   PetSkinRegistryProjectionSchema,
   PetSkinRemoveRequestSchema,
   PetSkinRenderFailureReportSchema,
+  PetSkinStudioMetadataUpdateRequestSchema,
+  PetSkinStudioOpenExportFolderRequestSchema,
+  PetSkinStudioResultSchema,
+  PetSkinStudioSelectAssetRequestSchema,
 };

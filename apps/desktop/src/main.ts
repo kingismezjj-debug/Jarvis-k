@@ -5,8 +5,10 @@ import {
   app,
   dialog,
   ipcMain,
+  nativeImage,
   protocol,
-  safeStorage
+  safeStorage,
+  shell
 } from "electron";
 import {
   PET_SKIN_INSTALLED_PROTOCOL,
@@ -60,6 +62,11 @@ import { PetSkinPreviewService } from "./pet-skin/pet-skin-preview-service";
 import { registerPetSkinPreviewIpc } from "./ipc/register-pet-skin-preview-ipc";
 import { PetSkinLocalRegistryService } from "./pet-skin/pet-skin-local-registry-service";
 import { registerPetSkinIpc } from "./ipc/register-pet-skin-ipc";
+import {
+  PetSkinStudioService,
+  createElectronPetSkinAssetSource
+} from "./pet-skin/pet-skin-studio-service";
+import { registerPetSkinStudioIpc } from "./ipc/register-pet-skin-studio-ipc";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -86,6 +93,8 @@ let petSkinPreviewService: PetSkinPreviewService | null = null;
 let petSkinPreviewIpcDisposer: (() => void) | null = null;
 let petSkinRegistryService: PetSkinLocalRegistryService | null = null;
 let petSkinIpcDisposer: (() => void) | null = null;
+let petSkinStudioService: PetSkinStudioService | null = null;
+let petSkinStudioIpcDisposer: (() => void) | null = null;
 let desktopRuntimeDisposeStarted = false;
 let startupSource: DesktopStartupSource = resolveDesktopStartupSource();
 let loginItemController: LoginItemController | null = null;
@@ -334,12 +343,19 @@ if (!hasSingleInstanceLock) {
     petSkinPreviewService = new PetSkinPreviewService();
     petSkinPreviewService.registerProtocol(protocol);
     void petSkinPreviewService.cleanupStalePreviewDirectories();
+    void PetSkinStudioService.cleanupStaleStudioDirectories();
     petSkinRegistryService = new PetSkinLocalRegistryService({
       rootDirectory: storageProfile.petSkinRootPath,
       registryPath: storageProfile.petSkinRegistryPath,
       rendererPreflight: async () => true
     });
     petSkinRegistryService.registerProtocol(protocol);
+    petSkinStudioService = new PetSkinStudioService({
+      previewService: petSkinPreviewService,
+      assetSource: createElectronPetSkinAssetSource(nativeImage),
+      currentJarvisVersion: app.getVersion(),
+      forbiddenExportRoots: [storageProfile.petSkinRootPath]
+    });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,
       createMainWindow: createTrackedMainWindow,
@@ -485,6 +501,13 @@ if (!hasSingleInstanceLock) {
         petController?.publishState();
       }
     });
+    petSkinStudioIpcDisposer = registerPetSkinStudioIpc({
+      ipcMain,
+      dialog,
+      shell,
+      getMainWindow: () => mainWindow,
+      studioService: petSkinStudioService
+    });
     qwenRuntimeIpcDisposer = registerQwenRuntimeIpc({
       ipcMain,
       qwenRuntimeController,
@@ -535,6 +558,12 @@ function disposeDesktopRuntime(): void {
   petSkinPreviewIpcDisposer = null;
   petSkinIpcDisposer?.();
   petSkinIpcDisposer = null;
+  petSkinStudioIpcDisposer?.();
+  petSkinStudioIpcDisposer = null;
+  if (petSkinStudioService) {
+    void petSkinStudioService.dispose();
+    petSkinStudioService = null;
+  }
   if (petSkinPreviewService) {
     void petSkinPreviewService.dispose();
     petSkinPreviewService.unregisterProtocol(protocol);

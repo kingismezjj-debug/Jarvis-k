@@ -4,6 +4,9 @@ import type {
   EventEnvelope,
   PetSkinRegistryProjection,
   PetSkinPreviewSelectResult,
+  PetSkinStudioMetadataUpdateRequest,
+  PetSkinStudioResult,
+  PetSkinStudioSelectAssetRequest,
   TaskState,
   UserControlledMemoryKind,
   UserControlledMemoryRecord,
@@ -226,6 +229,9 @@ export default function App() {
   const [petSkinPreviewLoading, setPetSkinPreviewLoading] = useState(false);
   const [petSkinRegistry, setPetSkinRegistry] =
     useState<PetSkinRegistryProjection | null>(null);
+  const [petSkinStudioResult, setPetSkinStudioResult] =
+    useState<PetSkinStudioResult | null>(null);
+  const [petSkinStudioLoading, setPetSkinStudioLoading] = useState(false);
   const autoSpokenTtsKeyRef = useRef<string | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAudioUrlRef = useRef<string | null>(null);
@@ -880,6 +886,7 @@ export default function App() {
   useEffect(() => {
     if (activeView === "settings" && developerModeEnabled) {
       void refreshPetSkinRegistry();
+      void refreshPetSkinStudioDraft();
     }
   }, [activeView, developerModeEnabled]);
 
@@ -1003,6 +1010,100 @@ export default function App() {
       const result = await window.jarvis?.removeDesktopPetSkin(identity);
       if (result?.registry) {
         setPetSkinRegistry(result.registry);
+      }
+      return result?.ok === true;
+    });
+  }
+
+  async function refreshPetSkinStudioDraft() {
+    const result = await window.jarvis?.getDesktopPetSkinStudioDraft();
+    if (result) {
+      setPetSkinStudioResult(result);
+    }
+    return result?.ok === true;
+  }
+
+  async function handleUpdatePetSkinStudioMetadata(
+    metadata: PetSkinStudioMetadataUpdateRequest,
+  ) {
+    return trackAction("Update Pet Skin Studio metadata", async () => {
+      const result =
+        await window.jarvis?.updateDesktopPetSkinStudioMetadata(metadata);
+      if (result) {
+        setPetSkinStudioResult(result);
+      }
+      return result?.ok === true;
+    });
+  }
+
+  async function handleSelectPetSkinStudioAsset(
+    request: PetSkinStudioSelectAssetRequest,
+  ) {
+    return trackAction("Add Pet Skin Studio image", async () => {
+      setPetSkinStudioLoading(true);
+      try {
+        const result =
+          await window.jarvis?.selectDesktopPetSkinStudioAsset(request);
+        if (result) {
+          setPetSkinStudioResult(result);
+        }
+        return result?.ok === true;
+      } finally {
+        setPetSkinStudioLoading(false);
+      }
+    });
+  }
+
+  async function handlePreviewPetSkinStudioDraft() {
+    return trackAction("Preview Pet Skin Studio draft", async () => {
+      setPetSkinStudioLoading(true);
+      try {
+        const result = await window.jarvis?.previewDesktopPetSkinStudioDraft();
+        if (result) {
+          setPetSkinStudioResult(result);
+        }
+        if (result?.ok && result.preview) {
+          setPetSkinPreviewResult({ ok: true, preview: result.preview });
+        }
+        return result?.ok === true;
+      } finally {
+        setPetSkinStudioLoading(false);
+      }
+    });
+  }
+
+  async function handleExportPetSkinStudioDraft() {
+    return trackAction("Export Pet Skin Studio draft", async () => {
+      setPetSkinStudioLoading(true);
+      try {
+        const result = await window.jarvis?.exportDesktopPetSkinStudioDraft();
+        if (result) {
+          setPetSkinStudioResult(result);
+        }
+        return result?.ok === true;
+      } finally {
+        setPetSkinStudioLoading(false);
+      }
+    });
+  }
+
+  async function handleResetPetSkinStudioDraft() {
+    return trackAction("Reset Pet Skin Studio draft", async () => {
+      const result = await window.jarvis?.resetDesktopPetSkinStudioDraft();
+      if (result) {
+        setPetSkinStudioResult(result);
+      }
+      return result?.ok === true;
+    });
+  }
+
+  async function handleOpenPetSkinStudioExportFolder(exportId: string) {
+    return trackAction("Open Pet Skin Studio export folder", async () => {
+      const result = await window.jarvis?.openDesktopPetSkinStudioExportFolder({
+        exportId,
+      });
+      if (result) {
+        setPetSkinStudioResult(result);
       }
       return result?.ok === true;
     });
@@ -2271,14 +2372,26 @@ export default function App() {
                   petSkinPreviewLoading={petSkinPreviewLoading}
                   petSkinPreviewResult={petSkinPreviewResult}
                   petSkinRegistry={petSkinRegistry}
+                  petSkinStudioLoading={petSkinStudioLoading}
+                  petSkinStudioResult={petSkinStudioResult}
                   onActivatePetSkin={handleActivatePetSkin}
                   onSelectTheme={handleSelectSkinTheme}
                   onCancelPetSkinPreview={handleCancelPetSkinPreview}
+                  onExportPetSkinStudioDraft={handleExportPetSkinStudioDraft}
+                  onOpenPetSkinStudioExportFolder={
+                    handleOpenPetSkinStudioExportFolder
+                  }
+                  onPreviewPetSkinStudioDraft={handlePreviewPetSkinStudioDraft}
                   onInstallPetSkinPreview={handleInstallPetSkinPreview}
                   onRefreshPetSkinRegistry={refreshPetSkinRegistry}
+                  onResetPetSkinStudioDraft={handleResetPetSkinStudioDraft}
                   onRemovePetSkin={handleRemovePetSkin}
                   onReturnPetSkinToBuiltIn={handleReturnPetSkinToBuiltIn}
                   onSelectPetSkinPreview={handleSelectPetSkinPreview}
+                  onSelectPetSkinStudioAsset={handleSelectPetSkinStudioAsset}
+                  onUpdatePetSkinStudioMetadata={
+                    handleUpdatePetSkinStudioMetadata
+                  }
                   showPetSkinPreview={developerModeEnabled}
                   storageKey={THEME_STORAGE_KEY}
                   themes={builtInSkinThemes}

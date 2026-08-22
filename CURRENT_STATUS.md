@@ -29,6 +29,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase 4B-3B Desktop Pet Skin secure temporary preview is implemented up to `validated_preview_package`: `.jkskin` ZIP packages are read in Desktop Main, package digests are canonicalized without the manifest `packageDigest` field, resources are exposed only through a scoped preview protocol, Renderer receives safe metadata only, and previews are not installed or activated.
 - Phase 4B-3C Desktop Pet Skin local install/activate/rollback is implemented up to `installed_local_skin` and `active_skin`: validated previews install into release-channel local data, the registry is atomically persisted and corruption-isolated, installed resources use a separate scoped protocol, activation preflights before persistence, renderer failures roll back to last-known-good or the built-in robot, and Appearance exposes Developer-gated local management.
 - Phase 4B-3C-A Desktop Pet Skin manual acceptance fixture generator is available: `npm run fixture:pet-skin:manual` creates an ignored, formally validated `.jkskin` with six distinct states and Reduced Motion static variants under `artifacts/manual/pet-skins/`.
+- Phase 4B-4A local Pet Skin Studio MVP is implemented in Developer Mode: users can enter safe metadata, map local PNG/WebP images to all six states, generate temporary previews, and export `.jkskin` packages that are reopened through the official reader before being offered for install through the existing secure import flow.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -129,7 +130,7 @@ P2:
 
 P3:
 
-- Advanced Desktop Pet animation/skins, Skin Studio, plugin marketplace/community, and advanced appearance packaging remain out of scope.
+- Plugin marketplace/community, remote skin download/upload, and advanced appearance packaging remain out of scope.
 
 ## Next Stage
 
@@ -151,11 +152,11 @@ Phase 4B-3 Skin Contract requirement:
    - Safety: no credentials, transcripts, file contents, or raw plugin inputs in diagnostics.
    - Acceptance: user can export a redacted support bundle after a failure.
 
-3. Desktop Pet Skin manual local lifecycle acceptance.
-   - User value: confirm local install, activate, remove, and fallback behavior in development UI.
-   - Scope: use validated local `.jkskin` samples only; no installer and no community upload.
-   - Safety: built-in robot remains available and third-party skins remain asset-only.
-   - Acceptance: install does not auto-activate, active skin survives restart, damaged skin rolls back, and remove active returns to fallback.
+3. Desktop Pet Skin Studio manual local acceptance.
+   - User value: confirm that a non-developer can create, preview, export, import, install, activate, and roll back a local asset-only `.jkskin`.
+   - Scope: local PNG/WebP only; no installer, no network, no AI provider, and no community upload.
+   - Safety: exported packages still pass the official reader and built-in robot remains fallback.
+   - Acceptance: exported package validates, import preview displays all six states, install does not auto-activate, activation survives restart, and damaged skin rolls back.
 
 ## Key Commits
 
@@ -169,4 +170,4 @@ Phase 4B-3 Skin Contract requirement:
 - Voice Pilot reruns or 100-record expansion.
 - Resolver, ASR, Qwen rerank, or Pilot Manifest changes.
 - Real Windows acceptance without explicit user approval and safety variable.
-- Skin Studio, Marketplace, remote skin download, or community upload work before explicit approval.
+- Marketplace, remote skin download, community upload, or AI skin generation before explicit approval.

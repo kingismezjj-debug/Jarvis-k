@@ -42,13 +42,14 @@ describe("skin theme source", () => {
     expect(cssSource).toContain("--accent:");
   });
 
-  it("does not expose executable, remote, or studio skin package behavior", () => {
+  it("does not expose executable or remote skin package behavior", () => {
     expect(appSource).toContain("Local Pet Skin Preview");
+    expect(appearanceSource).toContain("Pet Skin Studio");
     expect(appSource).not.toContain("importSkin");
     expect(appSource).not.toContain("Set as default");
     expect(appearanceSource).not.toContain("Marketplace");
     expect(appearanceSource).not.toContain("Community");
-    expect(appearanceSource).not.toContain("Skin Studio");
+    expect(appearanceSource).not.toContain("Upload");
     expect(appSource).not.toContain("eval(");
     expect(appSource).not.toContain("dangerouslySetInnerHTML");
     expect(cssSource).not.toContain("javascript:");

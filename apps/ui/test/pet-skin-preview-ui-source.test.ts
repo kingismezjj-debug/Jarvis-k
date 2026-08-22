@@ -23,13 +23,13 @@ describe("Pet skin preview UI boundary", () => {
     expect(appSource).toContain("showPetSkinPreview={developerModeEnabled}");
     expect(appearanceSource).toContain("Local Pet Skin Preview");
     expect(appearanceSource).toContain("Installed Pet Skins");
+    expect(appearanceSource).toContain("Pet Skin Studio");
     expect(appearanceSource).toContain("Install");
     expect(appearanceSource).toContain("Activate");
     for (const forbidden of [
       "Set as default",
       "Marketplace",
       "Community",
-      "Skin Studio",
       "Upload",
     ]) {
       expect(appearanceSource).not.toContain(forbidden);

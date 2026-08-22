@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { Palette } from "lucide-react";
 import type {
   PetSkinFormalState,
   PetSkinIdentity,
   PetSkinPreviewSelectResult,
   PetSkinRegistryProjection,
+  PetSkinStudioMetadataUpdateRequest,
+  PetSkinStudioResult,
+  PetSkinStudioSelectAssetRequest,
 } from "@jarvis-k/contracts";
 
 import type { uiCopy } from "@/app/copy";
@@ -29,14 +33,22 @@ export function AppearanceSettingsPanel({
   petSkinPreviewLoading,
   petSkinPreviewResult,
   petSkinRegistry,
+  petSkinStudioLoading,
+  petSkinStudioResult,
   onActivatePetSkin,
   onCancelPetSkinPreview,
+  onExportPetSkinStudioDraft,
   onInstallPetSkinPreview,
+  onOpenPetSkinStudioExportFolder,
+  onPreviewPetSkinStudioDraft,
   onRefreshPetSkinRegistry,
+  onResetPetSkinStudioDraft,
   onRemovePetSkin,
   onReturnPetSkinToBuiltIn,
   onSelectTheme,
   onSelectPetSkinPreview,
+  onSelectPetSkinStudioAsset,
+  onUpdatePetSkinStudioMetadata,
   showPetSkinPreview,
   storageKey,
   themes,
@@ -47,14 +59,26 @@ export function AppearanceSettingsPanel({
   petSkinPreviewLoading: boolean;
   petSkinPreviewResult: PetSkinPreviewSelectResult | null;
   petSkinRegistry: PetSkinRegistryProjection | null;
+  petSkinStudioLoading: boolean;
+  petSkinStudioResult: PetSkinStudioResult | null;
   onActivatePetSkin: (identity: PetSkinIdentity) => void;
   onCancelPetSkinPreview: () => void;
+  onExportPetSkinStudioDraft: () => void;
   onInstallPetSkinPreview: () => void;
+  onOpenPetSkinStudioExportFolder: (exportId: string) => void;
+  onPreviewPetSkinStudioDraft: () => void;
   onRefreshPetSkinRegistry: () => void;
+  onResetPetSkinStudioDraft: () => void;
   onRemovePetSkin: (identity: PetSkinIdentity) => void;
   onReturnPetSkinToBuiltIn: () => void;
   onSelectTheme: (themeId: SkinThemeId) => void;
   onSelectPetSkinPreview: () => void;
+  onSelectPetSkinStudioAsset: (
+    request: PetSkinStudioSelectAssetRequest,
+  ) => void;
+  onUpdatePetSkinStudioMetadata: (
+    request: PetSkinStudioMetadataUpdateRequest,
+  ) => void;
   showPetSkinPreview: boolean;
   storageKey: string;
   themes: AppearanceThemeOption[];
@@ -62,6 +86,32 @@ export function AppearanceSettingsPanel({
   const preview = petSkinPreviewResult?.ok ? petSkinPreviewResult.preview : null;
   const previewError =
     petSkinPreviewResult && !petSkinPreviewResult.ok ? petSkinPreviewResult : null;
+  const studioDraft = petSkinStudioResult?.draft ?? null;
+  const studioError =
+    petSkinStudioResult && !petSkinStudioResult.ok ? petSkinStudioResult : null;
+  const studioExport =
+    petSkinStudioResult?.ok && petSkinStudioResult.export
+      ? petSkinStudioResult.export
+      : null;
+  const [studioMetadata, setStudioMetadata] =
+    useState<PetSkinStudioMetadataUpdateRequest>({
+      displayName: "My Jarvis-K Pet Skin",
+      description: "Local asset-only pet skin.",
+      author: "Local User",
+      license: "Personal Use",
+      skinVersion: "1.0.0",
+    });
+
+  useEffect(() => {
+    if (studioDraft) {
+      setStudioMetadata(studioDraft.metadata);
+    }
+  }, [studioDraft]);
+
+  const submitStudioMetadata = () => {
+    onUpdatePetSkinStudioMetadata(studioMetadata);
+  };
+
   return (
     <section
       className="min-w-0 lg:col-span-2"
@@ -322,9 +372,300 @@ export function AppearanceSettingsPanel({
               )}
             </div>
           </section>
+          <section
+            className="mt-4 border-t pt-3"
+            data-testid="pet-skin-studio-panel"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h4 className="text-xs font-semibold">Pet Skin Studio</h4>
+                <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                  Builds a local asset-only .jkskin package. Exported skins still
+                  go through the normal import and validation flow.
+                </p>
+              </div>
+              <Badge className="rounded-md text-[10px]" variant="outline">
+                local_file
+              </Badge>
+            </div>
+            <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1.2fr]">
+              <div className="space-y-3">
+                <div className="rounded-md border px-3 py-3">
+                  <h5 className="text-[11px] font-semibold">
+                    1. Basic Information
+                  </h5>
+                  <div className="mt-2 grid gap-2">
+                    <StudioField
+                      label="Display name"
+                      value={studioMetadata.displayName}
+                      onChange={(value) =>
+                        setStudioMetadata((current) => ({
+                          ...current,
+                          displayName: value,
+                        }))
+                      }
+                    />
+                    <StudioField
+                      label="Author"
+                      value={studioMetadata.author}
+                      onChange={(value) =>
+                        setStudioMetadata((current) => ({
+                          ...current,
+                          author: value,
+                        }))
+                      }
+                    />
+                    <StudioField
+                      label="License"
+                      value={studioMetadata.license}
+                      onChange={(value) =>
+                        setStudioMetadata((current) => ({
+                          ...current,
+                          license: value,
+                        }))
+                      }
+                    />
+                    <StudioField
+                      label="Version"
+                      value={studioMetadata.skinVersion}
+                      onChange={(value) =>
+                        setStudioMetadata((current) => ({
+                          ...current,
+                          skinVersion: value,
+                        }))
+                      }
+                    />
+                    <label className="grid gap-1 text-[10px] text-muted-foreground">
+                      Description
+                      <textarea
+                        className="min-h-[62px] resize-none rounded-md border bg-background px-2 py-1 text-xs text-foreground"
+                        maxLength={240}
+                        value={studioMetadata.description ?? ""}
+                        onChange={(event) =>
+                          setStudioMetadata((current) => ({
+                            ...current,
+                            description: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <Button
+                      className="h-8 rounded-md px-3 text-xs"
+                      onClick={submitStudioMetadata}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Save metadata
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-md border px-3 py-3">
+                  <h5 className="text-[11px] font-semibold">4. Export</h5>
+                  <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                    Export writes a .jkskin file, reopens it with the official
+                    reader, and does not install or activate it.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      className="h-8 rounded-md px-3 text-xs"
+                      disabled={!studioDraft?.readyForExport || petSkinStudioLoading}
+                      onClick={onExportPetSkinStudioDraft}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Export .jkskin
+                    </Button>
+                    <Button
+                      className="h-8 rounded-md px-3 text-xs"
+                      onClick={onResetPetSkinStudioDraft}
+                      type="button"
+                      variant="ghost"
+                    >
+                      Reset draft
+                    </Button>
+                  </div>
+                  {studioExport ? (
+                    <dl className="mt-3 divide-y divide-border border-y text-[11px]">
+                      <Metric label="File" tone="success" value={studioExport.fileName} />
+                      <Metric
+                        label="Validation"
+                        tone="success"
+                        value={studioExport.validationStatus}
+                      />
+                      <Metric
+                        label="Package digest"
+                        tone="accent"
+                        value={studioExport.packageDigest.slice(0, 12)}
+                      />
+                      <Metric label="Size" value={`${studioExport.byteLength} B`} />
+                      <div className="py-2">
+                        <Button
+                          className="h-7 rounded-md px-2 text-[11px]"
+                          onClick={() =>
+                            onOpenPetSkinStudioExportFolder(studioExport.exportId)
+                          }
+                          type="button"
+                          variant="ghost"
+                        >
+                          Open containing folder
+                        </Button>
+                      </div>
+                    </dl>
+                  ) : null}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="rounded-md border px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h5 className="text-[11px] font-semibold">
+                      2. Visual Assets
+                    </h5>
+                    <Badge
+                      className="rounded-md text-[10px]"
+                      variant={studioDraft?.readyForPreview ? "default" : "outline"}
+                    >
+                      {studioDraft?.readyForPreview ? "complete" : "incomplete"}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {PET_SKIN_STUDIO_STATES.map((state) => {
+                      const stateDraft = studioDraft?.states[state];
+                      return (
+                        <div
+                          className="rounded-md border bg-background px-2 py-2"
+                          key={state}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold">
+                              {state}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {stateDraft?.complete ? "visual" : "missing"} /{" "}
+                              {stateDraft?.reducedMotionComplete
+                                ? "reduced"
+                                : "needs static"}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {PET_SKIN_STUDIO_ROLES.map((role) => (
+                              <Button
+                                className="h-7 rounded-md px-2 text-[11px]"
+                                disabled={petSkinStudioLoading}
+                                key={role}
+                                onClick={() =>
+                                  onSelectPetSkinStudioAsset({
+                                    state,
+                                    role,
+                                    source: "local_file",
+                                  })
+                                }
+                                type="button"
+                                variant="ghost"
+                              >
+                                {role === "base"
+                                  ? "Base"
+                                  : role === "stateGlyph"
+                                    ? "Glyph"
+                                    : "Static"}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(studioDraft?.validationIssues.length ?? 0) > 0 ? (
+                    <div className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-muted-foreground">
+                      {studioDraft?.validationIssues.slice(0, 4).join(" / ")}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="rounded-md border px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h5 className="text-[11px] font-semibold">3. Preview</h5>
+                    <Button
+                      className="h-8 rounded-md px-3 text-xs"
+                      disabled={!studioDraft?.readyForPreview || petSkinStudioLoading}
+                      onClick={onPreviewPetSkinStudioDraft}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Preview draft
+                    </Button>
+                  </div>
+                  {petSkinStudioResult?.ok && petSkinStudioResult.preview ? (
+                    <div className="mt-3 space-y-3">
+                      <PreviewGrid
+                        states={petSkinStudioResult.preview.states}
+                        resources={petSkinStudioResult.preview.resources}
+                        title="Studio normal motion"
+                      />
+                      <PreviewGrid
+                        states={petSkinStudioResult.preview.reducedMotionStates}
+                        resources={petSkinStudioResult.preview.resources}
+                        title="Studio reduced motion"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-2 rounded-md border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                      Preview is local and temporary; it will not change the
+                      active Desktop Pet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {studioError ? (
+              <div
+                className="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px]"
+                data-testid="pet-skin-studio-error"
+              >
+                <span className="font-semibold">{studioError.reasonCode}</span>
+                <span className="ml-2 text-muted-foreground">
+                  {studioError.safeMessage}
+                </span>
+              </div>
+            ) : null}
+          </section>
         </section>
       ) : null}
     </section>
+  );
+}
+
+const PET_SKIN_STUDIO_STATES = [
+  "idle",
+  "listening",
+  "thinking",
+  "success",
+  "error",
+  "offline",
+] as const satisfies readonly PetSkinFormalState[];
+
+const PET_SKIN_STUDIO_ROLES = [
+  "base",
+  "stateGlyph",
+  "staticVariant",
+] as const;
+
+function StudioField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="grid gap-1 text-[10px] text-muted-foreground">
+      {label}
+      <input
+        className="h-8 rounded-md border bg-background px-2 text-xs text-foreground"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 

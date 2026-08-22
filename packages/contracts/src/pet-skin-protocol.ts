@@ -556,6 +556,168 @@ export type PetSkinManagementResult = z.infer<
   typeof PetSkinManagementResultSchema
 >;
 
+export const PetSkinStudioAssetSourceSchema = z.enum([
+  "local_file",
+  "generated_asset",
+]);
+export type PetSkinStudioAssetSource = z.infer<
+  typeof PetSkinStudioAssetSourceSchema
+>;
+
+export const PetSkinStudioAssetRoleSchema = z.enum([
+  "base",
+  "stateGlyph",
+  "staticVariant",
+]);
+export type PetSkinStudioAssetRole = z.infer<
+  typeof PetSkinStudioAssetRoleSchema
+>;
+
+export const PetSkinStudioMetadataUpdateRequestSchema = z
+  .object({
+    displayName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(PET_SKIN_V1_POLICY.maxDisplayNameLength),
+    description: z
+      .string()
+      .trim()
+      .max(PET_SKIN_V1_POLICY.maxDescriptionLength)
+      .optional(),
+    author: z
+      .string()
+      .trim()
+      .min(1)
+      .max(PET_SKIN_V1_POLICY.maxAuthorLength),
+    license: z
+      .string()
+      .trim()
+      .min(1)
+      .max(PET_SKIN_V1_POLICY.maxLicenseLength),
+    skinVersion: SemverSchema,
+  })
+  .strict();
+export type PetSkinStudioMetadataUpdateRequest = z.infer<
+  typeof PetSkinStudioMetadataUpdateRequestSchema
+>;
+
+export const PetSkinStudioSelectAssetRequestSchema = z
+  .object({
+    state: z.enum(PET_SKIN_FORMAL_STATES),
+    role: PetSkinStudioAssetRoleSchema,
+    source: PetSkinStudioAssetSourceSchema,
+  })
+  .strict();
+export type PetSkinStudioSelectAssetRequest = z.infer<
+  typeof PetSkinStudioSelectAssetRequestSchema
+>;
+
+export const PetSkinStudioStateDraftSchema = z
+  .object({
+    baseAssetId: AssetIdSchema.optional(),
+    stateGlyphAssetId: AssetIdSchema.optional(),
+    staticVariantAssetId: AssetIdSchema.optional(),
+    complete: z.boolean(),
+    reducedMotionComplete: z.boolean(),
+  })
+  .strict();
+export type PetSkinStudioStateDraft = z.infer<
+  typeof PetSkinStudioStateDraftSchema
+>;
+
+const PetSkinStudioStateDraftMapSchema = z
+  .object({
+    idle: PetSkinStudioStateDraftSchema,
+    listening: PetSkinStudioStateDraftSchema,
+    thinking: PetSkinStudioStateDraftSchema,
+    success: PetSkinStudioStateDraftSchema,
+    error: PetSkinStudioStateDraftSchema,
+    offline: PetSkinStudioStateDraftSchema,
+  })
+  .strict();
+
+export const PetSkinStudioDraftProjectionSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    generatedSkinId: SkinIdSchema,
+    metadata: PetSkinStudioMetadataUpdateRequestSchema,
+    states: PetSkinStudioStateDraftMapSchema,
+    resources: z.record(AssetIdSchema, PetSkinPreviewResourceDescriptorSchema),
+    validationIssues: z.array(z.string().min(1).max(120)).max(20),
+    readyForPreview: z.boolean(),
+    readyForExport: z.boolean(),
+    sourceKinds: z.array(PetSkinStudioAssetSourceSchema).max(2),
+  })
+  .strict();
+export type PetSkinStudioDraftProjection = z.infer<
+  typeof PetSkinStudioDraftProjectionSchema
+>;
+
+export const PetSkinStudioExportResultSchema = z
+  .object({
+    exportId: z.string().min(8).max(80).regex(/^[a-f0-9]+$/),
+    fileName: z.string().min(1).max(160),
+    byteLength: z.number().int().positive(),
+    sha256: Sha256Schema,
+    packageDigest: Sha256Schema,
+    validationStatus: z.literal("PASS"),
+  })
+  .strict();
+export type PetSkinStudioExportResult = z.infer<
+  typeof PetSkinStudioExportResultSchema
+>;
+
+export const PetSkinStudioResultSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      ok: z.literal(true),
+      draft: PetSkinStudioDraftProjectionSchema,
+      preview: PetSkinPreviewMetadataSchema.optional(),
+      export: PetSkinStudioExportResultSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ok: z.literal(false),
+      reasonCode: z.enum([
+        "studio_unavailable",
+        "unsupported_schema",
+        "unsupported_asset_source",
+        "unsupported_asset_type",
+        "image_cancelled",
+        "invalid_image_metadata",
+        "resource_limit_exceeded",
+        "invalid_manifest",
+        "missing_state",
+        "missing_reduced_motion_variant",
+        "preview_unavailable",
+        "duplicate_path",
+        "digest_mismatch",
+        "incompatible_version",
+        "executable_content_detected",
+        "fallback_skin_reserved",
+        "preview_cancelled",
+        "export_cancelled",
+        "unsafe_path",
+        "write_failed",
+      ]),
+      safeMessage: z.string().min(1).max(240),
+      draft: PetSkinStudioDraftProjectionSchema.optional(),
+    })
+    .strict(),
+]);
+export type PetSkinStudioResult = z.infer<typeof PetSkinStudioResultSchema>;
+
+export const PetSkinStudioOpenExportFolderRequestSchema = z
+  .object({
+    exportId: PetSkinStudioExportResultSchema.shape.exportId,
+  })
+  .strict();
+export type PetSkinStudioOpenExportFolderRequest = z.infer<
+  typeof PetSkinStudioOpenExportFolderRequestSchema
+>;
+
 const windowsReservedNames = new Set([
   "con",
   "prn",

@@ -78,6 +78,7 @@
     "smoke:desktop:tray-lifecycle": "npm run build && node tests/desktop-tray-lifecycle-smoke.mjs",
     "smoke:desktop:pet": "npm run build && node tests/desktop-pet-smoke.mjs",
     "smoke:desktop:pet-skin-lifecycle": "npm run build && node tests/desktop-pet-skin-lifecycle-smoke.mjs",
+    "smoke:desktop:pet-skin-studio": "npm run build && node tests/desktop-pet-skin-studio-smoke.mjs",
     "package:windows:dir": "npm run build && electron-builder --win --x64 --dir",
     "package:windows:alpha": "npm run build && electron-builder --win nsis --x64",
     "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-dependency-closure.mjs && node tests/packaged-runtime-smoke.mjs",
@@ -471,6 +472,14 @@
       {
         "from": "node_modules/yauzl",
         "to": "node_modules/yauzl",
+        "filter": [
+          "package.json",
+          "index.js"
+        ]
+      },
+      {
+        "from": "node_modules/yazl",
+        "to": "node_modules/yazl",
         "filter": [
           "package.json",
           "index.js"

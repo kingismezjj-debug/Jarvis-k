@@ -28,6 +28,13 @@ import {
   IPC_DESKTOP_PET_SKIN_REGISTRY_CHANNEL,
   IPC_DESKTOP_PET_SKIN_REMOVE_CHANNEL,
   IPC_DESKTOP_PET_SKIN_RETURN_BUILT_IN_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_DRAFT_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_EXPORT_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_METADATA_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_OPEN_EXPORT_FOLDER_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_PREVIEW_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_RESET_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_STUDIO_SELECT_ASSET_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
@@ -63,6 +70,10 @@ import {
   PetSkinPreviewSelectResultSchema,
   PetSkinRegistryProjectionSchema,
   PetSkinRemoveRequestSchema,
+  PetSkinStudioMetadataUpdateRequestSchema,
+  PetSkinStudioOpenExportFolderRequestSchema,
+  PetSkinStudioResultSchema,
+  PetSkinStudioSelectAssetRequestSchema,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 
@@ -213,6 +224,43 @@ const bridge: JarvisBridge = {
       await ipcRenderer.invoke(
         IPC_DESKTOP_PET_SKIN_REMOVE_CHANNEL,
         PetSkinRemoveRequestSchema.parse(request)
+      )
+    ),
+  getDesktopPetSkinStudioDraft: async () =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_STUDIO_DRAFT_CHANNEL)
+    ),
+  updateDesktopPetSkinStudioMetadata: async (request) =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_STUDIO_METADATA_CHANNEL,
+        PetSkinStudioMetadataUpdateRequestSchema.parse(request)
+      )
+    ),
+  selectDesktopPetSkinStudioAsset: async (request) =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_STUDIO_SELECT_ASSET_CHANNEL,
+        PetSkinStudioSelectAssetRequestSchema.parse(request)
+      )
+    ),
+  previewDesktopPetSkinStudioDraft: async () =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_STUDIO_PREVIEW_CHANNEL)
+    ),
+  exportDesktopPetSkinStudioDraft: async () =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_STUDIO_EXPORT_CHANNEL)
+    ),
+  resetDesktopPetSkinStudioDraft: async () =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_STUDIO_RESET_CHANNEL)
+    ),
+  openDesktopPetSkinStudioExportFolder: async (request) =>
+    PetSkinStudioResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_STUDIO_OPEN_EXPORT_FOLDER_CHANNEL,
+        PetSkinStudioOpenExportFolderRequestSchema.parse(request)
       )
     ),
   getUiSurfaceCapabilityStatus: async () =>
