@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { RefreshCw, X } from "lucide-react";
 import type {
   EventEnvelope,
+  PetSkinPreviewSelectResult,
   TaskState,
   UserControlledMemoryKind,
   UserControlledMemoryRecord,
@@ -219,6 +220,9 @@ export default function App() {
   const [localTtsStatus, setLocalTtsStatus] =
     useState<LocalTtsStatus>("disabled");
   const [ttsError, setTtsError] = useState<string | null>(null);
+  const [petSkinPreviewResult, setPetSkinPreviewResult] =
+    useState<PetSkinPreviewSelectResult | null>(null);
+  const [petSkinPreviewLoading, setPetSkinPreviewLoading] = useState(false);
   const autoSpokenTtsKeyRef = useRef<string | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAudioUrlRef = useRef<string | null>(null);
@@ -904,6 +908,38 @@ export default function App() {
       });
       return false;
     }
+  }
+
+  async function handleSelectPetSkinPreview() {
+    return trackAction("Pet skin preview", async () => {
+      setPetSkinPreviewLoading(true);
+      try {
+        const result =
+          (await window.jarvis?.selectDesktopPetSkinPreview()) ?? {
+            ok: false,
+            reasonCode: "preview_unavailable" as const,
+            safeMessage: "Desktop bridge is unavailable.",
+          };
+        setPetSkinPreviewResult(result);
+        return result.ok;
+      } finally {
+        setPetSkinPreviewLoading(false);
+      }
+    });
+  }
+
+  async function handleCancelPetSkinPreview() {
+    return trackAction("Clear pet skin preview", async () => {
+      const result =
+        (await window.jarvis?.cancelDesktopPetSkinPreview()) ?? {
+          ok: false,
+          safeMessage: "Desktop bridge is unavailable.",
+        };
+      if (result.ok) {
+        setPetSkinPreviewResult(null);
+      }
+      return result.ok;
+    });
   }
 
   function notifyAction(label: string, tone: ActionStatus["tone"] = "accent") {
@@ -2166,7 +2202,12 @@ export default function App() {
                   activeTheme={activeSkinTheme}
                   copy={copy}
                   currentThemeId={skinTheme}
+                  petSkinPreviewLoading={petSkinPreviewLoading}
+                  petSkinPreviewResult={petSkinPreviewResult}
                   onSelectTheme={handleSelectSkinTheme}
+                  onCancelPetSkinPreview={handleCancelPetSkinPreview}
+                  onSelectPetSkinPreview={handleSelectPetSkinPreview}
+                  showPetSkinPreview={developerModeEnabled}
                   storageKey={THEME_STORAGE_KEY}
                   themes={builtInSkinThemes}
                 />
