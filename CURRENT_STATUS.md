@@ -131,6 +131,10 @@ P3:
 
 Recommended next implementation order:
 
+Phase 4B-3 Skin Contract requirement:
+
+- Every Pet skin must provide either explicit `stateGlyph` assets or static per-state variants for all six formal states, so Reduced Motion remains visually distinguishable without relying on continuous animation.
+
 1. Manual unsigned installer acceptance.
    - User value: confirm the packaged Alpha installs and launches on a normal Windows desktop.
    - Scope: user-approved install, first-run onboarding review, tray restore/quit, uninstall behavior observation.
