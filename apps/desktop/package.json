@@ -11,6 +11,7 @@
     "@jarvis-k/contracts": "*",
     "@jarvis-k/core": "*",
     "@jarvis-k/inference-adapter-qwen-router": "*",
-    "@jarvis-k/inference-runtime-transformers-local": "*"
+    "@jarvis-k/inference-runtime-transformers-local": "*",
+    "yauzl": "^2.10.0"
   }
 }

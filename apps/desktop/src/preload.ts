@@ -20,6 +20,9 @@ import {
   IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL,
   IPC_DESKTOP_PET_RESET_POSITION_CHANNEL,
   IPC_DESKTOP_PET_SETTINGS_SET_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_PREVIEW_CANCEL_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_PREVIEW_RESOURCE_CHANNEL,
+  IPC_DESKTOP_PET_SKIN_PREVIEW_SELECT_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
@@ -46,6 +49,10 @@ import {
   VoiceServiceStatusSchema,
   VoiceAudioFrame,
   VoiceAudioFrameSchema,
+  PetSkinPreviewCancelResultSchema,
+  PetSkinPreviewResourceRequestSchema,
+  PetSkinPreviewResourceResultSchema,
+  PetSkinPreviewSelectResultSchema,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 
@@ -153,6 +160,21 @@ const bridge: JarvisBridge = {
   resetDesktopPetPosition: async () =>
     DesktopSettingsSetResultSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_PET_RESET_POSITION_CHANNEL)
+    ),
+  selectDesktopPetSkinPreview: async () =>
+    PetSkinPreviewSelectResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_PREVIEW_SELECT_CHANNEL)
+    ),
+  getDesktopPetSkinPreviewResource: async (request) =>
+    PetSkinPreviewResourceResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_DESKTOP_PET_SKIN_PREVIEW_RESOURCE_CHANNEL,
+        PetSkinPreviewResourceRequestSchema.parse(request)
+      )
+    ),
+  cancelDesktopPetSkinPreview: async () =>
+    PetSkinPreviewCancelResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_PET_SKIN_PREVIEW_CANCEL_CHANNEL)
     ),
   getUiSurfaceCapabilityStatus: async () =>
     UiSurfaceCapabilityStatusSchema.parse(

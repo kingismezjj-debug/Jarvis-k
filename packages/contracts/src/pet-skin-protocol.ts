@@ -14,6 +14,8 @@ export const PET_SKIN_FORMAL_STATES = [
 export type PetSkinFormalState = (typeof PET_SKIN_FORMAL_STATES)[number];
 
 export const BUILTIN_DESKTOP_PET_SKIN_ID = "builtin.jarvis-k.robot" as const;
+export const PET_SKIN_V1_MANIFEST_PATH = "manifest.json" as const;
+export const PET_SKIN_PREVIEW_PROTOCOL = "jarvis-pet-skin-preview" as const;
 
 export const PET_SKIN_V1_POLICY = {
   maxArchiveBytes: 10 * 1024 * 1024,
@@ -74,6 +76,8 @@ const SkinIdSchema = z
   .min(3)
   .max(PET_SKIN_V1_POLICY.maxSkinIdLength)
   .regex(/^[a-z0-9][a-z0-9._-]*$/);
+
+const PreviewIdSchema = z.string().min(8).max(80).regex(/^[A-Za-z0-9_-]+$/);
 
 export const PetSkinAssetSchema = z
   .object({
@@ -196,6 +200,207 @@ export type PetSkinValidationResult =
       trustState: "untrusted_package";
       issues: PetSkinValidationIssue[];
     };
+
+function stableJsonStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJsonStringify(item)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJsonStringify(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function canonicalizePetSkinManifestForDigest(
+  manifest: PetSkinManifestV1,
+): string {
+  return stableJsonStringify({
+    ...manifest,
+    packageDigest: "",
+  });
+}
+
+export function createPetSkinPackageDigestPayload(input: {
+  manifest: PetSkinManifestV1;
+  resources: PetSkinPackageResource[];
+}): string {
+  const resourceLines = input.resources
+    .map((resource) => ({
+      path: resource.path.normalize("NFC"),
+      byteLength: resource.byteLength,
+      sha256: resource.sha256 ?? "",
+    }))
+    .sort((left, right) => left.path.localeCompare(right.path, "en"))
+    .map(
+      (resource) =>
+        `${resource.path}\u0000${resource.byteLength}\u0000${resource.sha256}`,
+    )
+    .join("\n");
+  return [
+    "jarvis-k-pet-skin-v1",
+    canonicalizePetSkinManifestForDigest(input.manifest),
+    resourceLines,
+  ].join("\n");
+}
+
+export const PetSkinPreviewResourceDescriptorSchema = z
+  .object({
+    assetId: AssetIdSchema,
+    state: z.enum(PET_SKIN_FORMAL_STATES).optional(),
+    role: z.enum(["base", "stateGlyph", "staticVariant", "frame"]).optional(),
+    contentType: z.enum(["image/png", "image/webp"]),
+    byteLength: z.number().int().positive(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    resourceUrl: z
+      .string()
+      .regex(/^jarvis-pet-skin-preview:\/\/[A-Za-z0-9_-]{8,80}\/[a-z0-9][a-z0-9._-]*$/),
+  })
+  .strict();
+export type PetSkinPreviewResourceDescriptor = z.infer<
+  typeof PetSkinPreviewResourceDescriptorSchema
+>;
+
+export const PetSkinPreviewStateDescriptorSchema = z
+  .object({
+    baseAssetId: AssetIdSchema,
+    stateGlyphAssetId: AssetIdSchema.optional(),
+    staticVariantAssetId: AssetIdSchema.optional(),
+    frameAssetIds: z.array(AssetIdSchema).optional(),
+    frameRate: z.number().int().positive().optional(),
+  })
+  .strict();
+export type PetSkinPreviewStateDescriptor = z.infer<
+  typeof PetSkinPreviewStateDescriptorSchema
+>;
+
+const PetSkinPreviewStateMapSchema = z
+  .object({
+    idle: PetSkinPreviewStateDescriptorSchema,
+    listening: PetSkinPreviewStateDescriptorSchema,
+    thinking: PetSkinPreviewStateDescriptorSchema,
+    success: PetSkinPreviewStateDescriptorSchema,
+    error: PetSkinPreviewStateDescriptorSchema,
+    offline: PetSkinPreviewStateDescriptorSchema,
+  })
+  .strict();
+
+export const PetSkinPreviewMetadataSchema = z
+  .object({
+    previewId: PreviewIdSchema,
+    skinId: SkinIdSchema,
+    skinVersion: SemverSchema,
+    displayName: z.string().min(1).max(PET_SKIN_V1_POLICY.maxDisplayNameLength),
+    author: z.string().min(1).max(PET_SKIN_V1_POLICY.maxAuthorLength),
+    license: z.string().min(1).max(PET_SKIN_V1_POLICY.maxLicenseLength),
+    description: z
+      .string()
+      .max(PET_SKIN_V1_POLICY.maxDescriptionLength)
+      .optional(),
+    minimumJarvisVersion: SemverSchema,
+    packageDigest: Sha256Schema,
+    trustState: z.literal("validated_preview_package"),
+    assetCount: z.number().int().nonnegative(),
+    states: PetSkinPreviewStateMapSchema,
+    reducedMotionStates: PetSkinPreviewStateMapSchema,
+    resources: z.record(AssetIdSchema, PetSkinPreviewResourceDescriptorSchema),
+  })
+  .strict();
+export type PetSkinPreviewMetadata = z.infer<
+  typeof PetSkinPreviewMetadataSchema
+>;
+
+export const PetSkinPreviewSelectResultSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      ok: z.literal(true),
+      preview: PetSkinPreviewMetadataSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ok: z.literal(false),
+      reasonCode: z.enum([
+        "unsupported_schema",
+        "invalid_manifest",
+        "unsupported_asset_type",
+        "missing_state",
+        "missing_reduced_motion_variant",
+        "unsafe_path",
+        "duplicate_path",
+        "resource_limit_exceeded",
+        "invalid_image_metadata",
+        "digest_mismatch",
+        "incompatible_version",
+        "executable_content_detected",
+        "fallback_skin_reserved",
+        "preview_cancelled",
+        "preview_unavailable",
+      ]),
+      safeMessage: z.string().min(1).max(240),
+      metadata: z
+        .object({
+          entryCount: z.number().int().nonnegative().optional(),
+          assetCount: z.number().int().nonnegative().optional(),
+          archiveByteLength: z.number().int().nonnegative().optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .strict(),
+]);
+export type PetSkinPreviewSelectResult = z.infer<
+  typeof PetSkinPreviewSelectResultSchema
+>;
+
+export const PetSkinPreviewResourceRequestSchema = z
+  .object({
+    previewId: PreviewIdSchema,
+    assetId: AssetIdSchema,
+  })
+  .strict();
+export type PetSkinPreviewResourceRequest = z.infer<
+  typeof PetSkinPreviewResourceRequestSchema
+>;
+
+export const PetSkinPreviewResourceResultSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      ok: z.literal(true),
+      previewId: PreviewIdSchema,
+      assetId: AssetIdSchema,
+      contentType: z.enum(["image/png", "image/webp"]),
+      byteLength: z.number().int().positive(),
+      resourceUrl: z
+        .string()
+        .regex(/^jarvis-pet-skin-preview:\/\/[A-Za-z0-9_-]{8,80}\/[a-z0-9][a-z0-9._-]*$/),
+    })
+    .strict(),
+  z
+    .object({
+      ok: z.literal(false),
+      reasonCode: z.enum(["preview_unavailable", "unsafe_path"]),
+      safeMessage: z.string().min(1).max(240),
+    })
+    .strict(),
+]);
+export type PetSkinPreviewResourceResult = z.infer<
+  typeof PetSkinPreviewResourceResultSchema
+>;
+
+export const PetSkinPreviewCancelResultSchema = z
+  .object({
+    ok: z.boolean(),
+    safeMessage: z.string().min(1).max(240).optional(),
+  })
+  .strict();
+export type PetSkinPreviewCancelResult = z.infer<
+  typeof PetSkinPreviewCancelResultSchema
+>;
 
 const windowsReservedNames = new Set([
   "con",

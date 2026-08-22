@@ -16,6 +16,12 @@ import {
   PluginManagementStatusResultSchema,
 } from "./plugin-protocol";
 import { CommandRouterQwenProductRoutingActivationStatusSchema } from "./qwen-product-routing-activation";
+import type {
+  PetSkinPreviewCancelResult,
+  PetSkinPreviewResourceRequest,
+  PetSkinPreviewResourceResult,
+  PetSkinPreviewSelectResult,
+} from "./pet-skin-protocol";
 
 export const PROTOCOL_VERSION = 1 as const;
 export const IPC_COMMAND_CHANNEL = "jarvis-k:command";
@@ -61,6 +67,12 @@ export const IPC_DESKTOP_PET_SAVE_POSITION_CHANNEL =
 export const IPC_DESKTOP_PET_RESET_POSITION_CHANNEL =
   "jarvis-k:desktop-pet-reset-position";
 export const IPC_DESKTOP_PET_EVENT_CHANNEL = "jarvis-k:desktop-pet-event";
+export const IPC_DESKTOP_PET_SKIN_PREVIEW_SELECT_CHANNEL =
+  "jarvis-k:desktop-pet-skin-preview-select";
+export const IPC_DESKTOP_PET_SKIN_PREVIEW_RESOURCE_CHANNEL =
+  "jarvis-k:desktop-pet-skin-preview-resource";
+export const IPC_DESKTOP_PET_SKIN_PREVIEW_CANCEL_CHANNEL =
+  "jarvis-k:desktop-pet-skin-preview-cancel";
 export const IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL =
   "jarvis-k:qwen-runtime-control-status";
 export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
@@ -3732,6 +3744,11 @@ export interface JarvisBridge {
     reducedMotion: DesktopPetReducedMotion,
   ): Promise<DesktopSettingsSetResult>;
   resetDesktopPetPosition(): Promise<DesktopSettingsSetResult>;
+  selectDesktopPetSkinPreview(): Promise<PetSkinPreviewSelectResult>;
+  getDesktopPetSkinPreviewResource(
+    request: PetSkinPreviewResourceRequest,
+  ): Promise<PetSkinPreviewResourceResult>;
+  cancelDesktopPetSkinPreview(): Promise<PetSkinPreviewCancelResult>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;
