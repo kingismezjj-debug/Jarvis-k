@@ -3,6 +3,7 @@ dist/
 coverage/
 artifacts/*.png
 artifacts/*.json
+artifacts/manual/
 artifacts/packaged/
 artifacts/package-verify/
 models/
