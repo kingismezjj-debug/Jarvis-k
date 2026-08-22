@@ -25,42 +25,12 @@ body {
   place-items: center;
   background: rgba(0, 0, 0, 0);
   color: #e8eefc;
-  cursor: pointer;
-}
-
-.pet-drag-handle {
-  -webkit-app-region: drag;
-  position: absolute;
-  top: 5px;
-  right: 34px;
-  left: 20px;
-  z-index: 3;
-  height: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle, rgba(226, 232, 240, 0.72) 0 1px, transparent 1.7px)
-      0 0 / 8px 8px,
-    rgba(15, 23, 42, 0.36);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
   cursor: grab;
+  touch-action: none;
 }
 
-.pet-hide {
-  -webkit-app-region: no-drag;
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  display: grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.72);
-  color: rgba(226, 232, 240, 0.88);
-  font: 600 15px/1 system-ui, sans-serif;
+.pet-shell:active {
+  cursor: grabbing;
 }
 
 .pet-orb {

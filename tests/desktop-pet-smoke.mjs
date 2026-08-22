@@ -98,7 +98,6 @@ try {
   }
   const petSurface = await petPage.evaluate(() => {
     const shell = document.querySelector(".pet-shell");
-    const dragHandle = document.querySelector(".pet-drag-handle");
     return {
       bodyBackground: window.getComputedStyle(document.body).backgroundColor,
       rootBackground: window.getComputedStyle(
@@ -107,15 +106,17 @@ try {
       shellBackground: shell
         ? window.getComputedStyle(shell).backgroundColor
         : null,
-      dragHandleBounds: dragHandle?.getBoundingClientRect().toJSON(),
+      shellCursor: shell ? window.getComputedStyle(shell).cursor : null,
+      hasDragHandle: Boolean(document.querySelector(".pet-drag-handle")),
+      hasHideButton: Boolean(document.querySelector(".pet-hide")),
     };
   });
   if (
     !["rgba(0, 0, 0, 0)", "transparent"].includes(petSurface.bodyBackground) ||
     !["rgba(0, 0, 0, 0)", "transparent"].includes(petSurface.rootBackground) ||
-    !petSurface.dragHandleBounds ||
-    petSurface.dragHandleBounds.width < 40 ||
-    petSurface.dragHandleBounds.height < 16
+    petSurface.shellCursor !== "grab" ||
+    petSurface.hasDragHandle ||
+    petSurface.hasHideButton
   ) {
     throw new Error(`Unexpected Pet transparent/drag surface: ${JSON.stringify(petSurface)}`);
   }
@@ -143,20 +144,21 @@ try {
     throw new Error(`Unexpected Pet window state: ${JSON.stringify(petWindowState)}`);
   }
 
+  const shellBox = await petPage.locator(".pet-shell").boundingBox();
+  if (!shellBox) {
+    throw new Error("Pet shell bounds unavailable before drag.");
+  }
+  await petPage.mouse.move(shellBox.x + 56, shellBox.y + 56);
+  await petPage.mouse.down();
+  await petPage.mouse.move(shellBox.x + 88, shellBox.y + 86, { steps: 5 });
+  await petPage.mouse.up();
+  await mainPage.waitForTimeout(650);
   const movedBounds = await electronApp.evaluate(({ BrowserWindow }) => {
     const petWindow = BrowserWindow.getAllWindows().find((candidate) =>
       candidate.webContents.getURL().includes("pet.html"),
     );
-    if (!petWindow) throw new Error("Pet window missing before move.");
-    petWindow.setBounds({
-      x: 160,
-      y: 180,
-      width: 112,
-      height: 112,
-    });
-    return petWindow.getBounds();
+    return petWindow?.getBounds();
   });
-  await mainPage.waitForTimeout(650);
   const settingsAfterMove = await mainPage.evaluate(async () => {
     if (!window.jarvis) throw new Error("Jarvis bridge unavailable.");
     return window.jarvis.getDesktopSettings();
