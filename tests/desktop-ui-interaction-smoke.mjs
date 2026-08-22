@@ -33,12 +33,18 @@ try {
     cwd: rootDirectory,
     env: {
       ...process.env,
+      JARVIS_K_USER_DATA_PATH: smokeUserDataDirectory,
+      JARVIS_K_LOCAL_DATA_PATH: smokeUserDataDirectory,
       JARVIS_K_MEMORY_DB_PATH: path.join(
         smokeUserDataDirectory,
         "memory.sqlite"
       ),
       JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
-      JARVIS_K_MODEL_DIR: path.join(smokeUserDataDirectory, "models")
+      JARVIS_K_MODEL_DIR: path.join(smokeUserDataDirectory, "models"),
+      JARVIS_K_VOICE_REGRESSION_PATH: path.join(
+        smokeUserDataDirectory,
+        "voice-regression.json"
+      )
     }
   });
 
