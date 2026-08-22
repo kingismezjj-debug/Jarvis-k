@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-08-21
+Updated: 2026-08-22
 
 ## Current Product Phase
 
@@ -26,6 +26,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase 4B-2A Desktop Pet state and animation protocol is implemented: six safe projected states (`idle`, `listening`, `thinking`, `success`, `error`, `offline`), bounded success/error TTL, Reduced Motion static variants, no user-content projection, and Pet smoke/tray/UI smoke coverage.
 - Phase 4B-2B Desktop Pet built-in default visual is implemented: the local CSS-only floating mini AI robot uses layered shell, face, halo, ears, arms, and status glyphs; all six formal states have distinct non-sensitive visual feedback and Reduced Motion keeps static state cues.
 - Phase 4B-3A Desktop Pet Skin v1 contract is defined at the contracts layer: asset-only manifest schema, centralized resource policy, pure fail-closed validator, safe reason codes, trust-state boundaries, non-removable built-in fallback protection, Reduced Motion static-state requirement, and a concise threat model.
+- Phase 4B-3B Desktop Pet Skin secure temporary preview is implemented up to `validated_preview_package`: `.jkskin` ZIP packages are read in Desktop Main, package digests are canonicalized without the manifest `packageDigest` field, resources are exposed only through a scoped preview protocol, Renderer receives safe metadata only, and previews are not installed or activated.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -136,11 +137,11 @@ Phase 4B-3 Skin Contract requirement:
 
 - Every Pet skin must provide either explicit `stateGlyph` assets or static per-state variants for all six formal states, so Reduced Motion remains visually distinguishable without relying on continuous animation.
 
-1. Manual unsigned installer acceptance.
-   - User value: confirm the packaged Alpha installs and launches on a normal Windows desktop.
-   - Scope: user-approved install, first-run onboarding review, tray restore/quit, uninstall behavior observation.
-   - Safety: no real Windows task acceptance, no microphone, no credentials required.
-   - Acceptance: installer launches, onboarding appears once, tray lifecycle works, uninstall behavior matches documentation.
+1. Desktop Pet local skin install/enable/rollback.
+   - User value: allow safe local skin use after preview validation.
+   - Scope: install to Alpha-local skin storage, activate/deactivate, rollback to built-in robot fallback.
+   - Safety: no executable skin content, no community upload, no arbitrary file access.
+   - Acceptance: validated preview can be installed locally, activation survives restart, invalid skins fall back to built-in robot.
 
 2. First-run provider and microphone setup polish.
    - User value: reduce confusion before daily Voice use.
