@@ -23,6 +23,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase 4B-1 Desktop Pet safe floating-window MVP is implemented: default OFF, product-controlled local setting, separate minimal Pet renderer/preload, fixed safe context menu, read-only state projection, position persistence with screen clamping, tray show/hide, and destroy-on-hide/quit cleanup.
 - Phase 4B-1B Desktop Pet manual-acceptance defects are fixed in development: Pet CSS is isolated for transparent-window rendering, drag position persistence is flushed on move/hide, and Reduced Motion changes refresh into the Pet renderer.
 - Phase 4B-1C Desktop Pet final development acceptance is complete on HEAD `4802302`: transparent renderer, direct whole-pet dragging, drag position persistence, Reduced Motion projection, safe right-click menu, tray lifecycle, screen-boundary clamping, and quit cleanup passed automated development smoke/verify; physical multi-monitor unplug/reflow remains deferred.
+- Phase 4B-2A Desktop Pet state and animation protocol is implemented: six safe projected states (`idle`, `listening`, `thinking`, `success`, `error`, `offline`), bounded success/error TTL, Reduced Motion static variants, no user-content projection, and Pet smoke/tray/UI smoke coverage.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -159,4 +160,4 @@ Recommended next implementation order:
 - Voice Pilot reruns or 100-record expansion.
 - Resolver, ASR, Qwen rerank, or Pilot Manifest changes.
 - Real Windows acceptance without explicit user approval and safety variable.
-- New Skin/Pet/Marketplace feature work before Desktop Alpha daily-use basics.
+- Skin Runtime, Skin Studio, Marketplace, or community upload work before explicit approval.
