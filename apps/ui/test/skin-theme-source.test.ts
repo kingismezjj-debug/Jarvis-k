@@ -6,6 +6,18 @@ import { readAppCompositionSource } from "./read-ui-source";
 
 const appSource = readAppCompositionSource();
 
+const appearanceSource = readFileSync(
+  path.resolve(
+    import.meta.dirname,
+    "..",
+    "src",
+    "features",
+    "appearance",
+    "appearance-settings-panel.tsx",
+  ),
+  "utf8",
+);
+
 const cssSource = readFileSync(
   path.resolve(import.meta.dirname, "..", "src", "index.css"),
   "utf8",
@@ -30,12 +42,13 @@ describe("skin theme source", () => {
     expect(cssSource).toContain("--accent:");
   });
 
-  it("does not expose executable or installable skin package behavior", () => {
+  it("does not expose executable, remote, or studio skin package behavior", () => {
     expect(appSource).toContain("Local Pet Skin Preview");
     expect(appSource).not.toContain("importSkin");
-    expect(appSource).not.toContain("installSkin");
-    expect(appSource).not.toContain("activateSkin");
     expect(appSource).not.toContain("Set as default");
+    expect(appearanceSource).not.toContain("Marketplace");
+    expect(appearanceSource).not.toContain("Community");
+    expect(appearanceSource).not.toContain("Skin Studio");
     expect(appSource).not.toContain("eval(");
     expect(appSource).not.toContain("dangerouslySetInnerHTML");
     expect(cssSource).not.toContain("javascript:");

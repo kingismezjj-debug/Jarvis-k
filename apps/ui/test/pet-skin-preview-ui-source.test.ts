@@ -19,15 +19,18 @@ const appSource = readFileSync(
 );
 
 describe("Pet skin preview UI boundary", () => {
-  it("keeps preview UI developer-gated and free of install or activation controls", () => {
+  it("keeps local skin lifecycle UI developer-gated and free of community or remote controls", () => {
     expect(appSource).toContain("showPetSkinPreview={developerModeEnabled}");
     expect(appearanceSource).toContain("Local Pet Skin Preview");
+    expect(appearanceSource).toContain("Installed Pet Skins");
+    expect(appearanceSource).toContain("Install");
+    expect(appearanceSource).toContain("Activate");
     for (const forbidden of [
-      "Install",
-      "Activate",
       "Set as default",
       "Marketplace",
       "Community",
+      "Skin Studio",
+      "Upload",
     ]) {
       expect(appearanceSource).not.toContain(forbidden);
     }

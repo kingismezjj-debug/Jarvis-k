@@ -1,7 +1,9 @@
 import { Palette } from "lucide-react";
 import type {
   PetSkinFormalState,
+  PetSkinIdentity,
   PetSkinPreviewSelectResult,
+  PetSkinRegistryProjection,
 } from "@jarvis-k/contracts";
 
 import type { uiCopy } from "@/app/copy";
@@ -26,7 +28,13 @@ export function AppearanceSettingsPanel({
   currentThemeId,
   petSkinPreviewLoading,
   petSkinPreviewResult,
+  petSkinRegistry,
+  onActivatePetSkin,
   onCancelPetSkinPreview,
+  onInstallPetSkinPreview,
+  onRefreshPetSkinRegistry,
+  onRemovePetSkin,
+  onReturnPetSkinToBuiltIn,
   onSelectTheme,
   onSelectPetSkinPreview,
   showPetSkinPreview,
@@ -38,7 +46,13 @@ export function AppearanceSettingsPanel({
   currentThemeId: SkinThemeId;
   petSkinPreviewLoading: boolean;
   petSkinPreviewResult: PetSkinPreviewSelectResult | null;
+  petSkinRegistry: PetSkinRegistryProjection | null;
+  onActivatePetSkin: (identity: PetSkinIdentity) => void;
   onCancelPetSkinPreview: () => void;
+  onInstallPetSkinPreview: () => void;
+  onRefreshPetSkinRegistry: () => void;
+  onRemovePetSkin: (identity: PetSkinIdentity) => void;
+  onReturnPetSkinToBuiltIn: () => void;
   onSelectTheme: (themeId: SkinThemeId) => void;
   onSelectPetSkinPreview: () => void;
   showPetSkinPreview: boolean;
@@ -182,6 +196,14 @@ export function AppearanceSettingsPanel({
                 resources={preview.resources}
                 title="Reduced motion states"
               />
+              <Button
+                className="h-8 rounded-md px-3 text-xs"
+                onClick={onInstallPetSkinPreview}
+                type="button"
+                variant="secondary"
+              >
+                Install
+              </Button>
             </div>
           ) : null}
           {previewError ? (
@@ -195,6 +217,111 @@ export function AppearanceSettingsPanel({
               </span>
             </div>
           ) : null}
+          <section
+            className="mt-4 border-t pt-3"
+            data-testid="pet-skin-installed-panel"
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h4 className="text-xs font-semibold">Installed Pet Skins</h4>
+              <div className="flex gap-2">
+                <Button
+                  className="h-8 rounded-md px-3 text-xs"
+                  onClick={onRefreshPetSkinRegistry}
+                  type="button"
+                  variant="ghost"
+                >
+                  Refresh
+                </Button>
+                <Button
+                  className="h-8 rounded-md px-3 text-xs"
+                  disabled={!petSkinRegistry?.activeSkinIdentity}
+                  onClick={onReturnPetSkinToBuiltIn}
+                  type="button"
+                  variant="ghost"
+                >
+                  Built-in
+                </Button>
+              </div>
+            </div>
+            <dl className="divide-y divide-border border-y text-[11px]">
+              <Metric
+                label="Active"
+                tone={petSkinRegistry?.activeSkinIdentity ? "accent" : "success"}
+                value={
+                  petSkinRegistry?.activeSkinIdentity
+                    ? `${petSkinRegistry.activeSkinIdentity.skinId} ${petSkinRegistry.activeSkinIdentity.skinVersion}`
+                    : "built-in robot"
+                }
+              />
+              <Metric
+                label="Registry"
+                tone={petSkinRegistry?.registryHealthy === false ? "warning" : "success"}
+                value={
+                  petSkinRegistry
+                    ? petSkinRegistry.registryHealthy
+                      ? "healthy"
+                      : "fallback"
+                    : "not loaded"
+                }
+              />
+            </dl>
+            <div className="mt-2 space-y-2">
+              {(petSkinRegistry?.installedSkins ?? []).length === 0 ? (
+                <div className="rounded-md border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                  No local pet skins installed.
+                </div>
+              ) : (
+                petSkinRegistry?.installedSkins.map((entry) => {
+                  const isActive =
+                    petSkinRegistry.activeSkinIdentity?.packageDigest ===
+                    entry.identity.packageDigest;
+                  return (
+                    <div
+                      className="rounded-md border px-3 py-2"
+                      data-testid="pet-skin-installed-row"
+                      key={entry.identity.packageDigest}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-semibold">
+                            {entry.displayName}
+                          </div>
+                          <div className="mt-1 text-[10px] text-muted-foreground">
+                            {entry.identity.skinId} / {entry.identity.skinVersion}
+                          </div>
+                        </div>
+                        <Badge
+                          className="rounded-md text-[10px]"
+                          variant={isActive ? "default" : "outline"}
+                        >
+                          {isActive ? "active" : entry.trustState}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button
+                          className="h-7 rounded-md px-2 text-[11px]"
+                          disabled={isActive}
+                          onClick={() => onActivatePetSkin(entry.identity)}
+                          type="button"
+                          variant="secondary"
+                        >
+                          Activate
+                        </Button>
+                        <Button
+                          className="h-7 rounded-md px-2 text-[11px]"
+                          onClick={() => onRemovePetSkin(entry.identity)}
+                          type="button"
+                          variant="ghost"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
         </section>
       ) : null}
     </section>

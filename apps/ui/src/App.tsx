@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { RefreshCw, X } from "lucide-react";
 import type {
   EventEnvelope,
+  PetSkinRegistryProjection,
   PetSkinPreviewSelectResult,
   TaskState,
   UserControlledMemoryKind,
@@ -223,6 +224,8 @@ export default function App() {
   const [petSkinPreviewResult, setPetSkinPreviewResult] =
     useState<PetSkinPreviewSelectResult | null>(null);
   const [petSkinPreviewLoading, setPetSkinPreviewLoading] = useState(false);
+  const [petSkinRegistry, setPetSkinRegistry] =
+    useState<PetSkinRegistryProjection | null>(null);
   const autoSpokenTtsKeyRef = useRef<string | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAudioUrlRef = useRef<string | null>(null);
@@ -875,6 +878,12 @@ export default function App() {
   }, [activeView, coreOnline, refreshUserControlledMemories]);
 
   useEffect(() => {
+    if (activeView === "settings" && developerModeEnabled) {
+      void refreshPetSkinRegistry();
+    }
+  }, [activeView, developerModeEnabled]);
+
+  useEffect(() => {
     if (!ttsSafetyEligible) {
       return;
     }
@@ -939,6 +948,63 @@ export default function App() {
         setPetSkinPreviewResult(null);
       }
       return result.ok;
+    });
+  }
+
+  async function refreshPetSkinRegistry() {
+    const registry = await window.jarvis?.getDesktopPetSkinRegistry();
+    if (registry) {
+      setPetSkinRegistry(registry);
+    }
+    return registry !== undefined;
+  }
+
+  async function handleInstallPetSkinPreview() {
+    const preview = petSkinPreviewResult?.ok ? petSkinPreviewResult.preview : null;
+    if (!preview) return false;
+    return trackAction("Install pet skin", async () => {
+      const result = await window.jarvis?.installDesktopPetSkinPreview({
+        previewId: preview.previewId,
+      });
+      if (result?.registry) {
+        setPetSkinRegistry(result.registry);
+      }
+      return result?.ok === true;
+    });
+  }
+
+  async function handleActivatePetSkin(
+    identity: NonNullable<PetSkinRegistryProjection["installedSkins"][number]>["identity"],
+  ) {
+    return trackAction("Activate pet skin", async () => {
+      const result = await window.jarvis?.activateDesktopPetSkin(identity);
+      if (result?.registry) {
+        setPetSkinRegistry(result.registry);
+      }
+      return result?.ok === true;
+    });
+  }
+
+  async function handleReturnPetSkinToBuiltIn() {
+    return trackAction("Return Desktop Pet to built-in", async () => {
+      const result = await window.jarvis?.returnDesktopPetSkinToBuiltIn();
+      if (result?.registry) {
+        setPetSkinRegistry(result.registry);
+      }
+      return result?.ok === true;
+    });
+  }
+
+  async function handleRemovePetSkin(
+    identity: NonNullable<PetSkinRegistryProjection["installedSkins"][number]>["identity"],
+  ) {
+    if (!window.confirm("Remove this local Desktop Pet skin?")) return false;
+    return trackAction("Remove pet skin", async () => {
+      const result = await window.jarvis?.removeDesktopPetSkin(identity);
+      if (result?.registry) {
+        setPetSkinRegistry(result.registry);
+      }
+      return result?.ok === true;
     });
   }
 
@@ -2204,8 +2270,14 @@ export default function App() {
                   currentThemeId={skinTheme}
                   petSkinPreviewLoading={petSkinPreviewLoading}
                   petSkinPreviewResult={petSkinPreviewResult}
+                  petSkinRegistry={petSkinRegistry}
+                  onActivatePetSkin={handleActivatePetSkin}
                   onSelectTheme={handleSelectSkinTheme}
                   onCancelPetSkinPreview={handleCancelPetSkinPreview}
+                  onInstallPetSkinPreview={handleInstallPetSkinPreview}
+                  onRefreshPetSkinRegistry={refreshPetSkinRegistry}
+                  onRemovePetSkin={handleRemovePetSkin}
+                  onReturnPetSkinToBuiltIn={handleReturnPetSkinToBuiltIn}
                   onSelectPetSkinPreview={handleSelectPetSkinPreview}
                   showPetSkinPreview={developerModeEnabled}
                   storageKey={THEME_STORAGE_KEY}
