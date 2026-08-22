@@ -28,6 +28,7 @@ describe("PetSkinPreviewService", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.preview.trustState).toBe("validated_preview_package");
+      expect(result.preview.previewId).toMatch(/^[a-f0-9]+$/u);
       expect(result.preview.resources.base.resourceUrl).toMatch(
         new RegExp(`^${PET_SKIN_PREVIEW_PROTOCOL}://`),
       );

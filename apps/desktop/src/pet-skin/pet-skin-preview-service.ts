@@ -156,7 +156,7 @@ export class PetSkinPreviewService {
       if (!packageResult.ok) {
         return packageResult.error;
       }
-      const previewId = crypto.randomBytes(PREVIEW_ID_BYTES).toString("base64url");
+      const previewId = crypto.randomBytes(PREVIEW_ID_BYTES).toString("hex");
       previewDirectory = await fs.mkdtemp(path.join(this.tempRoot, PREVIEW_DIR_PREFIX));
       const resources = new Map<string, ResourceRecord>();
       for (const [assetId, asset] of Object.entries(packageResult.manifest.assets)) {
