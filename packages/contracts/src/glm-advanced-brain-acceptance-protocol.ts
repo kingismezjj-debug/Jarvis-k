@@ -34,9 +34,12 @@ export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE =
   "platform_api_key" as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID =
   "glm-advanced-brain-acceptance-fixed-request" as const;
-export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID =
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID =
   "glm-advanced-brain-acceptance-fixed-request-v2" as const;
-export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 2 as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID =
+  "glm-advanced-brain-acceptance-fixed-request-v3" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 3 as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS = 30_000 as const;
 
 export const GlmAdvancedBrainAcceptanceIdSchema = z.literal(
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
@@ -101,6 +104,7 @@ export const GlmAdvancedBrainAcceptanceReasonCodeSchema = z.enum([
   "acceptance_already_consumed",
   "invalid_structured_response",
   "transport_timeout",
+  "transport_cancelled",
   "transport_authentication_failed",
   "transport_permission_denied",
   "transport_rate_limited",
@@ -114,6 +118,7 @@ export type GlmAdvancedBrainAcceptanceReasonCode = z.infer<
 
 export const GlmAdvancedBrainAcceptanceProviderErrorCategorySchema = z.enum([
   "none",
+  "not_applicable",
   "credential_rejected",
   "credential_type_mismatch_possible",
   "permission_denied",
@@ -233,7 +238,10 @@ export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
     imageIncluded: z.literal(false),
     maximumOutputTokens: z.number().int().min(1).max(64),
     maxOutputTokens: z.literal(64),
-    boundedTimeoutMs: z.number().int().min(100).max(10_000),
+    requestedTimeoutMs: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS),
+    effectiveTimeoutMs: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS),
+    timeoutBounded: z.literal(true),
+    boundedTimeoutMs: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS),
     streaming: z.literal(false),
     toolsEnabled: z.literal(false),
     retryEnabled: z.literal(false),

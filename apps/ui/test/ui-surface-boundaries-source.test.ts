@@ -76,8 +76,14 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(glmAcceptancePanelSource).toContain("status.acceptanceConsumed");
     expect(glmAcceptancePanelSource).toContain("Acceptance ID:");
     expect(glmAcceptancePanelSource).toContain("Acceptance version:");
+    expect(glmAcceptancePanelSource).toContain("Requested timeout:");
+    expect(glmAcceptancePanelSource).toContain("Effective timeout:");
+    expect(glmAcceptancePanelSource).toContain("Timeout bounded:");
     expect(glmAcceptancePanelSource).not.toContain(
       "glm-advanced-brain-acceptance-fixed-request-v2",
+    );
+    expect(glmAcceptancePanelSource).not.toContain(
+      "glm-advanced-brain-acceptance-fixed-request-v3",
     );
   });
 

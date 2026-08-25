@@ -7,7 +7,9 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID,
   GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
   GlmAdvancedBrainAcceptancePreflightResultSchema,
   GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema,
@@ -80,7 +82,10 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       imageIncluded: false,
       maximumOutputTokens: 64,
       maxOutputTokens: 64,
-      boundedTimeoutMs: 2000,
+      requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      timeoutBounded: true,
+      boundedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       streaming: false,
       toolsEnabled: false,
       retryEnabled: false,
@@ -103,6 +108,9 @@ describe("GLM Advanced Brain acceptance protocol", () => {
 
     expect(preflight.maximumOutputTokens).toBe(64);
     expect(preflight.maxOutputTokens).toBe(64);
+    expect(preflight.requestedTimeoutMs).toBe(30_000);
+    expect(preflight.effectiveTimeoutMs).toBe(30_000);
+    expect(preflight.timeoutBounded).toBe(true);
     expect(() =>
       GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
         ...preflight,
@@ -193,6 +201,12 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
         ...report,
         acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
+      }),
+    ).toThrow();
+    expect(() =>
+      GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
+        ...report,
+        acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID,
       }),
     ).toThrow();
   });

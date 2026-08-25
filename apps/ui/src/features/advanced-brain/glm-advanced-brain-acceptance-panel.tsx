@@ -9,6 +9,7 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
 } from "@jarvis-k/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,9 @@ export function GlmAdvancedBrainAcceptancePanel({
         "Tool execution: NO",
         "Retry: NO",
         "Maximum output tokens: 64",
+        `Requested timeout: ${preflightResult?.requestedTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
+        `Effective timeout: ${preflightResult?.effectiveTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
+        `Timeout bounded: ${preflightResult?.timeoutBounded ? "YES" : "NO"}`,
         "This one-time diagnostic may produce a small API charge.",
         "",
         "Only this fixed acceptance request will be sent if all preflight checks pass.",
@@ -339,6 +343,18 @@ export function GlmAdvancedBrainAcceptancePanel({
             value={String(preflightResult.maxOutputTokens)}
           />
           <MetricRow
+            label="requested timeout"
+            value={`${preflightResult.requestedTimeoutMs} ms`}
+          />
+          <MetricRow
+            label="effective timeout"
+            value={`${preflightResult.effectiveTimeoutMs} ms`}
+          />
+          <MetricRow
+            label="timeout bounded"
+            value={preflightResult.timeoutBounded ? "YES" : "NO"}
+          />
+          <MetricRow
             label="streaming"
             value={preflightResult.streaming ? "YES" : "NO"}
           />
@@ -414,7 +430,7 @@ export function GlmAdvancedBrainAcceptancePanel({
           <MetricRow label="tool calls" value={String(report.toolCallCount)} />
           <MetricRow label="reason" value={report.reasonCode} />
           <MetricRow
-            label="provider category"
+            label="transport/provider category"
             value={report.providerErrorCategory}
           />
         </dl>

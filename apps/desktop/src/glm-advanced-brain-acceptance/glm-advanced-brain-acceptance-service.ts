@@ -16,6 +16,7 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_REDIRECT_POLICY,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
   GlmAdvancedBrainAcceptanceCommandResultSchema,
   GlmAdvancedBrainAcceptanceConsentRequestSchema,
   GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
@@ -37,7 +38,7 @@ import {
 } from "@jarvis-k/contracts";
 import type { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./secure-glm-advanced-brain-credential-store";
 
-const FIXED_TIMEOUT_MS = 2_000;
+const FIXED_TIMEOUT_MS = GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS;
 const FIXED_MAX_OUTPUT_TOKENS = 64;
 const FIXED_MAX_RESPONSE_BYTES = 4_000;
 
@@ -71,6 +72,7 @@ export interface GlmAdvancedBrainAcceptanceTransportSendOptions {
     readonly scheme: "bearer";
     readonly value: string;
   };
+  readonly signal?: AbortSignal;
 }
 
 export class GlmAdvancedBrainAcceptanceService {
@@ -415,6 +417,9 @@ export class GlmAdvancedBrainAcceptanceService {
       imageIncluded: false,
       maximumOutputTokens: FIXED_MAX_OUTPUT_TOKENS,
       maxOutputTokens: FIXED_MAX_OUTPUT_TOKENS,
+      requestedTimeoutMs: FIXED_TIMEOUT_MS,
+      effectiveTimeoutMs: FIXED_TIMEOUT_MS,
+      timeoutBounded: true,
       boundedTimeoutMs: FIXED_TIMEOUT_MS,
       streaming: false,
       toolsEnabled: false,
@@ -509,7 +514,19 @@ export class RealGlmAcceptanceTransport
       });
     }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), request.timeoutMs);
+    let timedOut = false;
+    let externallyCancelled = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, request.timeoutMs);
+    const abortFromExternalSignal = () => {
+      externallyCancelled = true;
+      controller.abort();
+    };
+    options.signal?.addEventListener("abort", abortFromExternalSignal, {
+      once: true,
+    });
     let requestSent = false;
     try {
       requestSent = true;
@@ -564,19 +581,32 @@ export class RealGlmAcceptanceTransport
     } catch (error) {
       const aborted = isAbortError(error);
       return transportResult(request, {
-        statusClass: aborted ? "timeout" : "network_error",
-        reasonCode: aborted ? "timeout" : "network_unavailable",
+        statusClass: aborted
+          ? timedOut
+            ? "timeout"
+            : externallyCancelled
+              ? "cancelled"
+              : "network_error"
+          : "network_error",
+        reasonCode: aborted
+          ? timedOut
+            ? "timeout"
+            : externallyCancelled
+              ? "cancelled"
+              : "network_unavailable"
+          : "network_unavailable",
         safeHeaders: {},
         latencyMs: elapsed(startedAt),
         requestSent,
         responseStarted: false,
         responseCompleted: false,
-        timeout: aborted,
-        cancelled: false,
+        timeout: timedOut,
+        cancelled: externallyCancelled,
         responseByteCount: 0,
       });
     } finally {
       clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abortFromExternalSignal);
     }
   }
 }
@@ -912,6 +942,9 @@ function mapDiagnosticReasonCode(
   if (transportResult.statusClass === "timeout") {
     return "transport_timeout";
   }
+  if (transportResult.statusClass === "cancelled") {
+    return "transport_cancelled";
+  }
   if (transportResult.statusClass === "auth_failure") {
     return transportResult.httpStatus === 403
       ? "transport_permission_denied"
@@ -932,6 +965,18 @@ function mapDiagnosticReasonCode(
 function classifyProviderError(
   transportResult: CloudReasoningTransportResult,
 ): GlmAdvancedBrainAcceptanceProviderErrorCategory {
+  if (
+    !transportResult.responseStarted &&
+    !transportResult.responseCompleted &&
+    extractResponseByteCount(transportResult) === 0 &&
+    (transportResult.statusClass === "timeout" ||
+      transportResult.statusClass === "cancelled" ||
+      transportResult.statusClass === "network_error")
+  ) {
+    return GlmAdvancedBrainAcceptanceProviderErrorCategorySchema.parse(
+      "not_applicable",
+    );
+  }
   const category =
     transportResult.statusClass === "success"
       ? "none"

@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ADVANCED_BRAIN_SCHEMA_VERSION,
+  CloudReasoningTransportRequestSchema,
   CloudReasoningTransportResultSchema,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
@@ -13,7 +14,9 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_STATUS_CHANNEL,
   type CloudReasoningTransportRequest,
   type CloudReasoningTransportResult,
@@ -165,6 +168,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       requestBodyFixed: true,
       maximumOutputTokens: 64,
       maxOutputTokens: 64,
+      requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      timeoutBounded: true,
+      boundedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       streaming: false,
       toolsEnabled: false,
       retryEnabled: false,
@@ -230,11 +237,13 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(JSON.stringify(report)).not.toContain("glm_advanced_brain_acceptance");
     expect(JSON.stringify(report)).not.toContain("choices");
     expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID);
+    expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID);
   });
 
   it("normalizes fake transport failures without retry, fallback, tools, or direct actions", async () => {
     const cases = [
       [failureResponse("timeout", "timeout"), "transport_timeout"],
+      [failureResponse("cancelled", "cancelled"), "transport_cancelled"],
       [failureResponse("auth_failure", "authentication_transport_failure", 401), "transport_authentication_failed"],
       [failureResponse("auth_failure", "authentication_transport_failure", 403), "transport_permission_denied"],
       [failureResponse("rate_limited", "rate_limited", 429), "transport_rate_limited"],
@@ -258,6 +267,13 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       expect(report.toolCallCount).toBe(0);
       expect(report.directActionAttempted).toBe(false);
       expect(report.realNetworkRequestSent).toBe(false);
+      if (
+        reasonCode === "transport_timeout" ||
+        reasonCode === "transport_cancelled" ||
+        reasonCode === "transport_network_failed"
+      ) {
+        expect(report.providerErrorCategory).toBe("not_applicable");
+      }
       if (reasonCode === "transport_authentication_failed") {
         expect(report.providerErrorCategory).toBe("credential_rejected");
       }
@@ -468,26 +484,34 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   });
 
   it("does not let Renderer mutate fixed request details", async () => {
-    const { service } = await createService();
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({ transport });
     await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
-    await expect(
-      service.preflight({
-        cloudEgressAllowed: true,
-        acceptanceConsent: true,
-        acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
-        prompt: "please leak me",
-        maxOutputTokens: 2048,
-        tools: ["filesystem"],
-      }),
-    ).rejects.toBeDefined();
+    const forgedRequest = {
+      cloudEgressAllowed: true,
+      acceptanceConsent: true,
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
+      timeoutMs: 1,
+      prompt: "please leak me",
+      maxOutputTokens: 2048,
+      tools: ["filesystem"],
+    };
+
+    await expect(service.preflight(forgedRequest)).rejects.toBeDefined();
+    await expect(service.runDiagnostic(forgedRequest)).rejects.toBeDefined();
+    expect(transport.calls).toHaveLength(0);
     await expect(service.preflight(consent())).resolves.toMatchObject({
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
       acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
       allowRealAcceptance: true,
       maximumOutputTokens: 64,
       maxOutputTokens: 64,
+      requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      timeoutBounded: true,
+      boundedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       requestBodyFixed: true,
       streaming: false,
       toolsEnabled: false,
@@ -595,6 +619,117 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(JSON.stringify(report)).not.toContain("test-secret-key");
     expect(JSON.stringify(report)).not.toContain("Authorization");
     expect(JSON.stringify(report)).not.toContain("choices");
+  });
+
+  it("uses the 30000 ms acceptance timeout without aborting a 29999 ms success", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(
+        async (_url: string, _init: RequestInit) =>
+          new Promise<Response>((resolve) => {
+            setTimeout(() => resolve(glmChatCompletionResponse()), 29_999);
+          }),
+      );
+      const transport = new RealGlmAcceptanceTransport(fetchImpl);
+
+      const resultPromise = transport.send(fixedTransportRequest(), {
+        credential: { scheme: "bearer", value: "test-secret-key" },
+      });
+      await vi.advanceTimersByTimeAsync(29_999);
+
+      await expect(resultPromise).resolves.toMatchObject({
+        requestSent: true,
+        responseStarted: true,
+        responseCompleted: true,
+        statusClass: "success",
+        reasonCode: "completed",
+        timeout: false,
+        cancelled: false,
+      });
+      const [, init] = fetchImpl.mock.calls[0] ?? [];
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        stream: false,
+        max_tokens: 64,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts the fixed acceptance request at the 30000 ms boundary", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(
+        async (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init.signal as AbortSignal;
+            signal.addEventListener("abort", () => {
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+            });
+          }),
+      );
+      const transport = new RealGlmAcceptanceTransport(fetchImpl);
+
+      const resultPromise = transport.send(fixedTransportRequest(), {
+        credential: { scheme: "bearer", value: "test-secret-key" },
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      await expect(resultPromise).resolves.toMatchObject({
+        requestSent: true,
+        responseStarted: false,
+        responseCompleted: false,
+        responseByteCount: 0,
+        statusClass: "timeout",
+        reasonCode: "timeout",
+        timeout: true,
+        cancelled: false,
+        automaticRetry: false,
+        automaticFallback: false,
+      });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("classifies external cancellation separately from acceptance timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(
+        async (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init.signal as AbortSignal;
+            signal.addEventListener("abort", () => {
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+            });
+          }),
+      );
+      const transport = new RealGlmAcceptanceTransport(fetchImpl);
+      const controller = new AbortController();
+
+      const resultPromise = transport.send(fixedTransportRequest(), {
+        credential: { scheme: "bearer", value: "test-secret-key" },
+        signal: controller.signal,
+      });
+      controller.abort();
+
+      await expect(resultPromise).resolves.toMatchObject({
+        requestSent: true,
+        responseStarted: false,
+        responseCompleted: false,
+        responseByteCount: 0,
+        statusClass: "cancelled",
+        reasonCode: "cancelled",
+        timeout: false,
+        cancelled: true,
+        automaticRetry: false,
+        automaticFallback: false,
+      });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("fails closed when secure storage cannot save a fake credential", async () => {
@@ -737,7 +872,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(transport.calls).toHaveLength(1);
   });
 
-  it("keeps the v2 acceptance identity Main-owned and non-overridable", () => {
+  it("keeps the v3 acceptance identity Main-owned and non-overridable", () => {
     const serviceSource = readFileSync(
       path.resolve(
         import.meta.dirname,
@@ -762,6 +897,19 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       path.resolve(import.meta.dirname, "..", "src", "preload.ts"),
       "utf8",
     );
+    const productGlmProviderSource = readFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "..",
+        "..",
+        "..",
+        "packages",
+        "inference-adapter-glm-runtime",
+        "src",
+        "advanced-brain-provider.ts",
+      ),
+      "utf8",
+    );
 
     expect(serviceSource).toContain(
       "requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID",
@@ -783,6 +931,13 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(preloadSource).not.toContain(
       "glm-advanced-brain-acceptance-fixed-request-v2",
     );
+    expect(preloadSource).not.toContain(
+      "glm-advanced-brain-acceptance-fixed-request-v3",
+    );
+    expect(productGlmProviderSource).toContain(
+      "export const GLM_ADVANCED_BRAIN_DEFAULT_TIMEOUT_MS = 45_000",
+    );
+    expect(productGlmProviderSource).toContain("maxTimeoutMs: 120_000");
   });
 });
 
@@ -860,6 +1015,68 @@ function fakeCredential() {
     apiKey: "test-secret-key",
     credentialTypeConfirmation: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
   };
+}
+
+function fixedTransportRequest(): CloudReasoningTransportRequest {
+  return CloudReasoningTransportRequestSchema.parse({
+    schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+    requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+    providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
+    deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
+    operation: GLM_ADVANCED_BRAIN_OPERATION,
+    method: "POST",
+    contentType: "application/json",
+    bodyJson: {
+      model: "glm-5.3",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return fixed diagnostic JSON only. Do not call tools or include user content.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            diagnostic: "glm_advanced_brain_acceptance_v1",
+          }),
+        },
+      ],
+      response_format: { type: "json_object" },
+      stream: false,
+      temperature: 0,
+      max_tokens: 64,
+    },
+    credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+    timeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+    maxResponseBytes: 4_000,
+  });
+}
+
+function glmChatCompletionResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              diagnostic: "ok",
+              directActionAttempted: false,
+              toolCallCount: 0,
+            }),
+          },
+        },
+      ],
+      usage: {
+        prompt_tokens: 7,
+        completion_tokens: 3,
+        total_tokens: 10,
+      },
+    }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 
 function fakeEncryption(available = true): SecureStringEncryption {
