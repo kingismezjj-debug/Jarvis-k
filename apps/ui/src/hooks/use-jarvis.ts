@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   CoreSnapshotSchema,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
   type AppCommand,
   type BrainCommandResult,
   type ChatAnswerProductModeStatus,
@@ -535,6 +536,8 @@ export function useJarvis(options: UseJarvisOptions = {}) {
         const result =
           await window.jarvis.saveGlmAdvancedBrainAcceptanceCredential({
             apiKey,
+            credentialTypeConfirmation:
+              GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
           });
         setGlmAdvancedBrainAcceptanceStatus(result.status);
         if (!result.ok) {

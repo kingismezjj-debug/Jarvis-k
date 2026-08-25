@@ -25,9 +25,13 @@ export const GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION =
   "chat.completions" as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH =
   "/api/paas/v4/chat/completions" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT =
+  `${GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN}${GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH}` as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID =
   "glm.advanced-brain.api-key" as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_REDIRECT_POLICY = "none" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE =
+  "platform_api_key" as const;
 
 export const GlmAdvancedBrainAcceptanceModelIdSchema = z.enum([
   "glm-5.2",
@@ -49,6 +53,8 @@ export const GlmAdvancedBrainAcceptanceReasonCodeSchema = z.enum([
   "provider_disabled",
   "model_not_selected",
   "credential_missing",
+  "credential_invalid",
+  "credential_type_unconfirmed",
   "secure_store_unavailable",
   "endpoint_profile_mismatch",
   "cloud_egress_not_allowed",
@@ -62,6 +68,7 @@ export const GlmAdvancedBrainAcceptanceReasonCodeSchema = z.enum([
   "plugin_runtime_present",
   "user_content_present",
   "acceptance_already_running",
+  "acceptance_already_submitted",
   "invalid_structured_response",
   "transport_timeout",
   "transport_authentication_failed",
@@ -87,6 +94,9 @@ export type GlmAdvancedBrainAcceptanceSetModelRequest = z.infer<
 export const GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema = z
   .object({
     apiKey: z.string().trim().min(8).max(1024),
+    credentialTypeConfirmation: z.literal(
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+    ),
   })
   .strict();
 export type GlmAdvancedBrainAcceptanceSaveCredentialRequest = z.infer<
@@ -112,7 +122,17 @@ export const GlmAdvancedBrainAcceptanceStatusSchema = z
     modelExplicitlySelected: z.boolean(),
     credentialConfigured: z.boolean(),
     secureStorageAvailable: z.boolean(),
+    credentialStorageEncrypted: z.boolean(),
+    credentialBindingId: z.literal(
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+    ),
+    credentialTypeConfirmed: z
+      .literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE)
+      .optional(),
     endpointProfileId: GlmAdvancedBrainAcceptanceEndpointProfileIdSchema,
+    endpointOrigin: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN),
+    operationPath: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH),
+    fullEndpointMatch: z.boolean(),
     officialEndpointProfile: z.boolean(),
     credentialExposed: z.literal(false),
     promptExposed: z.literal(false),
@@ -142,14 +162,34 @@ export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
     providerId: z.literal("advanced-brain.glm"),
     modelId: GlmAdvancedBrainAcceptanceModelIdSchema.optional(),
     endpointProfileId: GlmAdvancedBrainAcceptanceEndpointProfileIdSchema,
+    endpointOrigin: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN),
+    operationPath: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH),
+    fullEndpointMatch: z.boolean(),
+    credentialBindingId: z.literal(
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+    ),
+    credentialConfigured: z.boolean(),
+    credentialStorageEncrypted: z.boolean(),
+    credentialTypeConfirmed: z
+      .literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE)
+      .optional(),
+    selectedModelExplicit: z.boolean(),
     checkedAt: z.string().datetime(),
     reasonCodes: z.array(GlmAdvancedBrainAcceptanceReasonCodeSchema).max(16),
     cloudRequestFixed: z.literal(true),
+    requestBodyFixed: z.literal(true),
     userContentIncluded: z.literal(false),
     fileIncluded: z.literal(false),
     imageIncluded: z.literal(false),
     maximumOutputTokens: z.number().int().min(1).max(64),
+    maxOutputTokens: z.literal(64),
     boundedTimeoutMs: z.number().int().min(100).max(10_000),
+    streaming: z.literal(false),
+    toolsEnabled: z.literal(false),
+    retryEnabled: z.literal(false),
+    fallbackEnabled: z.literal(false),
+    executorReachable: z.literal(false),
+    allowSingleRealAcceptance: z.boolean(),
     automaticRetry: z.literal(false),
     automaticFallback: z.literal(false),
     toolCapabilityCount: z.literal(0),

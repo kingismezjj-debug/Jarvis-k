@@ -5,6 +5,7 @@ import type {
   GlmAdvancedBrainAcceptancePreflightResult,
   GlmAdvancedBrainAcceptanceStatus,
 } from "@jarvis-k/contracts";
+import { GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE } from "@jarvis-k/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +32,7 @@ export function GlmAdvancedBrainAcceptancePanel({
   status,
 }: GlmAdvancedBrainAcceptancePanelProps) {
   const [draftKey, setDraftKey] = useState("");
+  const [platformKeyConfirmed, setPlatformKeyConfirmed] = useState(false);
   if (!status?.acceptanceFlagEnabled) {
     return null;
   }
@@ -45,6 +47,7 @@ export function GlmAdvancedBrainAcceptancePanel({
         `Provider: GLM`,
         `Model: ${selectedModel || "not selected"}`,
         "Endpoint: official standard_paas_v4 profile",
+        "Credential type: Zhipu Open Platform API key confirmed",
         "Cloud request: YES",
         "Fixed diagnostic input: YES",
         "User content included: NO",
@@ -93,12 +96,36 @@ export function GlmAdvancedBrainAcceptancePanel({
           value={configured ? "configured" : "missing"}
         />
         <MetricRow
+          label="credential binding"
+          value={status?.credentialBindingId ?? "unknown"}
+        />
+        <MetricRow
+          label="credential storage"
+          value={status?.credentialStorageEncrypted ? "encrypted" : "none"}
+        />
+        <MetricRow
+          label="credential type"
+          value={status?.credentialTypeConfirmed ?? "unconfirmed"}
+        />
+        <MetricRow
           label="secure store"
           value={status?.secureStorageAvailable ? "available" : "unavailable"}
         />
         <MetricRow
           label="endpoint"
           value={status?.officialEndpointProfile ? "official" : "mismatch"}
+        />
+        <MetricRow
+          label="endpoint origin"
+          value={status?.endpointOrigin ?? "unknown"}
+        />
+        <MetricRow
+          label="operation path"
+          value={status?.operationPath ?? "unknown"}
+        />
+        <MetricRow
+          label="full endpoint match"
+          value={status?.fullEndpointMatch ? "YES" : "NO"}
         />
         <MetricRow
           label="reasons"
@@ -142,10 +169,13 @@ export function GlmAdvancedBrainAcceptancePanel({
         />
         <Button
           className="h-8 rounded-md px-2.5 text-xs"
-          disabled={sending || draftKey.trim().length < 8}
+          disabled={
+            sending || draftKey.trim().length < 8 || !platformKeyConfirmed
+          }
           onClick={() => {
             actions.saveCredential(draftKey);
             setDraftKey("");
+            setPlatformKeyConfirmed(false);
           }}
           type="button"
           variant="outline"
@@ -162,6 +192,21 @@ export function GlmAdvancedBrainAcceptancePanel({
           Delete key
         </Button>
       </div>
+      <label className="mb-3 flex items-start gap-2 text-xs text-muted-foreground">
+        <input
+          checked={platformKeyConfirmed}
+          className="mt-0.5"
+          disabled={sending}
+          onChange={(event) =>
+            setPlatformKeyConfirmed(event.currentTarget.checked)
+          }
+          type="checkbox"
+        />
+        <span>
+          This is a Zhipu Open Platform API key (
+          {GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE}), not a Coding Plan key.
+        </span>
+      </label>
 
       <div className="mb-3 flex flex-wrap gap-2">
         <Button
@@ -200,16 +245,82 @@ export function GlmAdvancedBrainAcceptancePanel({
             value={preflightResult.allowRealAcceptance ? "YES" : "NO"}
           />
           <MetricRow
+            label="allow single real acceptance"
+            value={preflightResult.allowSingleRealAcceptance ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="endpoint profile"
+            value={preflightResult.endpointProfileId}
+          />
+          <MetricRow
+            label="endpoint origin"
+            value={preflightResult.endpointOrigin}
+          />
+          <MetricRow
+            label="operation path"
+            value={preflightResult.operationPath}
+          />
+          <MetricRow
+            label="full endpoint match"
+            value={preflightResult.fullEndpointMatch ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="credential binding"
+            value={preflightResult.credentialBindingId}
+          />
+          <MetricRow
+            label="credential configured"
+            value={preflightResult.credentialConfigured ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="credential encrypted"
+            value={preflightResult.credentialStorageEncrypted ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="credential type"
+            value={preflightResult.credentialTypeConfirmed ?? "unconfirmed"}
+          />
+          <MetricRow
+            label="selected model explicit"
+            value={preflightResult.selectedModelExplicit ? "YES" : "NO"}
+          />
+          <MetricRow
             label="fixed input"
-            value={preflightResult.cloudRequestFixed ? "YES" : "NO"}
+            value={
+              preflightResult.cloudRequestFixed &&
+              preflightResult.requestBodyFixed
+                ? "YES"
+                : "NO"
+            }
           />
           <MetricRow
             label="max tokens"
-            value={String(preflightResult.maximumOutputTokens)}
+            value={String(preflightResult.maxOutputTokens)}
+          />
+          <MetricRow
+            label="streaming"
+            value={preflightResult.streaming ? "YES" : "NO"}
           />
           <MetricRow
             label="no tools"
-            value={preflightResult.toolCapabilityCount === 0 ? "YES" : "NO"}
+            value={
+              !preflightResult.toolsEnabled &&
+              preflightResult.toolCapabilityCount === 0
+                ? "YES"
+                : "NO"
+            }
+          />
+          <MetricRow
+            label="retry/fallback"
+            value={
+              !preflightResult.retryEnabled && !preflightResult.fallbackEnabled
+                ? "OFF"
+                : "ON"
+            }
+          />
+          <MetricRow
+            label="executor reachable"
+            value={preflightResult.executorReachable ? "YES" : "NO"}
           />
           <MetricRow
             label="network"

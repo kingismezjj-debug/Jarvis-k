@@ -5,8 +5,10 @@ import {
   CloudReasoningTransportRequestSchema,
   CloudReasoningTransportResultSchema,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_DEPLOYMENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
@@ -34,6 +36,7 @@ import type { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./secure-g
 const FIXED_TIMEOUT_MS = 2_000;
 const FIXED_MAX_OUTPUT_TOKENS = 64;
 const FIXED_MAX_RESPONSE_BYTES = 4_000;
+const FIXED_ACCEPTANCE_ID = "glm-advanced-brain-acceptance-fixed-request";
 
 export interface GlmAdvancedBrainAcceptanceSettings {
   readonly selectedModelId?: GlmAdvancedBrainAcceptanceModelId;
@@ -70,6 +73,7 @@ export interface GlmAdvancedBrainAcceptanceTransportSendOptions {
 export class GlmAdvancedBrainAcceptanceService {
   private settings: GlmAdvancedBrainAcceptanceSettings | null = null;
   private running = false;
+  private readonly submittedAcceptanceIds = new Set<string>();
 
   public constructor(
     private readonly options: GlmAdvancedBrainAcceptanceServiceOptions,
@@ -91,7 +95,15 @@ export class GlmAdvancedBrainAcceptanceService {
       modelExplicitlySelected: settings.selectedModelId !== undefined,
       credentialConfigured: credentialStatus.credentialConfigured,
       secureStorageAvailable: credentialStatus.secureStorageAvailable,
+      credentialStorageEncrypted: credentialStatus.credentialStorageEncrypted,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      ...(credentialStatus.credentialTypeConfirmed
+        ? { credentialTypeConfirmed: credentialStatus.credentialTypeConfirmed }
+        : {}),
       endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: this.fullEndpointMatches(),
       officialEndpointProfile: this.endpointProfileIsValid(),
       credentialExposed: false,
       promptExposed: false,
@@ -153,6 +165,9 @@ export class GlmAdvancedBrainAcceptanceService {
       ...this.consentReasonCodes(input),
       ...this.fixedRequestReasonCodes(),
       ...(this.running ? ["acceptance_already_running" as const] : []),
+      ...(this.submittedAcceptanceIds.has(FIXED_ACCEPTANCE_ID)
+        ? ["acceptance_already_submitted" as const]
+        : []),
     ];
     return this.preflightResult(status, reasonCodes);
   }
@@ -175,6 +190,7 @@ export class GlmAdvancedBrainAcceptanceService {
     const startedAt = this.options.now?.() ?? new Date();
     try {
       const request = createFixedDiagnosticRequest(preflight.modelId);
+      this.submittedAcceptanceIds.add(request.requestId);
       const transport = this.options.transport ?? new FakeGlmAcceptanceTransport();
       const transportResult = await transport.send(request, {
         credential: { scheme: "bearer", value: credential.apiKey },
@@ -256,6 +272,9 @@ export class GlmAdvancedBrainAcceptanceService {
     credentialStatus: {
       readonly secureStorageAvailable: boolean;
       readonly credentialConfigured: boolean;
+      readonly credentialStorageEncrypted: boolean;
+      readonly credentialTypeConfirmed?: typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE;
+      readonly status?: "configured" | "unconfigured" | "unavailable" | "invalid";
     },
   ): GlmAdvancedBrainAcceptanceReasonCode[] {
     const reasons: GlmAdvancedBrainAcceptanceReasonCode[] = [];
@@ -267,8 +286,17 @@ export class GlmAdvancedBrainAcceptanceService {
     }
     if (!credentialStatus.secureStorageAvailable) {
       reasons.push("secure_store_unavailable");
+    } else if (credentialStatus.status === "invalid") {
+      reasons.push("credential_invalid");
     } else if (!credentialStatus.credentialConfigured) {
       reasons.push("credential_missing");
+    } else if (
+      credentialStatus.credentialTypeConfirmed !==
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE
+    ) {
+      reasons.push("credential_type_unconfirmed");
+    } else if (!credentialStatus.credentialStorageEncrypted) {
+      reasons.push("credential_invalid");
     }
     if (!this.endpointProfileIsValid()) {
       reasons.push("endpoint_profile_mismatch");
@@ -305,6 +333,12 @@ export class GlmAdvancedBrainAcceptanceService {
     if (Object.prototype.hasOwnProperty.call(body, "tools")) {
       reasons.push("tool_capability_present");
     }
+    if (Object.prototype.hasOwnProperty.call(body, "tool_choice")) {
+      reasons.push("tool_capability_present");
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "function_call")) {
+      reasons.push("tool_capability_present");
+    }
     return reasons;
   }
 
@@ -320,15 +354,35 @@ export class GlmAdvancedBrainAcceptanceService {
       providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
       ...(status.selectedModelId ? { modelId: status.selectedModelId } : {}),
       endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: status.fullEndpointMatch,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      credentialConfigured: status.credentialConfigured,
+      credentialStorageEncrypted: status.credentialStorageEncrypted,
+      ...(status.credentialTypeConfirmed
+        ? { credentialTypeConfirmed: status.credentialTypeConfirmed }
+        : {}),
+      selectedModelExplicit: status.modelExplicitlySelected,
       checkedAt: (this.options.now?.() ?? new Date()).toISOString(),
       reasonCodes:
         uniqueReasons.length === 0 ? ["ready"] : uniqueReasons.filter((r) => r !== "ready"),
       cloudRequestFixed: true,
+      requestBodyFixed: true,
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
       maximumOutputTokens: FIXED_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: FIXED_MAX_OUTPUT_TOKENS,
       boundedTimeoutMs: FIXED_TIMEOUT_MS,
+      streaming: false,
+      toolsEnabled: false,
+      retryEnabled: false,
+      fallbackEnabled: false,
+      executorReachable: false,
+      allowSingleRealAcceptance:
+        uniqueReasons.length === 0 ||
+        (uniqueReasons.length === 1 && uniqueReasons[0] === "ready"),
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
@@ -346,13 +400,25 @@ export class GlmAdvancedBrainAcceptanceService {
     if (this.options.endpointProfileValid === false) {
       return false;
     }
-    return (
-      GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN.startsWith("https://") &&
-      GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION === "chat.completions" &&
-      GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH ===
-        "/api/paas/v4/chat/completions" &&
-      GLM_ADVANCED_BRAIN_ACCEPTANCE_REDIRECT_POLICY === "none"
-    );
+    return this.fullEndpointMatches();
+  }
+
+  private fullEndpointMatches(): boolean {
+    try {
+      const endpoint = new URL(GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT);
+      return (
+        endpoint.href === GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT &&
+        endpoint.protocol === "https:" &&
+        endpoint.origin === GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN &&
+        endpoint.pathname === GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH &&
+        endpoint.search === "" &&
+        endpoint.hash === "" &&
+        GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION === "chat.completions" &&
+        GLM_ADVANCED_BRAIN_ACCEPTANCE_REDIRECT_POLICY === "none"
+      );
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -401,7 +467,7 @@ function createFixedDiagnosticRequest(
 ): CloudReasoningTransportRequest {
   return CloudReasoningTransportRequestSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
-    requestId: "glm-advanced-brain-acceptance-fixed-request",
+    requestId: FIXED_ACCEPTANCE_ID,
     providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
     deploymentId: GLM_ADVANCED_BRAIN_ACCEPTANCE_DEPLOYMENT_ID,
     operation: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,

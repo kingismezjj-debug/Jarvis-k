@@ -1,10 +1,15 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ADVANCED_BRAIN_SCHEMA_VERSION,
   CloudReasoningTransportResultSchema,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_STATUS_CHANNEL,
   type CloudReasoningTransportRequest,
   type CloudReasoningTransportResult,
@@ -43,6 +48,11 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       acceptanceFlagEnabled: false,
       modelExplicitlySelected: false,
       credentialConfigured: false,
+      credentialStorageEncrypted: false,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: true,
       credentialExposed: false,
       promptExposed: false,
       rawResponseExposed: false,
@@ -63,14 +73,36 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     const { credentialPath, service, settingsPath } = await createService();
 
     await service.setModel({ modelId: "glm-5.3" });
-    await service.saveCredential({ apiKey: "test-secret-key" });
+    await service.saveCredential(fakeCredential());
 
     const status = await service.getStatus();
     expect(status.selectedModelId).toBe("glm-5.3");
     expect(status.credentialConfigured).toBe(true);
+    expect(status.credentialStorageEncrypted).toBe(true);
+    expect(status.credentialTypeConfirmed).toBe(
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+    );
     expect(await readFile(settingsPath, "utf8")).toContain("glm-5.3");
     expect(await readFile(settingsPath, "utf8")).not.toContain("test-secret-key");
-    expect(await readFile(credentialPath, "utf8")).not.toContain("test-secret-key");
+    const credentialFile = await readFile(credentialPath, "utf8");
+    const credentialJson = JSON.parse(credentialFile) as Record<string, unknown>;
+    expect(Object.keys(credentialJson).sort()).toEqual([
+      "configured",
+      "credentialBindingId",
+      "credentialType",
+      "encrypted",
+      "version",
+    ]);
+    expect(credentialJson).toMatchObject({
+      version: 1,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      credentialType: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+      configured: true,
+    });
+    expect(credentialFile).not.toContain("test-secret-key");
+    expect(credentialFile).not.toContain("Authorization");
+    expect(credentialFile).not.toContain("Bearer");
+    expect(credentialFile).not.toContain(String("test-secret-key".length));
   });
 
   it("fails closed until model, credential, cloud consent, and acceptance consent are all present", async () => {
@@ -88,7 +120,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       allowRealAcceptance: false,
       reasonCodes: ["credential_missing"],
     });
-    await service.saveCredential({ apiKey: "test-secret-key" });
+    await service.saveCredential(fakeCredential());
     await expect(
       service.preflight({
         cloudEgressAllowed: false,
@@ -100,7 +132,23 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     });
     await expect(service.preflight(consent())).resolves.toMatchObject({
       allowRealAcceptance: true,
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: true,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      credentialConfigured: true,
+      credentialStorageEncrypted: true,
+      credentialTypeConfirmed: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+      selectedModelExplicit: true,
+      requestBodyFixed: true,
       maximumOutputTokens: 64,
+      maxOutputTokens: 64,
+      streaming: false,
+      toolsEnabled: false,
+      retryEnabled: false,
+      fallbackEnabled: false,
+      executorReachable: false,
+      allowSingleRealAcceptance: true,
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
@@ -116,7 +164,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
     await service.setModel({ modelId: "glm-5.2" });
-    await service.saveCredential({ apiKey: "test-secret-key" });
+    await service.saveCredential(fakeCredential());
 
     const report = await service.runDiagnostic(consent());
 
@@ -127,6 +175,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       max_tokens: 64,
     });
     expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty("tools");
+    expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty("tool_choice");
+    expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty(
+      "function_call",
+    );
     expect(report).toMatchObject({
       structuredResultValidation: "PASS",
       retryCount: 0,
@@ -159,7 +211,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
         transport: new FakeTransport(transportResult),
       });
       await service.setModel({ modelId: "glm-5.2" });
-      await service.saveCredential({ apiKey: "test-secret-key" });
+      await service.saveCredential(fakeCredential());
 
       const report = await service.runDiagnostic(consent());
 
@@ -178,10 +230,11 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     });
     const endpointMismatch = await createService({ endpointProfileValid: false });
     await endpointMismatch.service.setModel({ modelId: "glm-5.2" });
-    await endpointMismatch.service.saveCredential({ apiKey: "test-secret-key" });
+    await endpointMismatch.service.saveCredential(fakeCredential());
 
     await expect(unavailable.service.getStatus()).resolves.toMatchObject({
       secureStorageAvailable: false,
+      credentialConfigured: false,
       reasonCodes: expect.arrayContaining(["secure_store_unavailable"]),
     });
     await expect(endpointMismatch.service.preflight(consent())).resolves.toMatchObject({
@@ -193,7 +246,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("does not let Renderer mutate fixed request details", async () => {
     const { service } = await createService();
     await service.setModel({ modelId: "glm-5.2" });
-    await service.saveCredential({ apiKey: "test-secret-key" });
+    await service.saveCredential(fakeCredential());
 
     await expect(
       service.preflight({
@@ -207,16 +260,119 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     await expect(service.preflight(consent())).resolves.toMatchObject({
       allowRealAcceptance: true,
       maximumOutputTokens: 64,
+      maxOutputTokens: 64,
+      requestBodyFixed: true,
+      streaming: false,
+      toolsEnabled: false,
+      retryEnabled: false,
+      fallbackEnabled: false,
+      executorReachable: false,
       userContentIncluded: false,
       toolCapabilityCount: 0,
     });
+  });
+
+  it("pins the exact public GLM endpoint in preflight evidence", async () => {
+    const { service } = await createService();
+    await service.setModel({ modelId: "glm-5.2" });
+    await service.saveCredential(fakeCredential());
+
+    const preflight = await service.preflight(consent());
+    const endpoint = new URL(
+      `${preflight.endpointOrigin}${preflight.operationPath}`,
+    );
+
+    expect(`${preflight.endpointOrigin}${preflight.operationPath}`).toBe(
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
+    );
+    expect(endpoint.href).toBe(
+      "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    );
+    expect(endpoint.search).toBe("");
+    expect(endpoint.hash).toBe("");
+    expect(preflight.fullEndpointMatch).toBe(true);
+  });
+
+  it("fails closed when secure storage cannot save a fake credential", async () => {
+    const { credentialPath, service } = await createService({
+      encryption: fakeEncryption(false),
+    });
+
+    const result = await service.saveCredential(fakeCredential());
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toMatchObject({
+      credentialConfigured: false,
+      credentialStorageEncrypted: false,
+      secureStorageAvailable: false,
+    });
+    await expect(readFile(credentialPath, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("fails closed on decrypt failure and corrupt credential files", async () => {
+    const decryptFailure = await createService({
+      encryption: throwingDecryptEncryption(),
+    });
+    await writeFile(
+      decryptFailure.credentialPath,
+      JSON.stringify(
+        {
+          version: 1,
+          credentialBindingId:
+            GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+          credentialType: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+          configured: true,
+          encrypted: Buffer.from("not decryptable").toString("base64"),
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await decryptFailure.service.setModel({ modelId: "glm-5.2" });
+
+    await expect(decryptFailure.service.getStatus()).resolves.toMatchObject({
+      credentialConfigured: false,
+      credentialStorageEncrypted: false,
+      reasonCodes: expect.arrayContaining(["credential_invalid"]),
+    });
+    await expect(decryptFailure.service.preflight(consent())).resolves.toMatchObject({
+      allowRealAcceptance: false,
+      reasonCodes: expect.arrayContaining(["credential_invalid"]),
+    });
+
+    const corrupt = await createService();
+    await writeFile(corrupt.credentialPath, "{bad-json", "utf8");
+    await corrupt.service.setModel({ modelId: "glm-5.2" });
+
+    await expect(corrupt.service.getStatus()).resolves.toMatchObject({
+      credentialConfigured: false,
+      credentialStorageEncrypted: false,
+      reasonCodes: expect.arrayContaining(["credential_invalid"]),
+    });
+  });
+
+  it("reports configured=false after deleting the acceptance credential", async () => {
+    const { service } = await createService();
+    await service.setModel({ modelId: "glm-5.2" });
+    await service.saveCredential(fakeCredential());
+
+    const result = await service.deleteCredential();
+
+    expect(result.status).toMatchObject({
+      credentialConfigured: false,
+      credentialStorageEncrypted: false,
+    });
+    expect(result.status.reasonCodes).toEqual(["credential_missing"]);
   });
 
   it("rejects concurrent diagnostic runs", async () => {
     const transport = new BlockingTransport(successResponse());
     const { service } = await createService({ transport });
     await service.setModel({ modelId: "glm-5.2" });
-    await service.saveCredential({ apiKey: "test-secret-key" });
+    await service.saveCredential(fakeCredential());
 
     const firstRun = service.runDiagnostic(consent());
     await vi.waitFor(() => expect(transport.calls).toHaveLength(1));
@@ -227,6 +383,27 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     await expect(firstRun).resolves.toMatchObject({
       structuredResultValidation: "PASS",
     });
+  });
+
+  it("allows the fixed acceptance id to be submitted only once per service session", async () => {
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.2" });
+    await service.saveCredential(fakeCredential());
+
+    await expect(service.runDiagnostic(consent())).resolves.toMatchObject({
+      structuredResultValidation: "PASS",
+    });
+
+    await expect(service.preflight(consent())).resolves.toMatchObject({
+      allowRealAcceptance: false,
+      reasonCodes: expect.arrayContaining(["acceptance_already_submitted"]),
+      realNetworkRequestSent: false,
+    });
+    await expect(service.runDiagnostic(consent())).rejects.toThrow(
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_FAILED",
+    );
+    expect(transport.calls).toHaveLength(1);
   });
 });
 
@@ -299,11 +476,28 @@ function consent() {
   return { cloudEgressAllowed: true, acceptanceConsent: true };
 }
 
+function fakeCredential() {
+  return {
+    apiKey: "test-secret-key",
+    credentialTypeConfirmation: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  };
+}
+
 function fakeEncryption(available = true): SecureStringEncryption {
   return {
     isAvailable: () => available,
     encrypt: (value) => Buffer.from(`protected:${value}`, "utf8"),
     decrypt: (value) => value.toString("utf8").replace(/^protected:/u, ""),
+  };
+}
+
+function throwingDecryptEncryption(): SecureStringEncryption {
+  return {
+    isAvailable: () => true,
+    encrypt: (value) => Buffer.from(`protected:${value}`, "utf8"),
+    decrypt: () => {
+      throw new Error("decrypt failed");
+    },
   };
 }
 

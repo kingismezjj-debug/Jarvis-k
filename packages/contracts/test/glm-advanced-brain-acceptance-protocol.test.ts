@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
   GlmAdvancedBrainAcceptancePreflightResultSchema,
+  GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema,
   GlmAdvancedBrainAcceptanceStatusSchema,
 } from "../src";
 
@@ -14,7 +20,12 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       modelExplicitlySelected: false,
       credentialConfigured: false,
       secureStorageAvailable: true,
+      credentialStorageEncrypted: false,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
       endpointProfileId: "standard_paas_v4",
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: true,
       officialEndpointProfile: true,
       credentialExposed: false,
       promptExposed: false,
@@ -31,7 +42,7 @@ describe("GLM Advanced Brain acceptance protocol", () => {
     expect(() =>
       GlmAdvancedBrainAcceptanceStatusSchema.parse({
         ...status,
-        apiKey: "secret",
+        apiKey: "not-a-credential",
       }),
     ).toThrow();
   });
@@ -42,14 +53,30 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       providerId: "advanced-brain.glm",
       modelId: "glm-5.2",
       endpointProfileId: "standard_paas_v4",
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: true,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      credentialConfigured: true,
+      credentialStorageEncrypted: true,
+      credentialTypeConfirmed: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+      selectedModelExplicit: true,
       checkedAt: "2026-08-25T00:00:00.000Z",
       reasonCodes: ["ready"],
       cloudRequestFixed: true,
+      requestBodyFixed: true,
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
       maximumOutputTokens: 64,
+      maxOutputTokens: 64,
       boundedTimeoutMs: 2000,
+      streaming: false,
+      toolsEnabled: false,
+      retryEnabled: false,
+      fallbackEnabled: false,
+      executorReachable: false,
+      allowSingleRealAcceptance: true,
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
@@ -63,12 +90,43 @@ describe("GLM Advanced Brain acceptance protocol", () => {
     });
 
     expect(preflight.maximumOutputTokens).toBe(64);
+    expect(preflight.maxOutputTokens).toBe(64);
     expect(() =>
       GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
         ...preflight,
         maximumOutputTokens: 128,
       }),
     ).toThrow();
+  });
+
+  it("requires explicit platform API key confirmation", () => {
+    expect(
+      GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema.parse({
+        apiKey: "test-secret-key",
+        credentialTypeConfirmation:
+          GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+      }),
+    ).toMatchObject({
+      credentialTypeConfirmation: "platform_api_key",
+    });
+    expect(() =>
+      GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema.parse({
+        apiKey: "test-secret-key",
+        credentialTypeConfirmation: "coding_plan_key",
+      }),
+    ).toThrow();
+  });
+
+  it("pins the public GLM endpoint without query, fragment, or redirect", () => {
+    const endpoint = new URL(GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT);
+
+    expect(GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT).toBe(
+      "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    );
+    expect(endpoint.origin).toBe("https://open.bigmodel.cn");
+    expect(endpoint.pathname).toBe("/api/paas/v4/chat/completions");
+    expect(endpoint.search).toBe("");
+    expect(endpoint.hash).toBe("");
   });
 
   it("reports diagnostics without prompt, response body, headers, or credential", () => {

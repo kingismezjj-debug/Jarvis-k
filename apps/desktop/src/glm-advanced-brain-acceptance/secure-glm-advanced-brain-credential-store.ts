@@ -1,5 +1,9 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+} from "@jarvis-k/contracts";
 import type { SecureStringEncryption } from "../secure-voice-provider-store";
 
 export interface GlmAdvancedBrainAcceptanceCredential {
@@ -7,15 +11,21 @@ export interface GlmAdvancedBrainAcceptanceCredential {
 }
 
 export interface GlmAdvancedBrainAcceptanceCredentialStatus {
-  readonly status: "configured" | "unconfigured" | "unavailable";
+  readonly status: "configured" | "unconfigured" | "unavailable" | "invalid";
   readonly credentialConfigured: boolean;
   readonly secureStorageAvailable: boolean;
+  readonly credentialStorageEncrypted: boolean;
+  readonly credentialTypeConfirmed?:
+    typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE;
   readonly credentialExposed: false;
 }
 
 interface StoredCredential {
   readonly version: 1;
-  readonly providerId: "advanced-brain.glm";
+  readonly credentialBindingId:
+    typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID;
+  readonly credentialType: typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE;
+  readonly configured: true;
   readonly encrypted: string;
 }
 
@@ -31,16 +41,34 @@ export class SecureGlmAdvancedBrainAcceptanceCredentialStore {
         status: "unavailable",
         credentialConfigured: false,
         secureStorageAvailable: false,
+        credentialStorageEncrypted: false,
         credentialExposed: false,
       };
     }
-    const credential = await this.load();
-    return {
-      status: credential ? "configured" : "unconfigured",
-      credentialConfigured: credential !== null,
-      secureStorageAvailable: true,
-      credentialExposed: false,
-    };
+    try {
+      const credential = await this.load();
+      return {
+        status: credential ? "configured" : "unconfigured",
+        credentialConfigured: credential !== null,
+        secureStorageAvailable: true,
+        credentialStorageEncrypted: credential !== null,
+        ...(credential
+          ? {
+              credentialTypeConfirmed:
+                GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+            }
+          : {}),
+        credentialExposed: false,
+      };
+    } catch {
+      return {
+        status: "invalid",
+        credentialConfigured: false,
+        secureStorageAvailable: true,
+        credentialStorageEncrypted: false,
+        credentialExposed: false,
+      };
+    }
   }
 
   public async load(): Promise<GlmAdvancedBrainAcceptanceCredential | null> {
@@ -79,7 +107,9 @@ export class SecureGlmAdvancedBrainAcceptanceCredentialStore {
       .toString("base64");
     const stored: StoredCredential = {
       version: 1,
-      providerId: "advanced-brain.glm",
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      credentialType: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+      configured: true,
       encrypted,
     };
     await mkdir(path.dirname(this.filePath), { recursive: true });
@@ -100,7 +130,10 @@ function parseStored(value: unknown): StoredCredential {
   if (
     !isRecord(value) ||
     value.version !== 1 ||
-    value.providerId !== "advanced-brain.glm" ||
+    value.credentialBindingId !==
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID ||
+    value.credentialType !== GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE ||
+    value.configured !== true ||
     typeof value.encrypted !== "string" ||
     value.encrypted.length === 0
   ) {
@@ -108,7 +141,9 @@ function parseStored(value: unknown): StoredCredential {
   }
   return {
     version: 1,
-    providerId: "advanced-brain.glm",
+    credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+    credentialType: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+    configured: true,
     encrypted: value.encrypted,
   };
 }
@@ -141,4 +176,3 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
-
