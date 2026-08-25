@@ -2,6 +2,8 @@ import type { BrowserWindow, IpcMain, IpcMainInvokeEvent } from "electron";
 import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GlmAdvancedBrainAcceptanceConsentRequestSchema,
@@ -112,6 +114,9 @@ export function unregisterGlmAdvancedBrainAcceptanceIpc(
 
 function unavailableStatus() {
   return {
+    acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+    acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+    acceptanceState: "blocked",
     providerId: "advanced-brain.glm",
     providerEnabled: false,
     acceptanceFlagEnabled: false,
@@ -144,6 +149,9 @@ function rejectedCommandResult() {
 
 function rejectedPreflight() {
   return {
+    acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+    acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+    acceptanceState: "blocked",
     allowRealAcceptance: false,
     providerId: "advanced-brain.glm",
     endpointProfileId: "standard_paas_v4",

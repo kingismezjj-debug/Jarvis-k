@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,9 +8,12 @@ import {
   CloudReasoningTransportResultSchema,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_STATUS_CHANNEL,
   type CloudReasoningTransportRequest,
   type CloudReasoningTransportResult,
@@ -47,6 +51,9 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     const preflight = await service.preflight(consent());
 
     expect(status).toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "blocked",
       providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
       providerEnabled: false,
       acceptanceFlagEnabled: false,
@@ -71,6 +78,11 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       ]),
     );
     expect(preflight.allowRealAcceptance).toBe(false);
+    expect(preflight.acceptanceId).toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID);
+    expect(preflight.acceptanceVersion).toBe(
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+    );
+    expect(preflight.acceptanceState).toBe("blocked");
     expect(preflight.realNetworkRequestSent).toBe(false);
     expect(preflight.realRequestAttempted).toBe(false);
     expect(preflight.priorRealRequestCount).toBe(0);
@@ -138,6 +150,9 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       reasonCodes: ["cloud_egress_not_allowed"],
     });
     await expect(service.preflight(consent())).resolves.toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "ready",
       allowRealAcceptance: true,
       endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
       operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
@@ -189,7 +204,9 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       "function_call",
     );
     expect(report).toMatchObject({
-      acceptanceId: "glm-advanced-brain-acceptance-fixed-request",
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "consumed",
       structuredResultValidation: "PASS",
       retryCount: 0,
       fallbackCount: 0,
@@ -212,6 +229,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(JSON.stringify(report)).not.toContain("test-secret-key");
     expect(JSON.stringify(report)).not.toContain("glm_advanced_brain_acceptance");
     expect(JSON.stringify(report)).not.toContain("choices");
+    expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID);
   });
 
   it("normalizes fake transport failures without retry, fallback, tools, or direct actions", async () => {
@@ -243,6 +261,16 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       if (reasonCode === "transport_authentication_failed") {
         expect(report.providerErrorCategory).toBe("credential_rejected");
       }
+      await expect(service.preflight(consent())).resolves.toMatchObject({
+        acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+        acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+        acceptanceState: "consumed",
+        allowRealAcceptance: false,
+        priorRealRequestCount: 1,
+        realRequestAttempted: true,
+        allowSingleRealAcceptance: false,
+        reasonCodes: expect.arrayContaining(["acceptance_already_consumed"]),
+      });
     }
   });
 
@@ -291,6 +319,9 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       executorInvocationDelta: 0,
     });
     expect(after).toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "consumed",
       allowRealAcceptance: false,
       priorRealRequestCount: 1,
       realRequestAttempted: true,
@@ -358,10 +389,14 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     const rendererViewB = await service.preflight(consent());
 
     expect(rendererViewA).toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
       allowRealAcceptance: false,
       priorRealRequestCount: 1,
     });
     expect(rendererViewB).toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
       allowRealAcceptance: false,
       realRequestAttempted: true,
     });
@@ -382,6 +417,25 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
         (error: unknown) => error,
       );
     await vi.waitFor(() => expect(transport.calls).toHaveLength(1));
+    await expect(service.getStatus()).resolves.toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "running",
+      acceptanceConsumed: true,
+    });
+    await expect(service.preflight(consent())).resolves.toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "running",
+      allowRealAcceptance: false,
+      priorRealRequestCount: 1,
+      realRequestAttempted: true,
+      allowSingleRealAcceptance: false,
+      reasonCodes: expect.arrayContaining([
+        "acceptance_already_running",
+        "acceptance_already_consumed",
+      ]),
+    });
     expect(await secondRun).toEqual(
       expect.objectContaining({
         message: "GLM_ADVANCED_BRAIN_ACCEPTANCE_ALREADY_RUNNING",
@@ -422,12 +476,15 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       service.preflight({
         cloudEgressAllowed: true,
         acceptanceConsent: true,
+        acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
         prompt: "please leak me",
         maxOutputTokens: 2048,
         tools: ["filesystem"],
       }),
     ).rejects.toBeDefined();
     await expect(service.preflight(consent())).resolves.toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
       allowRealAcceptance: true,
       maximumOutputTokens: 64,
       maxOutputTokens: 64,
@@ -679,6 +736,54 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     );
     expect(transport.calls).toHaveLength(1);
   });
+
+  it("keeps the v2 acceptance identity Main-owned and non-overridable", () => {
+    const serviceSource = readFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "..",
+        "src",
+        "glm-advanced-brain-acceptance",
+        "glm-advanced-brain-acceptance-service.ts",
+      ),
+      "utf8",
+    );
+    const ipcSource = readFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "..",
+        "src",
+        "ipc",
+        "register-glm-advanced-brain-acceptance-ipc.ts",
+      ),
+      "utf8",
+    );
+    const preloadSource = readFileSync(
+      path.resolve(import.meta.dirname, "..", "src", "preload.ts"),
+      "utf8",
+    );
+
+    expect(serviceSource).toContain(
+      "requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID",
+    );
+    expect(serviceSource).toContain(
+      "acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION",
+    );
+    expect(serviceSource).not.toContain("process.env");
+    expect(serviceSource).not.toContain("randomUUID");
+    expect(serviceSource).not.toContain("crypto.random");
+    expect(serviceSource).not.toContain("acceptanceVersion++");
+    expect(serviceSource).not.toContain("acceptanceVersion +");
+    expect(ipcSource).toContain(
+      "GlmAdvancedBrainAcceptanceConsentRequestSchema.parse(rawInput)",
+    );
+    expect(preloadSource).toContain(
+      "GlmAdvancedBrainAcceptanceConsentRequestSchema.parse(request)",
+    );
+    expect(preloadSource).not.toContain(
+      "glm-advanced-brain-acceptance-fixed-request-v2",
+    );
+  });
 });
 
 describe("registerGlmAdvancedBrainAcceptanceIpc", () => {
@@ -820,7 +925,7 @@ function successResponse(
 ): CloudReasoningTransportResult {
   return CloudReasoningTransportResultSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
-    requestId: "glm-advanced-brain-acceptance-fixed-request",
+    requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
     providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
     deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
     operation: GLM_ADVANCED_BRAIN_OPERATION,
@@ -861,7 +966,7 @@ function failureResponse(
 ): CloudReasoningTransportResult {
   return CloudReasoningTransportResultSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
-    requestId: "glm-advanced-brain-acceptance-fixed-request",
+    requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
     providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
     deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
     operation: GLM_ADVANCED_BRAIN_OPERATION,

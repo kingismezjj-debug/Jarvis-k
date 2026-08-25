@@ -5,7 +5,11 @@ import type {
   GlmAdvancedBrainAcceptancePreflightResult,
   GlmAdvancedBrainAcceptanceStatus,
 } from "@jarvis-k/contracts";
-import { GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE } from "@jarvis-k/contracts";
+import {
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+} from "@jarvis-k/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -39,6 +43,12 @@ export function GlmAdvancedBrainAcceptancePanel({
   const configured = status?.credentialConfigured === true;
   const selectedModel = status?.selectedModelId ?? "";
   const canRun =
+    preflightResult?.acceptanceId === GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID &&
+    preflightResult.acceptanceVersion ===
+      GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION &&
+    status?.acceptanceId === GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID &&
+    status.acceptanceVersion === GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION &&
+    status.acceptanceConsumed === false &&
     preflightResult?.allowRealAcceptance === true &&
     preflightResult.allowSingleRealAcceptance === true &&
     preflightResult.priorRealRequestCount === 0 &&
@@ -48,6 +58,8 @@ export function GlmAdvancedBrainAcceptancePanel({
     const accepted = window.confirm(
       [
         "Run GLM Advanced Brain real acceptance diagnostic?",
+        `Acceptance ID: ${preflightResult?.acceptanceId ?? "unavailable"}`,
+        `Acceptance version: ${preflightResult?.acceptanceVersion ?? "unavailable"}`,
         `Provider: GLM`,
         `Model: ${selectedModel || "not selected"}`,
         "Endpoint: official standard_paas_v4 profile",
@@ -86,6 +98,15 @@ export function GlmAdvancedBrainAcceptancePanel({
       </div>
 
       <dl className="mb-3 divide-y divide-border border-y text-[11px]">
+        <MetricRow
+          label="acceptance id"
+          value={status?.acceptanceId ?? "unknown"}
+        />
+        <MetricRow
+          label="acceptance version"
+          value={String(status?.acceptanceVersion ?? "unknown")}
+        />
+        <MetricRow label="state" value={status?.acceptanceState ?? "unknown"} />
         <MetricRow label="provider" value={status?.providerId ?? "unknown"} />
         <MetricRow
           label="provider enabled"
@@ -249,6 +270,18 @@ export function GlmAdvancedBrainAcceptancePanel({
       {preflightResult ? (
         <dl className="mb-3 divide-y divide-border border-y text-[11px]">
           <MetricRow
+            label="acceptance id"
+            value={preflightResult.acceptanceId}
+          />
+          <MetricRow
+            label="acceptance version"
+            value={String(preflightResult.acceptanceVersion)}
+          />
+          <MetricRow
+            label="state"
+            value={preflightResult.acceptanceState}
+          />
+          <MetricRow
             label="allow"
             value={preflightResult.allowRealAcceptance ? "YES" : "NO"}
           />
@@ -348,6 +381,11 @@ export function GlmAdvancedBrainAcceptancePanel({
       {report ? (
         <dl className="divide-y divide-border border-y text-[11px]">
           <MetricRow label="acceptance id" value={report.acceptanceId} />
+          <MetricRow
+            label="acceptance version"
+            value={String(report.acceptanceVersion)}
+          />
+          <MetricRow label="state" value={report.acceptanceState} />
           <MetricRow label="result" value={report.structuredResultValidation} />
           <MetricRow label="status" value={report.httpStatusClass} />
           <MetricRow

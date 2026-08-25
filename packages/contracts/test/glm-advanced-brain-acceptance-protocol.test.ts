@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
   GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
   GlmAdvancedBrainAcceptancePreflightResultSchema,
   GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema,
@@ -14,6 +17,9 @@ import {
 describe("GLM Advanced Brain acceptance protocol", () => {
   it("keeps status as a credential-safe projection", () => {
     const status = GlmAdvancedBrainAcceptanceStatusSchema.parse({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "blocked",
       providerId: "advanced-brain.glm",
       providerEnabled: false,
       acceptanceFlagEnabled: false,
@@ -50,6 +56,9 @@ describe("GLM Advanced Brain acceptance protocol", () => {
 
   it("bounds preflight to fixed no-tool, no-user-content request metadata", () => {
     const preflight = GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "ready",
       allowRealAcceptance: true,
       providerId: "advanced-brain.glm",
       modelId: "glm-5.2",
@@ -134,7 +143,9 @@ describe("GLM Advanced Brain acceptance protocol", () => {
 
   it("reports diagnostics without prompt, response body, headers, or credential", () => {
     const report = GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
-      acceptanceId: "glm-advanced-brain-acceptance-fixed-request",
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "consumed",
       providerId: "advanced-brain.glm",
       modelId: "glm-5.3",
       endpointProfileId: "standard_paas_v4",
@@ -176,6 +187,12 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
         ...report,
         rawHeaders: {},
+      }),
+    ).toThrow();
+    expect(() =>
+      GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
+        ...report,
+        acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID,
       }),
     ).toThrow();
   });

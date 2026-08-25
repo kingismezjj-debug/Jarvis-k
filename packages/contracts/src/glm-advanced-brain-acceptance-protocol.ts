@@ -32,6 +32,35 @@ export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID =
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_REDIRECT_POLICY = "none" as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE =
   "platform_api_key" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID =
+  "glm-advanced-brain-acceptance-fixed-request" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID =
+  "glm-advanced-brain-acceptance-fixed-request-v2" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 2 as const;
+
+export const GlmAdvancedBrainAcceptanceIdSchema = z.literal(
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+);
+export type GlmAdvancedBrainAcceptanceId = z.infer<
+  typeof GlmAdvancedBrainAcceptanceIdSchema
+>;
+
+export const GlmAdvancedBrainAcceptanceVersionSchema = z.literal(
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+);
+export type GlmAdvancedBrainAcceptanceVersion = z.infer<
+  typeof GlmAdvancedBrainAcceptanceVersionSchema
+>;
+
+export const GlmAdvancedBrainAcceptanceStateSchema = z.enum([
+  "ready",
+  "running",
+  "consumed",
+  "blocked",
+]);
+export type GlmAdvancedBrainAcceptanceState = z.infer<
+  typeof GlmAdvancedBrainAcceptanceStateSchema
+>;
 
 export const GlmAdvancedBrainAcceptanceModelIdSchema = z.enum([
   "glm-5.2",
@@ -129,6 +158,9 @@ export type GlmAdvancedBrainAcceptanceConsentRequest = z.infer<
 
 export const GlmAdvancedBrainAcceptanceStatusSchema = z
   .object({
+    acceptanceId: GlmAdvancedBrainAcceptanceIdSchema,
+    acceptanceVersion: GlmAdvancedBrainAcceptanceVersionSchema,
+    acceptanceState: GlmAdvancedBrainAcceptanceStateSchema,
     providerId: z.literal("advanced-brain.glm"),
     providerEnabled: z.boolean(),
     acceptanceFlagEnabled: z.boolean(),
@@ -173,6 +205,9 @@ export type GlmAdvancedBrainAcceptanceCommandResult = z.infer<
 
 export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
   .object({
+    acceptanceId: GlmAdvancedBrainAcceptanceIdSchema,
+    acceptanceVersion: GlmAdvancedBrainAcceptanceVersionSchema,
+    acceptanceState: GlmAdvancedBrainAcceptanceStateSchema,
     allowRealAcceptance: z.boolean(),
     providerId: z.literal("advanced-brain.glm"),
     modelId: GlmAdvancedBrainAcceptanceModelIdSchema.optional(),
@@ -225,12 +260,9 @@ export type GlmAdvancedBrainAcceptancePreflightResult = z.infer<
 
 export const GlmAdvancedBrainAcceptanceDiagnosticReportSchema = z
   .object({
-    acceptanceId: z
-      .string()
-      .trim()
-      .min(8)
-      .max(128)
-      .regex(/^[A-Za-z0-9._:-]+$/u),
+    acceptanceId: GlmAdvancedBrainAcceptanceIdSchema,
+    acceptanceVersion: GlmAdvancedBrainAcceptanceVersionSchema,
+    acceptanceState: z.literal("consumed"),
     providerId: z.literal("advanced-brain.glm"),
     modelId: GlmAdvancedBrainAcceptanceModelIdSchema,
     endpointProfileId: GlmAdvancedBrainAcceptanceEndpointProfileIdSchema,

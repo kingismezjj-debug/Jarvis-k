@@ -53,6 +53,18 @@ describe("product/developer/evaluation UI boundaries", () => {
 
   it("does not let stale GLM acceptance preflight keep the run button enabled", () => {
     expect(glmAcceptancePanelSource).toContain(
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID",
+    );
+    expect(glmAcceptancePanelSource).toContain(
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION",
+    );
+    expect(glmAcceptancePanelSource).toContain(
+      "preflightResult?.acceptanceId === GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID",
+    );
+    expect(glmAcceptancePanelSource).toContain(
+      "status?.acceptanceId === GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID",
+    );
+    expect(glmAcceptancePanelSource).toContain(
       "preflightResult.allowSingleRealAcceptance === true",
     );
     expect(glmAcceptancePanelSource).toContain(
@@ -62,6 +74,11 @@ describe("product/developer/evaluation UI boundaries", () => {
       "preflightResult.realRequestAttempted === false",
     );
     expect(glmAcceptancePanelSource).toContain("status.acceptanceConsumed");
+    expect(glmAcceptancePanelSource).toContain("Acceptance ID:");
+    expect(glmAcceptancePanelSource).toContain("Acceptance version:");
+    expect(glmAcceptancePanelSource).not.toContain(
+      "glm-advanced-brain-acceptance-fixed-request-v2",
+    );
   });
 
   it("refreshes GLM acceptance status and preflight after diagnostic and credential changes", () => {

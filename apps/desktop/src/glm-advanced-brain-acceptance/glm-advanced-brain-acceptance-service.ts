@@ -6,6 +6,8 @@ import {
   CloudReasoningTransportResultSchema,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_DEPLOYMENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
@@ -38,7 +40,6 @@ import type { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./secure-g
 const FIXED_TIMEOUT_MS = 2_000;
 const FIXED_MAX_OUTPUT_TOKENS = 64;
 const FIXED_MAX_RESPONSE_BYTES = 4_000;
-const FIXED_ACCEPTANCE_ID = "glm-advanced-brain-acceptance-fixed-request";
 
 export interface GlmAdvancedBrainAcceptanceSettings {
   readonly selectedModelId?: GlmAdvancedBrainAcceptanceModelId;
@@ -89,6 +90,9 @@ export class GlmAdvancedBrainAcceptanceService {
     ]);
     const reasonCodes = this.statusReasonCodes(settings, credentialStatus);
     return GlmAdvancedBrainAcceptanceStatusSchema.parse({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: this.acceptanceState(reasonCodes),
       providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
       providerEnabled: this.options.acceptanceFlagEnabled,
       acceptanceFlagEnabled: this.options.acceptanceFlagEnabled,
@@ -215,6 +219,8 @@ export class GlmAdvancedBrainAcceptanceService {
       );
       return GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
         acceptanceId: request.requestId,
+        acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+        acceptanceState: "consumed",
         providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
         modelId: preflight.modelId,
         endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
@@ -380,6 +386,9 @@ export class GlmAdvancedBrainAcceptanceService {
   ): GlmAdvancedBrainAcceptancePreflightResult {
     const uniqueReasons = [...new Set(reasonCodes)];
     return GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: this.acceptanceState(uniqueReasons),
       allowRealAcceptance:
         uniqueReasons.length === 0 ||
         (uniqueReasons.length === 1 && uniqueReasons[0] === "ready"),
@@ -454,6 +463,20 @@ export class GlmAdvancedBrainAcceptanceService {
     } catch {
       return false;
     }
+  }
+
+  private acceptanceState(
+    reasonCodes: readonly GlmAdvancedBrainAcceptanceReasonCode[],
+  ): "ready" | "running" | "consumed" | "blocked" {
+    if (this.running) {
+      return "running";
+    }
+    if (this.acceptanceConsumed) {
+      return "consumed";
+    }
+    return reasonCodes.some((reason) => reason !== "ready")
+      ? "blocked"
+      : "ready";
   }
 }
 
@@ -801,7 +824,7 @@ function createFixedDiagnosticRequest(
 ): CloudReasoningTransportRequest {
   return CloudReasoningTransportRequestSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
-    requestId: FIXED_ACCEPTANCE_ID,
+    requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
     providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
     deploymentId: GLM_ADVANCED_BRAIN_ACCEPTANCE_DEPLOYMENT_ID,
     operation: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,
