@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-08-22
+Updated: 2026-08-25
 
 ## Current Product Phase
 
@@ -31,6 +31,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase 4B-3C-A Desktop Pet Skin manual acceptance fixture generator is available: `npm run fixture:pet-skin:manual` creates an ignored, formally validated `.jkskin` with six distinct states and Reduced Motion static variants under `artifacts/manual/pet-skins/`.
 - Phase 4B-4A local Pet Skin Studio MVP is implemented in Developer Mode: users can enter safe metadata, map local PNG/WebP images to all six states, generate temporary previews, and export `.jkskin` packages that are reopened through the official reader before being offered for install through the existing secure import flow.
 - Phase 4B-4B Pet Skin Studio Add Image source normalization is fixed: Studio source images use a separate source policy, common large PNGs are proportionally resized through Electron `nativeImage`, final assets still obey Pet Skin v1 limits, and fixed safe errors replace raw decode/write exceptions.
+- Phase 5A Advanced Brain provider-neutral foundation is in place: request/result/profile contracts, privacy/cloud egress gates, deterministic selection policy, fixture-only provider semantics, and approval-bound structured plan output are defined without enabling any real provider or product default path.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
