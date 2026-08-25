@@ -6,6 +6,9 @@ const appSource = readUiSource(["App.tsx"]);
 const navigationSource = readUiSource(["app/app-navigation.tsx"]);
 const voiceControlSource = readUiSource(["features/voice/voice-control-panel.tsx"]);
 const useJarvisSource = readUiSource(["hooks/use-jarvis.ts"]);
+const glmAcceptancePanelSource = readUiSource([
+  "features/advanced-brain/glm-advanced-brain-acceptance-panel.tsx",
+]);
 
 describe("product/developer/evaluation UI boundaries", () => {
   it("keeps Developer navigation hidden until Developer Mode is enabled", () => {
@@ -25,6 +28,27 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(appSource).toContain("evaluationSurfaceEnabled ? (");
     expect(appSource).toContain("<VoiceRegressionPanel");
     expect(appSource).toContain("regressionVisible: false");
+  });
+
+  it("keeps GLM Advanced Brain acceptance behind Developer and Evaluation", () => {
+    expect(appSource).toContain("<GlmAdvancedBrainAcceptancePanel");
+    expect(appSource).toContain(
+      'if (activeView === "developer" && evaluationSurfaceEnabled) {',
+    );
+    expect(useJarvisSource).not.toContain(
+      "void refreshGlmAdvancedBrainAcceptanceStatus();",
+    );
+    expect(glmAcceptancePanelSource).toContain("acceptanceFlagEnabled");
+    expect(glmAcceptancePanelSource).not.toContain("window.jarvis");
+    expect(glmAcceptancePanelSource).not.toContain("ipcRenderer");
+  });
+
+  it("keeps GLM acceptance diagnostics free of prompt, key, and raw body output", () => {
+    expect(glmAcceptancePanelSource).not.toContain("response正文");
+    expect(glmAcceptancePanelSource).not.toContain("raw HTTP");
+    expect(glmAcceptancePanelSource).not.toContain("bodyJson");
+    expect(glmAcceptancePanelSource).not.toContain("responseJson");
+    expect(glmAcceptancePanelSource).not.toContain("credential.value");
   });
 
   it("does not refresh evaluation records when the surface is hidden", () => {

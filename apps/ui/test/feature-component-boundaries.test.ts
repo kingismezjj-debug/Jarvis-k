@@ -10,6 +10,7 @@ function readSource(relativePath: string) {
 
 const featureComponents = [
   "features/activity/activity-view.tsx",
+  "features/advanced-brain/glm-advanced-brain-acceptance-panel.tsx",
   "features/appearance/appearance-settings-panel.tsx",
   "features/conversation/brain-dispatch-panel.tsx",
   "features/conversation/conversation-composer.tsx",

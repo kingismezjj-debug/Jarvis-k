@@ -67,6 +67,9 @@ import {
   createElectronPetSkinAssetSource
 } from "./pet-skin/pet-skin-studio-service";
 import { registerPetSkinStudioIpc } from "./ipc/register-pet-skin-studio-ipc";
+import { GlmAdvancedBrainAcceptanceService } from "./glm-advanced-brain-acceptance/glm-advanced-brain-acceptance-service";
+import { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./glm-advanced-brain-acceptance/secure-glm-advanced-brain-credential-store";
+import { registerGlmAdvancedBrainAcceptanceIpc } from "./ipc/register-glm-advanced-brain-acceptance-ipc";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -95,6 +98,9 @@ let petSkinRegistryService: PetSkinLocalRegistryService | null = null;
 let petSkinIpcDisposer: (() => void) | null = null;
 let petSkinStudioService: PetSkinStudioService | null = null;
 let petSkinStudioIpcDisposer: (() => void) | null = null;
+let glmAdvancedBrainAcceptanceService: GlmAdvancedBrainAcceptanceService | null =
+  null;
+let glmAdvancedBrainAcceptanceIpcDisposer: (() => void) | null = null;
 let desktopRuntimeDisposeStarted = false;
 let startupSource: DesktopStartupSource = resolveDesktopStartupSource();
 let loginItemController: LoginItemController | null = null;
@@ -356,6 +362,21 @@ if (!hasSingleInstanceLock) {
       currentJarvisVersion: app.getVersion(),
       forbiddenExportRoots: [storageProfile.petSkinRootPath]
     });
+    glmAdvancedBrainAcceptanceService = new GlmAdvancedBrainAcceptanceService({
+      settingsPath: path.join(
+        app.getPath("userData"),
+        "jarvis-k-glm-advanced-brain-acceptance.json"
+      ),
+      credentialStore: new SecureGlmAdvancedBrainAcceptanceCredentialStore(
+        path.join(
+          app.getPath("userData"),
+          "jarvis-k-glm-advanced-brain-acceptance-credential.json"
+        ),
+        getSecureStoreService().encryption()
+      ),
+      acceptanceFlagEnabled:
+        process.env.JARVIS_K_ENABLE_GLM_ADVANCED_BRAIN_ACCEPTANCE === "1"
+    });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,
       createMainWindow: createTrackedMainWindow,
@@ -508,6 +529,12 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       studioService: petSkinStudioService
     });
+    glmAdvancedBrainAcceptanceIpcDisposer =
+      registerGlmAdvancedBrainAcceptanceIpc({
+        ipcMain,
+        getMainWindow: () => mainWindow,
+        service: glmAdvancedBrainAcceptanceService
+      });
     qwenRuntimeIpcDisposer = registerQwenRuntimeIpc({
       ipcMain,
       qwenRuntimeController,
@@ -560,6 +587,9 @@ function disposeDesktopRuntime(): void {
   petSkinIpcDisposer = null;
   petSkinStudioIpcDisposer?.();
   petSkinStudioIpcDisposer = null;
+  glmAdvancedBrainAcceptanceIpcDisposer?.();
+  glmAdvancedBrainAcceptanceIpcDisposer = null;
+  glmAdvancedBrainAcceptanceService = null;
   if (petSkinStudioService) {
     void petSkinStudioService.dispose();
     petSkinStudioService = null;

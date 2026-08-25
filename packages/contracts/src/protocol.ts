@@ -45,6 +45,15 @@ import {
   type PetSkinRegistryProjection,
   type PetSkinRenderFailureReport,
 } from "./pet-skin-protocol";
+import type {
+  GlmAdvancedBrainAcceptanceCommandResult,
+  GlmAdvancedBrainAcceptanceConsentRequest,
+  GlmAdvancedBrainAcceptanceDiagnosticReport,
+  GlmAdvancedBrainAcceptancePreflightResult,
+  GlmAdvancedBrainAcceptanceSaveCredentialRequest,
+  GlmAdvancedBrainAcceptanceSetModelRequest,
+  GlmAdvancedBrainAcceptanceStatus,
+} from "./glm-advanced-brain-acceptance-protocol";
 
 export const PROTOCOL_VERSION = 1 as const;
 export const IPC_COMMAND_CHANNEL = "jarvis-k:command";
@@ -3823,6 +3832,20 @@ export interface JarvisBridge {
   openDesktopPetSkinStudioExportFolder(
     request: PetSkinStudioOpenExportFolderRequest,
   ): Promise<PetSkinStudioResult>;
+  getGlmAdvancedBrainAcceptanceStatus(): Promise<GlmAdvancedBrainAcceptanceStatus>;
+  setGlmAdvancedBrainAcceptanceModel(
+    request: GlmAdvancedBrainAcceptanceSetModelRequest,
+  ): Promise<GlmAdvancedBrainAcceptanceCommandResult>;
+  saveGlmAdvancedBrainAcceptanceCredential(
+    request: GlmAdvancedBrainAcceptanceSaveCredentialRequest,
+  ): Promise<GlmAdvancedBrainAcceptanceCommandResult>;
+  deleteGlmAdvancedBrainAcceptanceCredential(): Promise<GlmAdvancedBrainAcceptanceCommandResult>;
+  preflightGlmAdvancedBrainAcceptance(
+    request: GlmAdvancedBrainAcceptanceConsentRequest,
+  ): Promise<GlmAdvancedBrainAcceptancePreflightResult>;
+  runGlmAdvancedBrainAcceptanceDiagnostic(
+    request: GlmAdvancedBrainAcceptanceConsentRequest,
+  ): Promise<GlmAdvancedBrainAcceptanceDiagnosticReport>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;

@@ -39,6 +39,12 @@ import {
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
   IPC_EVENT_CHANNEL,
+  IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_DELETE_CHANNEL,
+  IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
+  IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_DIAGNOSTIC_CHANNEL,
+  IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_MODEL_SET_CHANNEL,
+  IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_CHANNEL,
+  IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_STATUS_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
   IPC_TTS_SETTINGS_OPEN_CHANNEL,
@@ -74,6 +80,13 @@ import {
   PetSkinStudioOpenExportFolderRequestSchema,
   PetSkinStudioResultSchema,
   PetSkinStudioSelectAssetRequestSchema,
+  GlmAdvancedBrainAcceptanceCommandResultSchema,
+  GlmAdvancedBrainAcceptanceConsentRequestSchema,
+  GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
+  GlmAdvancedBrainAcceptancePreflightResultSchema,
+  GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema,
+  GlmAdvancedBrainAcceptanceSetModelRequestSchema,
+  GlmAdvancedBrainAcceptanceStatusSchema,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 
@@ -261,6 +274,46 @@ const bridge: JarvisBridge = {
       await ipcRenderer.invoke(
         IPC_DESKTOP_PET_SKIN_STUDIO_OPEN_EXPORT_FOLDER_CHANNEL,
         PetSkinStudioOpenExportFolderRequestSchema.parse(request)
+      )
+    ),
+  getGlmAdvancedBrainAcceptanceStatus: async () =>
+    GlmAdvancedBrainAcceptanceStatusSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_STATUS_CHANNEL
+      )
+    ),
+  setGlmAdvancedBrainAcceptanceModel: async (request) =>
+    GlmAdvancedBrainAcceptanceCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_MODEL_SET_CHANNEL,
+        GlmAdvancedBrainAcceptanceSetModelRequestSchema.parse(request)
+      )
+    ),
+  saveGlmAdvancedBrainAcceptanceCredential: async (request) =>
+    GlmAdvancedBrainAcceptanceCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
+        GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema.parse(request)
+      )
+    ),
+  deleteGlmAdvancedBrainAcceptanceCredential: async () =>
+    GlmAdvancedBrainAcceptanceCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_DELETE_CHANNEL
+      )
+    ),
+  preflightGlmAdvancedBrainAcceptance: async (request) =>
+    GlmAdvancedBrainAcceptancePreflightResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_CHANNEL,
+        GlmAdvancedBrainAcceptanceConsentRequestSchema.parse(request)
+      )
+    ),
+  runGlmAdvancedBrainAcceptanceDiagnostic: async (request) =>
+    GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_DIAGNOSTIC_CHANNEL,
+        GlmAdvancedBrainAcceptanceConsentRequestSchema.parse(request)
       )
     ),
   getUiSurfaceCapabilityStatus: async () =>

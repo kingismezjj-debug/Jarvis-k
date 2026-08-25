@@ -13,6 +13,11 @@ import {
   type DesktopPetReducedMotion,
   type DesktopSettings,
   type EventEnvelope,
+  type GlmAdvancedBrainAcceptanceCommandResult,
+  type GlmAdvancedBrainAcceptanceDiagnosticReport,
+  type GlmAdvancedBrainAcceptanceModelId,
+  type GlmAdvancedBrainAcceptancePreflightResult,
+  type GlmAdvancedBrainAcceptanceStatus,
   type MemoryAlphaRecallProbeResult,
   type MemoryAlphaStatus,
   type LocalPluginManifestDeveloperStatusResult,
@@ -75,6 +80,18 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     useState<DesktopSettings | null>(null);
   const [desktopLaunchAtLoginStatus, setDesktopLaunchAtLoginStatus] =
     useState<DesktopLaunchAtLoginStatus | null>(null);
+  const [
+    glmAdvancedBrainAcceptanceStatus,
+    setGlmAdvancedBrainAcceptanceStatus,
+  ] = useState<GlmAdvancedBrainAcceptanceStatus | null>(null);
+  const [
+    glmAdvancedBrainAcceptancePreflight,
+    setGlmAdvancedBrainAcceptancePreflight,
+  ] = useState<GlmAdvancedBrainAcceptancePreflightResult | null>(null);
+  const [
+    glmAdvancedBrainAcceptanceReport,
+    setGlmAdvancedBrainAcceptanceReport,
+  ] = useState<GlmAdvancedBrainAcceptanceDiagnosticReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversationState, dispatchConversationState] = useReducer(
     jarvisConversationReducer,
@@ -468,6 +485,134 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     return true;
   }, []);
 
+  const refreshGlmAdvancedBrainAcceptanceStatus = useCallback(async () => {
+    if (!window.jarvis?.getGlmAdvancedBrainAcceptanceStatus) {
+      setGlmAdvancedBrainAcceptanceStatus(null);
+      return false;
+    }
+    try {
+      const status = await window.jarvis.getGlmAdvancedBrainAcceptanceStatus();
+      setGlmAdvancedBrainAcceptanceStatus(status);
+      return true;
+    } catch {
+      setGlmAdvancedBrainAcceptanceStatus(null);
+      setError("GLM Advanced Brain acceptance status is unavailable.");
+      return false;
+    }
+  }, []);
+
+  const setGlmAdvancedBrainAcceptanceModel = useCallback(
+    async (modelId: GlmAdvancedBrainAcceptanceModelId | null) => {
+      if (!window.jarvis?.setGlmAdvancedBrainAcceptanceModel) {
+        setError("GLM Advanced Brain acceptance is unavailable.");
+        return false;
+      }
+      try {
+        const result: GlmAdvancedBrainAcceptanceCommandResult =
+          await window.jarvis.setGlmAdvancedBrainAcceptanceModel({ modelId });
+        setGlmAdvancedBrainAcceptanceStatus(result.status);
+        if (!result.ok) {
+          setError(result.safeMessage ?? "GLM model selection was rejected.");
+          return false;
+        }
+        setError(null);
+        return true;
+      } catch {
+        setError("GLM model selection was rejected.");
+        return false;
+      }
+    },
+    [],
+  );
+
+  const saveGlmAdvancedBrainAcceptanceCredential = useCallback(
+    async (apiKey: string) => {
+      if (!window.jarvis?.saveGlmAdvancedBrainAcceptanceCredential) {
+        setError("GLM Advanced Brain acceptance is unavailable.");
+        return false;
+      }
+      try {
+        const result =
+          await window.jarvis.saveGlmAdvancedBrainAcceptanceCredential({
+            apiKey,
+          });
+        setGlmAdvancedBrainAcceptanceStatus(result.status);
+        if (!result.ok) {
+          setError(result.safeMessage ?? "GLM credential was rejected.");
+          return false;
+        }
+        setError(null);
+        return true;
+      } catch {
+        setError("GLM credential was rejected.");
+        return false;
+      }
+    },
+    [],
+  );
+
+  const deleteGlmAdvancedBrainAcceptanceCredential = useCallback(async () => {
+    if (!window.jarvis?.deleteGlmAdvancedBrainAcceptanceCredential) {
+      setError("GLM Advanced Brain acceptance is unavailable.");
+      return false;
+    }
+    try {
+      const result =
+        await window.jarvis.deleteGlmAdvancedBrainAcceptanceCredential();
+      setGlmAdvancedBrainAcceptanceStatus(result.status);
+      if (!result.ok) {
+        setError(result.safeMessage ?? "GLM credential could not be deleted.");
+        return false;
+      }
+      setError(null);
+      return true;
+    } catch {
+      setError("GLM credential could not be deleted.");
+      return false;
+    }
+  }, []);
+
+  const preflightGlmAdvancedBrainAcceptance = useCallback(async () => {
+    if (!window.jarvis?.preflightGlmAdvancedBrainAcceptance) {
+      setError("GLM Advanced Brain acceptance preflight is unavailable.");
+      return false;
+    }
+    try {
+      const result = await window.jarvis.preflightGlmAdvancedBrainAcceptance({
+        cloudEgressAllowed: true,
+        acceptanceConsent: true,
+      });
+      setGlmAdvancedBrainAcceptancePreflight(result);
+      setError(null);
+      return result.allowRealAcceptance;
+    } catch {
+      setError("GLM Advanced Brain acceptance preflight was rejected.");
+      return false;
+    }
+  }, []);
+
+  const runGlmAdvancedBrainAcceptanceDiagnostic = useCallback(async () => {
+    if (!window.jarvis?.runGlmAdvancedBrainAcceptanceDiagnostic) {
+      setError("GLM Advanced Brain acceptance diagnostic is unavailable.");
+      return false;
+    }
+    setSending(true);
+    try {
+      const result = await window.jarvis.runGlmAdvancedBrainAcceptanceDiagnostic({
+        cloudEgressAllowed: true,
+        acceptanceConsent: true,
+      });
+      setGlmAdvancedBrainAcceptanceReport(result);
+      setError(null);
+      return true;
+    } catch {
+      setError("GLM Advanced Brain acceptance diagnostic was rejected.");
+      return false;
+    } finally {
+      setSending(false);
+    }
+  }, []);
+
   const {
     clearSessionHistory,
     createConversation,
@@ -753,6 +898,9 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     fixtureIntentProbe,
     fixtureOcrProbe,
     fixtureRerankProbe,
+    glmAdvancedBrainAcceptancePreflight,
+    glmAdvancedBrainAcceptanceReport,
+    glmAdvancedBrainAcceptanceStatus,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -770,6 +918,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     probeMemoryAlphaRecall,
     probeCore,
     refreshCapabilities,
+    refreshGlmAdvancedBrainAcceptanceStatus,
     refreshDesktopSettings,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
@@ -820,6 +969,11 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setDesktopPetEnabled,
     setDesktopPetReducedMotion,
     setDesktopFirstRunOnboardingState,
+    setGlmAdvancedBrainAcceptanceModel,
+    saveGlmAdvancedBrainAcceptanceCredential,
+    deleteGlmAdvancedBrainAcceptanceCredential,
+    preflightGlmAdvancedBrainAcceptance,
+    runGlmAdvancedBrainAcceptanceDiagnostic,
     resetDesktopPetPosition,
     setQwenRuntimeControlAction,
     saveVoiceRegressionPendingSample,

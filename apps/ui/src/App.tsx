@@ -81,6 +81,7 @@ import { ModelOperationList } from "@/features/model-management/model-operation-
 import { FirstRunOnboarding } from "@/features/onboarding/first-run-onboarding";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
 import { RuntimeInspectorPanel } from "@/features/runtime-inspector/runtime-inspector-panel";
+import { GlmAdvancedBrainAcceptancePanel } from "@/features/advanced-brain/glm-advanced-brain-acceptance-panel";
 import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
 import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
 import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governance-settings-panel";
@@ -140,6 +141,9 @@ export default function App() {
     fixtureIntentProbe,
     fixtureOcrProbe,
     fixtureRerankProbe,
+    glmAdvancedBrainAcceptancePreflight,
+    glmAdvancedBrainAcceptanceReport,
+    glmAdvancedBrainAcceptanceStatus,
     importMemorySnapshot,
     inferenceProviderRequirements,
     inferenceProviders,
@@ -157,6 +161,7 @@ export default function App() {
     probeMemoryAlphaRecall,
     probeCore,
     refreshCapabilities,
+    refreshGlmAdvancedBrainAcceptanceStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshDesktopSettings,
@@ -188,6 +193,11 @@ export default function App() {
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
+    setGlmAdvancedBrainAcceptanceModel,
+    saveGlmAdvancedBrainAcceptanceCredential,
+    deleteGlmAdvancedBrainAcceptanceCredential,
+    preflightGlmAdvancedBrainAcceptance,
+    runGlmAdvancedBrainAcceptanceDiagnostic,
     setDesktopLaunchAtLoginEnabled,
     setDesktopPetAlwaysOnTop,
     setDesktopPetEnabled,
@@ -875,6 +885,16 @@ export default function App() {
     developerModeEnabled,
     refreshLocalPluginManifestDeveloperStatus,
     refreshPlugins,
+  ]);
+
+  useEffect(() => {
+    if (activeView === "developer" && evaluationSurfaceEnabled) {
+      void refreshGlmAdvancedBrainAcceptanceStatus();
+    }
+  }, [
+    activeView,
+    evaluationSurfaceEnabled,
+    refreshGlmAdvancedBrainAcceptanceStatus,
   ]);
 
   useEffect(() => {
@@ -2249,69 +2269,97 @@ export default function App() {
                 </section>
 
                 {evaluationSurfaceEnabled ? (
-                  <VoiceRegressionPanel
-                    actions={{
-                      cancelPilotSession: () => {
-                        void cancelPilotSession();
-                      },
-                      clearRegressionPendingSamples: () => {
-                        void clearVoiceRegressionPendingSamples();
-                      },
-                      clearRegressionRecords: () => {
-                        void clearVoiceRegressionRecords();
-                      },
-                      discardRegressionPendingSample: (sampleId) => {
-                        void discardVoiceRegressionPendingSample(sampleId);
-                      },
-                      markPilotNoFinalTranscript: () => {
-                        void markPilotNoFinalTranscript();
-                      },
-                      markPilotOperatorDeviation: () => {
-                        void markPilotOperatorDeviation();
-                      },
-                      deleteRegressionRecord: (recordId) => {
-                        void deleteVoiceRegressionRecord(recordId);
-                      },
-                      exportRegressionRecords: () => {
-                        void exportVoiceRegressionRecords();
-                      },
-                      preparePilotSession: () => {
-                        void preparePilotSession();
-                      },
-                      refreshRegressionRecords: () => {
-                        void refreshVoiceRegressionCollectionStatus();
-                        void refreshVoiceRegressionPendingSamples();
-                        void refreshVoiceRegressionRecords();
-                      },
-                      saveRegressionPendingSample: (
-                        sampleId,
-                        feedback,
-                        options,
-                      ) => {
-                        void saveVoiceRegressionPendingSample(
+                  <div>
+                    <VoiceRegressionPanel
+                      actions={{
+                        cancelPilotSession: () => {
+                          void cancelPilotSession();
+                        },
+                        clearRegressionPendingSamples: () => {
+                          void clearVoiceRegressionPendingSamples();
+                        },
+                        clearRegressionRecords: () => {
+                          void clearVoiceRegressionRecords();
+                        },
+                        discardRegressionPendingSample: (sampleId) => {
+                          void discardVoiceRegressionPendingSample(sampleId);
+                        },
+                        markPilotNoFinalTranscript: () => {
+                          void markPilotNoFinalTranscript();
+                        },
+                        markPilotOperatorDeviation: () => {
+                          void markPilotOperatorDeviation();
+                        },
+                        deleteRegressionRecord: (recordId) => {
+                          void deleteVoiceRegressionRecord(recordId);
+                        },
+                        exportRegressionRecords: () => {
+                          void exportVoiceRegressionRecords();
+                        },
+                        preparePilotSession: () => {
+                          void preparePilotSession();
+                        },
+                        refreshRegressionRecords: () => {
+                          void refreshVoiceRegressionCollectionStatus();
+                          void refreshVoiceRegressionPendingSamples();
+                          void refreshVoiceRegressionRecords();
+                        },
+                        saveRegressionPendingSample: (
                           sampleId,
                           feedback,
                           options,
-                        );
-                      },
-                      startPilotPrompt: () => {
-                        void startPilotPrompt();
-                      },
-                      setRegressionLocalTextCollection: (enabled) => {
-                        void setVoiceRegressionLocalTextCollection(enabled);
-                      },
-                      submitRegressionFeedback: (recordId, feedback) => {
-                        void submitVoiceRegressionFeedback(recordId, feedback);
-                      },
-                    }}
-                    sending={sending}
-                    viewModel={{
-                      exportText: voiceRegressionExportText,
-                      pendingSamples: voiceRegressionPendingSamples,
-                      records: voiceRegressionRecords,
-                      status: voiceRegressionStatus,
-                    }}
-                  />
+                        ) => {
+                          void saveVoiceRegressionPendingSample(
+                            sampleId,
+                            feedback,
+                            options,
+                          );
+                        },
+                        startPilotPrompt: () => {
+                          void startPilotPrompt();
+                        },
+                        setRegressionLocalTextCollection: (enabled) => {
+                          void setVoiceRegressionLocalTextCollection(enabled);
+                        },
+                        submitRegressionFeedback: (recordId, feedback) => {
+                          void submitVoiceRegressionFeedback(recordId, feedback);
+                        },
+                      }}
+                      sending={sending}
+                      viewModel={{
+                        exportText: voiceRegressionExportText,
+                        pendingSamples: voiceRegressionPendingSamples,
+                        records: voiceRegressionRecords,
+                        status: voiceRegressionStatus,
+                      }}
+                    />
+                    <GlmAdvancedBrainAcceptancePanel
+                      actions={{
+                        deleteCredential: () => {
+                          void deleteGlmAdvancedBrainAcceptanceCredential();
+                        },
+                        preflight: () => {
+                          void preflightGlmAdvancedBrainAcceptance();
+                        },
+                        refreshStatus: () => {
+                          void refreshGlmAdvancedBrainAcceptanceStatus();
+                        },
+                        runDiagnostic: () => {
+                          void runGlmAdvancedBrainAcceptanceDiagnostic();
+                        },
+                        saveCredential: (apiKey) => {
+                          void saveGlmAdvancedBrainAcceptanceCredential(apiKey);
+                        },
+                        setModel: (modelId) => {
+                          void setGlmAdvancedBrainAcceptanceModel(modelId);
+                        },
+                      }}
+                      preflightResult={glmAdvancedBrainAcceptancePreflight}
+                      report={glmAdvancedBrainAcceptanceReport}
+                      sending={sending}
+                      status={glmAdvancedBrainAcceptanceStatus}
+                    />
+                  </div>
                 ) : (
                   <section
                     className="min-w-0 border-y py-5 text-xs text-muted-foreground"
