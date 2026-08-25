@@ -54,9 +54,9 @@ export function GlmAdvancedBrainAcceptancePanel({
         "Tool execution: NO",
         "Retry: NO",
         "Maximum output tokens: 64",
-        "This future real diagnostic may produce a small API charge.",
+        "This one-time diagnostic may produce a small API charge.",
         "",
-        "This build uses fake transport and sends no real network request.",
+        "Only this fixed acceptance request will be sent if all preflight checks pass.",
       ].join("\n"),
     );
     if (accepted) {
@@ -73,7 +73,7 @@ export function GlmAdvancedBrainAcceptancePanel({
         <div>
           <h3 className="text-sm font-semibold">GLM Advanced Brain acceptance</h3>
           <p className="text-xs text-muted-foreground">
-            Fake transport preflight / no user prompt / no tools
+            One-time fixed diagnostic / no user prompt / no tools
           </p>
         </div>
         <Badge className="rounded-md text-[10px]" variant="outline">
@@ -323,8 +323,12 @@ export function GlmAdvancedBrainAcceptancePanel({
             value={preflightResult.executorReachable ? "YES" : "NO"}
           />
           <MetricRow
-            label="network"
-            value={preflightResult.realNetworkRequestSent ? "REAL" : "fake only"}
+            label="prior real requests"
+            value={String(preflightResult.priorRealRequestCount)}
+          />
+          <MetricRow
+            label="real request attempted"
+            value={preflightResult.realRequestAttempted ? "YES" : "NO"}
           />
           <MetricRow
             label="reasons"
@@ -335,8 +339,25 @@ export function GlmAdvancedBrainAcceptancePanel({
 
       {report ? (
         <dl className="divide-y divide-border border-y text-[11px]">
+          <MetricRow label="acceptance id" value={report.acceptanceId} />
           <MetricRow label="result" value={report.structuredResultValidation} />
           <MetricRow label="status" value={report.httpStatusClass} />
+          <MetricRow
+            label="request sent"
+            value={report.requestSent ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="response completed"
+            value={report.responseCompleted ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="response bytes"
+            value={String(report.responseByteCount)}
+          />
+          <MetricRow
+            label="consumed"
+            value={report.acceptanceConsumed ? "YES" : "NO"}
+          />
           <MetricRow label="latency" value={`${report.latencyMs} ms`} />
           <MetricRow
             label="tokens"

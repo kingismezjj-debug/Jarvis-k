@@ -190,12 +190,14 @@ export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
     fallbackEnabled: z.literal(false),
     executorReachable: z.literal(false),
     allowSingleRealAcceptance: z.boolean(),
+    priorRealRequestCount: z.number().int().min(0).max(1),
     automaticRetry: z.literal(false),
     automaticFallback: z.literal(false),
     toolCapabilityCount: z.literal(0),
     windowsExecutorAllowed: z.literal(false),
     pluginRuntimeAllowed: z.literal(false),
     directActionAttempted: z.literal(false),
+    realRequestAttempted: z.literal(false),
     realNetworkRequestSent: z.literal(false),
     credentialExposed: z.literal(false),
     promptExposed: z.literal(false),
@@ -208,6 +210,12 @@ export type GlmAdvancedBrainAcceptancePreflightResult = z.infer<
 
 export const GlmAdvancedBrainAcceptanceDiagnosticReportSchema = z
   .object({
+    acceptanceId: z
+      .string()
+      .trim()
+      .min(8)
+      .max(128)
+      .regex(/^[A-Za-z0-9._:-]+$/u),
     providerId: z.literal("advanced-brain.glm"),
     modelId: GlmAdvancedBrainAcceptanceModelIdSchema,
     endpointProfileId: GlmAdvancedBrainAcceptanceEndpointProfileIdSchema,
@@ -240,7 +248,21 @@ export const GlmAdvancedBrainAcceptanceDiagnosticReportSchema = z
     toolCallCount: z.literal(0),
     directActionAttempted: z.literal(false),
     reasonCode: GlmAdvancedBrainAcceptanceReasonCodeSchema,
-    realNetworkRequestSent: z.literal(false),
+    requestSent: z.boolean(),
+    responseStarted: z.boolean(),
+    responseCompleted: z.boolean(),
+    responseByteCount: z.number().int().nonnegative().max(4_000),
+    timeout: z.boolean(),
+    cancelled: z.boolean(),
+    toolsObserved: z.literal(false),
+    executorInvocationDelta: z.literal(0),
+    sanitizedResponseCategory: z.enum([
+      "fixed_diagnostic_ok",
+      "invalid_structured_response",
+      "transport_failure",
+    ]),
+    acceptanceConsumed: z.literal(true),
+    realNetworkRequestSent: z.boolean(),
     credentialExposed: z.literal(false),
     promptExposed: z.literal(false),
     rawResponseExposed: z.literal(false),

@@ -20,7 +20,11 @@ import {
   GLM_ADVANCED_BRAIN_OPERATION,
   GLM_ADVANCED_BRAIN_PROVIDER_ID,
 } from "@jarvis-k/inference-adapter-glm-runtime";
-import { GlmAdvancedBrainAcceptanceService } from "../src/glm-advanced-brain-acceptance/glm-advanced-brain-acceptance-service";
+import {
+  GlmAdvancedBrainAcceptanceService,
+  type GlmAdvancedBrainAcceptanceTransport,
+  RealGlmAcceptanceTransport,
+} from "../src/glm-advanced-brain-acceptance/glm-advanced-brain-acceptance-service";
 import { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "../src/glm-advanced-brain-acceptance/secure-glm-advanced-brain-credential-store";
 import { registerGlmAdvancedBrainAcceptanceIpc } from "../src/ipc/register-glm-advanced-brain-acceptance-ipc";
 import type { SecureStringEncryption } from "../src/secure-voice-provider-store";
@@ -67,6 +71,8 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     );
     expect(preflight.allowRealAcceptance).toBe(false);
     expect(preflight.realNetworkRequestSent).toBe(false);
+    expect(preflight.realRequestAttempted).toBe(false);
+    expect(preflight.priorRealRequestCount).toBe(0);
   });
 
   it("stores model selection separately from secure credentials", async () => {
@@ -149,6 +155,8 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       fallbackEnabled: false,
       executorReachable: false,
       allowSingleRealAcceptance: true,
+      priorRealRequestCount: 0,
+      realRequestAttempted: false,
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
@@ -180,11 +188,20 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       "function_call",
     );
     expect(report).toMatchObject({
+      acceptanceId: "glm-advanced-brain-acceptance-fixed-request",
       structuredResultValidation: "PASS",
       retryCount: 0,
       fallbackCount: 0,
       toolCallCount: 0,
       directActionAttempted: false,
+      requestSent: false,
+      responseStarted: true,
+      responseCompleted: true,
+      responseByteCount: 0,
+      toolsObserved: false,
+      executorInvocationDelta: 0,
+      sanitizedResponseCategory: "fixed_diagnostic_ok",
+      acceptanceConsumed: true,
       realNetworkRequestSent: false,
       credentialExposed: false,
       promptExposed: false,
@@ -293,6 +310,82 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(preflight.fullEndpointMatch).toBe(true);
   });
 
+  it("uses the real acceptance transport only against the fixed public endpoint with bounded output", async () => {
+    const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => {
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  diagnostic: "ok",
+                  directActionAttempted: false,
+                  toolCallCount: 0,
+                }),
+              },
+            },
+          ],
+          usage: {
+            prompt_tokens: 7,
+            completion_tokens: 3,
+            total_tokens: 10,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    });
+    const transport = new RealGlmAcceptanceTransport(fetchImpl);
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+    await service.saveCredential(fakeCredential());
+
+    const report = await service.runDiagnostic(consent());
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(url).toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT);
+    expect(init).toMatchObject({
+      method: "POST",
+      redirect: "error",
+    });
+    expect(init?.headers).toMatchObject({
+      Authorization: "bearer test-secret-key",
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    });
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model: "glm-5.3",
+      stream: false,
+      max_tokens: 64,
+    });
+    expect(report).toMatchObject({
+      requestSent: true,
+      responseStarted: true,
+      responseCompleted: true,
+      httpStatusClass: "success",
+      structuredResultValidation: "PASS",
+      tokenUsage: {
+        promptTokens: 7,
+        completionTokens: 3,
+        totalTokens: 10,
+      },
+      realNetworkRequestSent: true,
+      acceptanceConsumed: true,
+      retryCount: 0,
+      fallbackCount: 0,
+      toolCallCount: 0,
+      toolsObserved: false,
+      directActionAttempted: false,
+      executorInvocationDelta: 0,
+    });
+    expect(JSON.stringify(report)).not.toContain("test-secret-key");
+    expect(JSON.stringify(report)).not.toContain("Authorization");
+    expect(JSON.stringify(report)).not.toContain("choices");
+  });
+
   it("fails closed when secure storage cannot save a fake credential", async () => {
     const { credentialPath, service } = await createService({
       encryption: fakeEncryption(false),
@@ -399,6 +492,8 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       allowRealAcceptance: false,
       reasonCodes: expect.arrayContaining(["acceptance_already_submitted"]),
       realNetworkRequestSent: false,
+      realRequestAttempted: false,
+      priorRealRequestCount: 1,
     });
     await expect(service.runDiagnostic(consent())).rejects.toThrow(
       "GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_FAILED",
@@ -446,7 +541,7 @@ async function createService(options: {
   readonly acceptanceFlagEnabled?: boolean;
   readonly encryption?: SecureStringEncryption;
   readonly endpointProfileValid?: boolean;
-  readonly transport?: FakeTransport;
+  readonly transport?: GlmAdvancedBrainAcceptanceTransport;
 } = {}) {
   const directory = await mkdtemp(
     path.join(os.tmpdir(), "jarvis-k-glm-acceptance-"),

@@ -196,7 +196,11 @@ export class GlmAdvancedBrainAcceptanceService {
         credential: { scheme: "bearer", value: credential.apiKey },
       });
       const completedAt = this.options.now?.() ?? new Date();
+      const structuredResultValid = validateFixedDiagnosticResponse(
+        transportResult,
+      );
       return GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
+        acceptanceId: request.requestId,
         providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
         modelId: preflight.modelId,
         endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
@@ -204,18 +208,28 @@ export class GlmAdvancedBrainAcceptanceService {
         completedAt: completedAt.toISOString(),
         latencyMs: transportResult.latencyMs,
         httpStatusClass: transportResult.statusClass,
-        structuredResultValidation: validateFixedDiagnosticResponse(
-          transportResult,
-        )
-          ? "PASS"
-          : "FAIL",
+        structuredResultValidation: structuredResultValid ? "PASS" : "FAIL",
         tokenUsage: extractTokenUsage(transportResult.responseJson),
         retryCount: 0,
         fallbackCount: 0,
         toolCallCount: 0,
         directActionAttempted: false,
         reasonCode: mapDiagnosticReasonCode(transportResult),
-        realNetworkRequestSent: false,
+        requestSent: transportResult.requestSent,
+        responseStarted: transportResult.responseStarted,
+        responseCompleted: transportResult.responseCompleted,
+        responseByteCount: extractResponseByteCount(transportResult),
+        timeout: transportResult.timeout,
+        cancelled: transportResult.cancelled,
+        toolsObserved: false,
+        executorInvocationDelta: 0,
+        sanitizedResponseCategory: structuredResultValid
+          ? "fixed_diagnostic_ok"
+          : transportResult.statusClass === "success"
+            ? "invalid_structured_response"
+            : "transport_failure",
+        acceptanceConsumed: true,
+        realNetworkRequestSent: transportResult.requestSent,
         credentialExposed: false,
         promptExposed: false,
         rawResponseExposed: false,
@@ -383,12 +397,16 @@ export class GlmAdvancedBrainAcceptanceService {
       allowSingleRealAcceptance:
         uniqueReasons.length === 0 ||
         (uniqueReasons.length === 1 && uniqueReasons[0] === "ready"),
+      priorRealRequestCount: this.submittedAcceptanceIds.has(FIXED_ACCEPTANCE_ID)
+        ? 1
+        : 0,
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
       windowsExecutorAllowed: false,
       pluginRuntimeAllowed: false,
       directActionAttempted: false,
+      realRequestAttempted: false,
       realNetworkRequestSent: false,
       credentialExposed: false,
       promptExposed: false,
@@ -422,6 +440,107 @@ export class GlmAdvancedBrainAcceptanceService {
   }
 }
 
+export class RealGlmAcceptanceTransport
+  implements GlmAdvancedBrainAcceptanceTransport
+{
+  private readonly fetchImpl: typeof fetch | null;
+
+  public constructor(fetchImpl?: typeof fetch) {
+    this.fetchImpl = fetchImpl ?? globalThis.fetch?.bind(globalThis) ?? null;
+  }
+
+  public async send(
+    request: CloudReasoningTransportRequest,
+    options: GlmAdvancedBrainAcceptanceTransportSendOptions,
+  ): Promise<CloudReasoningTransportResult> {
+    const startedAt = Date.now();
+    if (!this.fetchImpl) {
+      return transportResult(request, {
+        statusClass: "network_error",
+        reasonCode: "network_unavailable",
+        safeHeaders: {},
+        latencyMs: 0,
+        requestSent: false,
+        responseStarted: false,
+        responseCompleted: false,
+        timeout: false,
+        cancelled: false,
+        responseByteCount: 0,
+      });
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), request.timeoutMs);
+    let requestSent = false;
+    try {
+      requestSent = true;
+      const response = await this.fetchImpl(GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT, {
+        method: "POST",
+        redirect: "error",
+        signal: controller.signal,
+        headers: {
+          Authorization: `${options.credential.scheme} ${options.credential.value}`,
+          "Content-Type": request.contentType,
+          Accept: "application/json",
+        },
+        body: JSON.stringify(request.bodyJson),
+      });
+      const responseStarted = true;
+      const contentType = response.headers.get("content-type") ?? undefined;
+      const boundedBody = await readBoundedResponseText(
+        response,
+        request.maxResponseBytes,
+      );
+      if (!boundedBody.ok) {
+        return transportResult(request, {
+          statusClass: "blocked",
+          reasonCode: "response_too_large",
+          httpStatus: response.status,
+          safeHeaders: safeHeaders(contentType),
+          latencyMs: elapsed(startedAt),
+          requestSent,
+          responseStarted,
+          responseCompleted: false,
+          timeout: false,
+          cancelled: false,
+          responseByteCount: request.maxResponseBytes,
+        });
+      }
+      const parsedJson = parseJsonObject(boundedBody.text);
+      const normalizedJson = normalizeGlmChatCompletionsResponse(parsedJson);
+      return transportResult(request, {
+        statusClass: statusClassForHttp(response.status, normalizedJson !== null),
+        reasonCode: reasonCodeForHttp(response.status, normalizedJson !== null),
+        httpStatus: response.status,
+        responseJson: normalizedJson ?? undefined,
+        safeHeaders: safeHeaders(contentType),
+        latencyMs: elapsed(startedAt),
+        requestSent,
+        responseStarted,
+        responseCompleted: true,
+        timeout: false,
+        cancelled: false,
+        responseByteCount: boundedBody.byteCount,
+      });
+    } catch (error) {
+      const aborted = isAbortError(error);
+      return transportResult(request, {
+        statusClass: aborted ? "timeout" : "network_error",
+        reasonCode: aborted ? "timeout" : "network_unavailable",
+        safeHeaders: {},
+        latencyMs: elapsed(startedAt),
+        requestSent,
+        responseStarted: false,
+        responseCompleted: false,
+        timeout: aborted,
+        cancelled: false,
+        responseByteCount: 0,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 class FakeGlmAcceptanceTransport implements GlmAdvancedBrainAcceptanceTransport {
   public async send(
     request: CloudReasoningTransportRequest,
@@ -449,6 +568,7 @@ class FakeGlmAcceptanceTransport implements GlmAdvancedBrainAcceptanceTransport 
       safeHeaders: { contentType: "application/json" },
       latencyMs: 1,
       requestSent: false,
+      responseByteCount: 0,
       responseStarted: true,
       responseCompleted: true,
       cancelled: false,
@@ -460,6 +580,203 @@ class FakeGlmAcceptanceTransport implements GlmAdvancedBrainAcceptanceTransport 
       responseBodyLogged: false,
     });
   }
+}
+
+function transportResult(
+  request: CloudReasoningTransportRequest,
+  input: {
+    readonly statusClass: CloudReasoningTransportResult["statusClass"];
+    readonly reasonCode: CloudReasoningTransportResult["reasonCode"];
+    readonly httpStatus?: number;
+    readonly responseJson?: unknown;
+    readonly safeHeaders: CloudReasoningTransportResult["safeHeaders"];
+    readonly latencyMs: number;
+    readonly requestSent: boolean;
+    readonly responseStarted: boolean;
+    readonly responseCompleted: boolean;
+    readonly timeout: boolean;
+    readonly cancelled: boolean;
+    readonly responseByteCount: number;
+  },
+): CloudReasoningTransportResult {
+  return CloudReasoningTransportResultSchema.parse({
+    schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+    requestId: request.requestId,
+    providerId: request.providerId,
+    deploymentId: request.deploymentId,
+    operation: request.operation,
+    statusClass: input.statusClass,
+    reasonCode: input.reasonCode,
+    ...(input.httpStatus ? { httpStatus: input.httpStatus } : {}),
+    ...(input.responseJson ? { responseJson: input.responseJson } : {}),
+    safeHeaders: input.safeHeaders,
+    latencyMs: input.latencyMs,
+    responseByteCount: input.responseByteCount,
+    requestSent: input.requestSent,
+    responseStarted: input.responseStarted,
+    responseCompleted: input.responseCompleted,
+    cancelled: input.cancelled,
+    timeout: input.timeout,
+    automaticRetry: false,
+    automaticFallback: false,
+    credentialExposed: false,
+    requestBodyExposed: false,
+    responseBodyLogged: false,
+  });
+}
+
+async function readBoundedResponseText(
+  response: Response,
+  maxBytes: number,
+): Promise<
+  | { readonly ok: true; readonly text: string; readonly byteCount: number }
+  | { readonly ok: false }
+> {
+  const body = response.body;
+  if (!body) {
+    const text = await response.text();
+    const byteCount = Buffer.byteLength(text, "utf8");
+    return byteCount <= maxBytes ? { ok: true, text, byteCount } : { ok: false };
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteCount = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (value) {
+      byteCount += value.byteLength;
+      if (byteCount > maxBytes) {
+        await reader.cancel();
+        return { ok: false };
+      }
+      chunks.push(value);
+    }
+  }
+  return {
+    ok: true,
+    text: Buffer.concat(chunks).toString("utf8"),
+    byteCount,
+  };
+}
+
+function parseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeGlmChatCompletionsResponse(
+  responseJson: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!responseJson) {
+    return null;
+  }
+  const content = extractAssistantContent(responseJson);
+  if (!content) {
+    return null;
+  }
+  const parsedContent = parseJsonObject(content);
+  if (!parsedContent) {
+    return null;
+  }
+  return {
+    diagnostic: parsedContent.diagnostic,
+    directActionAttempted: parsedContent.directActionAttempted,
+    toolCallCount: parsedContent.toolCallCount,
+    usage: isRecord(responseJson.usage) ? responseJson.usage : {},
+  };
+}
+
+function extractAssistantContent(responseJson: Record<string, unknown>): string | null {
+  if (!Array.isArray(responseJson.choices)) {
+    return null;
+  }
+  const firstChoice = responseJson.choices[0];
+  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
+    return null;
+  }
+  return typeof firstChoice.message.content === "string"
+    ? firstChoice.message.content
+    : null;
+}
+
+function statusClassForHttp(
+  status: number,
+  validResponseShape: boolean,
+): CloudReasoningTransportResult["statusClass"] {
+  if (status >= 200 && status < 300) {
+    return validResponseShape ? "success" : "invalid_response";
+  }
+  if (status === 401 || status === 403) {
+    return "auth_failure";
+  }
+  if (status === 429) {
+    return "rate_limited";
+  }
+  if (status >= 500) {
+    return "server_error";
+  }
+  if (status >= 400) {
+    return "client_error";
+  }
+  return "failed";
+}
+
+function reasonCodeForHttp(
+  status: number,
+  validResponseShape: boolean,
+): CloudReasoningTransportResult["reasonCode"] {
+  if (status >= 200 && status < 300) {
+    return validResponseShape ? "completed" : "invalid_response";
+  }
+  if (status === 401 || status === 403) {
+    return "authentication_transport_failure";
+  }
+  if (status === 429) {
+    return "rate_limited";
+  }
+  if (status >= 500) {
+    return "provider_server_error";
+  }
+  if (status >= 400) {
+    return "provider_client_error";
+  }
+  return "transport_failed";
+}
+
+function safeHeaders(
+  contentType: string | undefined,
+): CloudReasoningTransportResult["safeHeaders"] {
+  return contentType ? { contentType: contentType.slice(0, 128) } : {};
+}
+
+function elapsed(startedAt: number): number {
+  return Math.max(0, Date.now() - startedAt);
+}
+
+function extractResponseByteCount(
+  transportResult: CloudReasoningTransportResult,
+): number {
+  const possibleValue = (transportResult as { responseByteCount?: unknown })
+    .responseByteCount;
+  return typeof possibleValue === "number" &&
+    Number.isInteger(possibleValue) &&
+    possibleValue >= 0
+    ? possibleValue
+    : 0;
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.message.includes("aborted"))
+  );
 }
 
 function createFixedDiagnosticRequest(

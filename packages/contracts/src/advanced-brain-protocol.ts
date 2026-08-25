@@ -256,6 +256,7 @@ export const CloudReasoningTransportResultSchema = z
     responseJson: CloudJsonValueSchema.optional(),
     safeHeaders: CloudReasoningSafeResponseHeadersSchema,
     latencyMs: z.number().int().nonnegative(),
+    responseByteCount: z.number().int().nonnegative().max(2_000_000).optional(),
     requestSent: z.boolean(),
     responseStarted: z.boolean(),
     responseCompleted: z.boolean(),
