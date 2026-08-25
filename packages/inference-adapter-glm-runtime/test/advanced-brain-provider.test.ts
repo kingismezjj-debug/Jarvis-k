@@ -50,6 +50,9 @@ describe("GlmAdvancedReasoningProvider", () => {
     expect(createGlmAdvancedReasoningProfile({ modelId: "glm-5.3" }).modelId).toBe(
       "glm-5.3",
     );
+    expect(createGlmAdvancedReasoningProfile({ enabled: false }).modelId).toBe(
+      "model_not_selected",
+    );
     expect(endpoint).toMatchObject({
       providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
       deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
@@ -200,6 +203,11 @@ describe("GlmAdvancedReasoningProvider", () => {
         provider: enabledProvider({ credential: undefined }),
         request: cloudRequest(),
         reasonCode: "credential_missing",
+      },
+      {
+        provider: missingModelProvider(),
+        request: cloudRequest(),
+        reasonCode: "model_not_selected",
       },
       {
         provider: enabledProvider(),
@@ -526,3 +534,19 @@ function transportFailure(
 }
 
 void GlmAdvancedReasoningProviderError;
+
+function missingModelProvider(): GlmAdvancedReasoningProvider & {
+  transportCalls(): number;
+} {
+  const transport = new FakeGlmTransport(glmResponse({ answer: "ok" }));
+  const provider = new GlmAdvancedReasoningProvider({
+    enabled: true,
+    transport,
+    credentialProvider: new MutableCredentialProvider({
+      apiKey: "test-secret-key",
+    }),
+    now: () => new Date(NOW),
+  }) as GlmAdvancedReasoningProvider & { transportCalls(): number };
+  provider.transportCalls = () => transport.calls.length;
+  return provider;
+}

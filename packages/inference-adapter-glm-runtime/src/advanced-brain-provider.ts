@@ -36,6 +36,9 @@ export const GLM_ADVANCED_BRAIN_OPERATION = "chat.completions";
 export const GLM_ADVANCED_BRAIN_OPERATION_PATH =
   "/api/paas/v4/chat/completions";
 export const GLM_ADVANCED_BRAIN_DEFAULT_MODEL_ID = "glm-5.2";
+export const GLM_ADVANCED_BRAIN_RECOMMENDED_MODEL_ID =
+  GLM_ADVANCED_BRAIN_DEFAULT_MODEL_ID;
+export const GLM_ADVANCED_BRAIN_UNSELECTED_MODEL_ID = "model_not_selected";
 export const GLM_ADVANCED_BRAIN_DEFAULT_TIMEOUT_MS = 45_000;
 export const GLM_ADVANCED_BRAIN_MAX_REQUEST_BYTES = 64_000;
 export const GLM_ADVANCED_BRAIN_MAX_RESPONSE_BYTES = 128_000;
@@ -54,6 +57,7 @@ export type GlmAdvancedReasoningFailureReasonCode =
   | "provider_disabled"
   | "cloud_egress_blocked"
   | "confirmation_required"
+  | "model_not_selected"
   | "model_unavailable"
   | "provider_model_mismatch"
   | "authentication_failed"
@@ -299,7 +303,7 @@ export class GlmAdvancedReasoningProvider
       throw this.prepareError("provider_disabled");
     }
     if (!this.modelId) {
-      throw this.prepareError("model_unavailable");
+      throw this.prepareError("model_not_selected");
     }
     if (!isSupportedCategory(request.category)) {
       throw this.prepareError("model_unavailable");
@@ -483,7 +487,7 @@ export function createGlmAdvancedReasoningProfile(input: {
   return AdvancedBrainProviderCapabilityProfileSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
     providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
-    modelId: input.modelId ?? GLM_ADVANCED_BRAIN_DEFAULT_MODEL_ID,
+    modelId: input.modelId ?? GLM_ADVANCED_BRAIN_UNSELECTED_MODEL_ID,
     deploymentClass: "cloud",
     executionSemantics: "real_provider",
     automaticRetry: false,

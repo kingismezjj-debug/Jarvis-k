@@ -51,6 +51,22 @@ describe("Core Host GLM Advanced Brain composition", () => {
     );
   });
 
+  it("requires an explicit user-selected model before constructing a provider", () => {
+    const composition = createCoreHostGlmAdvancedBrainComposition({
+      runtimeConfig: loadRuntimeConfig({
+        JARVIS_K_ENABLE_ADVANCED_BRAIN_GLM: "1",
+      }),
+      credentialProvider: { getCredential: async () => ({ apiKey: "test-key" }) },
+      transport: new FakeTransport(response({ answer: "ok" })),
+    });
+
+    expect(composition.provider).toBeUndefined();
+    expect(composition.compositionReport.model).toBeUndefined();
+    expect(composition.compositionReport.reasonCodes).toContain(
+      "GLM_ADVANCED_BRAIN_MODEL_UNCONFIGURED",
+    );
+  });
+
   it("rejects unsupported configured models without fallback", () => {
     const composition = createCoreHostGlmAdvancedBrainComposition({
       runtimeConfig: loadRuntimeConfig({

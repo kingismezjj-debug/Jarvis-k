@@ -1,6 +1,5 @@
 import type { AdvancedReasoningProvider } from "@jarvis-k/capabilities";
 import {
-  GLM_ADVANCED_BRAIN_DEFAULT_MODEL_ID,
   GLM_ADVANCED_BRAIN_PROVIDER_ID,
   GlmAdvancedReasoningProvider,
   createGlmAdvancedReasoningEndpointProfile,
@@ -31,7 +30,7 @@ export interface CoreHostGlmAdvancedBrainCompositionOptions {
 
 export interface CoreHostGlmAdvancedBrainCompositionReport {
   readonly provider: typeof GLM_ADVANCED_BRAIN_PROVIDER_ID;
-  readonly model: string;
+  readonly model?: string;
   readonly status: "available" | "unconfigured" | "disabled";
   readonly gates: {
     readonly explicitEnablement: boolean;
@@ -60,16 +59,15 @@ export interface CoreHostGlmAdvancedBrainComposition {
 export function createCoreHostGlmAdvancedBrainComposition(
   options: CoreHostGlmAdvancedBrainCompositionOptions,
 ): CoreHostGlmAdvancedBrainComposition {
-  const modelId =
-    options.runtimeConfig.glmAdvancedBrainModelId ??
-    GLM_ADVANCED_BRAIN_DEFAULT_MODEL_ID;
-  const selectedModelId = isGlmProviderModelCandidateId(modelId)
-    ? modelId
-    : undefined;
+  const modelId = options.runtimeConfig.glmAdvancedBrainModelId?.trim();
+  const selectedModelId =
+    modelId !== undefined && isGlmProviderModelCandidateId(modelId)
+      ? modelId
+      : undefined;
   const endpointProfile = createGlmAdvancedReasoningEndpointProfile();
   const gates = {
     explicitEnablement: options.runtimeConfig.glmAdvancedBrainEnabled,
-    modelConfigured: modelId.trim().length > 0,
+    modelConfigured: typeof modelId === "string" && modelId.length > 0,
     modelSupported: selectedModelId !== undefined,
     credentialProviderConfigured: options.credentialProvider !== undefined,
     transportConfigured: options.transport !== undefined,
@@ -97,7 +95,7 @@ export function createCoreHostGlmAdvancedBrainComposition(
   return {
     compositionReport: {
       provider: GLM_ADVANCED_BRAIN_PROVIDER_ID,
-      model: modelId,
+      ...(modelId ? { model: modelId } : {}),
       status: available
         ? "available"
         : gates.explicitEnablement
