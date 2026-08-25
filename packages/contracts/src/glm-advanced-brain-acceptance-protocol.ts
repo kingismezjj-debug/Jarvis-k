@@ -69,6 +69,7 @@ export const GlmAdvancedBrainAcceptanceReasonCodeSchema = z.enum([
   "user_content_present",
   "acceptance_already_running",
   "acceptance_already_submitted",
+  "acceptance_already_consumed",
   "invalid_structured_response",
   "transport_timeout",
   "transport_authentication_failed",
@@ -80,6 +81,19 @@ export const GlmAdvancedBrainAcceptanceReasonCodeSchema = z.enum([
 ]);
 export type GlmAdvancedBrainAcceptanceReasonCode = z.infer<
   typeof GlmAdvancedBrainAcceptanceReasonCodeSchema
+>;
+
+export const GlmAdvancedBrainAcceptanceProviderErrorCategorySchema = z.enum([
+  "none",
+  "credential_rejected",
+  "credential_type_mismatch_possible",
+  "permission_denied",
+  "account_or_quota_restricted",
+  "authentication_response_unrecognized",
+  "provider_error_unrecognized",
+]);
+export type GlmAdvancedBrainAcceptanceProviderErrorCategory = z.infer<
+  typeof GlmAdvancedBrainAcceptanceProviderErrorCategorySchema
 >;
 
 export const GlmAdvancedBrainAcceptanceSetModelRequestSchema = z
@@ -123,6 +137,7 @@ export const GlmAdvancedBrainAcceptanceStatusSchema = z
     credentialConfigured: z.boolean(),
     secureStorageAvailable: z.boolean(),
     credentialStorageEncrypted: z.boolean(),
+    acceptanceConsumed: z.boolean(),
     credentialBindingId: z.literal(
       GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
     ),
@@ -197,7 +212,7 @@ export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
     windowsExecutorAllowed: z.literal(false),
     pluginRuntimeAllowed: z.literal(false),
     directActionAttempted: z.literal(false),
-    realRequestAttempted: z.literal(false),
+    realRequestAttempted: z.boolean(),
     realNetworkRequestSent: z.literal(false),
     credentialExposed: z.literal(false),
     promptExposed: z.literal(false),
@@ -248,6 +263,8 @@ export const GlmAdvancedBrainAcceptanceDiagnosticReportSchema = z
     toolCallCount: z.literal(0),
     directActionAttempted: z.literal(false),
     reasonCode: GlmAdvancedBrainAcceptanceReasonCodeSchema,
+    providerErrorCategory:
+      GlmAdvancedBrainAcceptanceProviderErrorCategorySchema,
     requestSent: z.boolean(),
     responseStarted: z.boolean(),
     responseCompleted: z.boolean(),

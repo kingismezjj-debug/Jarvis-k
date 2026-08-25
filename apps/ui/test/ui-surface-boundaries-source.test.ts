@@ -51,6 +51,34 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(glmAcceptancePanelSource).not.toContain("credential.value");
   });
 
+  it("does not let stale GLM acceptance preflight keep the run button enabled", () => {
+    expect(glmAcceptancePanelSource).toContain(
+      "preflightResult.allowSingleRealAcceptance === true",
+    );
+    expect(glmAcceptancePanelSource).toContain(
+      "preflightResult.priorRealRequestCount === 0",
+    );
+    expect(glmAcceptancePanelSource).toContain(
+      "preflightResult.realRequestAttempted === false",
+    );
+    expect(glmAcceptancePanelSource).toContain("status.acceptanceConsumed");
+  });
+
+  it("refreshes GLM acceptance status and preflight after diagnostic and credential changes", () => {
+    expect(useJarvisSource).toContain(
+      "refreshGlmAdvancedBrainAcceptancePreflightProjection",
+    );
+    expect(useJarvisSource).toContain(
+      "window.jarvis.preflightGlmAdvancedBrainAcceptance(",
+    );
+    expect(useJarvisSource).toContain(
+      "refreshGlmAdvancedBrainAcceptanceStatus(),",
+    );
+    expect(useJarvisSource).toContain(
+      "refreshGlmAdvancedBrainAcceptancePreflightProjection(),",
+    );
+  });
+
   it("does not refresh evaluation records when the surface is hidden", () => {
     expect(useJarvisSource).toContain("evaluationSurfaceEnabled");
     expect(useJarvisSource).toContain("if (!evaluationSurfaceEnabled)");

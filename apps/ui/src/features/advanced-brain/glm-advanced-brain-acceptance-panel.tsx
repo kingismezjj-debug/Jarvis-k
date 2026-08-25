@@ -38,7 +38,11 @@ export function GlmAdvancedBrainAcceptancePanel({
   }
   const configured = status?.credentialConfigured === true;
   const selectedModel = status?.selectedModelId ?? "";
-  const canRun = preflightResult?.allowRealAcceptance === true;
+  const canRun =
+    preflightResult?.allowRealAcceptance === true &&
+    preflightResult.allowSingleRealAcceptance === true &&
+    preflightResult.priorRealRequestCount === 0 &&
+    preflightResult.realRequestAttempted === false;
 
   const confirmRun = () => {
     const accepted = window.confirm(
@@ -102,6 +106,10 @@ export function GlmAdvancedBrainAcceptancePanel({
         <MetricRow
           label="credential storage"
           value={status?.credentialStorageEncrypted ? "encrypted" : "none"}
+        />
+        <MetricRow
+          label="acceptance consumed"
+          value={status?.acceptanceConsumed ? "YES" : "NO"}
         />
         <MetricRow
           label="credential type"
@@ -229,7 +237,7 @@ export function GlmAdvancedBrainAcceptancePanel({
         </Button>
         <Button
           className="h-8 rounded-md px-2.5 text-xs"
-          disabled={sending || !canRun}
+          disabled={sending || !canRun || status.acceptanceConsumed}
           onClick={confirmRun}
           type="button"
           variant="default"
@@ -367,6 +375,10 @@ export function GlmAdvancedBrainAcceptancePanel({
           <MetricRow label="fallback" value={String(report.fallbackCount)} />
           <MetricRow label="tool calls" value={String(report.toolCallCount)} />
           <MetricRow label="reason" value={report.reasonCode} />
+          <MetricRow
+            label="provider category"
+            value={report.providerErrorCategory}
+          />
         </dl>
       ) : null}
     </section>

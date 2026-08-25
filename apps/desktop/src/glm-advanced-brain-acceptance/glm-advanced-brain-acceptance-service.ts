@@ -17,6 +17,7 @@ import {
   GlmAdvancedBrainAcceptanceCommandResultSchema,
   GlmAdvancedBrainAcceptanceConsentRequestSchema,
   GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
+  GlmAdvancedBrainAcceptanceProviderErrorCategorySchema,
   GlmAdvancedBrainAcceptancePreflightResultSchema,
   GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema,
   GlmAdvancedBrainAcceptanceSetModelRequestSchema,
@@ -27,6 +28,7 @@ import {
   type GlmAdvancedBrainAcceptanceConsentRequest,
   type GlmAdvancedBrainAcceptanceDiagnosticReport,
   type GlmAdvancedBrainAcceptanceModelId,
+  type GlmAdvancedBrainAcceptanceProviderErrorCategory,
   type GlmAdvancedBrainAcceptancePreflightResult,
   type GlmAdvancedBrainAcceptanceReasonCode,
   type GlmAdvancedBrainAcceptanceStatus,
@@ -73,7 +75,8 @@ export interface GlmAdvancedBrainAcceptanceTransportSendOptions {
 export class GlmAdvancedBrainAcceptanceService {
   private settings: GlmAdvancedBrainAcceptanceSettings | null = null;
   private running = false;
-  private readonly submittedAcceptanceIds = new Set<string>();
+  private acceptanceConsumed = false;
+  private realRequestAttempted = false;
 
   public constructor(
     private readonly options: GlmAdvancedBrainAcceptanceServiceOptions,
@@ -96,6 +99,7 @@ export class GlmAdvancedBrainAcceptanceService {
       credentialConfigured: credentialStatus.credentialConfigured,
       secureStorageAvailable: credentialStatus.secureStorageAvailable,
       credentialStorageEncrypted: credentialStatus.credentialStorageEncrypted,
+      acceptanceConsumed: this.acceptanceConsumed,
       credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
       ...(credentialStatus.credentialTypeConfirmed
         ? { credentialTypeConfirmed: credentialStatus.credentialTypeConfirmed }
@@ -158,15 +162,24 @@ export class GlmAdvancedBrainAcceptanceService {
   public async preflight(
     rawInput: unknown,
   ): Promise<GlmAdvancedBrainAcceptancePreflightResult> {
+    return this.computePreflight(rawInput, true);
+  }
+
+  private async computePreflight(
+    rawInput: unknown,
+    includeRunningState: boolean,
+  ): Promise<GlmAdvancedBrainAcceptancePreflightResult> {
     const input = GlmAdvancedBrainAcceptanceConsentRequestSchema.parse(rawInput);
     const status = await this.getStatus();
     const reasonCodes = [
       ...status.reasonCodes.filter((reason) => reason !== "ready"),
       ...this.consentReasonCodes(input),
       ...this.fixedRequestReasonCodes(),
-      ...(this.running ? ["acceptance_already_running" as const] : []),
-      ...(this.submittedAcceptanceIds.has(FIXED_ACCEPTANCE_ID)
-        ? ["acceptance_already_submitted" as const]
+      ...(includeRunningState && this.running
+        ? ["acceptance_already_running" as const]
+        : []),
+      ...(this.acceptanceConsumed
+        ? ["acceptance_already_consumed" as const]
         : []),
     ];
     return this.preflightResult(status, reasonCodes);
@@ -175,22 +188,23 @@ export class GlmAdvancedBrainAcceptanceService {
   public async runDiagnostic(
     rawInput: unknown,
   ): Promise<GlmAdvancedBrainAcceptanceDiagnosticReport> {
-    const preflight = await this.preflight(rawInput);
-    if (!preflight.allowRealAcceptance || !preflight.modelId) {
-      throw new Error("GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_FAILED");
-    }
-    const credential = await this.options.credentialStore.load();
-    if (!credential) {
-      throw new Error("GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_MISSING");
-    }
     if (this.running) {
       throw new Error("GLM_ADVANCED_BRAIN_ACCEPTANCE_ALREADY_RUNNING");
     }
     this.running = true;
     const startedAt = this.options.now?.() ?? new Date();
     try {
+      const preflight = await this.computePreflight(rawInput, false);
+      if (!preflight.allowRealAcceptance || !preflight.modelId) {
+        throw new Error("GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_FAILED");
+      }
+      const credential = await this.options.credentialStore.load();
+      if (!credential) {
+        throw new Error("GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_MISSING");
+      }
       const request = createFixedDiagnosticRequest(preflight.modelId);
-      this.submittedAcceptanceIds.add(request.requestId);
+      this.acceptanceConsumed = true;
+      this.realRequestAttempted = true;
       const transport = this.options.transport ?? new FakeGlmAcceptanceTransport();
       const transportResult = await transport.send(request, {
         credential: { scheme: "bearer", value: credential.apiKey },
@@ -215,6 +229,7 @@ export class GlmAdvancedBrainAcceptanceService {
         toolCallCount: 0,
         directActionAttempted: false,
         reasonCode: mapDiagnosticReasonCode(transportResult),
+        providerErrorCategory: classifyProviderError(transportResult),
         requestSent: transportResult.requestSent,
         responseStarted: transportResult.responseStarted,
         responseCompleted: transportResult.responseCompleted,
@@ -315,6 +330,9 @@ export class GlmAdvancedBrainAcceptanceService {
     if (!this.endpointProfileIsValid()) {
       reasons.push("endpoint_profile_mismatch");
     }
+    if (this.acceptanceConsumed) {
+      reasons.push("acceptance_already_consumed");
+    }
     return reasons.length ? reasons : ["ready"];
   }
 
@@ -395,18 +413,17 @@ export class GlmAdvancedBrainAcceptanceService {
       fallbackEnabled: false,
       executorReachable: false,
       allowSingleRealAcceptance:
-        uniqueReasons.length === 0 ||
-        (uniqueReasons.length === 1 && uniqueReasons[0] === "ready"),
-      priorRealRequestCount: this.submittedAcceptanceIds.has(FIXED_ACCEPTANCE_ID)
-        ? 1
-        : 0,
+        !this.acceptanceConsumed &&
+        (uniqueReasons.length === 0 ||
+          (uniqueReasons.length === 1 && uniqueReasons[0] === "ready")),
+      priorRealRequestCount: this.acceptanceConsumed ? 1 : 0,
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
       windowsExecutorAllowed: false,
       pluginRuntimeAllowed: false,
       directActionAttempted: false,
-      realRequestAttempted: false,
+      realRequestAttempted: this.realRequestAttempted,
       realNetworkRequestSent: false,
       credentialExposed: false,
       promptExposed: false,
@@ -478,7 +495,7 @@ export class RealGlmAcceptanceTransport
         redirect: "error",
         signal: controller.signal,
         headers: {
-          Authorization: `${options.credential.scheme} ${options.credential.value}`,
+          Authorization: `Bearer ${options.credential.value}`,
           "Content-Type": request.contentType,
           Accept: "application/json",
         },
@@ -887,6 +904,26 @@ function mapDiagnosticReasonCode(
     return "transport_network_failed";
   }
   return "transport_failed";
+}
+
+function classifyProviderError(
+  transportResult: CloudReasoningTransportResult,
+): GlmAdvancedBrainAcceptanceProviderErrorCategory {
+  const category =
+    transportResult.statusClass === "success"
+      ? "none"
+      : transportResult.statusClass === "auth_failure" &&
+          transportResult.httpStatus === 401
+        ? "credential_rejected"
+        : transportResult.statusClass === "auth_failure" &&
+            transportResult.httpStatus === 403
+          ? "permission_denied"
+          : transportResult.statusClass === "auth_failure"
+            ? "authentication_response_unrecognized"
+            : transportResult.statusClass === "rate_limited"
+              ? "account_or_quota_restricted"
+              : "provider_error_unrecognized";
+  return GlmAdvancedBrainAcceptanceProviderErrorCategorySchema.parse(category);
 }
 
 function safeNonNegativeInteger(value: unknown): number {

@@ -53,6 +53,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       modelExplicitlySelected: false,
       credentialConfigured: false,
       credentialStorageEncrypted: false,
+      acceptanceConsumed: false,
       credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
       endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
       operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
@@ -203,6 +204,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       sanitizedResponseCategory: "fixed_diagnostic_ok",
       acceptanceConsumed: true,
       realNetworkRequestSent: false,
+      providerErrorCategory: "none",
       credentialExposed: false,
       promptExposed: false,
       rawResponseExposed: false,
@@ -238,7 +240,158 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       expect(report.toolCallCount).toBe(0);
       expect(report.directActionAttempted).toBe(false);
       expect(report.realNetworkRequestSent).toBe(false);
+      if (reasonCode === "transport_authentication_failed") {
+        expect(report.providerErrorCategory).toBe("credential_rejected");
+      }
     }
+  });
+
+  it("consumes acceptance on authentication failure and refreshes preflight projection", async () => {
+    const transport = new FakeTransport(
+      failureResponse(
+        "auth_failure",
+        "authentication_transport_failure",
+        401,
+        {
+          responseByteCount: 59,
+          responseJson: {
+            error: {
+              message: "fake raw auth provider message",
+              request_id: "fake-provider-request-id",
+            },
+          },
+        },
+      ),
+    );
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+    await service.saveCredential(fakeCredential());
+
+    const before = await service.preflight(consent());
+    const report = await service.runDiagnostic(consent());
+    const after = await service.preflight(consent());
+
+    expect(before).toMatchObject({
+      allowRealAcceptance: true,
+      priorRealRequestCount: 0,
+      realRequestAttempted: false,
+      allowSingleRealAcceptance: true,
+    });
+    expect(report).toMatchObject({
+      requestSent: false,
+      httpStatusClass: "auth_failure",
+      responseByteCount: 59,
+      reasonCode: "transport_authentication_failed",
+      providerErrorCategory: "credential_rejected",
+      acceptanceConsumed: true,
+      retryCount: 0,
+      fallbackCount: 0,
+      toolCallCount: 0,
+      toolsObserved: false,
+      executorInvocationDelta: 0,
+    });
+    expect(after).toMatchObject({
+      allowRealAcceptance: false,
+      priorRealRequestCount: 1,
+      realRequestAttempted: true,
+      allowSingleRealAcceptance: false,
+      reasonCodes: ["acceptance_already_consumed"],
+    });
+    expect(JSON.stringify(report)).not.toContain("fake raw auth provider message");
+    expect(JSON.stringify(report)).not.toContain("fake-provider-request-id");
+  });
+
+  it("does not let stale preflight, credential replacement, or credential deletion permit a second request", async () => {
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+    await service.saveCredential(fakeCredential());
+
+    await expect(service.preflight(consent())).resolves.toMatchObject({
+      allowRealAcceptance: true,
+    });
+    await expect(service.runDiagnostic(consent())).resolves.toMatchObject({
+      acceptanceConsumed: true,
+    });
+    await service.saveCredential({
+      ...fakeCredential(),
+      apiKey: "fixture-key",
+    });
+    await expect(service.preflight(consent())).resolves.toMatchObject({
+      allowRealAcceptance: false,
+      reasonCodes: expect.arrayContaining(["acceptance_already_consumed"]),
+    });
+    await service.deleteCredential();
+    const status = await service.getStatus();
+    const preflight = await service.preflight(consent());
+
+    expect(status).toMatchObject({
+      credentialConfigured: false,
+      acceptanceConsumed: true,
+    });
+    expect(preflight).toMatchObject({
+      allowRealAcceptance: false,
+      priorRealRequestCount: 1,
+      realRequestAttempted: true,
+      allowSingleRealAcceptance: false,
+    });
+    expect(preflight.reasonCodes).toEqual(
+      expect.arrayContaining([
+        "credential_missing",
+        "acceptance_already_consumed",
+      ]),
+    );
+    await expect(service.runDiagnostic(consent())).rejects.toThrow(
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_FAILED",
+    );
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it("keeps consumed state in Main service across renderer recreation", async () => {
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+    await service.saveCredential(fakeCredential());
+
+    await service.runDiagnostic(consent());
+    const rendererViewA = await service.preflight(consent());
+    const rendererViewB = await service.preflight(consent());
+
+    expect(rendererViewA).toMatchObject({
+      allowRealAcceptance: false,
+      priorRealRequestCount: 1,
+    });
+    expect(rendererViewB).toMatchObject({
+      allowRealAcceptance: false,
+      realRequestAttempted: true,
+    });
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it("allows only one transport invocation under concurrent double-click", async () => {
+    const transport = new BlockingTransport(successResponse());
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+    await service.saveCredential(fakeCredential());
+
+    const firstRun = service.runDiagnostic(consent());
+    const secondRun = service
+      .runDiagnostic(consent())
+      .then(
+        () => "resolved" as const,
+        (error: unknown) => error,
+      );
+    await vi.waitFor(() => expect(transport.calls).toHaveLength(1));
+    expect(await secondRun).toEqual(
+      expect.objectContaining({
+        message: "GLM_ADVANCED_BRAIN_ACCEPTANCE_ALREADY_RUNNING",
+      }),
+    );
+    transport.release();
+    await expect(firstRun).resolves.toMatchObject({
+      acceptanceConsumed: true,
+    });
+    expect(transport.calls).toHaveLength(1);
   });
 
   it("fails endpoint mismatch and secure-store unavailable without exposing secrets", async () => {
@@ -352,7 +505,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       redirect: "error",
     });
     expect(init?.headers).toMatchObject({
-      Authorization: "bearer test-secret-key",
+      Authorization: "Bearer test-secret-key",
       "Content-Type": "application/json",
       Accept: "application/json",
     });
@@ -374,6 +527,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       },
       realNetworkRequestSent: true,
       acceptanceConsumed: true,
+      providerErrorCategory: "none",
       retryCount: 0,
       fallbackCount: 0,
       toolCallCount: 0,
@@ -461,6 +615,31 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(result.status.reasonCodes).toEqual(["credential_missing"]);
   });
 
+  it("trims credential edges but rejects pasted bearer headers", async () => {
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+
+    await service.saveCredential({
+      apiKey: "  fixture-secret  ",
+      credentialTypeConfirmation: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+    });
+    await service.runDiagnostic(consent());
+    expect(transport.calls[0]?.options.credential.value).toBe(
+      "fixture-secret",
+    );
+
+    const rejected = await createService();
+    const result = await rejected.service.saveCredential({
+      apiKey: "Bearer placeholder-token",
+      credentialTypeConfirmation: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      status: { credentialConfigured: false },
+    });
+  });
+
   it("rejects concurrent diagnostic runs", async () => {
     const transport = new BlockingTransport(successResponse());
     const { service } = await createService({ transport });
@@ -470,7 +649,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     const firstRun = service.runDiagnostic(consent());
     await vi.waitFor(() => expect(transport.calls).toHaveLength(1));
     await expect(service.runDiagnostic(consent())).rejects.toThrow(
-      "GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_FAILED",
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_ALREADY_RUNNING",
     );
     transport.release();
     await expect(firstRun).resolves.toMatchObject({
@@ -490,9 +669,9 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
 
     await expect(service.preflight(consent())).resolves.toMatchObject({
       allowRealAcceptance: false,
-      reasonCodes: expect.arrayContaining(["acceptance_already_submitted"]),
+      reasonCodes: expect.arrayContaining(["acceptance_already_consumed"]),
       realNetworkRequestSent: false,
-      realRequestAttempted: false,
+      realRequestAttempted: true,
       priorRealRequestCount: 1,
     });
     await expect(service.runDiagnostic(consent())).rejects.toThrow(
@@ -675,6 +854,10 @@ function failureResponse(
   statusClass: CloudReasoningTransportResult["statusClass"],
   reasonCode: CloudReasoningTransportResult["reasonCode"],
   httpStatus?: number,
+  options: {
+    readonly responseByteCount?: number;
+    readonly responseJson?: Record<string, unknown>;
+  } = {},
 ): CloudReasoningTransportResult {
   return CloudReasoningTransportResultSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
@@ -685,8 +868,12 @@ function failureResponse(
     statusClass,
     reasonCode,
     ...(httpStatus ? { httpStatus } : {}),
+    ...(options.responseJson ? { responseJson: options.responseJson } : {}),
     safeHeaders: { contentType: "application/json" },
     latencyMs: 10,
+    ...(options.responseByteCount !== undefined
+      ? { responseByteCount: options.responseByteCount }
+      : {}),
     requestSent: false,
     responseStarted: false,
     responseCompleted: false,

@@ -166,7 +166,11 @@ function requireSecret(value: unknown): string {
   ) {
     throw new Error("Invalid credential value.");
   }
-  return value.trim();
+  const trimmed = value.trim();
+  if (/^Bearer\s+/iu.test(trimmed)) {
+    throw new Error("Invalid credential value.");
+  }
+  return trimmed;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

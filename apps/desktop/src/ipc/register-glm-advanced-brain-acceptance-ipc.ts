@@ -119,6 +119,7 @@ function unavailableStatus() {
     credentialConfigured: false,
     secureStorageAvailable: false,
     credentialStorageEncrypted: false,
+    acceptanceConsumed: false,
     credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
     endpointProfileId: "standard_paas_v4",
     endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,

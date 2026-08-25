@@ -72,6 +72,11 @@ export type UseJarvisOptions = {
   evaluationSurfaceEnabled?: boolean;
 };
 
+const GLM_ADVANCED_BRAIN_ACCEPTANCE_CONSENT = {
+  cloudEgressAllowed: true,
+  acceptanceConsent: true,
+} as const;
+
 export function useJarvis(options: UseJarvisOptions = {}) {
   const evaluationSurfaceEnabled = options.evaluationSurfaceEnabled === true;
   const [snapshot, setSnapshot] = useState<CoreSnapshot | null>(null);
@@ -502,6 +507,24 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     }
   }, []);
 
+  const refreshGlmAdvancedBrainAcceptancePreflightProjection =
+    useCallback(async () => {
+      if (!window.jarvis?.preflightGlmAdvancedBrainAcceptance) {
+        setGlmAdvancedBrainAcceptancePreflight(null);
+        return false;
+      }
+      try {
+        const result = await window.jarvis.preflightGlmAdvancedBrainAcceptance(
+          GLM_ADVANCED_BRAIN_ACCEPTANCE_CONSENT,
+        );
+        setGlmAdvancedBrainAcceptancePreflight(result);
+        return result.allowRealAcceptance;
+      } catch {
+        setGlmAdvancedBrainAcceptancePreflight(null);
+        return false;
+      }
+    }, []);
+
   const setGlmAdvancedBrainAcceptanceModel = useCallback(
     async (modelId: GlmAdvancedBrainAcceptanceModelId | null) => {
       if (!window.jarvis?.setGlmAdvancedBrainAcceptanceModel) {
@@ -512,6 +535,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
         const result: GlmAdvancedBrainAcceptanceCommandResult =
           await window.jarvis.setGlmAdvancedBrainAcceptanceModel({ modelId });
         setGlmAdvancedBrainAcceptanceStatus(result.status);
+        void refreshGlmAdvancedBrainAcceptancePreflightProjection();
         if (!result.ok) {
           setError(result.safeMessage ?? "GLM model selection was rejected.");
           return false;
@@ -523,7 +547,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
         return false;
       }
     },
-    [],
+    [refreshGlmAdvancedBrainAcceptancePreflightProjection],
   );
 
   const saveGlmAdvancedBrainAcceptanceCredential = useCallback(
@@ -540,6 +564,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
               GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
           });
         setGlmAdvancedBrainAcceptanceStatus(result.status);
+        void refreshGlmAdvancedBrainAcceptancePreflightProjection();
         if (!result.ok) {
           setError(result.safeMessage ?? "GLM credential was rejected.");
           return false;
@@ -551,7 +576,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
         return false;
       }
     },
-    [],
+    [refreshGlmAdvancedBrainAcceptancePreflightProjection],
   );
 
   const deleteGlmAdvancedBrainAcceptanceCredential = useCallback(async () => {
@@ -563,6 +588,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       const result =
         await window.jarvis.deleteGlmAdvancedBrainAcceptanceCredential();
       setGlmAdvancedBrainAcceptanceStatus(result.status);
+      void refreshGlmAdvancedBrainAcceptancePreflightProjection();
       if (!result.ok) {
         setError(result.safeMessage ?? "GLM credential could not be deleted.");
         return false;
@@ -573,7 +599,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       setError("GLM credential could not be deleted.");
       return false;
     }
-  }, []);
+  }, [refreshGlmAdvancedBrainAcceptancePreflightProjection]);
 
   const preflightGlmAdvancedBrainAcceptance = useCallback(async () => {
     if (!window.jarvis?.preflightGlmAdvancedBrainAcceptance) {
@@ -581,18 +607,15 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       return false;
     }
     try {
-      const result = await window.jarvis.preflightGlmAdvancedBrainAcceptance({
-        cloudEgressAllowed: true,
-        acceptanceConsent: true,
-      });
-      setGlmAdvancedBrainAcceptancePreflight(result);
+      const allowed =
+        await refreshGlmAdvancedBrainAcceptancePreflightProjection();
       setError(null);
-      return result.allowRealAcceptance;
+      return allowed;
     } catch {
       setError("GLM Advanced Brain acceptance preflight was rejected.");
       return false;
     }
-  }, []);
+  }, [refreshGlmAdvancedBrainAcceptancePreflightProjection]);
 
   const runGlmAdvancedBrainAcceptanceDiagnostic = useCallback(async () => {
     if (!window.jarvis?.runGlmAdvancedBrainAcceptanceDiagnostic) {
@@ -602,19 +625,29 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setSending(true);
     try {
       const result = await window.jarvis.runGlmAdvancedBrainAcceptanceDiagnostic({
-        cloudEgressAllowed: true,
-        acceptanceConsent: true,
+        ...GLM_ADVANCED_BRAIN_ACCEPTANCE_CONSENT,
       });
       setGlmAdvancedBrainAcceptanceReport(result);
+      await Promise.all([
+        refreshGlmAdvancedBrainAcceptanceStatus(),
+        refreshGlmAdvancedBrainAcceptancePreflightProjection(),
+      ]);
       setError(null);
       return true;
     } catch {
+      await Promise.all([
+        refreshGlmAdvancedBrainAcceptanceStatus(),
+        refreshGlmAdvancedBrainAcceptancePreflightProjection(),
+      ]);
       setError("GLM Advanced Brain acceptance diagnostic was rejected.");
       return false;
     } finally {
       setSending(false);
     }
-  }, []);
+  }, [
+    refreshGlmAdvancedBrainAcceptancePreflightProjection,
+    refreshGlmAdvancedBrainAcceptanceStatus,
+  ]);
 
   const {
     clearSessionHistory,
