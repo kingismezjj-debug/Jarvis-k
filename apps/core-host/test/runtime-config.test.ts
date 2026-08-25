@@ -13,6 +13,7 @@ describe("Core Host runtime config", () => {
       fixtureChatAnswerEnabled: false,
       fixtureInferenceEnabled: false,
       qwenFastRouterEnabled: false,
+      glmAdvancedBrainEnabled: false,
       localPluginManifestDiscoveryEnabled: false,
       deterministicFallbackEnabled: true,
       brainRouterEnabled: true,
@@ -45,6 +46,29 @@ describe("Core Host runtime config", () => {
       loadRuntimeConfig({ JARVIS_K_ENABLE_QWEN_FAST_ROUTER: "1" })
         .qwenFastRouterEnabled,
     ).toBe(true);
+  });
+
+  it("keeps GLM Advanced Brain disabled by default and parses only safe model config", () => {
+    expect(loadRuntimeConfig({}).glmAdvancedBrainEnabled).toBe(false);
+    expect(
+      loadRuntimeConfig({
+        JARVIS_K_ENABLE_ADVANCED_BRAIN_GLM: "1",
+        JARVIS_K_ADVANCED_BRAIN_GLM_MODEL_ID: "glm-5.2",
+      }),
+    ).toMatchObject({
+      glmAdvancedBrainEnabled: true,
+      glmAdvancedBrainModelId: "glm-5.2",
+    });
+    expect(() =>
+      loadRuntimeConfig({
+        JARVIS_K_ENABLE_ADVANCED_BRAIN_GLM: "yes",
+      }),
+    ).toThrow("Invalid boolean environment value");
+    expect(() =>
+      loadRuntimeConfig({
+        JARVIS_K_ADVANCED_BRAIN_GLM_MODEL_ID: "x".repeat(301),
+      }),
+    ).toThrow("GLM Advanced Brain model id is invalid.");
   });
 
   it("parses Voice Pilot execution safety flags only after explicit truthy opt-in", () => {
@@ -157,6 +181,9 @@ describe("Core Host runtime config", () => {
       JARVIS_K_RUNTIME_MODE: "development",
       DEEPSEEK_API_KEY: "secret-key",
       OPENAI_API_KEY: "also-secret",
+      GLM_API_KEY: "glm-secret",
+      JARVIS_K_ENABLE_ADVANCED_BRAIN_GLM: "1",
+      JARVIS_K_ADVANCED_BRAIN_GLM_MODEL_ID: "glm-5.2",
     });
 
     expect(JSON.stringify(toLogSafeRuntimeConfig(config))).not.toContain(

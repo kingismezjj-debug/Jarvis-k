@@ -65,6 +65,7 @@ import { createCoreHostPluginComposition } from "./composition/plugin-compositio
 import {
   createCoreHostPlannerComposition,
 } from "./composition/planner-composition";
+import { createCoreHostGlmAdvancedBrainComposition } from "./composition/glm-advanced-brain-composition";
 import { createCoreHostVoiceComposition } from "./composition/voice-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
@@ -278,6 +279,10 @@ const qwenFastRouterDescriptor = qwenFastRouterComposition.descriptor;
 const qwenFastRouterConfigurationReport =
   qwenFastRouterComposition.configurationReport;
 const plannerComposition = createCoreHostPlannerComposition(runtimeConfig);
+const glmAdvancedBrainComposition = createCoreHostGlmAdvancedBrainComposition({
+  runtimeConfig,
+});
+void glmAdvancedBrainComposition;
 const activeHeavyPlanner = plannerComposition.activeHeavyPlanner;
 const configurableHeavyPlannerProvider =
   plannerComposition.configurableHeavyPlannerProvider;
