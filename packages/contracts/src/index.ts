@@ -5,3 +5,4 @@ export * from "./tool-protocol";
 export * from "./observability-protocol";
 export * from "./qwen-product-routing-activation";
 export * from "./pet-skin-protocol";
+export * from "./advanced-brain-protocol";

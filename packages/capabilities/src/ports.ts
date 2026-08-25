@@ -36,6 +36,10 @@ import type {
   StructuredError,
   VisionAnalysisRequest,
   VisionAnalysisResult,
+  AdvancedBrainPreparedRequest,
+  AdvancedBrainProviderCapabilityProfile,
+  AdvancedBrainProviderResult,
+  AdvancedBrainRequest,
 } from "@jarvis-k/contracts";
 
 export interface CapabilityProvider {
@@ -186,6 +190,16 @@ export interface HeavyPlannerProvider {
 
 export interface ChatAnswerProvider {
   answer(request: ChatAnswerRequest): Promise<ChatAnswerResult>;
+}
+
+export interface AdvancedReasoningProvider {
+  readonly profile: AdvancedBrainProviderCapabilityProfile;
+  prepare(request: AdvancedBrainRequest): Promise<AdvancedBrainPreparedRequest>;
+  execute(
+    preparedRequest: AdvancedBrainPreparedRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<AdvancedBrainProviderResult>;
+  cancel?(requestId: string, reason?: string): Promise<void>;
 }
 
 export interface RerankingProvider {
