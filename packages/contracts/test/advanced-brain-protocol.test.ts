@@ -66,6 +66,21 @@ describe("Advanced Brain protocol", () => {
     expect(result.structuredPlan?.requiresConfirmation).toBe(true);
   });
 
+  it("accepts real provider Advanced Brain results without fixture semantics", () => {
+    const result = AdvancedBrainProviderResultSchema.parse({
+      ...resultFixture(),
+      providerId: "advanced-brain.glm",
+      modelId: "glm-5.2",
+      reasonCode: "PROVIDER_ANSWER",
+      executionSemantics: "real_provider",
+      networkRequestIssued: true,
+    });
+
+    expect(result.executionSemantics).toBe("real_provider");
+    expect(result.reasonCode).toBe("PROVIDER_ANSWER");
+    expect(result.directActionAttempted).toBe(false);
+  });
+
   it("rejects diagnostics that expose prompt, credential, path, or raw output", () => {
     const safe = AdvancedBrainDiagnosticsSchema.parse({
       schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
@@ -101,6 +116,10 @@ function profileFixture() {
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
     providerId: "advanced-brain.local",
     modelId: "local-advanced-v1",
+    deploymentClass: "local",
+    executionSemantics: "not_executed",
+    automaticRetry: false,
+    automaticFallback: false,
     inputModalities: ["text"],
     outputModalities: ["text"],
     supportsStructuredOutput: true,

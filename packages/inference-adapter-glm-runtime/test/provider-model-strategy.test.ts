@@ -46,7 +46,8 @@ describe("GLM provider/model fixture-only strategy", () => {
       "glm-4.7-flash",
       "glm-4.7-flashx",
       "glm-5-turbo",
-      "glm-5.2"
+      "glm-5.2",
+      "glm-5.3"
     ]);
     expect(
       strategy.candidates.every(
@@ -80,6 +81,7 @@ describe("GLM provider/model fixture-only strategy", () => {
     );
     expect(roles.get("glm-5-turbo")).toBe("deferred_quality_candidate");
     expect(roles.get("glm-5.2")).toBe("deferred_quality_candidate");
+    expect(roles.get("glm-5.3")).toBe("deferred_quality_candidate");
   });
 
   it("does not persist raw prompt, credential, response, or provider content", () => {

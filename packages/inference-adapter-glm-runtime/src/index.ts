@@ -1,4 +1,5 @@
 export * from "./provider";
+export * from "./advanced-brain-provider";
 export * from "./offline-strategy-analysis";
 export * from "./health-diagnostic";
 export * from "./health-prompt-output-bound-strategy";

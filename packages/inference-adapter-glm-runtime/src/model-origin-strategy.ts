@@ -19,7 +19,8 @@ export type GlmProviderModelCandidateId =
   | "glm-4.7-flash"
   | "glm-4.7-flashx"
   | "glm-5-turbo"
-  | "glm-5.2";
+  | "glm-5.2"
+  | "glm-5.3";
 
 export type GlmProviderOriginProfileStatus =
   | "prior_timeout_evidence"
@@ -47,7 +48,8 @@ const GLM_LOW_LATENCY_MODEL_CANDIDATES = [
 
 const GLM_QUALITY_MODEL_CANDIDATES = [
   "glm-5-turbo",
-  "glm-5.2"
+  "glm-5.2",
+  "glm-5.3"
 ] as const satisfies readonly GlmProviderModelCandidateId[];
 
 const GLM_PROVIDER_MODEL_ORIGIN_PROFILES = [

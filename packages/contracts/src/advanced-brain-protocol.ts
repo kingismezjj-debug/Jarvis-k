@@ -430,6 +430,14 @@ export const AdvancedBrainProviderCapabilityProfileSchema = z
     schemaVersion: z.literal(ADVANCED_BRAIN_SCHEMA_VERSION),
     providerId: ProviderIdSchema,
     modelId: ModelIdSchema,
+    deploymentClass: z
+      .enum(["local", "cloud", "fixture", "unavailable"])
+      .optional(),
+    executionSemantics: z
+      .enum(["not_executed", "fixture", "simulated", "real_provider"])
+      .optional(),
+    automaticRetry: z.literal(false).optional(),
+    automaticFallback: z.literal(false).optional(),
     inputModalities: z.array(AdvancedBrainModalitySchema).min(1).max(8),
     outputModalities: z.array(AdvancedBrainModalitySchema).min(1).max(8),
     supportsStructuredOutput: z.boolean(),
@@ -565,6 +573,8 @@ export type AdvancedBrainResultClass = z.infer<
 export const AdvancedBrainReasonCodeSchema = z.enum([
   "FIXTURE_ANSWER",
   "FIXTURE_PLAN",
+  "PROVIDER_ANSWER",
+  "PROVIDER_PLAN",
   "CLARIFY_REQUIRED",
   "REFUSED",
   "SAFETY_BLOCKED",
@@ -611,7 +621,12 @@ export const AdvancedBrainProviderResultSchema = z
       .array(AdvancedBrainUntrustedProposalSchema)
       .max(8)
       .default([]),
-    executionSemantics: z.enum(["not_executed", "fixture", "simulated"]),
+    executionSemantics: z.enum([
+      "not_executed",
+      "fixture",
+      "simulated",
+      "real_provider",
+    ]),
     directActionAttempted: z.literal(false),
     rawProviderResponsePersisted: z.literal(false),
     credentialExposed: z.literal(false),

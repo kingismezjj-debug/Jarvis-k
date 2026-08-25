@@ -60,7 +60,8 @@ describe("GLM provider/model/origin fixture-only strategy", () => {
       "glm-4.7-flash",
       "glm-4.7-flashx",
       "glm-5-turbo",
-      "glm-5.2"
+      "glm-5.2",
+      "glm-5.3"
     ]);
   });
 
@@ -70,6 +71,7 @@ describe("GLM provider/model/origin fixture-only strategy", () => {
     expect(isGlmProviderModelCandidateId("glm-4.7-flashx")).toBe(true);
     expect(isGlmProviderModelCandidateId("glm-5-turbo")).toBe(true);
     expect(isGlmProviderModelCandidateId("glm-5.2")).toBe(true);
+    expect(isGlmProviderModelCandidateId("glm-5.3")).toBe(true);
     expect(isGlmProviderModelCandidateId("user-supplied-model")).toBe(false);
     expect(isGlmProviderModelCandidateId("https://example.test/model")).toBe(
       false
