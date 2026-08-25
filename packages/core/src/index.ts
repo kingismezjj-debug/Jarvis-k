@@ -1,4 +1,5 @@
 export { CoreRuntime } from "./runtime";
+export * from "./advanced-brain";
 export { VoiceCommandResolver } from "./voice-command-resolver";
 export type {
   CoreBrainActionExecutorPort,
