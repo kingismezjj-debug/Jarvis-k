@@ -3,6 +3,7 @@ export * from "./in-memory-resource-scheduler";
 export * from "./fixture-model-manifests";
 export * from "./fixture-heavy-planner-provider";
 export * from "./fixture-chat-answer-provider";
+export * from "./fixture-advanced-reasoning-provider";
 export * from "./manifest-installation-policy";
 export * from "./policy";
 export * from "./policy-inference-execution-planner";
