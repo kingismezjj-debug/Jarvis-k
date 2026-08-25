@@ -12,6 +12,9 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -166,8 +169,11 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       credentialTypeConfirmed: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
       selectedModelExplicit: true,
       requestBodyFixed: true,
-      maximumOutputTokens: 64,
-      maxOutputTokens: 64,
+      requestContractProfileId: "glm-5.2-fixed-diagnostic-no-thinking",
+      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      mandatoryThinking: false,
+      thinkingDisabled: true,
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       timeoutBounded: true,
@@ -203,8 +209,18 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(transport.calls[0]?.request.bodyJson).toMatchObject({
       model: "glm-5.2",
       stream: false,
-      max_tokens: 64,
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      thinking: { type: "disabled" },
     });
+    expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty(
+      "max_output_tokens",
+    );
+    expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty(
+      "response_format",
+    );
+    expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty(
+      "temperature",
+    );
     expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty("tools");
     expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty("tool_choice");
     expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty(
@@ -225,6 +241,14 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       responseByteCount: 0,
       toolsObserved: false,
       executorInvocationDelta: 0,
+      contentTypeAllowed: true,
+      jsonDecoded: true,
+      choicesPresent: true,
+      finalContentPresent: true,
+      reasoningContentObserved: false,
+      finishReason: "unknown",
+      usagePresent: true,
+      outputValidationCategory: "fixed_diagnostic_ok",
       sanitizedResponseCategory: "fixed_diagnostic_ok",
       acceptanceConsumed: true,
       realNetworkRequestSent: false,
@@ -235,7 +259,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     });
     expect(JSON.stringify(report)).not.toContain("test-secret-key");
     expect(JSON.stringify(report)).not.toContain("glm_advanced_brain_acceptance");
-    expect(JSON.stringify(report)).not.toContain("choices");
+    expect(JSON.stringify(report)).not.toContain('"choices":');
     expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID);
     expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID);
   });
@@ -249,7 +273,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       [failureResponse("rate_limited", "rate_limited", 429), "transport_rate_limited"],
       [failureResponse("server_error", "provider_server_error", 503), "transport_server_error"],
       [failureResponse("network_error", "network_unavailable"), "transport_network_failed"],
-      [successResponse({ diagnostic: "bad" }), "invalid_structured_response"],
+      [successResponse({ diagnostic: "bad" }), "invalid_provider_output"],
     ] as const;
 
     for (const [transportResult, reasonCode] of cases) {
@@ -506,8 +530,11 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
       acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
       allowRealAcceptance: true,
-      maximumOutputTokens: 64,
-      maxOutputTokens: 64,
+      requestContractProfileId: "glm-5.2-fixed-diagnostic-no-thinking",
+      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      mandatoryThinking: false,
+      thinkingDisabled: true,
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       timeoutBounded: true,
@@ -542,6 +569,39 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(endpoint.search).toBe("");
     expect(endpoint.hash).toBe("");
     expect(preflight.fullEndpointMatch).toBe(true);
+  });
+
+  it("projects the model-specific GLM-5.3 mandatory-thinking contract", async () => {
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({ transport });
+    await service.setModel({ modelId: "glm-5.3" });
+    await service.saveCredential(fakeCredential());
+
+    const preflight = await service.preflight(consent());
+    const report = await service.runDiagnostic(consent());
+    const body = transport.calls[0]?.request.bodyJson as Record<string, unknown>;
+
+    expect(preflight).toMatchObject({
+      modelId: "glm-5.3",
+      requestContractProfileId: "glm-5.3-fixed-diagnostic-mandatory-thinking",
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      mandatoryThinking: true,
+      thinkingDisabled: false,
+      reasoningEffort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+      requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      timeoutBounded: true,
+    });
+    expect(body).toMatchObject({
+      model: "glm-5.3",
+      stream: false,
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      reasoning_effort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+    });
+    expect(body).not.toHaveProperty("thinking");
+    expect(body).not.toHaveProperty("max_output_tokens");
+    expect(body).not.toHaveProperty("response_format");
+    expect(report.acceptanceConsumed).toBe(true);
   });
 
   it("uses the real acceptance transport only against the fixed public endpoint with bounded output", async () => {
@@ -593,8 +653,17 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({
       model: "glm-5.3",
       stream: false,
-      max_tokens: 64,
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      reasoning_effort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
     });
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty("thinking");
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty(
+      "max_output_tokens",
+    );
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty(
+      "response_format",
+    );
+    expect(JSON.parse(String(init?.body))).not.toHaveProperty("temperature");
     expect(report).toMatchObject({
       requestSent: true,
       responseStarted: true,
@@ -609,6 +678,14 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       realNetworkRequestSent: true,
       acceptanceConsumed: true,
       providerErrorCategory: "none",
+      outputValidationCategory: "fixed_diagnostic_ok",
+      contentTypeAllowed: true,
+      jsonDecoded: true,
+      choicesPresent: true,
+      finalContentPresent: true,
+      reasoningContentObserved: false,
+      finishReason: "absent",
+      usagePresent: true,
       retryCount: 0,
       fallbackCount: 0,
       toolCallCount: 0,
@@ -618,7 +695,189 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     });
     expect(JSON.stringify(report)).not.toContain("test-secret-key");
     expect(JSON.stringify(report)).not.toContain("Authorization");
-    expect(JSON.stringify(report)).not.toContain("choices");
+    expect(JSON.stringify(report)).not.toContain('"choices":');
+  });
+
+  it("parses GLM-5.3 reasoning_content only as safe evidence when final content is valid", async () => {
+    const report = await runRealTransportFixture(
+      glmChatCompletionResponse({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              reasoning_content: "private chain of thought must not leak",
+              content: JSON.stringify({
+                diagnostic: "ok",
+                directActionAttempted: false,
+                toolCallCount: 0,
+              }),
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(report).toMatchObject({
+      httpStatus: 200,
+      httpStatusClass: "success",
+      structuredResultValidation: "PASS",
+      outputValidationCategory: "fixed_diagnostic_ok",
+      providerErrorCategory: "none",
+      contentTypeAllowed: true,
+      jsonDecoded: true,
+      choicesPresent: true,
+      finalContentPresent: true,
+      reasoningContentObserved: true,
+      finishReason: "stop",
+      usagePresent: true,
+    });
+    expect(JSON.stringify(report)).not.toContain("private chain of thought");
+    expect(JSON.stringify(report)).not.toContain("reasoning_content");
+  });
+
+  it("classifies GLM-5.3 token exhaustion before final content separately", async () => {
+    const report = await runRealTransportFixture(
+      glmChatCompletionResponse({
+        choices: [
+          {
+            finish_reason: "length",
+            message: {
+              reasoning_content: "budget used internally",
+              content: "",
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(report).toMatchObject({
+      httpStatusClass: "invalid_response",
+      reasonCode: "output_budget_exhausted_before_final",
+      providerErrorCategory: "output_budget_exhausted_before_final",
+      outputValidationCategory: "output_budget_exhausted_before_final",
+      reasoningContentObserved: true,
+      finalContentPresent: false,
+      finishReason: "length",
+      tokenUsage: {
+        promptTokens: 7,
+        completionTokens: 3,
+        totalTokens: 10,
+      },
+    });
+  });
+
+  it("classifies reasoning without final content as no_final_answer", async () => {
+    const report = await runRealTransportFixture(
+      glmChatCompletionResponse({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              reasoning_content: "reasoning only",
+              content: null,
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(report).toMatchObject({
+      httpStatusClass: "invalid_response",
+      reasonCode: "no_final_answer",
+      providerErrorCategory: "no_final_answer",
+      outputValidationCategory: "no_final_answer",
+      reasoningContentObserved: true,
+      finalContentPresent: false,
+      finishReason: "stop",
+    });
+  });
+
+  it("fails closed on untrusted provider tool proposals without accepting tool calls", async () => {
+    const report = await runRealTransportFixture(
+      glmChatCompletionResponse({
+        choices: [
+          {
+            finish_reason: "tool_calls",
+            message: {
+              content: JSON.stringify({
+                diagnostic: "ok",
+                directActionAttempted: false,
+                toolCallCount: 0,
+              }),
+              tool_calls: [
+                {
+                  type: "function",
+                  function: { name: "unsafe" },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(report).toMatchObject({
+      httpStatusClass: "invalid_response",
+      reasonCode: "untrusted_tool_proposal_blocked",
+      providerErrorCategory: "untrusted_tool_proposal_blocked",
+      outputValidationCategory: "untrusted_tool_proposal_blocked",
+      toolCallCount: 0,
+      toolsObserved: false,
+      directActionAttempted: false,
+      executorInvocationDelta: 0,
+      finishReason: "tool_calls",
+    });
+  });
+
+  it("separates HTTP provider errors from malformed 2xx output", async () => {
+    const malformed = await runRealTransportFixture(
+      new Response("{bad-json", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const emptyChoices = await runRealTransportFixture(
+      glmChatCompletionResponse({ choices: [] }),
+    );
+    const http401 = await runRealTransportFixture(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "raw provider auth text must not leak",
+          },
+        }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+
+    expect(malformed).toMatchObject({
+      httpStatus: 200,
+      httpStatusClass: "invalid_response",
+      reasonCode: "invalid_provider_output",
+      providerErrorCategory: "invalid_provider_output",
+      outputValidationCategory: "invalid_provider_output",
+      jsonDecoded: false,
+      choicesPresent: false,
+    });
+    expect(emptyChoices).toMatchObject({
+      httpStatus: 200,
+      httpStatusClass: "invalid_response",
+      reasonCode: "invalid_provider_output",
+      outputValidationCategory: "invalid_provider_output",
+      jsonDecoded: true,
+      choicesPresent: false,
+    });
+    expect(http401).toMatchObject({
+      httpStatus: 401,
+      httpStatusClass: "auth_failure",
+      reasonCode: "transport_authentication_failed",
+      providerErrorCategory: "credential_rejected",
+      outputValidationCategory: "provider_http_error",
+    });
+    expect(JSON.stringify(http401)).not.toContain("raw provider auth text");
   });
 
   it("uses the 30000 ms acceptance timeout without aborting a 29999 ms success", async () => {
@@ -648,9 +907,9 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       });
       const [, init] = fetchImpl.mock.calls[0] ?? [];
       expect(JSON.parse(String(init?.body))).toMatchObject({
-        stream: false,
-        max_tokens: 64,
-      });
+      stream: false,
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+    });
     } finally {
       vi.useRealTimers();
     }
@@ -1041,10 +1300,9 @@ function fixedTransportRequest(): CloudReasoningTransportRequest {
           }),
         },
       ],
-      response_format: { type: "json_object" },
       stream: false,
-      temperature: 0,
-      max_tokens: 64,
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      reasoning_effort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
     },
     credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
     timeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -1052,25 +1310,56 @@ function fixedTransportRequest(): CloudReasoningTransportRequest {
   });
 }
 
-function glmChatCompletionResponse(): Response {
+async function runRealTransportFixture(
+  response: Response,
+): Promise<ReturnType<GlmAdvancedBrainAcceptanceService["runDiagnostic"]> extends Promise<infer T> ? T : never> {
+  const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => response);
+  const transport = new RealGlmAcceptanceTransport(fetchImpl);
+  const { service } = await createService({ transport });
+  await service.setModel({ modelId: "glm-5.3" });
+  await service.saveCredential(fakeCredential());
+
+  const report = await service.runDiagnostic(consent());
+
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(report.realNetworkRequestSent).toBe(true);
+  expect(report.retryCount).toBe(0);
+  expect(report.fallbackCount).toBe(0);
+  return report;
+}
+
+function glmChatCompletionResponse(
+  overrides: {
+    readonly choices?: unknown[];
+    readonly usage?: Record<string, unknown>;
+  } = {},
+): Response {
+  // Official synthetic response shape references:
+  // https://docs.bigmodel.cn/cn/guide/start/concept-param
+  // https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode
+  // https://docs.bigmodel.cn/cn/guide/capabilities/struct-output
   return new Response(
     JSON.stringify({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              diagnostic: "ok",
-              directActionAttempted: false,
-              toolCallCount: 0,
-            }),
+      choices:
+        overrides.choices ??
+        [
+          {
+            message: {
+              content: JSON.stringify({
+                diagnostic: "ok",
+                directActionAttempted: false,
+                toolCallCount: 0,
+              }),
+            },
           },
+        ],
+      usage:
+        overrides.usage ??
+        {
+          prompt_tokens: 7,
+          completion_tokens: 3,
+          total_tokens: 10,
         },
-      ],
-      usage: {
-        prompt_tokens: 7,
-        completion_tokens: 3,
-        total_tokens: 10,
-      },
     }),
     {
       status: 200,

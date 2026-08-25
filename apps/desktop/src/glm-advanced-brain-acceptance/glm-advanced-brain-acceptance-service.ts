@@ -11,6 +11,9 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_DEPLOYMENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
@@ -30,8 +33,11 @@ import {
   type GlmAdvancedBrainAcceptanceCommandResult,
   type GlmAdvancedBrainAcceptanceConsentRequest,
   type GlmAdvancedBrainAcceptanceDiagnosticReport,
+  type GlmAdvancedBrainAcceptanceFinishReason,
   type GlmAdvancedBrainAcceptanceModelId,
+  type GlmAdvancedBrainAcceptanceOutputValidationCategory,
   type GlmAdvancedBrainAcceptanceProviderErrorCategory,
+  type GlmAdvancedBrainAcceptanceRequestContractProfileId,
   type GlmAdvancedBrainAcceptancePreflightResult,
   type GlmAdvancedBrainAcceptanceReasonCode,
   type GlmAdvancedBrainAcceptanceStatus,
@@ -39,8 +45,8 @@ import {
 import type { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./secure-glm-advanced-brain-credential-store";
 
 const FIXED_TIMEOUT_MS = GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS;
-const FIXED_MAX_OUTPUT_TOKENS = 64;
 const FIXED_MAX_RESPONSE_BYTES = 4_000;
+const GLM_ACCEPTANCE_RESPONSE_EVIDENCE_KEY = "acceptanceResponseEvidence";
 
 export interface GlmAdvancedBrainAcceptanceSettings {
   readonly selectedModelId?: GlmAdvancedBrainAcceptanceModelId;
@@ -219,6 +225,7 @@ export class GlmAdvancedBrainAcceptanceService {
       const structuredResultValid = validateFixedDiagnosticResponse(
         transportResult,
       );
+      const responseEvidence = extractResponseEvidence(transportResult);
       return GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
         acceptanceId: request.requestId,
         acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
@@ -229,6 +236,9 @@ export class GlmAdvancedBrainAcceptanceService {
         startedAt: startedAt.toISOString(),
         completedAt: completedAt.toISOString(),
         latencyMs: transportResult.latencyMs,
+        ...(transportResult.httpStatus
+          ? { httpStatus: transportResult.httpStatus }
+          : {}),
         httpStatusClass: transportResult.statusClass,
         structuredResultValidation: structuredResultValid ? "PASS" : "FAIL",
         tokenUsage: extractTokenUsage(transportResult.responseJson),
@@ -246,11 +256,15 @@ export class GlmAdvancedBrainAcceptanceService {
         cancelled: transportResult.cancelled,
         toolsObserved: false,
         executorInvocationDelta: 0,
-        sanitizedResponseCategory: structuredResultValid
-          ? "fixed_diagnostic_ok"
-          : transportResult.statusClass === "success"
-            ? "invalid_structured_response"
-            : "transport_failure",
+        contentTypeAllowed: responseEvidence.contentTypeAllowed,
+        jsonDecoded: responseEvidence.jsonDecoded,
+        choicesPresent: responseEvidence.choicesPresent,
+        finalContentPresent: responseEvidence.finalContentPresent,
+        reasoningContentObserved: responseEvidence.reasoningContentObserved,
+        finishReason: responseEvidence.finishReason,
+        usagePresent: responseEvidence.usagePresent,
+        outputValidationCategory: responseEvidence.outputValidationCategory,
+        sanitizedResponseCategory: responseEvidence.outputValidationCategory,
         acceptanceConsumed: true,
         realNetworkRequestSent: transportResult.requestSent,
         credentialExposed: false,
@@ -358,26 +372,35 @@ export class GlmAdvancedBrainAcceptanceService {
   }
 
   private fixedRequestReasonCodes(): GlmAdvancedBrainAcceptanceReasonCode[] {
-    const request = createFixedDiagnosticRequest("glm-5.2");
-    const body = request.bodyJson as Record<string, unknown>;
     const reasons: GlmAdvancedBrainAcceptanceReasonCode[] = [];
-    if (request.timeoutMs !== FIXED_TIMEOUT_MS) {
-      reasons.push("timeout_unbounded");
-    }
-    if (body.max_tokens !== FIXED_MAX_OUTPUT_TOKENS) {
-      reasons.push("max_output_tokens_unbounded");
-    }
-    if (body.stream !== false) {
-      reasons.push("tool_capability_present");
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "tools")) {
-      reasons.push("tool_capability_present");
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "tool_choice")) {
-      reasons.push("tool_capability_present");
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "function_call")) {
-      reasons.push("tool_capability_present");
+    for (const modelId of ["glm-5.2", "glm-5.3"] as const) {
+      const request = createFixedDiagnosticRequest(modelId);
+      const body = request.bodyJson as Record<string, unknown>;
+      const contract = fixedDiagnosticRequestContract(modelId);
+      if (request.timeoutMs !== FIXED_TIMEOUT_MS) {
+        reasons.push("timeout_unbounded");
+      }
+      if (body.max_tokens !== contract.maxTokens) {
+        reasons.push("max_output_tokens_unbounded");
+      }
+      if (body.stream !== false) {
+        reasons.push("tool_capability_present");
+      }
+      if (Object.prototype.hasOwnProperty.call(body, "max_output_tokens")) {
+        reasons.push("max_output_tokens_unbounded");
+      }
+      if (Object.prototype.hasOwnProperty.call(body, "tools")) {
+        reasons.push("tool_capability_present");
+      }
+      if (Object.prototype.hasOwnProperty.call(body, "tool_choice")) {
+        reasons.push("tool_capability_present");
+      }
+      if (Object.prototype.hasOwnProperty.call(body, "function_call")) {
+        reasons.push("tool_capability_present");
+      }
+      if (modelId === "glm-5.3" && hasThinkingDisabled(body)) {
+        reasons.push("invalid_provider_output");
+      }
     }
     return reasons;
   }
@@ -387,6 +410,9 @@ export class GlmAdvancedBrainAcceptanceService {
     reasonCodes: GlmAdvancedBrainAcceptanceReasonCode[],
   ): GlmAdvancedBrainAcceptancePreflightResult {
     const uniqueReasons = [...new Set(reasonCodes)];
+    const contract = fixedDiagnosticRequestContract(
+      status.selectedModelId ?? "glm-5.2",
+    );
     return GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
       acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
@@ -415,8 +441,14 @@ export class GlmAdvancedBrainAcceptanceService {
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
-      maximumOutputTokens: FIXED_MAX_OUTPUT_TOKENS,
-      maxOutputTokens: FIXED_MAX_OUTPUT_TOKENS,
+      requestContractProfileId: contract.profileId,
+      maximumOutputTokens: contract.maxTokens,
+      maxOutputTokens: contract.maxTokens,
+      mandatoryThinking: contract.mandatoryThinking,
+      thinkingDisabled: contract.thinkingDisabled,
+      ...(contract.reasoningEffort
+        ? { reasoningEffort: contract.reasoningEffort }
+        : {}),
       requestedTimeoutMs: FIXED_TIMEOUT_MS,
       effectiveTimeoutMs: FIXED_TIMEOUT_MS,
       timeoutBounded: true,
@@ -563,12 +595,27 @@ export class RealGlmAcceptanceTransport
         });
       }
       const parsedJson = parseJsonObject(boundedBody.text);
-      const normalizedJson = normalizeGlmChatCompletionsResponse(parsedJson);
+      const contentTypeAllowed = isAllowedJsonContentType(contentType);
+      const httpSuccess = response.status >= 200 && response.status < 300;
+      const normalizedJson = httpSuccess
+        ? normalizeGlmChatCompletionsResponse(parsedJson, {
+            contentTypeAllowed,
+          })
+        : providerHttpErrorResponseProjection({
+            contentTypeAllowed,
+            jsonDecoded: parsedJson !== null,
+          });
+      const outputValidationCategory = httpSuccess
+        ? extractOutputValidationCategory(normalizedJson)
+        : "provider_http_error";
       return transportResult(request, {
-        statusClass: statusClassForHttp(response.status, normalizedJson !== null),
-        reasonCode: reasonCodeForHttp(response.status, normalizedJson !== null),
+        statusClass: statusClassForHttp(
+          response.status,
+          outputValidationCategory === "fixed_diagnostic_ok",
+        ),
+        reasonCode: reasonCodeForHttp(response.status, outputValidationCategory),
         httpStatus: response.status,
-        responseJson: normalizedJson ?? undefined,
+        responseJson: normalizedJson,
         safeHeaders: safeHeaders(contentType),
         latencyMs: elapsed(startedAt),
         requestSent,
@@ -743,37 +790,141 @@ function parseJsonObject(value: string): Record<string, unknown> | null {
 
 function normalizeGlmChatCompletionsResponse(
   responseJson: Record<string, unknown> | null,
-): Record<string, unknown> | null {
-  if (!responseJson) {
-    return null;
-  }
-  const content = extractAssistantContent(responseJson);
-  if (!content) {
-    return null;
-  }
-  const parsedContent = parseJsonObject(content);
-  if (!parsedContent) {
-    return null;
-  }
+  options: { readonly contentTypeAllowed: boolean } = {
+    contentTypeAllowed: true,
+  },
+): Record<string, unknown> {
+  const evidence = analyzeGlmChatCompletionsResponse(responseJson, options);
+  const parsedContent =
+    typeof evidence.finalContent === "string"
+      ? parseJsonObject(evidence.finalContent)
+      : null;
   return {
-    diagnostic: parsedContent.diagnostic,
-    directActionAttempted: parsedContent.directActionAttempted,
-    toolCallCount: parsedContent.toolCallCount,
-    usage: isRecord(responseJson.usage) ? responseJson.usage : {},
+    ...(parsedContent
+      ? {
+          diagnostic: parsedContent.diagnostic,
+          directActionAttempted: parsedContent.directActionAttempted,
+          toolCallCount: parsedContent.toolCallCount,
+        }
+      : {}),
+    usage: isRecord(responseJson?.usage) ? responseJson.usage : {},
+    [GLM_ACCEPTANCE_RESPONSE_EVIDENCE_KEY]: toSafeResponseEvidence(evidence),
   };
 }
 
-function extractAssistantContent(responseJson: Record<string, unknown>): string | null {
-  if (!Array.isArray(responseJson.choices)) {
-    return null;
+function providerHttpErrorResponseProjection(input: {
+  readonly contentTypeAllowed: boolean;
+  readonly jsonDecoded: boolean;
+}): Record<string, unknown> {
+  return {
+    usage: {},
+    [GLM_ACCEPTANCE_RESPONSE_EVIDENCE_KEY]: {
+      contentTypeAllowed: input.contentTypeAllowed,
+      jsonDecoded: input.jsonDecoded,
+      choicesPresent: false,
+      finalContentPresent: false,
+      reasoningContentObserved: false,
+      finishReason: "absent",
+      usagePresent: false,
+      outputValidationCategory: "provider_http_error",
+    },
+  };
+}
+
+function analyzeGlmChatCompletionsResponse(
+  responseJson: Record<string, unknown> | null,
+  options: { readonly contentTypeAllowed: boolean },
+): GlmAcceptanceResponseAnalysis {
+  const base: Omit<
+    GlmAcceptanceResponseAnalysis,
+    "outputValidationCategory"
+  > = {
+    contentTypeAllowed: options.contentTypeAllowed,
+    jsonDecoded: responseJson !== null,
+    choicesPresent: false,
+    finalContentPresent: false,
+    reasoningContentObserved: false,
+    finishReason: "absent",
+    usagePresent: isRecord(responseJson?.usage),
+  };
+  if (!options.contentTypeAllowed || !responseJson) {
+    return {
+      ...base,
+      outputValidationCategory: "invalid_provider_output",
+    };
+  }
+  if (!Array.isArray(responseJson.choices) || responseJson.choices.length === 0) {
+    return {
+      ...base,
+      outputValidationCategory: "invalid_provider_output",
+    };
   }
   const firstChoice = responseJson.choices[0];
   if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
-    return null;
+    return {
+      ...base,
+      choicesPresent: true,
+      finishReason: normalizeFinishReason(firstChoice),
+      outputValidationCategory: "invalid_provider_output",
+    };
   }
-  return typeof firstChoice.message.content === "string"
-    ? firstChoice.message.content
-    : null;
+  const finishReason = normalizeFinishReason(firstChoice);
+  const reasoningContentObserved =
+    typeof firstChoice.message.reasoning_content === "string" &&
+    firstChoice.message.reasoning_content.length > 0;
+  const toolProposalObserved =
+    (Array.isArray(firstChoice.message.tool_calls) &&
+      firstChoice.message.tool_calls.length > 0) ||
+    isRecord(firstChoice.message.function_call) ||
+    finishReason === "tool_calls" ||
+    finishReason === "function_call";
+  const finalContent =
+    typeof firstChoice.message.content === "string"
+      ? firstChoice.message.content
+      : undefined;
+  const finalContentPresent = typeof finalContent === "string" && finalContent.trim().length > 0;
+  if (toolProposalObserved) {
+    return {
+      ...base,
+      choicesPresent: true,
+      finalContentPresent,
+      reasoningContentObserved,
+      finishReason,
+      ...(finalContent !== undefined ? { finalContent } : {}),
+      outputValidationCategory: "untrusted_tool_proposal_blocked",
+    };
+  }
+  if (!finalContentPresent) {
+    return {
+      ...base,
+      choicesPresent: true,
+      finalContentPresent: false,
+      reasoningContentObserved,
+      finishReason,
+      outputValidationCategory:
+        finishReason === "length"
+          ? "output_budget_exhausted_before_final"
+          : reasoningContentObserved
+            ? "no_final_answer"
+            : "invalid_provider_output",
+    };
+  }
+  const parsedContent = parseJsonObject(finalContent);
+  const validDiagnostic =
+    parsedContent?.diagnostic === "ok" &&
+    parsedContent.directActionAttempted === false &&
+    parsedContent.toolCallCount === 0;
+  return {
+    ...base,
+    choicesPresent: true,
+    finalContentPresent: true,
+    reasoningContentObserved,
+    finishReason,
+    ...(finalContent !== undefined ? { finalContent } : {}),
+    outputValidationCategory: validDiagnostic
+      ? "fixed_diagnostic_ok"
+      : "invalid_provider_output",
+  };
 }
 
 function statusClassForHttp(
@@ -800,10 +951,12 @@ function statusClassForHttp(
 
 function reasonCodeForHttp(
   status: number,
-  validResponseShape: boolean,
+  outputValidationCategory: GlmAdvancedBrainAcceptanceOutputValidationCategory,
 ): CloudReasoningTransportResult["reasonCode"] {
   if (status >= 200 && status < 300) {
-    return validResponseShape ? "completed" : "invalid_response";
+    return outputValidationCategory === "fixed_diagnostic_ok"
+      ? "completed"
+      : transportReasonCodeForOutputValidation(outputValidationCategory);
   }
   if (status === 401 || status === 403) {
     return "authentication_transport_failure";
@@ -824,6 +977,14 @@ function safeHeaders(
   contentType: string | undefined,
 ): CloudReasoningTransportResult["safeHeaders"] {
   return contentType ? { contentType: contentType.slice(0, 128) } : {};
+}
+
+function isAllowedJsonContentType(contentType: string | undefined): boolean {
+  if (!contentType) {
+    return false;
+  }
+  const normalized = contentType.split(";")[0]?.trim().toLowerCase();
+  return normalized === "application/json" || normalized?.endsWith("+json") === true;
 }
 
 function elapsed(startedAt: number): number {
@@ -852,6 +1013,7 @@ function isAbortError(error: unknown): boolean {
 function createFixedDiagnosticRequest(
   modelId: GlmAdvancedBrainAcceptanceModelId,
 ): CloudReasoningTransportRequest {
+  const contract = fixedDiagnosticRequestContract(modelId);
   return CloudReasoningTransportRequestSchema.parse({
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
     requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
@@ -875,15 +1037,46 @@ function createFixedDiagnosticRequest(
           }),
         },
       ],
-      response_format: { type: "json_object" },
       stream: false,
-      temperature: 0,
-      max_tokens: FIXED_MAX_OUTPUT_TOKENS,
+      max_tokens: contract.maxTokens,
+      ...(contract.thinkingDisabled
+        ? { thinking: { type: "disabled" } }
+        : {}),
+      ...(contract.reasoningEffort
+        ? { reasoning_effort: contract.reasoningEffort }
+        : {}),
     },
     credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
     timeoutMs: FIXED_TIMEOUT_MS,
     maxResponseBytes: FIXED_MAX_RESPONSE_BYTES,
   });
+}
+
+function fixedDiagnosticRequestContract(
+  modelId: GlmAdvancedBrainAcceptanceModelId,
+): {
+  readonly profileId: GlmAdvancedBrainAcceptanceRequestContractProfileId;
+  readonly maxTokens:
+    | typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS
+    | typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS;
+  readonly mandatoryThinking: boolean;
+  readonly thinkingDisabled: boolean;
+  readonly reasoningEffort?: typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT;
+} {
+  return modelId === "glm-5.3"
+    ? {
+        profileId: "glm-5.3-fixed-diagnostic-mandatory-thinking",
+        maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+        mandatoryThinking: true,
+        thinkingDisabled: false,
+        reasoningEffort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+      }
+    : {
+        profileId: "glm-5.2-fixed-diagnostic-no-thinking",
+        maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+        mandatoryThinking: false,
+        thinkingDisabled: true,
+      };
 }
 
 function parseStoredSettings(value: unknown): GlmAdvancedBrainAcceptanceSettings {
@@ -934,10 +1127,22 @@ function extractTokenUsage(responseJson: unknown): {
 function mapDiagnosticReasonCode(
   transportResult: CloudReasoningTransportResult,
 ): GlmAdvancedBrainAcceptanceReasonCode {
+  const outputValidationCategory =
+    extractResponseEvidence(transportResult).outputValidationCategory;
   if (transportResult.statusClass === "success") {
     return validateFixedDiagnosticResponse(transportResult)
       ? "ready"
-      : "invalid_structured_response";
+      : outputValidationCategory === "fixed_diagnostic_ok"
+        ? "invalid_provider_output"
+        : acceptanceReasonCodeForOutputValidation(outputValidationCategory);
+  }
+  if (
+    transportResult.statusClass === "invalid_response" &&
+    outputValidationCategory !== "fixed_diagnostic_ok" &&
+    outputValidationCategory !== "provider_http_error" &&
+    outputValidationCategory !== "transport_failure"
+  ) {
+    return acceptanceReasonCodeForOutputValidation(outputValidationCategory);
   }
   if (transportResult.statusClass === "timeout") {
     return "transport_timeout";
@@ -965,6 +1170,8 @@ function mapDiagnosticReasonCode(
 function classifyProviderError(
   transportResult: CloudReasoningTransportResult,
 ): GlmAdvancedBrainAcceptanceProviderErrorCategory {
+  const outputValidationCategory =
+    extractResponseEvidence(transportResult).outputValidationCategory;
   if (
     !transportResult.responseStarted &&
     !transportResult.responseCompleted &&
@@ -980,6 +1187,9 @@ function classifyProviderError(
   const category =
     transportResult.statusClass === "success"
       ? "none"
+      : transportResult.statusClass === "invalid_response" &&
+          isOutputValidationProviderCategory(outputValidationCategory)
+        ? outputValidationCategory
       : transportResult.statusClass === "auth_failure" &&
           transportResult.httpStatus === 401
         ? "credential_rejected"
@@ -992,6 +1202,204 @@ function classifyProviderError(
               ? "account_or_quota_restricted"
               : "provider_error_unrecognized";
   return GlmAdvancedBrainAcceptanceProviderErrorCategorySchema.parse(category);
+}
+
+interface GlmAcceptanceResponseAnalysis {
+  readonly contentTypeAllowed: boolean;
+  readonly jsonDecoded: boolean;
+  readonly choicesPresent: boolean;
+  readonly finalContentPresent: boolean;
+  readonly reasoningContentObserved: boolean;
+  readonly finishReason: GlmAdvancedBrainAcceptanceFinishReason;
+  readonly usagePresent: boolean;
+  readonly outputValidationCategory: GlmAdvancedBrainAcceptanceOutputValidationCategory;
+  readonly finalContent?: string;
+}
+
+function toSafeResponseEvidence(
+  analysis: GlmAcceptanceResponseAnalysis,
+): Omit<GlmAcceptanceResponseAnalysis, "finalContent"> {
+  return {
+    contentTypeAllowed: analysis.contentTypeAllowed,
+    jsonDecoded: analysis.jsonDecoded,
+    choicesPresent: analysis.choicesPresent,
+    finalContentPresent: analysis.finalContentPresent,
+    reasoningContentObserved: analysis.reasoningContentObserved,
+    finishReason: analysis.finishReason,
+    usagePresent: analysis.usagePresent,
+    outputValidationCategory: analysis.outputValidationCategory,
+  };
+}
+
+function extractResponseEvidence(
+  transportResult: CloudReasoningTransportResult,
+): Omit<GlmAcceptanceResponseAnalysis, "finalContent"> {
+  if (
+    isRecord(transportResult.responseJson) &&
+    isRecord(transportResult.responseJson[GLM_ACCEPTANCE_RESPONSE_EVIDENCE_KEY])
+  ) {
+    const evidence = transportResult.responseJson[
+      GLM_ACCEPTANCE_RESPONSE_EVIDENCE_KEY
+    ];
+    return {
+      contentTypeAllowed: evidence.contentTypeAllowed === true,
+      jsonDecoded: evidence.jsonDecoded === true,
+      choicesPresent: evidence.choicesPresent === true,
+      finalContentPresent: evidence.finalContentPresent === true,
+      reasoningContentObserved: evidence.reasoningContentObserved === true,
+      finishReason: isSafeFinishReason(evidence.finishReason)
+        ? evidence.finishReason
+        : "unknown",
+      usagePresent: evidence.usagePresent === true,
+      outputValidationCategory: isOutputValidationCategory(
+        evidence.outputValidationCategory,
+      )
+        ? evidence.outputValidationCategory
+        : "invalid_provider_output",
+    };
+  }
+  if (transportResult.statusClass === "success") {
+    return {
+      contentTypeAllowed: true,
+      jsonDecoded: true,
+      choicesPresent: true,
+      finalContentPresent: validateFixedDiagnosticResponse(transportResult),
+      reasoningContentObserved: false,
+      finishReason: "unknown",
+      usagePresent: isRecord(transportResult.responseJson) && isRecord(transportResult.responseJson.usage),
+      outputValidationCategory: validateFixedDiagnosticResponse(transportResult)
+        ? "fixed_diagnostic_ok"
+        : "invalid_provider_output",
+    };
+  }
+  return {
+    contentTypeAllowed: Boolean(transportResult.safeHeaders.contentType),
+    jsonDecoded: false,
+    choicesPresent: false,
+    finalContentPresent: false,
+    reasoningContentObserved: false,
+    finishReason: "absent",
+    usagePresent: false,
+    outputValidationCategory:
+      transportResult.responseStarted && transportResult.httpStatus
+        ? "provider_http_error"
+        : "transport_failure",
+  };
+}
+
+function extractOutputValidationCategory(
+  responseJson: Record<string, unknown>,
+): GlmAdvancedBrainAcceptanceOutputValidationCategory {
+  const evidence = extractResponseEvidence({
+    schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+    requestId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+    providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
+    deploymentId: GLM_ADVANCED_BRAIN_ACCEPTANCE_DEPLOYMENT_ID,
+    operation: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,
+    statusClass: "invalid_response",
+    reasonCode: "invalid_response",
+    responseJson,
+    safeHeaders: {},
+    latencyMs: 0,
+    requestSent: false,
+    responseStarted: true,
+    responseCompleted: true,
+    cancelled: false,
+    timeout: false,
+    automaticRetry: false,
+    automaticFallback: false,
+    credentialExposed: false,
+    requestBodyExposed: false,
+    responseBodyLogged: false,
+  });
+  return evidence.outputValidationCategory;
+}
+
+function normalizeFinishReason(
+  choice: Record<string, unknown>,
+): GlmAdvancedBrainAcceptanceFinishReason {
+  const value = choice.finish_reason;
+  return isSafeFinishReason(value) ? value : value === undefined ? "absent" : "unknown";
+}
+
+function isSafeFinishReason(
+  value: unknown,
+): value is GlmAdvancedBrainAcceptanceFinishReason {
+  return (
+    value === "stop" ||
+    value === "length" ||
+    value === "tool_calls" ||
+    value === "function_call" ||
+    value === "content_filter" ||
+    value === "unknown" ||
+    value === "absent"
+  );
+}
+
+function isOutputValidationCategory(
+  value: unknown,
+): value is GlmAdvancedBrainAcceptanceOutputValidationCategory {
+  return (
+    value === "fixed_diagnostic_ok" ||
+    value === "invalid_provider_output" ||
+    value === "output_budget_exhausted_before_final" ||
+    value === "no_final_answer" ||
+    value === "untrusted_tool_proposal_blocked" ||
+    value === "provider_http_error" ||
+    value === "transport_failure"
+  );
+}
+
+function isOutputValidationProviderCategory(
+  value: GlmAdvancedBrainAcceptanceOutputValidationCategory,
+): value is Extract<
+  GlmAdvancedBrainAcceptanceOutputValidationCategory,
+  GlmAdvancedBrainAcceptanceProviderErrorCategory
+> {
+  return (
+    value === "invalid_provider_output" ||
+    value === "output_budget_exhausted_before_final" ||
+    value === "no_final_answer" ||
+    value === "untrusted_tool_proposal_blocked"
+  );
+}
+
+function transportReasonCodeForOutputValidation(
+  value: GlmAdvancedBrainAcceptanceOutputValidationCategory,
+): CloudReasoningTransportResult["reasonCode"] {
+  switch (value) {
+    case "fixed_diagnostic_ok":
+      return "completed";
+    case "invalid_provider_output":
+    case "output_budget_exhausted_before_final":
+    case "no_final_answer":
+    case "untrusted_tool_proposal_blocked":
+      return value;
+    case "provider_http_error":
+    case "transport_failure":
+      return "transport_failed";
+  }
+}
+
+function acceptanceReasonCodeForOutputValidation(
+  value: GlmAdvancedBrainAcceptanceOutputValidationCategory,
+): GlmAdvancedBrainAcceptanceReasonCode {
+  switch (value) {
+    case "fixed_diagnostic_ok":
+      return "ready";
+    case "invalid_provider_output":
+    case "output_budget_exhausted_before_final":
+    case "no_final_answer":
+    case "untrusted_tool_proposal_blocked":
+      return value;
+    case "provider_http_error":
+    case "transport_failure":
+      return "transport_failed";
+  }
+}
+
+function hasThinkingDisabled(body: Record<string, unknown>): boolean {
+  return isRecord(body.thinking) && body.thinking.type === "disabled";
 }
 
 function safeNonNegativeInteger(value: unknown): number {

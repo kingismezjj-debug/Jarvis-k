@@ -78,6 +78,10 @@ export const CloudReasoningTransportReasonCodeSchema = z.enum([
   "network_unavailable",
   "redirect_blocked",
   "invalid_response",
+  "invalid_provider_output",
+  "output_budget_exhausted_before_final",
+  "no_final_answer",
+  "untrusted_tool_proposal_blocked",
   "transport_failed",
 ]);
 export type CloudReasoningTransportReasonCode = z.infer<

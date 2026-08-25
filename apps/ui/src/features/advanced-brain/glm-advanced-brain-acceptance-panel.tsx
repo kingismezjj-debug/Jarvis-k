@@ -70,7 +70,8 @@ export function GlmAdvancedBrainAcceptancePanel({
         "User content included: NO",
         "Tool execution: NO",
         "Retry: NO",
-        "Maximum output tokens: 64",
+        `Maximum output tokens: ${preflightResult?.maxOutputTokens ?? "unavailable"}`,
+        `Mandatory thinking: ${preflightResult?.mandatoryThinking ? "YES" : "NO"}`,
         `Requested timeout: ${preflightResult?.requestedTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
         `Effective timeout: ${preflightResult?.effectiveTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
         `Timeout bounded: ${preflightResult?.timeoutBounded ? "YES" : "NO"}`,
@@ -339,8 +340,24 @@ export function GlmAdvancedBrainAcceptancePanel({
             }
           />
           <MetricRow
+            label="request profile"
+            value={preflightResult.requestContractProfileId}
+          />
+          <MetricRow
             label="max tokens"
             value={String(preflightResult.maxOutputTokens)}
+          />
+          <MetricRow
+            label="mandatory thinking"
+            value={preflightResult.mandatoryThinking ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="thinking disabled"
+            value={preflightResult.thinkingDisabled ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="reasoning effort"
+            value={preflightResult.reasoningEffort ?? "none"}
           />
           <MetricRow
             label="requested timeout"
@@ -405,6 +422,10 @@ export function GlmAdvancedBrainAcceptancePanel({
           <MetricRow label="result" value={report.structuredResultValidation} />
           <MetricRow label="status" value={report.httpStatusClass} />
           <MetricRow
+            label="http status"
+            value={report.httpStatus ? String(report.httpStatus) : "none"}
+          />
+          <MetricRow
             label="request sent"
             value={report.requestSent ? "YES" : "NO"}
           />
@@ -432,6 +453,35 @@ export function GlmAdvancedBrainAcceptancePanel({
           <MetricRow
             label="transport/provider category"
             value={report.providerErrorCategory}
+          />
+          <MetricRow
+            label="output validation"
+            value={report.outputValidationCategory}
+          />
+          <MetricRow
+            label="content type allowed"
+            value={report.contentTypeAllowed ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="json decoded"
+            value={report.jsonDecoded ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="choices present"
+            value={report.choicesPresent ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="final content present"
+            value={report.finalContentPresent ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="reasoning observed"
+            value={report.reasoningContentObserved ? "YES" : "NO"}
+          />
+          <MetricRow label="finish reason" value={report.finishReason} />
+          <MetricRow
+            label="usage present"
+            value={report.usagePresent ? "YES" : "NO"}
           />
         </dl>
       ) : null}

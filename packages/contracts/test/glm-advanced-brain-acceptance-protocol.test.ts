@@ -5,6 +5,9 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -80,8 +83,11 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
-      maximumOutputTokens: 64,
-      maxOutputTokens: 64,
+      requestContractProfileId: "glm-5.2-fixed-diagnostic-no-thinking",
+      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      mandatoryThinking: false,
+      thinkingDisabled: true,
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       timeoutBounded: true,
@@ -114,9 +120,68 @@ describe("GLM Advanced Brain acceptance protocol", () => {
     expect(() =>
       GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
         ...preflight,
-        maximumOutputTokens: 128,
+        maxOutputTokens: 128,
       }),
     ).toThrow();
+  });
+
+  it("allows the GLM-5.3 mandatory-thinking diagnostic budget projection", () => {
+    const preflight = GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      acceptanceState: "ready",
+      allowRealAcceptance: true,
+      providerId: "advanced-brain.glm",
+      modelId: "glm-5.3",
+      endpointProfileId: "standard_paas_v4",
+      endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
+      operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
+      fullEndpointMatch: true,
+      credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
+      credentialConfigured: true,
+      credentialStorageEncrypted: true,
+      credentialTypeConfirmed: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
+      selectedModelExplicit: true,
+      checkedAt: "2026-08-25T00:00:00.000Z",
+      reasonCodes: ["ready"],
+      cloudRequestFixed: true,
+      requestBodyFixed: true,
+      userContentIncluded: false,
+      fileIncluded: false,
+      imageIncluded: false,
+      requestContractProfileId: "glm-5.3-fixed-diagnostic-mandatory-thinking",
+      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      mandatoryThinking: true,
+      thinkingDisabled: false,
+      reasoningEffort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+      requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      timeoutBounded: true,
+      boundedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
+      streaming: false,
+      toolsEnabled: false,
+      retryEnabled: false,
+      fallbackEnabled: false,
+      executorReachable: false,
+      allowSingleRealAcceptance: true,
+      priorRealRequestCount: 0,
+      automaticRetry: false,
+      automaticFallback: false,
+      toolCapabilityCount: 0,
+      windowsExecutorAllowed: false,
+      pluginRuntimeAllowed: false,
+      directActionAttempted: false,
+      realRequestAttempted: false,
+      realNetworkRequestSent: false,
+      credentialExposed: false,
+      promptExposed: false,
+      rawResponseExposed: false,
+    });
+
+    expect(preflight.maxOutputTokens).toBe(512);
+    expect(preflight.mandatoryThinking).toBe(true);
+    expect(preflight.reasoningEffort).toBe("low");
   });
 
   it("requires explicit platform API key confirmation", () => {
@@ -160,6 +225,7 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       startedAt: "2026-08-25T00:00:00.000Z",
       completedAt: "2026-08-25T00:00:00.100Z",
       latencyMs: 100,
+      httpStatus: 200,
       httpStatusClass: "success",
       structuredResultValidation: "PASS",
       tokenUsage: {
@@ -181,6 +247,14 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       cancelled: false,
       toolsObserved: false,
       executorInvocationDelta: 0,
+      contentTypeAllowed: true,
+      jsonDecoded: true,
+      choicesPresent: true,
+      finalContentPresent: true,
+      reasoningContentObserved: false,
+      finishReason: "stop",
+      usagePresent: true,
+      outputValidationCategory: "fixed_diagnostic_ok",
       sanitizedResponseCategory: "fixed_diagnostic_ok",
       acceptanceConsumed: true,
       realNetworkRequestSent: false,
@@ -191,6 +265,8 @@ describe("GLM Advanced Brain acceptance protocol", () => {
 
     expect(JSON.stringify(report)).not.toContain("glm_advanced_brain_acceptance");
     expect(JSON.stringify(report)).not.toContain("apiKey");
+    expect(JSON.stringify(report)).not.toContain("reasoning_content");
+    expect(JSON.stringify(report)).not.toContain("provider-request-id");
     expect(() =>
       GlmAdvancedBrainAcceptanceDiagnosticReportSchema.parse({
         ...report,
