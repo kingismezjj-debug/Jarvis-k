@@ -82,6 +82,7 @@ import { FirstRunOnboarding } from "@/features/onboarding/first-run-onboarding";
 import { PluginManagementView } from "@/features/plugins/plugin-management-view";
 import { RuntimeInspectorPanel } from "@/features/runtime-inspector/runtime-inspector-panel";
 import { GlmAdvancedBrainAcceptancePanel } from "@/features/advanced-brain/glm-advanced-brain-acceptance-panel";
+import { CloudProviderAcceptancePanel } from "@/features/advanced-brain/cloud-provider-acceptance-panel";
 import { ChatAnswerSettingsPanel } from "@/features/settings/chat-answer-settings-panel";
 import { CommandRouterSettingsPanel } from "@/features/settings/command-router-settings-panel";
 import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governance-settings-panel";
@@ -128,9 +129,13 @@ export default function App() {
     discardVoiceRegressionPendingSample,
     markPilotNoFinalTranscript,
     markPilotOperatorDeviation,
+    cloudProviderAcceptancePreflight,
+    cloudProviderAcceptanceReport,
+    cloudProviderAcceptanceStatus,
     deleteVoiceRegressionRecord,
     deleteUserRouteAlias,
     deleteVoiceCommandAlias,
+    deleteCloudProviderAcceptanceCredential,
     disableMemoryAlpha,
     error,
     events,
@@ -161,6 +166,7 @@ export default function App() {
     probeMemoryAlphaRecall,
     probeCore,
     refreshCapabilities,
+    refreshCloudProviderAcceptanceStatus,
     refreshGlmAdvancedBrainAcceptanceStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
@@ -187,6 +193,7 @@ export default function App() {
     runFixtureOcrProbe,
     runFixtureRerankProbe,
     runBrainCommand,
+    runCloudProviderFakeAcceptance,
     sendCommand,
     selectConversation,
     setChatAnswerProductModeEnabled,
@@ -194,9 +201,11 @@ export default function App() {
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
     setGlmAdvancedBrainAcceptanceModel,
+    saveCloudProviderAcceptanceCredential,
     saveGlmAdvancedBrainAcceptanceCredential,
     deleteGlmAdvancedBrainAcceptanceCredential,
     preflightGlmAdvancedBrainAcceptance,
+    preflightCloudProviderAcceptance,
     runGlmAdvancedBrainAcceptanceDiagnostic,
     setDesktopLaunchAtLoginEnabled,
     setDesktopPetAlwaysOnTop,
@@ -220,6 +229,8 @@ export default function App() {
     voiceRegressionStatus,
     voiceServiceStatus,
   } = useJarvis({
+    cloudProviderAcceptanceSurfaceEnabled:
+      uiSurfaceMode.cloudProviderAcceptanceSurfaceEnabled,
     evaluationSurfaceEnabled: uiSurfaceMode.evaluationSurfaceEnabled,
   });
   const [draft, setDraft] = useState("");
@@ -891,10 +902,18 @@ export default function App() {
     if (activeView === "developer" && evaluationSurfaceEnabled) {
       void refreshGlmAdvancedBrainAcceptanceStatus();
     }
+    if (
+      activeView === "developer" &&
+      uiSurfaceMode.cloudProviderAcceptanceSurfaceEnabled
+    ) {
+      void refreshCloudProviderAcceptanceStatus();
+    }
   }, [
     activeView,
     evaluationSurfaceEnabled,
+    refreshCloudProviderAcceptanceStatus,
     refreshGlmAdvancedBrainAcceptanceStatus,
+    uiSurfaceMode.cloudProviderAcceptanceSurfaceEnabled,
   ]);
 
   useEffect(() => {
@@ -2359,6 +2378,31 @@ export default function App() {
                       sending={sending}
                       status={glmAdvancedBrainAcceptanceStatus}
                     />
+                    {uiSurfaceMode.cloudProviderAcceptanceSurfaceEnabled ? (
+                      <CloudProviderAcceptancePanel
+                        actions={{
+                          deleteCredential: () => {
+                            void deleteCloudProviderAcceptanceCredential();
+                          },
+                          preflight: () => {
+                            void preflightCloudProviderAcceptance();
+                          },
+                          refreshStatus: () => {
+                            void refreshCloudProviderAcceptanceStatus();
+                          },
+                          runFakeAcceptance: () => {
+                            void runCloudProviderFakeAcceptance();
+                          },
+                          saveCredential: (secret) => {
+                            void saveCloudProviderAcceptanceCredential(secret);
+                          },
+                        }}
+                        preflightResult={cloudProviderAcceptancePreflight}
+                        report={cloudProviderAcceptanceReport}
+                        sending={sending}
+                        status={cloudProviderAcceptanceStatus}
+                      />
+                    ) : null}
                   </div>
                 ) : (
                   <section

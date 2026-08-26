@@ -5,6 +5,8 @@ export type EffectiveSurface = "product" | "developer" | "evaluation";
 export type UiSurfaceMode = {
   developerModeEnabled: boolean;
   effectiveSurface: EffectiveSurface;
+  cloudProviderAcceptanceCapabilityAvailable: boolean;
+  cloudProviderAcceptanceSurfaceEnabled: boolean;
   evaluationCapabilityAvailable: boolean;
   evaluationSurfaceEnabled: boolean;
 };
@@ -29,6 +31,7 @@ export function persistDeveloperMode(
 export function projectUiSurfaceMode(input: {
   developerModeEnabled: boolean;
   capabilityStatus: {
+    cloudProviderAcceptanceCapabilityAvailable?: unknown;
     evaluationCapabilityAvailable?: unknown;
     source?: unknown;
     sensitiveValuesExposed?: unknown;
@@ -42,6 +45,11 @@ export function projectUiSurfaceMode(input: {
     input.capabilityStatus.rendererWritable === false;
   const evaluationSurfaceEnabled =
     input.developerModeEnabled && evaluationCapabilityAvailable;
+  const cloudProviderAcceptanceCapabilityAvailable =
+    evaluationCapabilityAvailable &&
+    input.capabilityStatus?.cloudProviderAcceptanceCapabilityAvailable === true;
+  const cloudProviderAcceptanceSurfaceEnabled =
+    evaluationSurfaceEnabled && cloudProviderAcceptanceCapabilityAvailable;
   return {
     developerModeEnabled: input.developerModeEnabled,
     effectiveSurface: evaluationSurfaceEnabled
@@ -49,6 +57,8 @@ export function projectUiSurfaceMode(input: {
       : input.developerModeEnabled
         ? "developer"
         : "product",
+    cloudProviderAcceptanceCapabilityAvailable,
+    cloudProviderAcceptanceSurfaceEnabled,
     evaluationCapabilityAvailable,
     evaluationSurfaceEnabled,
   };

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
+  CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_TYPE,
+  CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
+  CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
   CoreSnapshotSchema,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
   type AppCommand,
@@ -7,6 +10,10 @@ import {
   type ChatAnswerProductModeStatus,
   type CommandRouterLocalAppLaunchResult,
   type CommandRouterProductModeStatus,
+  type CloudProviderAcceptanceCommandResult,
+  type CloudProviderAcceptanceDiagnosticReport,
+  type CloudProviderAcceptancePreflightResult,
+  type CloudProviderAcceptanceStatus,
   type CoreSnapshot,
   type DesktopCloseButtonBehavior,
   type DesktopFirstRunOnboardingState,
@@ -69,6 +76,7 @@ import { useModelGovernance } from "./use-model-governance";
 type CoreConnection = "connecting" | "online" | "restarting" | "offline";
 
 export type UseJarvisOptions = {
+  cloudProviderAcceptanceSurfaceEnabled?: boolean;
   evaluationSurfaceEnabled?: boolean;
 };
 
@@ -77,7 +85,15 @@ const GLM_ADVANCED_BRAIN_ACCEPTANCE_CONSENT = {
   acceptanceConsent: true,
 } as const;
 
+const CLOUD_PROVIDER_ACCEPTANCE_CONSENT = {
+  acceptanceId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
+  cloudEgressAllowed: true,
+  acceptanceConsent: true,
+} as const;
+
 export function useJarvis(options: UseJarvisOptions = {}) {
+  const cloudProviderAcceptanceSurfaceEnabled =
+    options.cloudProviderAcceptanceSurfaceEnabled === true;
   const evaluationSurfaceEnabled = options.evaluationSurfaceEnabled === true;
   const [snapshot, setSnapshot] = useState<CoreSnapshot | null>(null);
   const [events, setEvents] = useState<EventEnvelope[]>([]);
@@ -98,6 +114,18 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     glmAdvancedBrainAcceptanceReport,
     setGlmAdvancedBrainAcceptanceReport,
   ] = useState<GlmAdvancedBrainAcceptanceDiagnosticReport | null>(null);
+  const [
+    cloudProviderAcceptanceStatus,
+    setCloudProviderAcceptanceStatus,
+  ] = useState<CloudProviderAcceptanceStatus | null>(null);
+  const [
+    cloudProviderAcceptancePreflight,
+    setCloudProviderAcceptancePreflight,
+  ] = useState<CloudProviderAcceptancePreflightResult | null>(null);
+  const [
+    cloudProviderAcceptanceReport,
+    setCloudProviderAcceptanceReport,
+  ] = useState<CloudProviderAcceptanceDiagnosticReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversationState, dispatchConversationState] = useReducer(
     jarvisConversationReducer,
@@ -649,6 +677,143 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     refreshGlmAdvancedBrainAcceptanceStatus,
   ]);
 
+  const refreshCloudProviderAcceptanceStatus = useCallback(async () => {
+    if (!window.jarvis?.getCloudProviderAcceptanceStatus) {
+      setCloudProviderAcceptanceStatus(null);
+      return false;
+    }
+    try {
+      const status = await window.jarvis.getCloudProviderAcceptanceStatus();
+      setCloudProviderAcceptanceStatus(status);
+      return true;
+    } catch {
+      setCloudProviderAcceptanceStatus(null);
+      setError("Cloud provider acceptance status is unavailable.");
+      return false;
+    }
+  }, []);
+
+  const refreshCloudProviderAcceptancePreflightProjection =
+    useCallback(async () => {
+      if (!window.jarvis?.preflightCloudProviderAcceptance) {
+        setCloudProviderAcceptancePreflight(null);
+        return false;
+      }
+      try {
+        const result = await window.jarvis.preflightCloudProviderAcceptance(
+          CLOUD_PROVIDER_ACCEPTANCE_CONSENT,
+        );
+        setCloudProviderAcceptancePreflight(result);
+        return result.allowFakeAcceptance;
+      } catch {
+        setCloudProviderAcceptancePreflight(null);
+        return false;
+      }
+    }, []);
+
+  const saveCloudProviderAcceptanceCredential = useCallback(
+    async (credential: string) => {
+      if (!window.jarvis?.saveCloudProviderAcceptanceCredential) {
+        setError("Cloud provider acceptance is unavailable.");
+        return false;
+      }
+      try {
+        const result: CloudProviderAcceptanceCommandResult =
+          await window.jarvis.saveCloudProviderAcceptanceCredential({
+            bindingId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
+            credentialTypeConfirmation: CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_TYPE,
+            credential,
+          });
+        setCloudProviderAcceptanceStatus(result.status);
+        void refreshCloudProviderAcceptancePreflightProjection();
+        if (!result.ok) {
+          setError(result.safeMessage ?? "Cloud provider credential was rejected.");
+          return false;
+        }
+        setError(null);
+        return true;
+      } catch {
+        setError("Cloud provider credential was rejected.");
+        return false;
+      }
+    },
+    [refreshCloudProviderAcceptancePreflightProjection],
+  );
+
+  const deleteCloudProviderAcceptanceCredential = useCallback(async () => {
+    if (!window.jarvis?.deleteCloudProviderAcceptanceCredential) {
+      setError("Cloud provider acceptance is unavailable.");
+      return false;
+    }
+    try {
+      const result: CloudProviderAcceptanceCommandResult =
+        await window.jarvis.deleteCloudProviderAcceptanceCredential({
+          bindingId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
+        });
+      setCloudProviderAcceptanceStatus(result.status);
+      void refreshCloudProviderAcceptancePreflightProjection();
+      if (!result.ok) {
+        setError(
+          result.safeMessage ?? "Cloud provider credential could not be deleted.",
+        );
+        return false;
+      }
+      setError(null);
+      return true;
+    } catch {
+      setError("Cloud provider credential could not be deleted.");
+      return false;
+    }
+  }, [refreshCloudProviderAcceptancePreflightProjection]);
+
+  const preflightCloudProviderAcceptance = useCallback(async () => {
+    if (!window.jarvis?.preflightCloudProviderAcceptance) {
+      setError("Cloud provider acceptance preflight is unavailable.");
+      return false;
+    }
+    try {
+      const allowed =
+        await refreshCloudProviderAcceptancePreflightProjection();
+      setError(null);
+      return allowed;
+    } catch {
+      setError("Cloud provider acceptance preflight was rejected.");
+      return false;
+    }
+  }, [refreshCloudProviderAcceptancePreflightProjection]);
+
+  const runCloudProviderFakeAcceptance = useCallback(async () => {
+    if (!window.jarvis?.runCloudProviderFakeAcceptance) {
+      setError("Cloud provider fake acceptance is unavailable.");
+      return false;
+    }
+    setSending(true);
+    try {
+      const result = await window.jarvis.runCloudProviderFakeAcceptance({
+        ...CLOUD_PROVIDER_ACCEPTANCE_CONSENT,
+      });
+      setCloudProviderAcceptanceReport(result);
+      await Promise.all([
+        refreshCloudProviderAcceptanceStatus(),
+        refreshCloudProviderAcceptancePreflightProjection(),
+      ]);
+      setError(null);
+      return true;
+    } catch {
+      await Promise.all([
+        refreshCloudProviderAcceptanceStatus(),
+        refreshCloudProviderAcceptancePreflightProjection(),
+      ]);
+      setError("Cloud provider fake acceptance was rejected.");
+      return false;
+    } finally {
+      setSending(false);
+    }
+  }, [
+    refreshCloudProviderAcceptancePreflightProjection,
+    refreshCloudProviderAcceptanceStatus,
+  ]);
+
   const {
     clearSessionHistory,
     createConversation,
@@ -857,6 +1022,13 @@ export function useJarvis(options: UseJarvisOptions = {}) {
         void refreshVoiceRegressionPendingSamples();
         void refreshVoiceRegressionRecords();
       }
+      if (cloudProviderAcceptanceSurfaceEnabled) {
+        void refreshCloudProviderAcceptanceStatus();
+        void refreshCloudProviderAcceptancePreflightProjection();
+      } else {
+        setCloudProviderAcceptanceStatus(null);
+        setCloudProviderAcceptancePreflight(null);
+      }
       return;
     }
 
@@ -875,6 +1047,13 @@ export function useJarvis(options: UseJarvisOptions = {}) {
         void refreshVoiceRegressionPendingSamples();
         void refreshVoiceRegressionRecords();
       }
+      if (cloudProviderAcceptanceSurfaceEnabled) {
+        void refreshCloudProviderAcceptanceStatus();
+        void refreshCloudProviderAcceptancePreflightProjection();
+      } else {
+        setCloudProviderAcceptanceStatus(null);
+        setCloudProviderAcceptancePreflight(null);
+      }
     };
     window.addEventListener("focus", handleWindowFocus);
     void refreshVoiceServiceStatus();
@@ -891,12 +1070,23 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       void refreshVoiceRegressionPendingSamples();
       void refreshVoiceRegressionRecords();
     }
+    if (cloudProviderAcceptanceSurfaceEnabled) {
+      void refreshCloudProviderAcceptanceStatus();
+      void refreshCloudProviderAcceptancePreflightProjection();
+    } else {
+      setCloudProviderAcceptanceStatus(null);
+      setCloudProviderAcceptancePreflight(null);
+      setCloudProviderAcceptanceReport(null);
+    }
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
     };
   }, [
+    cloudProviderAcceptanceSurfaceEnabled,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
+    refreshCloudProviderAcceptancePreflightProjection,
+    refreshCloudProviderAcceptanceStatus,
     refreshDesktopSettings,
     evaluationSurfaceEnabled,
     refreshPlugins,
@@ -917,6 +1107,9 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     connection,
     brainResult,
     chatAnswerProductModeStatus,
+    cloudProviderAcceptancePreflight,
+    cloudProviderAcceptanceReport,
+    cloudProviderAcceptanceStatus,
     commandRouterLocalAppLaunchResult,
     commandRouterProductModeStatus,
     qwenRuntimeControlStatus,
@@ -954,6 +1147,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     probeMemoryAlphaRecall,
     probeCore,
     refreshCapabilities,
+    refreshCloudProviderAcceptanceStatus,
     refreshGlmAdvancedBrainAcceptanceStatus,
     refreshDesktopSettings,
     refreshChatAnswerProductModeStatus,
@@ -977,6 +1171,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     confirmVoiceCommandCorrection,
     confirmUserRouteAlias,
     cancelPilotSession,
+    deleteCloudProviderAcceptanceCredential,
     deleteUserControlledMemory,
     discardVoiceRegressionPendingSample,
     markPilotNoFinalTranscript,
@@ -986,6 +1181,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     deleteUserRouteAlias,
     exportVoiceRegressionRecords,
     preparePilotSession,
+    preflightCloudProviderAcceptance,
     refreshTtsServiceStatus,
     refreshUserRouteAliases,
     confirmCommandRouterLocalAppLaunch,
@@ -994,6 +1190,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     runFixtureOcrProbe,
     runFixtureRerankProbe,
     runBrainCommand,
+    runCloudProviderFakeAcceptance,
     sendCommand,
     sendMessage,
     selectConversation,
@@ -1006,6 +1203,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setDesktopPetReducedMotion,
     setDesktopFirstRunOnboardingState,
     setGlmAdvancedBrainAcceptanceModel,
+    saveCloudProviderAcceptanceCredential,
     saveGlmAdvancedBrainAcceptanceCredential,
     deleteGlmAdvancedBrainAcceptanceCredential,
     preflightGlmAdvancedBrainAcceptance,
