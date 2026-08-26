@@ -105,13 +105,17 @@ describe("GlmAdvancedReasoningProvider", () => {
 
     expect(body).toMatchObject({
       model: "glm-5.2",
-      response_format: { type: "json_object" },
       stream: false,
-      temperature: 0,
+      max_tokens: 256,
+      thinking: { type: "disabled" },
+      do_sample: false,
     });
     expect(JSON.stringify(body)).toContain("Explain Jarvis-K.");
     expect(JSON.stringify(body)).not.toContain("test-secret-key");
     expect(body).not.toHaveProperty("tools");
+    expect(body).not.toHaveProperty("response_format");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body).not.toHaveProperty("top_p");
   });
 
   it("returns valid answers with real_provider semantics through fake transport", async () => {
@@ -326,11 +330,8 @@ describe("GlmAdvancedReasoningProvider", () => {
     ).toBe("failed");
     const toolResult = await toolCalls.execute(await toolCalls.prepare(cloudRequest()));
     expect(toolResult.resultClass).toBe("failed");
-    expect(toolResult.untrustedProposals[0]).toMatchObject({
-      proposalType: "tool_call",
-      requiresPlannerApproval: true,
-      directActionAttempted: false,
-    });
+    expect(toolResult.directActionAttempted).toBe(false);
+    expect(toolResult.untrustedProposals).toEqual([]);
   });
 
   it("maps transport failures to fixed safe classifications without retry or fallback", async () => {

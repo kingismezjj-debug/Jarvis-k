@@ -367,7 +367,7 @@ describe("CloudReasoningRuntime provider-neutral conformance", () => {
     expect(JSON.stringify(length)).not.toContain("thinking only");
   });
 
-  it("classifies trusted four-layer timeouts and keeps timer cleanup bounded", async () => {
+  it("classifies trusted header timeouts and keeps timer cleanup bounded", async () => {
     const fetch = new FakeFetch((init) => waitUntilAborted(init.signal));
     const modelProfile = modelProfileFixture({
       requestTimeoutPolicyId: "fast-timeout-v1",
@@ -391,6 +391,93 @@ describe("CloudReasoningRuntime provider-neutral conformance", () => {
     expect(result.diagnostics.fallbackCount).toBe(0);
   });
 
+  it("classifies trusted first-event timeouts after headers arrive", async () => {
+    const fetch = new FakeFetch((init) => ({
+      status: 200,
+      headers: headers({ "content-type": "application/json" }),
+      text: () => waitForAbort(init.signal),
+    }));
+    const modelProfile = modelProfileFixture({
+      requestTimeoutPolicyId: "fast-timeout-v1",
+    });
+    const result = await createRuntime(fetch.fn, {
+      modelProfile,
+      timeoutPolicy: fastTimeoutPolicy(),
+    }).runOpenAiChatCompletions(
+      runtimeRequestFixture({
+        modelProfile,
+        timeoutPolicyId: "fast-timeout-v1",
+      }),
+      credentialOptions(),
+    );
+
+    expect(result.transport.statusClass).toBe("timeout");
+    expect(result.transport.reasonCode).toBe("first_event_timeout");
+    expect(result.transport.responseStarted).toBe(true);
+    expect(result.transport.responseCompleted).toBe(false);
+    expect(result.diagnostics.retryCount).toBe(0);
+    expect(result.diagnostics.fallbackCount).toBe(0);
+  });
+
+  it("classifies trusted stream-idle timeouts after an SSE event", async () => {
+    const fetch = new FakeFetch((init) => ({
+      status: 200,
+      headers: headers({ "content-type": "text/event-stream" }),
+      body: idleAfterFirstChunkBody(init.signal),
+    }));
+    const modelProfile = modelProfileFixture({
+      requestTimeoutPolicyId: "fast-timeout-v1",
+    });
+    const result = await createRuntime(fetch.fn, {
+      modelProfile,
+      timeoutPolicy: fastTimeoutPolicy(),
+    }).runOpenAiChatCompletions(
+      runtimeRequestFixture({
+        modelProfile,
+        stream: true,
+        timeoutPolicyId: "fast-timeout-v1",
+      }),
+      credentialOptions(),
+    );
+
+    expect(result.transport.statusClass).toBe("timeout");
+    expect(result.transport.reasonCode).toBe("stream_idle_timeout");
+    expect(result.transport.responseStarted).toBe(true);
+    expect(result.diagnostics.reasonCode).toBe("stream_idle_timeout");
+    expect(result.diagnostics.finalContentPresent).toBe(false);
+    expect(result.diagnostics.retryCount).toBe(0);
+    expect(result.diagnostics.fallbackCount).toBe(0);
+  });
+
+  it("classifies trusted overall timeouts even while SSE chunks continue", async () => {
+    const fetch = new FakeFetch((init) => ({
+      status: 200,
+      headers: headers({ "content-type": "text/event-stream" }),
+      body: continuousReasoningBody(init.signal),
+    }));
+    const modelProfile = modelProfileFixture({
+      requestTimeoutPolicyId: "fast-timeout-v1",
+    });
+    const result = await createRuntime(fetch.fn, {
+      modelProfile,
+      timeoutPolicy: fastTimeoutPolicy(),
+    }).runOpenAiChatCompletions(
+      runtimeRequestFixture({
+        modelProfile,
+        stream: true,
+        timeoutPolicyId: "fast-timeout-v1",
+      }),
+      credentialOptions(),
+    );
+
+    expect(result.transport.statusClass).toBe("timeout");
+    expect(result.transport.reasonCode).toBe("overall_timeout");
+    expect(result.transport.responseStarted).toBe(true);
+    expect(result.diagnostics.reasonCode).toBe("overall_timeout");
+    expect(result.diagnostics.retryCount).toBe(0);
+    expect(result.diagnostics.fallbackCount).toBe(0);
+  });
+
   it("supports external cancellation without retry or fallback", async () => {
     const cancellation = new AbortController();
     const runtime = createRuntime(
@@ -408,6 +495,30 @@ describe("CloudReasoningRuntime provider-neutral conformance", () => {
     const result = await pending;
 
     expect(result.transport.reasonCode).toBe("cancelled");
+    expect(result.diagnostics.retryCount).toBe(0);
+    expect(result.diagnostics.fallbackCount).toBe(0);
+  });
+
+  it("classifies a stream reset after response start as an incomplete stream", async () => {
+    const fetch = new FakeFetch({
+      status: 200,
+      headers: headers({ "content-type": "text/event-stream" }),
+      body: failingStreamBody([
+        sseData({ choices: [{ delta: { content: "partial" } }] }),
+      ]),
+    });
+    const runtime = createRuntime(fetch.fn);
+
+    const result = await runtime.runOpenAiChatCompletions(
+      runtimeRequestFixture({ stream: true }),
+      credentialOptions(),
+    );
+
+    expect(result.transport.statusClass).toBe("network_error");
+    expect(result.transport.reasonCode).toBe("incomplete_stream");
+    expect(result.transport.requestSent).toBe(true);
+    expect(result.transport.responseStarted).toBe(true);
+    expect(result.output.category).toBe("incomplete_stream");
     expect(result.diagnostics.retryCount).toBe(0);
     expect(result.diagnostics.fallbackCount).toBe(0);
   });
@@ -487,6 +598,54 @@ describe("CloudReasoningRuntime provider-neutral conformance", () => {
     expect(result.transport.statusClass).toBe("blocked");
     expect(result.transport.reasonCode).toBe("invalid_request");
     expect(fetch.calls).toHaveLength(0);
+  });
+
+  it("enforces stream and thinking policy from the trusted model profile", async () => {
+    const mandatoryProfile = modelProfileFixture({
+      modelId: "glm-5.3",
+      thinkingPolicy: "mandatory",
+      recommendedOutputTokens: 1024,
+      maxOutputTokens: 8192,
+    });
+    const fetch = new FakeFetch(
+      responseJson({
+        choices: [
+          {
+            message: {
+              reasoning_content: "private reasoning",
+              content: "{\"diagnostic\":\"ok\"}",
+            },
+            finish_reason: "stop",
+          },
+        ],
+      }),
+    );
+    const runtime = createRuntime(fetch.fn, { modelProfile: mandatoryProfile });
+    const disabledThinking = await runtime.runOpenAiChatCompletions(
+      runtimeRequestFixture({
+        modelProfile: mandatoryProfile,
+        stream: false,
+        bodyOverrides: { thinking: { type: "disabled" } },
+      }),
+      credentialOptions(),
+    );
+
+    expect(disabledThinking.transport.requestSent).toBe(false);
+    expect(disabledThinking.transport.reasonCode).toBe("invalid_request");
+
+    const allowed = await runtime.runOpenAiChatCompletions(
+      runtimeRequestFixture({
+        modelProfile: mandatoryProfile,
+        stream: false,
+        bodyOverrides: { thinking: { type: "enabled" } },
+      }),
+      credentialOptions(),
+    );
+
+    expect(allowed.transport.statusClass).toBe("success");
+    expect(allowed.output.ok).toBe(true);
+    expect(allowed.output.reasoningObserved).toBe(true);
+    expect(JSON.stringify(allowed.diagnostics)).not.toContain("private reasoning");
   });
 });
 
@@ -609,6 +768,7 @@ function runtimeRequestFixture(
     readonly timeoutPolicyId: string;
     readonly stream: boolean;
     readonly retryPolicy: { readonly automaticRetry: boolean; readonly maxAttempts: 1 };
+    readonly bodyOverrides: Record<string, unknown>;
   }> = {},
 ) {
   const modelProfile = overrides.modelProfile ?? modelProfileFixture();
@@ -624,6 +784,7 @@ function runtimeRequestFixture(
         messages: [{ role: "user", content: "fixed synthetic input" }],
         stream: overrides.stream ?? false,
         max_tokens: modelProfile.recommendedOutputTokens,
+        ...(overrides.bodyOverrides ?? {}),
       },
     }),
     modelProfile,
@@ -740,6 +901,14 @@ async function* chunkedBody(chunks: readonly string[]): AsyncIterable<Uint8Array
   }
 }
 
+async function* failingStreamBody(chunks: readonly string[]): AsyncIterable<Uint8Array> {
+  const encoder = new TextEncoder();
+  for (const chunk of chunks) {
+    yield encoder.encode(chunk);
+  }
+  throw new Error("synthetic stream reset");
+}
+
 function waitUntilAborted(signal: AbortSignal): Promise<CloudReasoningFetchResponse> {
   return new Promise((_, reject) => {
     if (signal.aborted) {
@@ -751,5 +920,60 @@ function waitUntilAborted(signal: AbortSignal): Promise<CloudReasoningFetchRespo
       () => reject(new Error("aborted")),
       { once: true },
     );
+  });
+}
+
+function waitForAbort(signal: AbortSignal): Promise<string> {
+  return new Promise((_, reject) => {
+    if (signal.aborted) {
+      reject(new Error("aborted"));
+      return;
+    }
+    signal.addEventListener("abort", () => reject(new Error("aborted")), {
+      once: true,
+    });
+  });
+}
+
+async function* idleAfterFirstChunkBody(
+  signal: AbortSignal,
+): AsyncIterable<Uint8Array> {
+  const encoder = new TextEncoder();
+  yield encoder.encode(
+    sseData({ choices: [{ delta: { reasoning_content: "hidden" } }] }),
+  );
+  await waitForAbort(signal);
+}
+
+async function* continuousReasoningBody(
+  signal: AbortSignal,
+): AsyncIterable<Uint8Array> {
+  const encoder = new TextEncoder();
+  while (!signal.aborted) {
+    yield encoder.encode(
+      sseData({ choices: [{ delta: { reasoning_content: "hidden" } }] }),
+    );
+    await delay(50, signal);
+  }
+  await waitForAbort(signal);
+}
+
+function delay(durationMs: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onResolve = () => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      reject(new Error("aborted"));
+    };
+    const timer = setTimeout(onResolve, durationMs);
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }

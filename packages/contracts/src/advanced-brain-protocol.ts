@@ -146,6 +146,7 @@ export const CloudReasoningTransportReasonCodeSchema = z.enum([
   "redirect_blocked",
   "invalid_response",
   "malformed_stream",
+  "incomplete_stream",
   "invalid_provider_output",
   "output_budget_exhausted_before_final",
   "structured_output_invalid",

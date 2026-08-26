@@ -1,6 +1,12 @@
 import type { AdvancedReasoningProvider } from "@jarvis-k/capabilities";
+import {
+  CloudReasoningRuntime,
+  DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY,
+} from "@jarvis-k/capabilities";
 import type {
   CloudReasoningRuntimeCredential,
+  CloudReasoningRuntimeRequest,
+  CloudReasoningRuntimeResult,
   CloudReasoningTransportSendOptions,
 } from "@jarvis-k/capabilities";
 import {
@@ -95,6 +101,7 @@ export interface GlmAdvancedReasoningTransport {
     request: CloudReasoningTransportRequest,
     options: CloudReasoningTransportSendOptions,
   ): Promise<CloudReasoningTransportResult>;
+  dispose?(): void;
 }
 
 export interface GlmAdvancedReasoningProviderOptions {
@@ -103,6 +110,7 @@ export interface GlmAdvancedReasoningProviderOptions {
   readonly transport: GlmAdvancedReasoningTransport;
   readonly credentialProvider: GlmAdvancedReasoningCredentialProvider;
   readonly endpointProfile?: CloudProviderEndpointProfile;
+  readonly stream?: boolean;
   readonly now?: () => Date;
 }
 
@@ -143,6 +151,9 @@ export class GlmAdvancedReasoningProvider
   private readonly transport: GlmAdvancedReasoningTransport;
   private readonly credentialProvider: GlmAdvancedReasoningCredentialProvider;
   private readonly endpointProfile: CloudProviderEndpointProfile;
+  private readonly cloudModelProfile: CloudReasoningModelCapabilityProfile | undefined;
+  private readonly runtime: CloudReasoningRuntime;
+  private readonly stream: boolean;
   private readonly now: () => Date;
   private lastProbeAt: string | undefined;
   private lastSuccessAt: string | undefined;
@@ -155,10 +166,24 @@ export class GlmAdvancedReasoningProvider
     this.endpointProfile =
       options.endpointProfile ?? createGlmAdvancedReasoningEndpointProfile();
     this.now = options.now ?? (() => new Date());
+    this.stream = options.stream === true;
     this.modelId =
       options.modelId && isGlmProviderModelCandidateId(options.modelId)
         ? options.modelId
         : undefined;
+    this.cloudModelProfile = this.modelId
+      ? createGlmCloudReasoningModelCapabilityProfile({
+          enabled: this.enabled,
+          modelId: this.modelId,
+        })
+      : undefined;
+    this.runtime = new CloudReasoningRuntime({
+      endpointProfiles: [this.endpointProfile],
+      modelProfiles: this.cloudModelProfile ? [this.cloudModelProfile] : [],
+      timeoutPolicies: [DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY],
+      transport: this.transport,
+      now: this.now,
+    });
     this.profile = createGlmAdvancedReasoningProfile({
       enabled: this.enabled,
       ...(this.modelId ? { modelId: this.modelId } : {}),
@@ -199,19 +224,39 @@ export class GlmAdvancedReasoningProvider
       return this.unavailable(prepared, "credential_missing", false);
     }
 
-    const transportResult = await this.transport.send(
-      createGlmAdvancedReasoningTransportRequest(prepared),
+    if (!this.cloudModelProfile) {
+      return this.failure(prepared, "model_not_selected", {
+        networkRequestIssued: false,
+      });
+    }
+
+    const runtimeResult = await this.runtime.runOpenAiChatCompletions(
+      createGlmAdvancedReasoningRuntimeRequest(prepared, {
+        modelProfile: this.cloudModelProfile,
+        stream: this.stream,
+      }),
       {
         credential: toRuntimeCredential(credential),
         ...(options?.signal ? { signal: options.signal } : {}),
       },
     );
-    if (transportResult.statusClass !== "success") {
-      return this.resultFromTransportFailure(prepared, transportResult);
+    if (runtimeResult.transport.statusClass !== "success") {
+      return this.resultFromTransportFailure(prepared, runtimeResult.transport);
+    }
+    if (!transportResponseModelMatches(runtimeResult.transport.responseJson, prepared.modelId)) {
+      return this.failure(prepared, "provider_model_mismatch", {
+        networkRequestIssued: runtimeResult.transport.requestSent,
+      });
+    }
+    if (!runtimeResult.output.ok || runtimeResult.output.toolProposalObserved) {
+      return this.resultFromRuntimeOutputFailure(prepared, runtimeResult);
     }
     try {
       const result = parseGlmAdvancedReasoningResponse({
-        responseJson: transportResult.responseJson,
+        responseJson: runtimeFinalContentAsGlmResponse(
+          runtimeResult.output.finalContent,
+          prepared.modelId,
+        ),
         prepared,
         completedAt: this.now().toISOString(),
       });
@@ -368,6 +413,17 @@ export class GlmAdvancedReasoningProvider
     });
   }
 
+  private resultFromRuntimeOutputFailure(
+    prepared: AdvancedBrainPreparedRequest,
+    runtimeResult: CloudReasoningRuntimeResult,
+  ): AdvancedBrainProviderResult {
+    const reason = mapRuntimeOutputFailure(runtimeResult);
+    this.lastFailureReason = reason;
+    return this.failure(prepared, reason, {
+      networkRequestIssued: runtimeResult.transport.requestSent,
+    });
+  }
+
   private unavailable(
     prepared: AdvancedBrainPreparedRequest,
     _reason: GlmAdvancedReasoningFailureReasonCode,
@@ -475,7 +531,7 @@ export function createGlmAdvancedReasoningEndpointProfile(): CloudProviderEndpoi
     timeoutBounds: {
       minTimeoutMs: 1_000,
       defaultTimeoutMs: GLM_ADVANCED_BRAIN_DEFAULT_TIMEOUT_MS,
-      maxTimeoutMs: 120_000,
+      maxTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.overallTimeoutMs,
     },
     credentialBindingId: GLM_ADVANCED_BRAIN_CREDENTIAL_BINDING_ID,
   });
@@ -569,9 +625,17 @@ export function createGlmAdvancedReasoningTransportRequest(
 
 export function createGlmAdvancedReasoningRequestBody(
   prepared: AdvancedBrainPreparedRequest,
+  options: {
+    readonly stream?: boolean;
+    readonly thinkingType?: "enabled" | "disabled";
+  } = {},
 ): Record<string, unknown> {
   const parsed = AdvancedBrainPreparedRequestSchema.parse(prepared);
   const request = parsed.request;
+  const contract = glmCloudRuntimeRequestContract(
+    parsed.modelId as GlmProviderModelCandidateId,
+    options.thinkingType,
+  );
   return {
     model: parsed.modelId,
     messages: [
@@ -601,10 +665,48 @@ export function createGlmAdvancedReasoningRequestBody(
         }),
       },
     ],
-    response_format: { type: "json_object" },
-    stream: false,
-    temperature: 0,
-    max_tokens: maxTokensForBudget(request.tokenBudgetClass),
+    stream: options.stream === true,
+    max_tokens: contract.maxTokens,
+    thinking: { type: contract.thinkingType },
+    do_sample: false,
+  };
+}
+
+export function createGlmAdvancedReasoningRuntimeRequest(
+  prepared: AdvancedBrainPreparedRequest,
+  input: {
+    readonly modelProfile: CloudReasoningModelCapabilityProfile;
+    readonly stream?: boolean;
+    readonly thinkingType?: "enabled" | "disabled";
+  },
+): CloudReasoningRuntimeRequest {
+  const parsed = AdvancedBrainPreparedRequestSchema.parse(prepared);
+  const modelProfile = CloudReasoningModelCapabilityProfileSchema.parse(
+    input.modelProfile,
+  );
+  return {
+    transportRequest: CloudReasoningTransportRequestSchema.parse({
+      schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+      requestId: parsed.request.requestId,
+      providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
+      deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
+      operation: GLM_ADVANCED_BRAIN_OPERATION,
+      method: "POST",
+      contentType: "application/json",
+      bodyJson: createGlmAdvancedReasoningRequestBody(parsed, {
+        ...(input.stream === undefined ? {} : { stream: input.stream }),
+        ...(input.thinkingType === undefined
+          ? {}
+          : { thinkingType: input.thinkingType }),
+      }),
+      credentialBindingId: GLM_ADVANCED_BRAIN_CREDENTIAL_BINDING_ID,
+      timeoutMs: parsed.request.timeoutMs,
+      maxResponseBytes: GLM_ADVANCED_BRAIN_MAX_RESPONSE_BYTES,
+    }),
+    modelProfile,
+    timeoutPolicyId: modelProfile.requestTimeoutPolicyId,
+    stream: input.stream === true,
+    maxFinalContentChars: GLM_ADVANCED_BRAIN_MAX_RESPONSE_BYTES,
   };
 }
 
@@ -645,24 +747,48 @@ export function parseGlmAdvancedReasoningResponse(input: {
 export function mapTransportFailure(
   transportResult: CloudReasoningTransportResult,
 ): GlmAdvancedReasoningFailureReasonCode {
-  if (transportResult.reasonCode === "timeout") {
+  if (
+    transportResult.reasonCode === "timeout" ||
+    transportResult.reasonCode === "headers_timeout" ||
+    transportResult.reasonCode === "first_event_timeout" ||
+    transportResult.reasonCode === "stream_idle_timeout" ||
+    transportResult.reasonCode === "overall_timeout"
+  ) {
     return "timeout";
   }
   if (transportResult.reasonCode === "cancelled") {
     return "cancelled";
   }
-  if (transportResult.reasonCode === "authentication_transport_failure") {
+  if (
+    transportResult.reasonCode === "authentication_transport_failure" ||
+    transportResult.reasonCode === "credential_rejected"
+  ) {
     return transportResult.httpStatus === 403
       ? "permission_denied"
       : "authentication_failed";
   }
-  if (transportResult.reasonCode === "rate_limited") {
+  if (transportResult.reasonCode === "permission_denied") {
+    return "permission_denied";
+  }
+  if (
+    transportResult.reasonCode === "rate_limited" ||
+    transportResult.reasonCode === "quota_restricted"
+  ) {
     return "rate_limited";
   }
   if (transportResult.reasonCode === "response_too_large") {
     return "response_too_large";
   }
-  if (transportResult.reasonCode === "invalid_response") {
+  if (
+    transportResult.reasonCode === "invalid_response" ||
+    transportResult.reasonCode === "invalid_provider_output" ||
+    transportResult.reasonCode === "malformed_stream" ||
+    transportResult.reasonCode === "incomplete_stream" ||
+    transportResult.reasonCode === "no_final_answer" ||
+    transportResult.reasonCode === "output_budget_exhausted_before_final" ||
+    transportResult.reasonCode === "untrusted_tool_proposal_blocked" ||
+    transportResult.reasonCode === "provider_contract_deviation"
+  ) {
     return "invalid_response";
   }
   if (transportResult.statusClass === "network_error") {
@@ -675,6 +801,21 @@ export function mapTransportFailure(
     return "provider_unavailable";
   }
   return "provider_unavailable";
+}
+
+function mapRuntimeOutputFailure(
+  runtimeResult: CloudReasoningRuntimeResult,
+): GlmAdvancedReasoningFailureReasonCode {
+  if (runtimeResult.output.category === "response_too_large") {
+    return "response_too_large";
+  }
+  if (
+    runtimeResult.output.category === "untrusted_tool_proposal_blocked" ||
+    runtimeResult.output.category === "invalid_provider_output"
+  ) {
+    return "invalid_structured_output";
+  }
+  return "invalid_response";
 }
 
 function normalizeGlmAdvancedReasoningOutput(
@@ -962,17 +1103,50 @@ function safeText(value: unknown, maxLength: number): string {
   return normalized;
 }
 
-function maxTokensForBudget(budget: AdvancedBrainRequest["tokenBudgetClass"]): number {
-  if (budget === "tiny") {
-    return 256;
+function runtimeFinalContentAsGlmResponse(
+  finalContent: string | undefined,
+  modelId: string | undefined,
+): unknown {
+  return {
+    ...(modelId ? { model: modelId } : {}),
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: finalContent ?? "",
+        },
+      },
+    ],
+  };
+}
+
+function transportResponseModelMatches(
+  responseJson: unknown,
+  expectedModelId: string | undefined,
+): boolean {
+  if (!isRecord(responseJson) || typeof responseJson.model !== "string") {
+    return true;
   }
-  if (budget === "small") {
-    return 512;
+  return responseJson.model === expectedModelId;
+}
+
+function glmCloudRuntimeRequestContract(
+  modelId: GlmProviderModelCandidateId,
+  thinkingTypeOverride: "enabled" | "disabled" | undefined,
+): {
+  readonly maxTokens: number;
+  readonly thinkingType: "enabled" | "disabled";
+} {
+  if (modelId === "glm-5.3") {
+    return {
+      maxTokens: 1_024,
+      thinkingType: thinkingTypeOverride ?? "enabled",
+    };
   }
-  if (budget === "medium") {
-    return 1_024;
-  }
-  return 2_048;
+  return {
+    maxTokens: 256,
+    thinkingType: thinkingTypeOverride ?? "disabled",
+  };
 }
 
 function toRuntimeCredential(

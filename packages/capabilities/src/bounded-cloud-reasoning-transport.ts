@@ -65,8 +65,17 @@ export interface CloudReasoningRuntimeOptions {
   readonly endpointProfiles: readonly CloudProviderEndpointProfile[];
   readonly modelProfiles: readonly CloudReasoningModelCapabilityProfile[];
   readonly timeoutPolicies: readonly CloudReasoningTimeoutPolicy[];
-  readonly fetch: CloudReasoningFetch;
+  readonly fetch?: CloudReasoningFetch;
+  readonly transport?: CloudReasoningRuntimeTransport;
   readonly now?: () => Date;
+}
+
+export interface CloudReasoningRuntimeTransport {
+  send(
+    request: CloudReasoningTransportRequest,
+    options: CloudReasoningTransportSendOptions,
+  ): Promise<CloudReasoningTransportResult>;
+  dispose?(): void;
 }
 
 export interface CloudReasoningRuntimeRequest {
@@ -103,7 +112,8 @@ export interface OpenAiChatCompletionsParseResult {
     | "no_final_answer"
     | "output_budget_exhausted_before_final"
     | "untrusted_tool_proposal_blocked"
-    | "malformed_stream";
+    | "malformed_stream"
+    | "incomplete_stream";
 }
 
 export interface CloudReasoningRuntimeResult {
@@ -346,7 +356,7 @@ export class BoundedCloudReasoningTransport {
         },
         body,
         signal: controller.signal,
-          redirect: "manual",
+        redirect: "manual",
       });
       clearArmedTimeout(headersTimer);
       responseStarted = true;
@@ -501,7 +511,9 @@ export class BoundedCloudReasoningTransport {
           ? timeoutReason
           : externallyCancelled || this.disposed
             ? "cancelled"
-            : "network_unavailable",
+            : responseStarted && isStreamingRequest(request.data)
+              ? "incomplete_stream"
+              : "network_unavailable",
         requestSent,
         responseStarted,
         cancelled: externallyCancelled || this.disposed,
@@ -576,7 +588,7 @@ export class BoundedCloudReasoningTransport {
 }
 
 export class CloudReasoningRuntime {
-  private readonly transport: BoundedCloudReasoningTransport;
+  private readonly transport: CloudReasoningRuntimeTransport;
   private readonly endpointProfiles: readonly CloudProviderEndpointProfile[];
   private readonly modelProfiles: readonly CloudReasoningModelCapabilityProfile[];
   private readonly timeoutPolicies: readonly CloudReasoningTimeoutPolicy[];
@@ -596,11 +608,17 @@ export class CloudReasoningRuntime {
       CloudReasoningTimeoutPolicySchema.parse(policy),
     );
     this.now = options.now ?? (() => new Date());
-    this.transport = new BoundedCloudReasoningTransport({
-      endpointProfiles: this.endpointProfiles,
-      fetch: options.fetch,
-      now: this.now,
-    });
+    if (options.transport) {
+      this.transport = options.transport;
+    } else if (options.fetch) {
+      this.transport = new BoundedCloudReasoningTransport({
+        endpointProfiles: this.endpointProfiles,
+        fetch: options.fetch,
+        now: this.now,
+      });
+    } else {
+      throw new Error("CLOUD_REASONING_RUNTIME_TRANSPORT_REQUIRED");
+    }
   }
 
   public async runOpenAiChatCompletions(
@@ -671,7 +689,7 @@ export class CloudReasoningRuntime {
       return;
     }
     this.disposed = true;
-    this.transport.dispose();
+    this.transport.dispose?.();
   }
 
   private async sendOnce(
@@ -839,6 +857,19 @@ export class CloudReasoningRuntime {
       };
     }
     if (!input.stream && !model.data.supportsNonStreaming) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    if (
+      !runtimeRequestBodyMatchesProfile(
+        request.data.bodyJson,
+        model.data,
+        input.stream,
+      )
+    ) {
       return {
         ok: false,
         statusClass: "blocked",
@@ -1092,14 +1123,6 @@ function runtimeDiagnostics(
 function normalizeRuntimeTransportRequest(
   input: CloudReasoningRuntimeRequest,
 ): CloudReasoningTransportRequest {
-  const policy = CloudReasoningTimeoutPolicySchema.parse({
-    policyId: input.timeoutPolicyId,
-    connectOrHeadersTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.connectOrHeadersTimeoutMs,
-    firstEventTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.firstEventTimeoutMs,
-    streamIdleTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.streamIdleTimeoutMs,
-    overallTimeoutMs: input.transportRequest.timeoutMs,
-  });
-  void policy;
   return CloudReasoningTransportRequestSchema.parse({
     ...input.transportRequest,
     timeoutMs: input.transportRequest.timeoutMs,
@@ -1197,9 +1220,53 @@ function sameModelProfile(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function runtimeRequestBodyMatchesProfile(
+  body: Readonly<Record<string, unknown>>,
+  profile: CloudReasoningModelCapabilityProfile,
+  stream: boolean,
+): boolean {
+  if (body.model !== profile.modelId || body.stream !== stream) {
+    return false;
+  }
+  if (
+    !profile.supportsTools &&
+    (Object.prototype.hasOwnProperty.call(body, "tools") ||
+      Object.prototype.hasOwnProperty.call(body, "tool_choice") ||
+      Object.prototype.hasOwnProperty.call(body, "function_call"))
+  ) {
+    return false;
+  }
+  const maxTokens = body.max_tokens;
+  if (
+    typeof maxTokens !== "number" ||
+    !Number.isInteger(maxTokens) ||
+    maxTokens <= 0 ||
+    maxTokens > profile.maxOutputTokens
+  ) {
+    return false;
+  }
+  const thinking = isRecord(body.thinking) ? body.thinking : undefined;
+  const thinkingType =
+    thinking && typeof thinking.type === "string" ? thinking.type : undefined;
+  if (profile.thinkingPolicy === "mandatory") {
+    return thinkingType === "enabled";
+  }
+  if (profile.thinkingPolicy === "optional") {
+    return (
+      thinkingType === undefined ||
+      thinkingType === "enabled" ||
+      thinkingType === "disabled"
+    );
+  }
+  return thinkingType === undefined;
+}
+
 function parseReasonToOutputCategory(
   reasonCode: CloudReasoningTransportReasonCode,
 ): OpenAiChatCompletionsParseResult["category"] {
+  if (reasonCode === "incomplete_stream") {
+    return "incomplete_stream";
+  }
   if (reasonCode === "response_too_large") {
     return "response_too_large";
   }
