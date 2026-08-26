@@ -12,6 +12,7 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_THINKING_TYPE,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_THINKING_TYPE,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,
@@ -49,6 +50,7 @@ import type { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./secure-g
 const FIXED_TIMEOUT_MS = GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS;
 const FIXED_MAX_RESPONSE_BYTES = 4_000;
 const GLM_ACCEPTANCE_RESPONSE_EVIDENCE_KEY = "acceptanceResponseEvidence";
+const CURRENT_ACCEPTANCE_MODEL_ID = "glm-5.2" as const;
 
 export interface GlmAdvancedBrainAcceptanceSettings {
   readonly selectedModelId?: GlmAdvancedBrainAcceptanceModelId;
@@ -66,6 +68,7 @@ export interface GlmAdvancedBrainAcceptanceServiceOptions {
   readonly now?: () => Date;
   readonly transport?: GlmAdvancedBrainAcceptanceTransport;
   readonly endpointProfileValid?: boolean;
+  readonly initialConsumedAcceptanceIds?: readonly string[];
 }
 
 export interface GlmAdvancedBrainAcceptanceTransport {
@@ -86,18 +89,28 @@ export interface GlmAdvancedBrainAcceptanceTransportSendOptions {
 export class GlmAdvancedBrainAcceptanceService {
   private settings: GlmAdvancedBrainAcceptanceSettings | null = null;
   private running = false;
-  private acceptanceConsumed = false;
-  private realRequestAttempted = false;
+  private readonly acceptanceAttempts = new Map<
+    string,
+    { consumed: boolean; realRequestAttempted: boolean }
+  >();
 
   public constructor(
     private readonly options: GlmAdvancedBrainAcceptanceServiceOptions,
-  ) {}
+  ) {
+    for (const acceptanceId of options.initialConsumedAcceptanceIds ?? []) {
+      this.acceptanceAttempts.set(acceptanceId, {
+        consumed: true,
+        realRequestAttempted: true,
+      });
+    }
+  }
 
   public async getStatus(): Promise<GlmAdvancedBrainAcceptanceStatus> {
     const [settings, credentialStatus] = await Promise.all([
       this.loadSettings(),
       this.options.credentialStore.status(),
     ]);
+    const currentAttempt = this.currentAcceptanceAttempt();
     const reasonCodes = this.statusReasonCodes(settings, credentialStatus);
     return GlmAdvancedBrainAcceptanceStatusSchema.parse({
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
@@ -109,11 +122,12 @@ export class GlmAdvancedBrainAcceptanceService {
       ...(settings.selectedModelId
         ? { selectedModelId: settings.selectedModelId }
         : {}),
-      modelExplicitlySelected: settings.selectedModelId !== undefined,
+      modelExplicitlySelected:
+        settings.selectedModelId === CURRENT_ACCEPTANCE_MODEL_ID,
       credentialConfigured: credentialStatus.credentialConfigured,
       secureStorageAvailable: credentialStatus.secureStorageAvailable,
       credentialStorageEncrypted: credentialStatus.credentialStorageEncrypted,
-      acceptanceConsumed: this.acceptanceConsumed,
+      acceptanceConsumed: currentAttempt.consumed,
       credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
       ...(credentialStatus.credentialTypeConfirmed
         ? { credentialTypeConfirmed: credentialStatus.credentialTypeConfirmed }
@@ -192,7 +206,7 @@ export class GlmAdvancedBrainAcceptanceService {
       ...(includeRunningState && this.running
         ? ["acceptance_already_running" as const]
         : []),
-      ...(this.acceptanceConsumed
+      ...(this.currentAcceptanceAttempt().consumed
         ? ["acceptance_already_consumed" as const]
         : []),
     ];
@@ -216,9 +230,8 @@ export class GlmAdvancedBrainAcceptanceService {
       if (!credential) {
         throw new Error("GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_MISSING");
       }
-      const request = createFixedDiagnosticRequest(preflight.modelId);
-      this.acceptanceConsumed = true;
-      this.realRequestAttempted = true;
+      const request = createFixedDiagnosticRequest(CURRENT_ACCEPTANCE_MODEL_ID);
+      this.markCurrentAcceptanceConsumed();
       const transport = this.options.transport ?? new FakeGlmAcceptanceTransport();
       const transportResult = await transport.send(request, {
         credential: { scheme: "bearer", value: credential.apiKey },
@@ -233,7 +246,7 @@ export class GlmAdvancedBrainAcceptanceService {
         acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
         acceptanceState: "consumed",
         providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
-        modelId: preflight.modelId,
+      modelId: CURRENT_ACCEPTANCE_MODEL_ID,
         endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
         startedAt: startedAt.toISOString(),
         completedAt: completedAt.toISOString(),
@@ -334,7 +347,7 @@ export class GlmAdvancedBrainAcceptanceService {
     if (!this.options.acceptanceFlagEnabled) {
       reasons.push("acceptance_flag_missing", "provider_disabled");
     }
-    if (settings.selectedModelId !== "glm-5.3") {
+    if (settings.selectedModelId !== CURRENT_ACCEPTANCE_MODEL_ID) {
       reasons.push("model_not_selected");
     }
     if (!credentialStatus.secureStorageAvailable) {
@@ -354,7 +367,7 @@ export class GlmAdvancedBrainAcceptanceService {
     if (!this.endpointProfileIsValid()) {
       reasons.push("endpoint_profile_mismatch");
     }
-    if (this.acceptanceConsumed) {
+    if (this.currentAcceptanceAttempt().consumed) {
       reasons.push("acceptance_already_consumed");
     }
     return reasons.length ? reasons : ["ready"];
@@ -375,7 +388,7 @@ export class GlmAdvancedBrainAcceptanceService {
 
   private fixedRequestReasonCodes(): GlmAdvancedBrainAcceptanceReasonCode[] {
     const reasons: GlmAdvancedBrainAcceptanceReasonCode[] = [];
-    for (const modelId of ["glm-5.3"] as const) {
+    for (const modelId of [CURRENT_ACCEPTANCE_MODEL_ID] as const) {
       const request = createFixedDiagnosticRequest(modelId);
       const body = request.bodyJson as Record<string, unknown>;
       const contract = fixedDiagnosticRequestContract(modelId);
@@ -427,7 +440,8 @@ export class GlmAdvancedBrainAcceptanceService {
     reasonCodes: GlmAdvancedBrainAcceptanceReasonCode[],
   ): GlmAdvancedBrainAcceptancePreflightResult {
     const uniqueReasons = [...new Set(reasonCodes)];
-    const contract = fixedDiagnosticRequestContract("glm-5.3");
+    const currentAttempt = this.currentAcceptanceAttempt();
+    const contract = fixedDiagnosticRequestContract(CURRENT_ACCEPTANCE_MODEL_ID);
     return GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
       acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
@@ -436,7 +450,7 @@ export class GlmAdvancedBrainAcceptanceService {
         uniqueReasons.length === 0 ||
         (uniqueReasons.length === 1 && uniqueReasons[0] === "ready"),
       providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
-      modelId: "glm-5.3",
+      modelId: CURRENT_ACCEPTANCE_MODEL_ID,
       endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
       endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
       operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
@@ -459,10 +473,15 @@ export class GlmAdvancedBrainAcceptanceService {
       requestContractId: contract.profileId,
       requestContractProfileId: contract.profileId,
       maximumOutputTokens: contract.maxTokens,
+      maxTokens: contract.maxTokens,
       maxOutputTokens: contract.maxTokens,
       mandatoryThinking: contract.mandatoryThinking,
+      thinkingSupported: contract.thinkingSupported,
       thinkingType: contract.thinkingType,
       thinkingDisabled: contract.thinkingDisabled,
+      doSample: contract.doSample,
+      temperaturePresent: false,
+      topPPresent: false,
       responseFormatPresent: contract.responseFormatPresent,
       samplingMode: contract.samplingMode,
       requestedTimeoutMs: FIXED_TIMEOUT_MS,
@@ -475,17 +494,17 @@ export class GlmAdvancedBrainAcceptanceService {
       fallbackEnabled: false,
       executorReachable: false,
       allowSingleRealAcceptance:
-        !this.acceptanceConsumed &&
+        !currentAttempt.consumed &&
         (uniqueReasons.length === 0 ||
           (uniqueReasons.length === 1 && uniqueReasons[0] === "ready")),
-      priorRealRequestCount: this.acceptanceConsumed ? 1 : 0,
+      priorRealRequestCount: currentAttempt.consumed ? 1 : 0,
       automaticRetry: false,
       automaticFallback: false,
       toolCapabilityCount: 0,
       windowsExecutorAllowed: false,
       pluginRuntimeAllowed: false,
       directActionAttempted: false,
-      realRequestAttempted: this.realRequestAttempted,
+      realRequestAttempted: currentAttempt.realRequestAttempted,
       realNetworkRequestSent: false,
       credentialExposed: false,
       promptExposed: false,
@@ -524,12 +543,31 @@ export class GlmAdvancedBrainAcceptanceService {
     if (this.running) {
       return "running";
     }
-    if (this.acceptanceConsumed) {
+    if (this.currentAcceptanceAttempt().consumed) {
       return "consumed";
     }
     return reasonCodes.some((reason) => reason !== "ready")
       ? "blocked"
       : "ready";
+  }
+
+  private currentAcceptanceAttempt(): {
+    readonly consumed: boolean;
+    readonly realRequestAttempted: boolean;
+  } {
+    return (
+      this.acceptanceAttempts.get(GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID) ?? {
+        consumed: false,
+        realRequestAttempted: false,
+      }
+    );
+  }
+
+  private markCurrentAcceptanceConsumed(): void {
+    this.acceptanceAttempts.set(GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID, {
+      consumed: true,
+      realRequestAttempted: true,
+    });
   }
 }
 
@@ -616,6 +654,7 @@ export class RealGlmAcceptanceTransport
       const normalizedJson = httpSuccess
         ? normalizeGlmChatCompletionsResponse(parsedJson, {
             contentTypeAllowed,
+            thinkingDisabled: isRequestThinkingDisabled(request),
           })
         : providerHttpErrorResponseProjection({
             contentTypeAllowed,
@@ -806,7 +845,10 @@ function parseJsonObject(value: string): Record<string, unknown> | null {
 
 function normalizeGlmChatCompletionsResponse(
   responseJson: Record<string, unknown> | null,
-  options: { readonly contentTypeAllowed: boolean } = {
+  options: {
+    readonly contentTypeAllowed: boolean;
+    readonly thinkingDisabled?: boolean;
+  } = {
     contentTypeAllowed: true,
   },
 ): Record<string, unknown> {
@@ -859,7 +901,10 @@ function stripSingleJsonCodeFence(value: string): string {
 
 function analyzeGlmChatCompletionsResponse(
   responseJson: Record<string, unknown> | null,
-  options: { readonly contentTypeAllowed: boolean },
+  options: {
+    readonly contentTypeAllowed: boolean;
+    readonly thinkingDisabled?: boolean;
+  },
 ): GlmAcceptanceResponseAnalysis {
   const base: Omit<
     GlmAcceptanceResponseAnalysis,
@@ -940,6 +985,17 @@ function analyzeGlmChatCompletionsResponse(
     parsedContent?.diagnostic === "ok" &&
     parsedContent.directActionAttempted === false &&
     parsedContent.toolCallCount === 0;
+  if (validDiagnostic && options.thinkingDisabled && reasoningContentObserved) {
+    return {
+      ...base,
+      choicesPresent: true,
+      finalContentPresent: true,
+      reasoningContentObserved,
+      finishReason,
+      ...(finalContent !== undefined ? { finalContent } : {}),
+      outputValidationCategory: "provider_contract_deviation",
+    };
+  }
   return {
     ...base,
     choicesPresent: true,
@@ -1067,7 +1123,7 @@ function createFixedDiagnosticRequest(
       max_tokens: contract.maxTokens,
       thinking: { type: contract.thinkingType },
       ...(contract.samplingMode === "deterministic"
-        ? { do_sample: false }
+        ? { do_sample: contract.doSample }
         : {}),
     },
     credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
@@ -1084,8 +1140,10 @@ function fixedDiagnosticRequestContract(
     | typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS
     | typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS;
   readonly mandatoryThinking: boolean;
+  readonly thinkingSupported: boolean;
   readonly thinkingType: GlmAdvancedBrainAcceptanceThinkingType;
   readonly thinkingDisabled: boolean;
+  readonly doSample: false;
   readonly responseFormatPresent: false;
   readonly samplingMode: GlmAdvancedBrainAcceptanceSamplingMode;
 } {
@@ -1094,17 +1152,21 @@ function fixedDiagnosticRequestContract(
         profileId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
         maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
         mandatoryThinking: true,
+        thinkingSupported: true,
         thinkingType: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_THINKING_TYPE,
         thinkingDisabled: false,
+        doSample: false,
         responseFormatPresent: false,
         samplingMode: "deterministic",
       }
     : {
-        profileId: "glm-5.2-fixed-diagnostic-no-thinking",
+        profileId: "glm-5.2-fixed-diagnostic-no-thinking-v1",
         maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
         mandatoryThinking: false,
-        thinkingType: "disabled",
+        thinkingSupported: true,
+        thinkingType: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_THINKING_TYPE,
         thinkingDisabled: true,
+        doSample: false,
         responseFormatPresent: false,
         samplingMode: "deterministic",
       };
@@ -1131,10 +1193,18 @@ function validateFixedDiagnosticResponse(
   if (transportResult.statusClass !== "success" || !isRecord(transportResult.responseJson)) {
     return false;
   }
+  const responseEvidence = extractResponseEvidence(transportResult);
   return (
-    transportResult.responseJson.diagnostic === "ok" &&
-    transportResult.responseJson.directActionAttempted === false &&
-    transportResult.responseJson.toolCallCount === 0
+    hasFixedDiagnosticPayload(transportResult.responseJson) &&
+    responseEvidence.outputValidationCategory === "fixed_diagnostic_ok"
+  );
+}
+
+function hasFixedDiagnosticPayload(responseJson: Record<string, unknown>): boolean {
+  return (
+    responseJson.diagnostic === "ok" &&
+    responseJson.directActionAttempted === false &&
+    responseJson.toolCallCount === 0
   );
 }
 
@@ -1289,16 +1359,16 @@ function extractResponseEvidence(
         : "invalid_provider_output",
     };
   }
-  if (transportResult.statusClass === "success") {
+  if (transportResult.statusClass === "success" && isRecord(transportResult.responseJson)) {
     return {
       contentTypeAllowed: true,
       jsonDecoded: true,
       choicesPresent: true,
-      finalContentPresent: validateFixedDiagnosticResponse(transportResult),
+      finalContentPresent: hasFixedDiagnosticPayload(transportResult.responseJson),
       reasoningContentObserved: false,
       finishReason: "unknown",
       usagePresent: isRecord(transportResult.responseJson) && isRecord(transportResult.responseJson.usage),
-      outputValidationCategory: validateFixedDiagnosticResponse(transportResult)
+      outputValidationCategory: hasFixedDiagnosticPayload(transportResult.responseJson)
         ? "fixed_diagnostic_ok"
         : "invalid_provider_output",
     };
@@ -1376,6 +1446,7 @@ function isOutputValidationCategory(
     value === "output_budget_exhausted_before_final" ||
     value === "no_final_answer" ||
     value === "untrusted_tool_proposal_blocked" ||
+    value === "provider_contract_deviation" ||
     value === "provider_http_error" ||
     value === "transport_failure"
   );
@@ -1391,7 +1462,8 @@ function isOutputValidationProviderCategory(
     value === "invalid_provider_output" ||
     value === "output_budget_exhausted_before_final" ||
     value === "no_final_answer" ||
-    value === "untrusted_tool_proposal_blocked"
+    value === "untrusted_tool_proposal_blocked" ||
+    value === "provider_contract_deviation"
   );
 }
 
@@ -1405,6 +1477,7 @@ function transportReasonCodeForOutputValidation(
     case "output_budget_exhausted_before_final":
     case "no_final_answer":
     case "untrusted_tool_proposal_blocked":
+    case "provider_contract_deviation":
       return value;
     case "provider_http_error":
     case "transport_failure":
@@ -1422,11 +1495,22 @@ function acceptanceReasonCodeForOutputValidation(
     case "output_budget_exhausted_before_final":
     case "no_final_answer":
     case "untrusted_tool_proposal_blocked":
+    case "provider_contract_deviation":
       return value;
     case "provider_http_error":
     case "transport_failure":
       return "transport_failed";
   }
+}
+
+function isRequestThinkingDisabled(
+  request: CloudReasoningTransportRequest,
+): boolean {
+  const body = request.bodyJson as Record<string, unknown>;
+  return (
+    isRecord(body.thinking) &&
+    body.thinking.type === GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_THINKING_TYPE
+  );
 }
 
 function safeNonNegativeInteger(value: unknown): number {

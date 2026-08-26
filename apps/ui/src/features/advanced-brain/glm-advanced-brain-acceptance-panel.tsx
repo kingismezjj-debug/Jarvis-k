@@ -58,7 +58,7 @@ export function GlmAdvancedBrainAcceptancePanel({
   const confirmRun = () => {
     const accepted = window.confirm(
       [
-        "Run GLM Advanced Brain real acceptance diagnostic?",
+        "Run GLM-5.2 No-Thinking real acceptance diagnostic?",
         `Acceptance ID: ${preflightResult?.acceptanceId ?? "unavailable"}`,
         `Acceptance version: ${preflightResult?.acceptanceVersion ?? "unavailable"}`,
         `Provider: GLM`,
@@ -70,9 +70,13 @@ export function GlmAdvancedBrainAcceptancePanel({
         "User content included: NO",
         "Tool execution: NO",
         "Retry: NO",
-        `Maximum output tokens: ${preflightResult?.maxOutputTokens ?? "unavailable"}`,
+        `Max tokens: ${preflightResult?.maxTokens ?? "unavailable"}`,
         `Mandatory thinking: ${preflightResult?.mandatoryThinking ? "YES" : "NO"}`,
+        `Thinking supported: ${preflightResult?.thinkingSupported ? "YES" : "NO"}`,
         `Thinking type: ${preflightResult?.thinkingType ?? "unavailable"}`,
+        `do_sample: ${preflightResult?.doSample === false ? "false" : "unavailable"}`,
+        `temperature: ${preflightResult?.temperaturePresent ? "present" : "absent"}`,
+        `top_p: ${preflightResult?.topPPresent ? "present" : "absent"}`,
         `Response format: ${preflightResult?.responseFormatPresent ? "present" : "absent"}`,
         `Sampling mode: ${preflightResult?.samplingMode ?? "unavailable"}`,
         `Requested timeout: ${preflightResult?.requestedTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
@@ -95,7 +99,9 @@ export function GlmAdvancedBrainAcceptancePanel({
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold">GLM Advanced Brain acceptance</h3>
+          <h3 className="text-sm font-semibold">
+            GLM-5.2 No-Thinking Acceptance
+          </h3>
           <p className="text-xs text-muted-foreground">
             One-time fixed diagnostic / no user prompt / no tools
           </p>
@@ -352,11 +358,15 @@ export function GlmAdvancedBrainAcceptancePanel({
           />
           <MetricRow
             label="max tokens"
-            value={String(preflightResult.maxOutputTokens)}
+            value={String(preflightResult.maxTokens)}
           />
           <MetricRow
             label="mandatory thinking"
             value={preflightResult.mandatoryThinking ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="thinking supported"
+            value={preflightResult.thinkingSupported ? "YES" : "NO"}
           />
           <MetricRow
             label="thinking type"
@@ -365,6 +375,18 @@ export function GlmAdvancedBrainAcceptancePanel({
           <MetricRow
             label="thinking disabled"
             value={preflightResult.thinkingDisabled ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="do sample"
+            value={preflightResult.doSample ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="temperature"
+            value={preflightResult.temperaturePresent ? "present" : "absent"}
+          />
+          <MetricRow
+            label="top p"
+            value={preflightResult.topPPresent ? "present" : "absent"}
           />
           <MetricRow
             label="response format"

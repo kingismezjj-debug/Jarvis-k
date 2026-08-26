@@ -12,7 +12,8 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
-  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_V4_ID,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -96,17 +97,17 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("stores model selection separately from secure credentials", async () => {
     const { credentialPath, service, settingsPath } = await createService();
 
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const status = await service.getStatus();
-    expect(status.selectedModelId).toBe("glm-5.3");
+    expect(status.selectedModelId).toBe("glm-5.2");
     expect(status.credentialConfigured).toBe(true);
     expect(status.credentialStorageEncrypted).toBe(true);
     expect(status.credentialTypeConfirmed).toBe(
       GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
     );
-    expect(await readFile(settingsPath, "utf8")).toContain("glm-5.3");
+    expect(await readFile(settingsPath, "utf8")).toContain("glm-5.2");
     expect(await readFile(settingsPath, "utf8")).not.toContain("test-secret-key");
     const credentialFile = await readFile(credentialPath, "utf8");
     const credentialJson = JSON.parse(credentialFile) as Record<string, unknown>;
@@ -139,12 +140,12 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
         "credential_missing",
       ]),
     });
-    await service.setModel({ modelId: "glm-5.2" });
+    await service.setModel({ modelId: "glm-5.3" });
     await expect(service.preflight(consent())).resolves.toMatchObject({
       allowRealAcceptance: false,
       reasonCodes: expect.arrayContaining(["model_not_selected"]),
     });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await expect(service.preflight(consent())).resolves.toMatchObject({
       allowRealAcceptance: false,
       reasonCodes: ["credential_missing"],
@@ -173,14 +174,19 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       credentialTypeConfirmed: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
       selectedModelExplicit: true,
       requestBodyFixed: true,
-      requestContractId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
+      requestContractId: "glm-5.2-fixed-diagnostic-no-thinking-v1",
       requestContractProfileId:
-        "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
-      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      mandatoryThinking: true,
-      thinkingType: "enabled",
-      thinkingDisabled: false,
+        "glm-5.2-fixed-diagnostic-no-thinking-v1",
+      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      mandatoryThinking: false,
+      thinkingSupported: true,
+      thinkingType: "disabled",
+      thinkingDisabled: true,
+      doSample: false,
+      temperaturePresent: false,
+      topPPresent: false,
       responseFormatPresent: false,
       samplingMode: "deterministic",
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -209,17 +215,17 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("runs only the fixed fake diagnostic and returns a sanitized report", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const report = await service.runDiagnostic(consent());
 
     expect(transport.calls).toHaveLength(1);
     expect(transport.calls[0]?.request.bodyJson).toMatchObject({
-      model: "glm-5.3",
+      model: "glm-5.2",
       stream: false,
-      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      thinking: { type: "enabled" },
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      thinking: { type: "disabled" },
       do_sample: false,
     });
     expect(transport.calls[0]?.request.bodyJson).not.toHaveProperty(
@@ -273,6 +279,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID);
     expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID);
     expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_V3_ID);
+    expect(report.acceptanceId).not.toBe(GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_V4_ID);
   });
 
   it("normalizes fake transport failures without retry, fallback, tools, or direct actions", async () => {
@@ -291,7 +298,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       const { service } = await createService({
         transport: new FakeTransport(transportResult),
       });
-      await service.setModel({ modelId: "glm-5.3" });
+      await service.setModel({ modelId: "glm-5.2" });
       await service.saveCredential(fakeCredential());
 
       const report = await service.runDiagnostic(consent());
@@ -343,7 +350,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       ),
     );
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const before = await service.preflight(consent());
@@ -386,7 +393,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("does not let stale preflight, credential replacement, or credential deletion permit a second request", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     await expect(service.preflight(consent())).resolves.toMatchObject({
@@ -432,7 +439,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("keeps consumed state in Main service across renderer recreation", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     await service.runDiagnostic(consent());
@@ -457,7 +464,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("allows only one transport invocation under concurrent double-click", async () => {
     const transport = new BlockingTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const firstRun = service.runDiagnostic(consent());
@@ -504,7 +511,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       encryption: fakeEncryption(false),
     });
     const endpointMismatch = await createService({ endpointProfileValid: false });
-    await endpointMismatch.service.setModel({ modelId: "glm-5.3" });
+    await endpointMismatch.service.setModel({ modelId: "glm-5.2" });
     await endpointMismatch.service.saveCredential(fakeCredential());
 
     await expect(unavailable.service.getStatus()).resolves.toMatchObject({
@@ -521,7 +528,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("does not let Renderer mutate fixed request details", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const forgedRequest = {
@@ -541,14 +548,19 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
       acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
       allowRealAcceptance: true,
-      requestContractId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
+      requestContractId: "glm-5.2-fixed-diagnostic-no-thinking-v1",
       requestContractProfileId:
-        "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
-      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      mandatoryThinking: true,
-      thinkingType: "enabled",
-      thinkingDisabled: false,
+        "glm-5.2-fixed-diagnostic-no-thinking-v1",
+      maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      mandatoryThinking: false,
+      thinkingSupported: true,
+      thinkingType: "disabled",
+      thinkingDisabled: true,
+      doSample: false,
+      temperaturePresent: false,
+      topPPresent: false,
       responseFormatPresent: false,
       samplingMode: "deterministic",
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -568,7 +580,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
 
   it("pins the exact public GLM endpoint in preflight evidence", async () => {
     const { service } = await createService();
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const preflight = await service.preflight(consent());
@@ -587,10 +599,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(preflight.fullEndpointMatch).toBe(true);
   });
 
-  it("projects the model-specific GLM-5.3 mandatory-thinking contract", async () => {
+  it("projects the independent GLM-5.2 no-thinking contract", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const preflight = await service.preflight(consent());
@@ -598,14 +610,19 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     const body = transport.calls[0]?.request.bodyJson as Record<string, unknown>;
 
     expect(preflight).toMatchObject({
-      modelId: "glm-5.3",
-      requestContractId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
+      modelId: "glm-5.2",
+      requestContractId: "glm-5.2-fixed-diagnostic-no-thinking-v1",
       requestContractProfileId:
-        "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
-      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      mandatoryThinking: true,
-      thinkingType: "enabled",
-      thinkingDisabled: false,
+        "glm-5.2-fixed-diagnostic-no-thinking-v1",
+      maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      mandatoryThinking: false,
+      thinkingSupported: true,
+      thinkingType: "disabled",
+      thinkingDisabled: true,
+      doSample: false,
+      temperaturePresent: false,
+      topPPresent: false,
       responseFormatPresent: false,
       samplingMode: "deterministic",
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -613,10 +630,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       timeoutBounded: true,
     });
     expect(body).toMatchObject({
-      model: "glm-5.3",
+      model: "glm-5.2",
       stream: false,
-      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      thinking: { type: "enabled" },
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      thinking: { type: "disabled" },
       do_sample: false,
     });
     expect(body).not.toHaveProperty("reasoning_effort");
@@ -656,7 +673,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     });
     const transport = new RealGlmAcceptanceTransport(fetchImpl);
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const report = await service.runDiagnostic(consent());
@@ -674,10 +691,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       Accept: "application/json",
     });
     expect(JSON.parse(String(init?.body))).toMatchObject({
-      model: "glm-5.3",
+      model: "glm-5.2",
       stream: false,
-      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      thinking: { type: "enabled" },
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      thinking: { type: "disabled" },
       do_sample: false,
     });
     expect(JSON.parse(String(init?.body))).not.toHaveProperty(
@@ -725,7 +742,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(JSON.stringify(report)).not.toContain('"choices":');
   });
 
-  it("parses GLM-5.3 reasoning_content only as safe evidence when final content is valid", async () => {
+  it("classifies unexpected GLM-5.2 reasoning_content as a safe contract deviation", async () => {
     const report = await runRealTransportFixture(
       glmChatCompletionResponse({
         choices: [
@@ -746,10 +763,11 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
 
     expect(report).toMatchObject({
       httpStatus: 200,
-      httpStatusClass: "success",
-      structuredResultValidation: "PASS",
-      outputValidationCategory: "fixed_diagnostic_ok",
-      providerErrorCategory: "none",
+      httpStatusClass: "invalid_response",
+      structuredResultValidation: "FAIL",
+      reasonCode: "provider_contract_deviation",
+      outputValidationCategory: "provider_contract_deviation",
+      providerErrorCategory: "provider_contract_deviation",
       contentTypeAllowed: true,
       jsonDecoded: true,
       choicesPresent: true,
@@ -769,7 +787,6 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
           {
             finish_reason: "stop",
             message: {
-              reasoning_content: "private chain of thought must not leak",
               content:
                 "```json\n{\"diagnostic\":\"ok\",\"directActionAttempted\":false,\"toolCallCount\":0}\n```",
             },
@@ -783,7 +800,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       httpStatusClass: "success",
       structuredResultValidation: "PASS",
       outputValidationCategory: "fixed_diagnostic_ok",
-      reasoningContentObserved: true,
+      reasoningContentObserved: false,
       finalContentPresent: true,
       finishReason: "stop",
     });
@@ -791,7 +808,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(JSON.stringify(report)).not.toContain("reasoning_content");
   });
 
-  it("classifies GLM-5.3 token exhaustion before final content separately", async () => {
+  it("classifies GLM-5.2 token exhaustion before final content separately", async () => {
     const report = await runRealTransportFixture(
       glmChatCompletionResponse({
         choices: [
@@ -964,7 +981,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       const [, init] = fetchImpl.mock.calls[0] ?? [];
       expect(JSON.parse(String(init?.body))).toMatchObject({
       stream: false,
-      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
     });
     } finally {
       vi.useRealTimers();
@@ -1085,7 +1102,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       ),
       "utf8",
     );
-    await decryptFailure.service.setModel({ modelId: "glm-5.3" });
+    await decryptFailure.service.setModel({ modelId: "glm-5.2" });
 
     await expect(decryptFailure.service.getStatus()).resolves.toMatchObject({
       credentialConfigured: false,
@@ -1099,7 +1116,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
 
     const corrupt = await createService();
     await writeFile(corrupt.credentialPath, "{bad-json", "utf8");
-    await corrupt.service.setModel({ modelId: "glm-5.3" });
+    await corrupt.service.setModel({ modelId: "glm-5.2" });
 
     await expect(corrupt.service.getStatus()).resolves.toMatchObject({
       credentialConfigured: false,
@@ -1110,7 +1127,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
 
   it("reports configured=false after deleting the acceptance credential", async () => {
     const { service } = await createService();
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const result = await service.deleteCredential();
@@ -1125,7 +1142,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("trims credential edges but rejects pasted bearer headers", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
 
     await service.saveCredential({
       apiKey: "  fixture-secret  ",
@@ -1150,7 +1167,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("rejects concurrent diagnostic runs", async () => {
     const transport = new BlockingTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     const firstRun = service.runDiagnostic(consent());
@@ -1167,7 +1184,7 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
   it("allows the fixed acceptance id to be submitted only once per service session", async () => {
     const transport = new FakeTransport(successResponse());
     const { service } = await createService({ transport });
-    await service.setModel({ modelId: "glm-5.3" });
+    await service.setModel({ modelId: "glm-5.2" });
     await service.saveCredential(fakeCredential());
 
     await expect(service.runDiagnostic(consent())).resolves.toMatchObject({
@@ -1187,7 +1204,44 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(transport.calls).toHaveLength(1);
   });
 
-  it("keeps the v4 acceptance identity Main-owned and non-overridable", () => {
+  it("keeps GLM-5.3 historical consumption isolated from GLM-5.2 acceptance", async () => {
+    const transport = new FakeTransport(successResponse());
+    const { service } = await createService({
+      initialConsumedAcceptanceIds: [GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_V4_ID],
+      transport,
+    });
+    await service.setModel({ modelId: "glm-5.2" });
+    await service.saveCredential(fakeCredential());
+
+    const before = await service.preflight(consent());
+    const report = await service.runDiagnostic(consent());
+    const after = await service.preflight(consent());
+
+    expect(before).toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
+      modelId: "glm-5.2",
+      priorRealRequestCount: 0,
+      realRequestAttempted: false,
+      allowSingleRealAcceptance: true,
+      allowRealAcceptance: true,
+    });
+    expect(report).toMatchObject({
+      acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
+      modelId: "glm-5.2",
+      acceptanceConsumed: true,
+      realNetworkRequestSent: false,
+    });
+    expect(after).toMatchObject({
+      priorRealRequestCount: 1,
+      realRequestAttempted: true,
+      allowSingleRealAcceptance: false,
+      reasonCodes: expect.arrayContaining(["acceptance_already_consumed"]),
+    });
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it("keeps the GLM-5.2 acceptance identity Main-owned and non-overridable", () => {
     const serviceSource = readFileSync(
       path.resolve(
         import.meta.dirname,
@@ -1251,10 +1305,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(serviceSource).not.toContain("acceptanceVersion++");
     expect(serviceSource).not.toContain("acceptanceVersion +");
     expect(serviceSource).toContain(
-      'profileId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2"',
+      'profileId: "glm-5.2-fixed-diagnostic-no-thinking-v1"',
     );
     expect(serviceSource).toContain(
-      "maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS",
+      "maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS",
     );
     expect(serviceSource).not.toContain("fixed-request-v5");
     expect(ipcSource).toContain(
@@ -1275,20 +1329,21 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(contractsSource).toContain(
       "GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID",
     );
+    expect(contractsSource).toContain(GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_V4_ID);
     expect(contractsSource).toContain(
-      "glm-advanced-brain-acceptance-fixed-request-v4",
+      "glm-5.2-advanced-brain-acceptance-fixed-request-v1",
     );
     expect(contractsSource).toContain(
-      "GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 4",
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 1",
     );
     expect(contractsSource).toContain(
-      "GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS = 1024",
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS = 256",
     );
     expect(contractsSource).not.toContain(
-      "GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS = 64",
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS = 64",
     );
     expect(contractsSource).not.toContain(
-      "GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS = 512",
+      "GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS = 512",
     );
     expect(productGlmProviderSource).toContain(
       "export const GLM_ADVANCED_BRAIN_DEFAULT_TIMEOUT_MS = 45_000",
@@ -1336,6 +1391,7 @@ async function createService(options: {
   readonly acceptanceFlagEnabled?: boolean;
   readonly encryption?: SecureStringEncryption;
   readonly endpointProfileValid?: boolean;
+  readonly initialConsumedAcceptanceIds?: readonly string[];
   readonly transport?: GlmAdvancedBrainAcceptanceTransport;
 } = {}) {
   const directory = await mkdtemp(
@@ -1356,6 +1412,7 @@ async function createService(options: {
       credentialStore,
       acceptanceFlagEnabled: options.acceptanceFlagEnabled ?? true,
       endpointProfileValid: options.endpointProfileValid,
+      initialConsumedAcceptanceIds: options.initialConsumedAcceptanceIds,
       transport: options.transport,
       now: () => new Date("2026-08-25T00:00:00.000Z"),
     }),
@@ -1383,7 +1440,7 @@ function fixedTransportRequest(): CloudReasoningTransportRequest {
     method: "POST",
     contentType: "application/json",
     bodyJson: {
-      model: "glm-5.3",
+      model: "glm-5.2",
       messages: [
         {
           role: "system",
@@ -1398,8 +1455,8 @@ function fixedTransportRequest(): CloudReasoningTransportRequest {
         },
       ],
       stream: false,
-      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-      thinking: { type: "enabled" },
+      max_tokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
+      thinking: { type: "disabled" },
       do_sample: false,
     },
     credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
@@ -1414,7 +1471,7 @@ async function runRealTransportFixture(
   const fetchImpl = vi.fn(async (_url: string, _init: RequestInit) => response);
   const transport = new RealGlmAcceptanceTransport(fetchImpl);
   const { service } = await createService({ transport });
-  await service.setModel({ modelId: "glm-5.3" });
+  await service.setModel({ modelId: "glm-5.2" });
   await service.saveCredential(fakeCredential());
 
   const report = await service.runDiagnostic(consent());
