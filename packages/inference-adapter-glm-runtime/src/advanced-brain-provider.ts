@@ -11,6 +11,7 @@ import {
   AdvancedBrainRequestSchema,
   BrainPlanSchema,
   CloudProviderEndpointProfileSchema,
+  CloudReasoningModelCapabilityProfileSchema,
   CloudReasoningTransportRequestSchema,
   type AdvancedBrainPreparedRequest,
   type AdvancedBrainProviderCapabilityProfile,
@@ -19,6 +20,7 @@ import {
   type AdvancedBrainTaskCategory,
   type BrainPlan,
   type CloudProviderEndpointProfile,
+  type CloudReasoningModelCapabilityProfile,
   type CloudReasoningTransportRequest,
   type CloudReasoningTransportResult,
 } from "@jarvis-k/contracts";
@@ -507,6 +509,42 @@ export function createGlmAdvancedReasoningProfile(input: {
     taskCategories: GLM_ADVANCED_BRAIN_SUPPORTED_CATEGORIES,
     enabled: input.enabled === true,
     healthStatus: input.healthStatus ?? "unknown",
+  });
+}
+
+export function createGlmCloudReasoningModelCapabilityProfile(input: {
+  readonly enabled?: boolean;
+  readonly modelId: GlmProviderModelCandidateId;
+}): CloudReasoningModelCapabilityProfile {
+  const thinkingPolicy =
+    input.modelId === "glm-5.3" ? "mandatory" : "optional";
+  return CloudReasoningModelCapabilityProfileSchema.parse({
+    schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+    providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
+    modelId: input.modelId,
+    protocolFamily: "openai_chat_completions",
+    deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
+    trustClass: "provider_managed",
+    region: "mainland_china",
+    supportsStreaming: true,
+    supportsNonStreaming: true,
+    supportsThinking: true,
+    thinkingPolicy,
+    supportsReasoningEffort: false,
+    supportsTools: false,
+    supportsStructuredOutput: true,
+    supportsVision: false,
+    supportsImages: false,
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    recommendedOutputTokens: input.modelId === "glm-5.3" ? 1_024 : 256,
+    requestTimeoutPolicyId: "reasoning-default-v1",
+    credentialBindingId: GLM_ADVANCED_BRAIN_CREDENTIAL_BINDING_ID,
+    endpointProfileId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
+    executionSemantics: "real_provider",
+    dataEgressClass: "cloud_user_content",
+    pricingTier: "medium",
+    enabled: input.enabled === true,
   });
 }
 

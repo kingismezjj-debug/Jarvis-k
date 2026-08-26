@@ -19,6 +19,7 @@ import {
   createGlmAdvancedReasoningEndpointProfile,
   createGlmAdvancedReasoningProfile,
   createGlmAdvancedReasoningRequestBody,
+  createGlmCloudReasoningModelCapabilityProfile,
   mapTransportFailure,
   type GlmAdvancedReasoningCredential,
   type GlmAdvancedReasoningCredentialProvider,
@@ -65,6 +66,35 @@ describe("GlmAdvancedReasoningProvider", () => {
       ],
       redirectPolicy: "none",
       credentialBindingId: GLM_ADVANCED_BRAIN_CREDENTIAL_BINDING_ID,
+    });
+  });
+
+  it("defines shared-runtime GLM model capability profiles without enabling product routing", () => {
+    const glm52 = createGlmCloudReasoningModelCapabilityProfile({
+      enabled: false,
+      modelId: "glm-5.2",
+    });
+    const glm53 = createGlmCloudReasoningModelCapabilityProfile({
+      enabled: false,
+      modelId: "glm-5.3",
+    });
+
+    expect(glm52).toMatchObject({
+      providerId: GLM_ADVANCED_BRAIN_PROVIDER_ID,
+      modelId: "glm-5.2",
+      protocolFamily: "openai_chat_completions",
+      deploymentId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
+      thinkingPolicy: "optional",
+      recommendedOutputTokens: 256,
+      credentialBindingId: GLM_ADVANCED_BRAIN_CREDENTIAL_BINDING_ID,
+      endpointProfileId: GLM_ADVANCED_BRAIN_DEPLOYMENT_ID,
+      enabled: false,
+    });
+    expect(glm53).toMatchObject({
+      modelId: "glm-5.3",
+      thinkingPolicy: "mandatory",
+      recommendedOutputTokens: 1024,
+      enabled: false,
     });
   });
 
