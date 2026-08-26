@@ -19,6 +19,7 @@ function createSettingsService(input: {
   secureStorageAvailable?: boolean;
   configuration?: ChatAnswerProviderConfiguration | null;
   evaluationCapabilityAvailable?: boolean;
+  cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
   packagedAlphaLoginItem?: boolean;
 } = {}) {
@@ -37,6 +38,8 @@ function createSettingsService(input: {
       ? createLoginItemController()
       : undefined,
     evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
+    cloudProviderAcceptanceCapabilityAvailable:
+      input.cloudProviderAcceptanceCapabilityAvailable,
     desktopSettingsPath: input.desktopSettingsPath,
   });
   return {
@@ -60,6 +63,7 @@ describe("SettingsService", () => {
       credentialExposed: false,
     });
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
+      cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -195,6 +199,21 @@ describe("SettingsService", () => {
       evaluationCapabilityAvailable: true,
     });
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
+      cloudProviderAcceptanceCapabilityAvailable: false,
+      evaluationCapabilityAvailable: true,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    });
+  });
+
+  it("exposes cloud provider acceptance capability separately from evaluation", () => {
+    const { service } = createSettingsService({
+      cloudProviderAcceptanceCapabilityAvailable: true,
+      evaluationCapabilityAvailable: true,
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toEqual({
+      cloudProviderAcceptanceCapabilityAvailable: true,
       evaluationCapabilityAvailable: true,
       source: "desktop-main",
       sensitiveValuesExposed: false,

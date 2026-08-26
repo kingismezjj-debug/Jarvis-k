@@ -217,6 +217,17 @@ describe("check-boundaries script", () => {
     );
   });
 
+  it("allows Desktop Main to import provider-neutral capability runtime boundaries", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "desktop"),
+      "import { CloudReasoningRuntime } from \"@jarvis-k/capabilities\";\nvoid CloudReasoningRuntime;\n",
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries",
+    );
+  });
+
   it("fails when UI imports capability policy directly", async () => {
     await writeSourceFile(
       path.join(directory, "apps", "ui"),

@@ -15,10 +15,48 @@ describe("ui surface mode", () => {
         capabilityStatus: null,
       }),
     ).toEqual({
+      cloudProviderAcceptanceCapabilityAvailable: false,
+      cloudProviderAcceptanceSurfaceEnabled: false,
       developerModeEnabled: false,
       effectiveSurface: "product",
       evaluationCapabilityAvailable: false,
       evaluationSurfaceEnabled: false,
+    });
+  });
+
+  it("requires the independent cloud provider acceptance capability", () => {
+    const baseCapabilityStatus = {
+      evaluationCapabilityAvailable: true,
+      source: "desktop-main" as const,
+      sensitiveValuesExposed: false as const,
+      rendererWritable: false as const,
+    };
+
+    expect(
+      projectUiSurfaceMode({
+        developerModeEnabled: true,
+        capabilityStatus: baseCapabilityStatus,
+      }),
+    ).toMatchObject({
+      effectiveSurface: "evaluation",
+      evaluationSurfaceEnabled: true,
+      cloudProviderAcceptanceCapabilityAvailable: false,
+      cloudProviderAcceptanceSurfaceEnabled: false,
+    });
+
+    expect(
+      projectUiSurfaceMode({
+        developerModeEnabled: true,
+        capabilityStatus: {
+          ...baseCapabilityStatus,
+          cloudProviderAcceptanceCapabilityAvailable: true,
+        },
+      }),
+    ).toMatchObject({
+      effectiveSurface: "evaluation",
+      evaluationSurfaceEnabled: true,
+      cloudProviderAcceptanceCapabilityAvailable: true,
+      cloudProviderAcceptanceSurfaceEnabled: true,
     });
   });
 

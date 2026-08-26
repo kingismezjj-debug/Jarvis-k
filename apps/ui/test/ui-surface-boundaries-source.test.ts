@@ -9,6 +9,9 @@ const useJarvisSource = readUiSource(["hooks/use-jarvis.ts"]);
 const glmAcceptancePanelSource = readUiSource([
   "features/advanced-brain/glm-advanced-brain-acceptance-panel.tsx",
 ]);
+const cloudAcceptancePanelSource = readUiSource([
+  "features/advanced-brain/cloud-provider-acceptance-panel.tsx",
+]);
 
 describe("product/developer/evaluation UI boundaries", () => {
   it("keeps Developer navigation hidden until Developer Mode is enabled", () => {
@@ -41,6 +44,36 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(glmAcceptancePanelSource).toContain("acceptanceFlagEnabled");
     expect(glmAcceptancePanelSource).not.toContain("window.jarvis");
     expect(glmAcceptancePanelSource).not.toContain("ipcRenderer");
+  });
+
+  it("keeps Cloud Provider acceptance behind Developer, Evaluation, and Cloud gates", () => {
+    expect(appSource).toContain("<CloudProviderAcceptancePanel");
+    expect(appSource).toContain(
+      "uiSurfaceMode.cloudProviderAcceptanceSurfaceEnabled ? (",
+    );
+    expect(useJarvisSource).toContain(
+      "cloudProviderAcceptanceSurfaceEnabled",
+    );
+    expect(useJarvisSource).toContain(
+      "window.jarvis.getCloudProviderAcceptanceStatus",
+    );
+    expect(cloudAcceptancePanelSource).toContain("FAKE ONLY");
+    expect(cloudAcceptancePanelSource).toContain(
+      "realNetworkRequestSent === false",
+    );
+    expect(cloudAcceptancePanelSource).not.toContain("window.jarvis");
+    expect(cloudAcceptancePanelSource).not.toContain("ipcRenderer");
+    expect(cloudAcceptancePanelSource).not.toContain("safeStorage");
+    expect(cloudAcceptancePanelSource).not.toContain("readFile");
+    expect(cloudAcceptancePanelSource).not.toContain("writeFile");
+  });
+
+  it("keeps Cloud Provider acceptance diagnostics free of prompts, keys, and raw response output", () => {
+    expect(cloudAcceptancePanelSource).not.toContain("bodyJson");
+    expect(cloudAcceptancePanelSource).not.toContain("responseJson");
+    expect(cloudAcceptancePanelSource).not.toContain("credential.value");
+    expect(cloudAcceptancePanelSource).not.toContain("raw response");
+    expect(cloudAcceptancePanelSource).toContain("no real network");
   });
 
   it("keeps GLM acceptance diagnostics free of prompt, key, and raw body output", () => {
