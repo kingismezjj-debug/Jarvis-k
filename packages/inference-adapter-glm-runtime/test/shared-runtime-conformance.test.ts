@@ -331,7 +331,7 @@ function requestFixture(requestId: string): AdvancedBrainRequest {
 function credentialProviderFixture(): GlmAdvancedReasoningCredentialProvider {
   return {
     async getCredential() {
-      return { apiKey: "fake-platform-api-key" };
+      return { apiKey: "not-a-real-key" };
     },
   };
 }
@@ -340,7 +340,7 @@ function credentialOptions() {
   return {
     credential: {
       scheme: "bearer" as const,
-      value: "fake-platform-api-key",
+      value: "not-a-real-key",
     },
   };
 }

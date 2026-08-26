@@ -85,6 +85,7 @@ export interface CloudReasoningRuntimeRequest {
   readonly stream: boolean;
   readonly maxFinalContentChars: number;
   readonly retryPolicy?: CloudReasoningRetryPolicy;
+  readonly toolsEnabled?: boolean;
 }
 
 export interface CloudReasoningRetryPolicy {
@@ -112,6 +113,8 @@ export interface OpenAiChatCompletionsParseResult {
     | "no_final_answer"
     | "output_budget_exhausted_before_final"
     | "untrusted_tool_proposal_blocked"
+    | "provider_content_filtered"
+    | "provider_capacity_unavailable"
     | "malformed_stream"
     | "incomplete_stream";
 }
@@ -868,6 +871,7 @@ export class CloudReasoningRuntime {
         request.data.bodyJson,
         model.data,
         input.stream,
+        input.toolsEnabled === true,
       )
     ) {
       return {
@@ -944,6 +948,16 @@ export function parseOpenAiChatCompletionsJson(input: {
   const finishReason =
     typeof choice.finish_reason === "string" ? choice.finish_reason : undefined;
   const usage = parseUsage(input.body.usage);
+  const terminalFailure = finishReasonToFailureCategory(finishReason);
+  if (terminalFailure) {
+    return invalidParse(terminalFailure, {
+      reasoningObserved,
+      ...(finishReason ? { finishReason } : {}),
+      ...(usage ? { usage } : {}),
+      toolProposalObserved:
+        terminalFailure === "untrusted_tool_proposal_blocked",
+    });
+  }
   if (content.length === 0) {
     const partial = {
       reasoningObserved,
@@ -1010,6 +1024,16 @@ export function parseOpenAiChatCompletionsSse(input: {
     finishReason =
       typeof choice.finish_reason === "string" ? choice.finish_reason : finishReason;
     const delta = isRecord(choice.delta) ? choice.delta : {};
+    const terminalFailure = finishReasonToFailureCategory(finishReason);
+    if (terminalFailure) {
+      return invalidParse(terminalFailure, {
+        reasoningObserved,
+        ...(finishReason ? { finishReason } : {}),
+        ...(usage ? { usage } : {}),
+        toolProposalObserved:
+          terminalFailure === "untrusted_tool_proposal_blocked",
+      });
+    }
     if (
       Object.prototype.hasOwnProperty.call(delta, "tool_calls") ||
       Object.prototype.hasOwnProperty.call(delta, "function_call")
@@ -1224,12 +1248,13 @@ function runtimeRequestBodyMatchesProfile(
   body: Readonly<Record<string, unknown>>,
   profile: CloudReasoningModelCapabilityProfile,
   stream: boolean,
+  toolsEnabled: boolean,
 ): boolean {
   if (body.model !== profile.modelId || body.stream !== stream) {
     return false;
   }
   if (
-    !profile.supportsTools &&
+    (!profile.supportsTools || !toolsEnabled) &&
     (Object.prototype.hasOwnProperty.call(body, "tools") ||
       Object.prototype.hasOwnProperty.call(body, "tool_choice") ||
       Object.prototype.hasOwnProperty.call(body, "function_call"))
@@ -1248,6 +1273,23 @@ function runtimeRequestBodyMatchesProfile(
   const thinking = isRecord(body.thinking) ? body.thinking : undefined;
   const thinkingType =
     thinking && typeof thinking.type === "string" ? thinking.type : undefined;
+  if (containsJsonObjectKey(body, "reasoning_content")) {
+    return false;
+  }
+  const reasoningEffort = body.reasoning_effort;
+  if (reasoningEffort !== undefined) {
+    if (
+      !profile.supportsReasoningEffort ||
+      thinkingType !== "enabled" ||
+      (reasoningEffort !== "low" &&
+        reasoningEffort !== "high" &&
+        reasoningEffort !== "max") ||
+      (profile.allowedReasoningEffort !== undefined &&
+        !profile.allowedReasoningEffort.includes(reasoningEffort))
+    ) {
+      return false;
+    }
+  }
   if (profile.thinkingPolicy === "mandatory") {
     return thinkingType === "enabled";
   }
@@ -1259,6 +1301,34 @@ function runtimeRequestBodyMatchesProfile(
     );
   }
   return thinkingType === undefined;
+}
+
+function containsJsonObjectKey(value: unknown, key: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => containsJsonObjectKey(item, key));
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    Object.prototype.hasOwnProperty.call(value, key) ||
+    Object.values(value).some((item) => containsJsonObjectKey(item, key))
+  );
+}
+
+function finishReasonToFailureCategory(
+  finishReason: string | undefined,
+): OpenAiChatCompletionsParseResult["category"] | undefined {
+  switch (finishReason) {
+    case "content_filter":
+      return "provider_content_filtered";
+    case "tool_calls":
+      return "untrusted_tool_proposal_blocked";
+    case "insufficient_system_resource":
+      return "provider_capacity_unavailable";
+    default:
+      return undefined;
+  }
 }
 
 function parseReasonToOutputCategory(
@@ -1275,6 +1345,12 @@ function parseReasonToOutputCategory(
   }
   if (reasonCode === "untrusted_tool_proposal_blocked") {
     return "untrusted_tool_proposal_blocked";
+  }
+  if (reasonCode === "provider_content_filtered") {
+    return "provider_content_filtered";
+  }
+  if (reasonCode === "provider_capacity_unavailable") {
+    return "provider_capacity_unavailable";
   }
   if (reasonCode === "output_budget_exhausted_before_final") {
     return "output_budget_exhausted_before_final";

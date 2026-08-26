@@ -152,6 +152,8 @@ export const CloudReasoningTransportReasonCodeSchema = z.enum([
   "structured_output_invalid",
   "no_final_answer",
   "untrusted_tool_proposal_blocked",
+  "provider_content_filtered",
+  "provider_capacity_unavailable",
   "provider_contract_deviation",
   "transport_failed",
 ]);
@@ -356,6 +358,10 @@ export const CloudReasoningModelCapabilityProfileSchema = z
     supportsThinking: z.boolean(),
     thinkingPolicy: CloudReasoningThinkingPolicySchema,
     supportsReasoningEffort: z.boolean(),
+    allowedReasoningEffort: z
+      .array(z.enum(["low", "high", "max"]))
+      .max(3)
+      .optional(),
     supportsTools: z.boolean(),
     supportsStructuredOutput: z.boolean(),
     supportsVision: z.boolean(),

@@ -10,6 +10,7 @@ import {
   BoundedCloudReasoningTransport,
   CloudReasoningRuntime,
   DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY,
+  parseOpenAiChatCompletionsJson,
   parseOpenAiChatCompletionsSse,
   type CloudReasoningFetch,
   type CloudReasoningFetchHeaders,
@@ -367,6 +368,51 @@ describe("CloudReasoningRuntime provider-neutral conformance", () => {
     expect(JSON.stringify(length)).not.toContain("thinking only");
   });
 
+  it("maps provider terminal finish reasons without exposing final or reasoning content", () => {
+    const filtered = parseOpenAiChatCompletionsJson({
+      body: {
+        choices: [
+          {
+            message: {
+              content: "",
+              reasoning_content: "private reasoning",
+            },
+            finish_reason: "content_filter",
+          },
+        ],
+      },
+      maxFinalContentChars: 100,
+    });
+    const capacity = parseOpenAiChatCompletionsSse({
+      text: sseData({
+        choices: [
+          {
+            delta: { reasoning_content: "private reasoning" },
+            finish_reason: "insufficient_system_resource",
+          },
+        ],
+      }),
+      maxFinalContentChars: 100,
+    });
+    const toolCalls = parseOpenAiChatCompletionsSse({
+      text: sseData({
+        choices: [
+          {
+            delta: {},
+            finish_reason: "tool_calls",
+          },
+        ],
+      }),
+      maxFinalContentChars: 100,
+    });
+
+    expect(filtered.category).toBe("provider_content_filtered");
+    expect(capacity.category).toBe("provider_capacity_unavailable");
+    expect(toolCalls.category).toBe("untrusted_tool_proposal_blocked");
+    expect(JSON.stringify(filtered)).not.toContain("private reasoning");
+    expect(JSON.stringify(capacity)).not.toContain("private reasoning");
+  });
+
   it("classifies trusted header timeouts and keeps timer cleanup bounded", async () => {
     const fetch = new FakeFetch((init) => waitUntilAborted(init.signal));
     const modelProfile = modelProfileFixture({
@@ -646,6 +692,103 @@ describe("CloudReasoningRuntime provider-neutral conformance", () => {
     expect(allowed.output.ok).toBe(true);
     expect(allowed.output.reasoningObserved).toBe(true);
     expect(JSON.stringify(allowed.diagnostics)).not.toContain("private reasoning");
+  });
+
+  it("enforces operation-level tools and trusted reasoning_effort policy", async () => {
+    const profile = modelProfileFixture({
+      modelId: "deepseek-v4-pro",
+      supportsTools: true,
+      supportsReasoningEffort: true,
+      allowedReasoningEffort: ["low", "high", "max"],
+    });
+    const runtime = createRuntime(
+      new FakeFetch(
+        responseJson({
+          choices: [{ message: { content: "{\"diagnostic\":\"ok\"}" } }],
+        }),
+      ).fn,
+      { modelProfile: profile },
+    );
+    const base = runtimeRequestFixture({
+      modelProfile: profile,
+      bodyOverrides: {
+        thinking: { type: "enabled" },
+        reasoning_effort: "high",
+      },
+    });
+
+    const allowed = await runtime.runOpenAiChatCompletions(
+      base,
+      credentialOptions(),
+    );
+    const withTools = await runtime.runOpenAiChatCompletions(
+      {
+        ...base,
+        transportRequest: {
+          ...base.transportRequest,
+          bodyJson: {
+            ...base.transportRequest.bodyJson,
+            tools: [{ type: "function" }],
+          },
+        },
+      },
+      credentialOptions(),
+    );
+    const invalidEffort = await runtime.runOpenAiChatCompletions(
+      {
+        ...base,
+        transportRequest: {
+          ...base.transportRequest,
+          bodyJson: {
+            ...base.transportRequest.bodyJson,
+            reasoning_effort: "medium",
+          },
+        },
+      },
+      credentialOptions(),
+    );
+    const disabledWithEffort = await runtime.runOpenAiChatCompletions(
+      {
+        ...base,
+        transportRequest: {
+          ...base.transportRequest,
+          bodyJson: {
+            ...base.transportRequest.bodyJson,
+            thinking: { type: "disabled" },
+            reasoning_effort: "high",
+          },
+        },
+      },
+      credentialOptions(),
+    );
+    const reasoningHistory = await runtime.runOpenAiChatCompletions(
+      {
+        ...base,
+        transportRequest: {
+          ...base.transportRequest,
+          bodyJson: {
+            ...base.transportRequest.bodyJson,
+            messages: [
+              {
+                role: "assistant",
+                reasoning_content: "must not be back-propagated",
+              },
+            ],
+          },
+        },
+      },
+      credentialOptions(),
+    );
+
+    expect(allowed.transport.statusClass).toBe("success");
+    expect(withTools.transport.requestSent).toBe(false);
+    expect(invalidEffort.transport.requestSent).toBe(false);
+    expect(disabledWithEffort.transport.requestSent).toBe(false);
+    expect(reasoningHistory.transport.requestSent).toBe(false);
+    expect(withTools.transport.reasonCode).toBe("invalid_request");
+    expect(invalidEffort.transport.reasonCode).toBe("invalid_request");
+    expect(disabledWithEffort.transport.reasonCode).toBe("invalid_request");
+    expect(reasoningHistory.transport.reasonCode).toBe("invalid_request");
   });
 });
 
