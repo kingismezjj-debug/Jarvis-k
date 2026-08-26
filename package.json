@@ -16,6 +16,7 @@
     "packages/inference-adapter-glm-chat-answer-runtime",
     "packages/inference-adapter-glm-planner",
     "packages/inference-adapter-glm-runtime",
+    "packages/inference-adapter-deepseek-runtime",
     "packages/plugin-sdk",
     "packages/memory",
     "packages/memory-sqlite",
@@ -40,6 +41,7 @@
     "build:inference-adapter-glm-chat-answer-runtime": "npm run build -w @jarvis-k/inference-adapter-glm-chat-answer-runtime",
     "build:inference-adapter-glm-planner": "npm run build -w @jarvis-k/inference-adapter-glm-planner",
     "build:inference-adapter-glm-runtime": "npm run build -w @jarvis-k/inference-adapter-glm-runtime",
+    "build:inference-adapter-deepseek-runtime": "npm run build -w @jarvis-k/inference-adapter-deepseek-runtime",
     "build:plugin-sdk": "npm run build -w @jarvis-k/plugin-sdk",
     "build:memory": "npm run build -w @jarvis-k/memory",
     "build:memory-sqlite": "npm run build -w @jarvis-k/memory-sqlite",
@@ -51,7 +53,7 @@
     "build:core-host": "npm run build -w @jarvis-k/core-host",
     "build:ui": "npm run build -w @jarvis-k/ui",
     "build:desktop": "npm run build -w @jarvis-k/desktop",
-    "build": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-capture-browser && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run build:core-host && npm run build:ui && npm run build:desktop",
+    "build": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:inference-adapter-deepseek-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-capture-browser && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run build:core-host && npm run build:ui && npm run build:desktop",
     "dataset:voice-command:zh-cn-v1": "node scripts/generate-voice-command-zh-cn-v1-dataset.mjs",
     "validate:voice-command:zh-cn-v1": "node scripts/validate-voice-command-zh-cn-v1-dataset.mjs",
     "benchmark:voice-command:zh-cn-v1": "npm run build:contracts && npm run build:core && node scripts/evaluate-voice-command-zh-cn-v1.mjs --split=dev",
@@ -63,7 +65,7 @@
     "review:voice-regression-export": "npm run build:contracts && npm run build:core && node scripts/review-voice-regression-export.mjs",
     "preflight:voice-pilot:non-execution": "npm run build:contracts && npm run build:core && node tests/voice-pilot-non-execution-preflight.mjs",
     "fixture:pet-skin:manual": "npm run build:contracts && npm run build:desktop && node scripts/generate-manual-pet-skin-fixture.mjs",
-    "typecheck": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:inference-adapter-deepseek-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:sensitive-artifacts": "node scripts/check-sensitive-artifacts.mjs",
     "plugin:validate:examples": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/plugins/stock-analysis examples/plugins/ecommerce-product-comparison",
@@ -165,7 +167,7 @@
     "diagnostic:heavy-planner:glm-standard-compact-health": "npm run build:inference-adapter-glm-runtime && npm run build:desktop && electron tests/glm-standard-paas-v4-compact-health-diagnostic.cjs",
     "smoke:diagnostic:heavy-planner:glm-standard-compact-health": "node tests/glm-standard-paas-v4-compact-health-diagnostic-smoke.mjs",
     "acceptance:xunfei": "npm run build && node tests/real-xunfei-acceptance.mjs",
-    "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run build:core-host && vitest run"
+    "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:inference-adapter-deepseek-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run build:core-host && vitest run"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -296,6 +298,17 @@
       {
         "from": "packages/inference-adapter-glm-runtime",
         "to": "node_modules/@jarvis-k/inference-adapter-glm-runtime",
+        "filter": [
+          "package.json",
+          "dist/**",
+          "!dist/**/*.map",
+          "!dist/**/*.d.ts",
+          "!dist/**/*.d.ts.map"
+        ]
+      },
+      {
+        "from": "packages/inference-adapter-deepseek-runtime",
+        "to": "node_modules/@jarvis-k/inference-adapter-deepseek-runtime",
         "filter": [
           "package.json",
           "dist/**",
