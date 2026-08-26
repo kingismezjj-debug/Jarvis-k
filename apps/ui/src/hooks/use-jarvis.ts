@@ -89,6 +89,8 @@ const CLOUD_PROVIDER_ACCEPTANCE_CONSENT = {
   acceptanceId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
   cloudEgressAllowed: true,
   acceptanceConsent: true,
+  providerKeyTypeConfirmed: true,
+  apiBalanceConfirmedByUser: true,
 } as const;
 
 export function useJarvis(options: UseJarvisOptions = {}) {
@@ -814,6 +816,38 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     refreshCloudProviderAcceptanceStatus,
   ]);
 
+  const runCloudProviderRealAcceptance = useCallback(async () => {
+    if (!window.jarvis?.runCloudProviderRealAcceptance) {
+      setError("Cloud provider real acceptance is unavailable.");
+      return false;
+    }
+    setSending(true);
+    try {
+      const result = await window.jarvis.runCloudProviderRealAcceptance({
+        ...CLOUD_PROVIDER_ACCEPTANCE_CONSENT,
+      });
+      setCloudProviderAcceptanceReport(result);
+      await Promise.all([
+        refreshCloudProviderAcceptanceStatus(),
+        refreshCloudProviderAcceptancePreflightProjection(),
+      ]);
+      setError(null);
+      return true;
+    } catch {
+      await Promise.all([
+        refreshCloudProviderAcceptanceStatus(),
+        refreshCloudProviderAcceptancePreflightProjection(),
+      ]);
+      setError("Cloud provider real acceptance was rejected.");
+      return false;
+    } finally {
+      setSending(false);
+    }
+  }, [
+    refreshCloudProviderAcceptancePreflightProjection,
+    refreshCloudProviderAcceptanceStatus,
+  ]);
+
   const {
     clearSessionHistory,
     createConversation,
@@ -1191,6 +1225,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     runFixtureRerankProbe,
     runBrainCommand,
     runCloudProviderFakeAcceptance,
+    runCloudProviderRealAcceptance,
     sendCommand,
     sendMessage,
     selectConversation,

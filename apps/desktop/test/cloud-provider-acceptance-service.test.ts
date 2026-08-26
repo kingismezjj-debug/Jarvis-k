@@ -19,6 +19,7 @@ import {
   CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ORIGIN,
   CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_PROVIDER_ID,
   CloudReasoningTransportResultSchema,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
@@ -56,6 +57,7 @@ describe("CloudProviderAcceptanceService", () => {
       capabilityFlagEnabled: false,
       productRoutingEnabled: false,
       realRunCapabilityEnabled: false,
+      realAcceptanceCapabilityEnabled: false,
       credentialExposed: false,
       promptExposed: false,
       rawResponseExposed: false,
@@ -134,7 +136,7 @@ describe("CloudProviderAcceptanceService", () => {
       allowFakeAcceptance: true,
       allowSingleRealAcceptance: false,
       realNetworkRequestSent: false,
-      reasonCodes: ["ready"],
+      reasonCodes: expect.arrayContaining(["real_run_disabled"]),
     });
 
     const report = await service.runFakeAcceptance(consent());
@@ -162,8 +164,13 @@ describe("CloudProviderAcceptanceService", () => {
         CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_REQUEST_CONTRACT_ID,
       endpointProfileId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ENDPOINT_PROFILE_ID,
       requestSent: true,
+      headersReceived: true,
+      firstEventReceived: true,
       responseCompleted: true,
+      streamCompleted: true,
+      doneObserved: true,
       structuredResultValidation: "PASS",
+      reasonCode: "completed",
       sanitizedResultCategory: "fixed_diagnostic_ok",
       retryCount: 0,
       fallbackCount: 0,
@@ -182,8 +189,145 @@ describe("CloudProviderAcceptanceService", () => {
       consumed: true,
       priorRequestCount: 1,
       allowFakeAcceptance: false,
+      reasonCodes: expect.arrayContaining(["acceptance_already_consumed"]),
+    });
+  });
+
+  it("opens the DeepSeek real final gate only for development with all trusted flags and confirmation", async () => {
+    const transport = new RecordingTransport(successSse());
+    const { broker, service } = await createService({
+      releaseChannel: "development",
+      realRunCapabilityEnabled: true,
+      transport,
+    });
+    await service.saveCredential(saveCredentialRequest());
+
+    const preflight = await service.preflight(consent());
+
+    expect(preflight).toMatchObject({
+      acceptanceId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
+      acceptanceVersion: 1,
+      acceptanceState: "ready",
+      providerId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_PROVIDER_ID,
+      modelId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_MODEL_ID,
+      requestContractId:
+        CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_REQUEST_CONTRACT_ID,
+      protocolFamily: "openai_chat_completions",
+      endpointProfileId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ENDPOINT_PROFILE_ID,
+      endpointOrigin: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ORIGIN,
+      operationPath: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_OPERATION_PATH,
+      httpMethod: "POST",
+      redirectPolicy: "none",
+      fullEndpointMatch: true,
+      credentialBindingId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
+      credentialConfigured: true,
+      credentialStorageEncrypted: true,
+      secureStorageAvailable: true,
+      providerKeyTypeConfirmed: true,
+      apiBalanceConfirmedByUser: true,
+      fixedInput: true,
+      userContentIncluded: false,
+      stream: true,
+      streamUsageIncluded: true,
+      includeUsage: true,
+      thinkingType: "disabled",
+      reasoningEffort: "absent",
+      reasoningEffortPresent: false,
+      maxTokens: 512,
+      timeoutHeadersMs: 15_000,
+      timeoutFirstEventMs: 60_000,
+      timeoutIdleMs: 30_000,
+      timeoutOverallMs: 180_000,
+      timeoutBounded: true,
+      toolsEnabled: false,
+      retryEnabled: false,
+      fallbackEnabled: false,
+      executorReachable: false,
+      productRoutingEnabled: false,
+      cloudEgressConfirmed: true,
+      realAcceptanceCapability: true,
+      priorRequestCount: 0,
+      consumed: false,
+      allowSingleRealAcceptance: true,
+      allowFakeAcceptance: false,
+      realNetworkRequestSent: false,
+      reasonCodes: ["ready"],
+      credentialExposed: false,
+      promptExposed: false,
+      rawResponseExposed: false,
+    });
+
+    const report = await service.runRealAcceptance(consent());
+
+    expect(transport.calls).toHaveLength(1);
+    expect(broker.useCount).toBe(1);
+    expect(transport.calls[0]?.credentialValue).toBe(fakeSecret());
+    expect(report).toMatchObject({
+      acceptanceId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
+      requestSent: true,
+      responseCompleted: true,
+      structuredResultValidation: "PASS",
+      reasonCode: "completed",
+      sanitizedResultCategory: "fixed_diagnostic_ok",
+      retryCount: 0,
+      fallbackCount: 0,
+      toolCallCount: 0,
+      directActionAttempted: false,
+      executorInvocationDelta: 0,
+      acceptanceConsumed: true,
+      realNetworkRequestSent: false,
+      credentialExposed: false,
+      promptExposed: false,
+      rawResponseExposed: false,
+      rawSsePersisted: false,
+    });
+    await expect(service.preflight(consent())).resolves.toMatchObject({
+      consumed: true,
+      priorRequestCount: 1,
+      allowSingleRealAcceptance: false,
       reasonCodes: ["acceptance_already_consumed"],
     });
+  });
+
+  it("fails closed for real acceptance outside development or without explicit user confirmations", async () => {
+    const cases = [
+      {
+        releaseChannel: "alpha" as const,
+        consent: consent(),
+        expected: "unsupported_release_channel",
+      },
+      {
+        releaseChannel: "development" as const,
+        consent: {
+          ...consent(),
+          providerKeyTypeConfirmed: false,
+        },
+        expected: "credential_type_unconfirmed",
+      },
+      {
+        releaseChannel: "development" as const,
+        consent: {
+          ...consent(),
+          apiBalanceConfirmedByUser: false,
+        },
+        expected: "api_balance_unconfirmed",
+      },
+    ];
+    for (const item of cases) {
+      const { service } = await createService({
+        releaseChannel: item.releaseChannel,
+        realRunCapabilityEnabled: true,
+        transport: new RecordingTransport(successSse()),
+      });
+      await service.saveCredential(saveCredentialRequest());
+      await expect(service.preflight(item.consent)).resolves.toMatchObject({
+        allowSingleRealAcceptance: false,
+        reasonCodes: expect.arrayContaining([item.expected]),
+      });
+      await expect(service.runRealAcceptance(item.consent)).rejects.toThrow(
+        "CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_FAILED",
+      );
+    }
   });
 
   it("consumes before transport and prevents concurrent double invocation", async () => {
@@ -304,6 +448,13 @@ describe("CloudProviderAcceptanceService", () => {
       realNetworkRequestSent: false,
     });
 
+    expect(() =>
+      handlers.get(IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL)?.(
+        { sender: {} },
+        consent(),
+      ),
+    ).toThrow("CLOUD_PROVIDER_ACCEPTANCE_UNAVAILABLE");
+
     dispose();
     expect(handlers.size).toBe(0);
   });
@@ -322,6 +473,8 @@ function consent() {
     acceptanceId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
     cloudEgressAllowed: true,
     acceptanceConsent: true,
+    providerKeyTypeConfirmed: true,
+    apiBalanceConfirmedByUser: true,
   };
 }
 
@@ -331,6 +484,9 @@ function fakeSecret(): string {
 
 async function createService(input: {
   readonly capabilityFlagEnabled?: boolean;
+  readonly fakeAcceptanceCapabilityEnabled?: boolean;
+  readonly realRunCapabilityEnabled?: boolean;
+  readonly releaseChannel?: "development" | "alpha" | "stable" | "test";
   readonly transport?: CloudProviderAcceptanceTransport;
 } = {}) {
   const rootDirectory = await mkdtemp(
@@ -338,7 +494,7 @@ async function createService(input: {
   );
   temporaryDirectories.push(rootDirectory);
   const bindingRegistry = new CloudProviderCredentialBindingRegistry({
-    releaseChannel: "test",
+    releaseChannel: input.releaseChannel ?? "test",
   });
   const credentialDirectory = path.join(rootDirectory, "credentials");
   const credentialVault = new CloudProviderCredentialVault({
@@ -359,7 +515,9 @@ async function createService(input: {
     profileRegistry,
     ledger,
     capabilityFlagEnabled: input.capabilityFlagEnabled ?? true,
-    realRunCapabilityEnabled: false,
+    realRunCapabilityEnabled: input.realRunCapabilityEnabled ?? false,
+    releaseChannel: input.releaseChannel ?? "test",
+    fakeAcceptanceCapabilityEnabled: input.fakeAcceptanceCapabilityEnabled,
     transport: input.transport,
   });
   return { broker, credentialDirectory, ledgerPath, rootDirectory, service };

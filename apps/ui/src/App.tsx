@@ -194,6 +194,7 @@ export default function App() {
     runFixtureRerankProbe,
     runBrainCommand,
     runCloudProviderFakeAcceptance,
+    runCloudProviderRealAcceptance,
     sendCommand,
     selectConversation,
     setChatAnswerProductModeEnabled,
@@ -2392,6 +2393,9 @@ export default function App() {
                           },
                           runFakeAcceptance: () => {
                             void runCloudProviderFakeAcceptance();
+                          },
+                          runRealAcceptance: () => {
+                            void runCloudProviderRealAcceptance();
                           },
                           saveCredential: (secret) => {
                             void saveCloudProviderAcceptanceCredential(secret);

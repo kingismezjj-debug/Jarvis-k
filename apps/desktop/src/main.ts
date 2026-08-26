@@ -340,7 +340,10 @@ if (!hasSingleInstanceLock) {
       evaluationCapabilityAvailable:
         process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1",
       cloudProviderAcceptanceCapabilityAvailable:
-        process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1",
+        process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1" &&
+        process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1" &&
+        process.env.JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE === "1" &&
+        storageProfile.releaseChannel === "development",
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
     petController = new DesktopPetController({
@@ -390,8 +393,17 @@ if (!hasSingleInstanceLock) {
       ),
       acceptanceFlagEnabled: false
     });
-    const cloudProviderAcceptanceFlagEnabled =
+    const evaluationCapabilityEnabled =
+      process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1";
+    const cloudProviderAcceptanceUiEnabled =
       process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1";
+    const deepSeekRealAcceptanceEnabled =
+      process.env.JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE === "1";
+    const cloudProviderAcceptanceFlagEnabled =
+      evaluationCapabilityEnabled &&
+      cloudProviderAcceptanceUiEnabled &&
+      deepSeekRealAcceptanceEnabled &&
+      storageProfile.releaseChannel === "development";
     const cloudProviderCredentialBindingRegistry =
       new CloudProviderCredentialBindingRegistry({
         releaseChannel:
@@ -420,7 +432,9 @@ if (!hasSingleInstanceLock) {
         )
       }),
       capabilityFlagEnabled: cloudProviderAcceptanceFlagEnabled,
-      realRunCapabilityEnabled: false
+      realRunCapabilityEnabled: cloudProviderAcceptanceFlagEnabled,
+      releaseChannel:
+        storageProfile.releaseChannel as CloudProviderAcceptanceReleaseChannel
     });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,

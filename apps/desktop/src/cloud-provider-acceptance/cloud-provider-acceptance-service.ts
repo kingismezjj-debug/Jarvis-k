@@ -1,5 +1,6 @@
 import {
   CloudReasoningRuntime,
+  type CloudReasoningFetch,
   type CloudReasoningRuntimeRequest,
   type CloudReasoningTransportSendOptions,
 } from "@jarvis-k/capabilities";
@@ -40,6 +41,7 @@ import type { CloudProviderAcceptanceLedger } from "./cloud-provider-acceptance-
 import type { CloudProviderAcceptanceProfileRegistry } from "./cloud-provider-acceptance-profile-registry";
 import type { CloudProviderCredentialVault } from "./cloud-provider-credential-vault";
 import type { CloudProviderCredentialBindingRegistry } from "./credential-binding-registry";
+import type { CloudProviderAcceptanceReleaseChannel } from "./credential-binding-registry";
 
 const DEEPSEEK_DEPLOYMENT_ID = "deepseek-openai-chat-completions-v1";
 const DEEPSEEK_OPERATION = "chat.completions";
@@ -63,9 +65,12 @@ export class CloudProviderAcceptanceService {
       readonly profileRegistry: CloudProviderAcceptanceProfileRegistry;
       readonly ledger: CloudProviderAcceptanceLedger;
       readonly capabilityFlagEnabled: boolean;
-      readonly realRunCapabilityEnabled: false;
+      readonly realRunCapabilityEnabled: boolean;
+      readonly releaseChannel: CloudProviderAcceptanceReleaseChannel;
+      readonly fakeAcceptanceCapabilityEnabled?: boolean;
       readonly now?: () => Date;
       readonly transport?: CloudProviderAcceptanceTransport;
+      readonly fetch?: CloudReasoningFetch;
     },
   ) {}
 
@@ -79,7 +84,13 @@ export class CloudProviderAcceptanceService {
       capabilityFlagEnabled: this.options.capabilityFlagEnabled,
       source: "desktop-main",
       productRoutingEnabled: false,
-      realRunCapabilityEnabled: false,
+      realRunCapabilityEnabled: this.options.realRunCapabilityEnabled,
+      realAcceptanceCapabilityEnabled: this.realAcceptanceCapabilityEnabled(),
+      fakeAcceptanceCapabilityEnabled: this.fakeAcceptanceCapabilityEnabled(),
+      releaseChannel: this.options.releaseChannel,
+      secureStorageAvailable: credentialStatuses.some(
+        (status) => status.secureStorageAvailable,
+      ),
       profiles: this.options.profileRegistry.list(),
       credentialBindings: this.options.bindingRegistry.list(),
       credentialStatuses,
@@ -144,7 +155,7 @@ export class CloudProviderAcceptanceService {
         throw new Error("CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_FAILED");
       }
       await this.options.ledger.consume(profile);
-      const runtime = this.createRuntime();
+      const runtime = this.createRuntime("fake");
       const runtimeResult = await this.options.credentialBroker.withCredential(
         profile.credentialBindingId,
         (credential) =>
@@ -184,6 +195,7 @@ export class CloudProviderAcceptanceService {
           ? { httpStatus: runtimeResult.transport.httpStatus }
           : {}),
         httpStatusClass: runtimeResult.transport.statusClass,
+        reasonCode: runtimeResult.transport.reasonCode,
         sanitizedResultCategory,
         structuredResultValidation:
           sanitizedResultCategory === "fixed_diagnostic_ok" ? "PASS" : "FAIL",
@@ -194,7 +206,17 @@ export class CloudProviderAcceptanceService {
         },
         requestSent: runtimeResult.transport.requestSent,
         responseStarted: runtimeResult.transport.responseStarted,
+        headersReceived: runtimeResult.transport.responseStarted,
+        firstEventReceived:
+          runtimeResult.transport.responseStarted &&
+          runtimeResult.output.finalContentBytes > 0,
         responseCompleted: runtimeResult.transport.responseCompleted,
+        streamCompleted: runtimeResult.transport.responseCompleted,
+        doneObserved:
+          runtimeResult.transport.responseCompleted &&
+          runtimeResult.transport.statusClass === "success",
+        contentTypeAllowed:
+          runtimeResult.transport.safeHeaders.contentType === "text/event-stream",
         responseByteCount: runtimeResult.transport.responseByteCount ?? 0,
         reasoningObserved: runtimeResult.output.reasoningObserved,
         finalContentPresent:
@@ -209,6 +231,110 @@ export class CloudProviderAcceptanceService {
         executorInvocationDelta: 0,
         acceptanceConsumed: true,
         realNetworkRequestSent: false,
+        credentialExposed: false,
+        promptExposed: false,
+        rawResponseExposed: false,
+        rawSsePersisted: false,
+      });
+    } finally {
+      this.running = false;
+    }
+  }
+
+  public async runRealAcceptance(
+    rawInput: unknown,
+  ): Promise<CloudProviderAcceptanceDiagnosticReport> {
+    const consent = CloudProviderAcceptanceConsentRequestSchema.parse(rawInput);
+    const profile = this.currentProfile();
+    if (this.running) {
+      throw new Error("CLOUD_PROVIDER_ACCEPTANCE_ALREADY_RUNNING");
+    }
+    this.running = true;
+    const startedAt = this.now();
+    try {
+      const preflight = await this.computePreflight(consent, {
+        ignoreCurrentRun: true,
+      });
+      if (!preflight.allowSingleRealAcceptance) {
+        throw new Error("CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_FAILED");
+      }
+      await this.options.ledger.consume(profile);
+      const runtime = this.createRuntime("real");
+      const runtimeResult = await this.options.credentialBroker.withCredential(
+        profile.credentialBindingId,
+        (credential) =>
+          runtime.runOpenAiChatCompletions(createDeepSeekRuntimeRequest(profile), {
+            credential,
+          }),
+      );
+      const completedAt = this.now();
+      const structuredResultValid = validateFixedDiagnosticFinalContent(
+        runtimeResult.output.finalContent,
+      );
+      const sanitizedResultCategory =
+        runtimeResult.transport.statusClass === "success" &&
+        runtimeResult.output.ok &&
+        structuredResultValid
+          ? "fixed_diagnostic_ok"
+          : runtimeResult.transport.statusClass === "success"
+            ? runtimeResult.output.category
+            : runtimeResult.transport.reasonCode;
+      await this.options.ledger.complete(profile, {
+        completedAt,
+        sanitizedResultCategory,
+      });
+      return CloudProviderAcceptanceDiagnosticReportSchema.parse({
+        schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+        acceptanceId: profile.acceptanceId,
+        acceptanceVersion: profile.acceptanceVersion,
+        acceptanceState: "consumed",
+        providerId: profile.providerId,
+        modelId: profile.modelId,
+        endpointProfileId: profile.endpointProfileId,
+        requestContractId: profile.requestContractId,
+        startedAt,
+        completedAt,
+        latencyMs: runtimeResult.transport.latencyMs,
+        ...(runtimeResult.transport.httpStatus
+          ? { httpStatus: runtimeResult.transport.httpStatus }
+          : {}),
+        httpStatusClass: runtimeResult.transport.statusClass,
+        reasonCode: runtimeResult.transport.reasonCode,
+        sanitizedResultCategory,
+        structuredResultValidation:
+          sanitizedResultCategory === "fixed_diagnostic_ok" ? "PASS" : "FAIL",
+        tokenUsage: {
+          promptTokens: runtimeResult.output.usage?.promptTokens ?? 0,
+          completionTokens: runtimeResult.output.usage?.completionTokens ?? 0,
+          totalTokens: runtimeResult.output.usage?.totalTokens ?? 0,
+        },
+        requestSent: runtimeResult.transport.requestSent,
+        responseStarted: runtimeResult.transport.responseStarted,
+        headersReceived: runtimeResult.transport.responseStarted,
+        firstEventReceived:
+          runtimeResult.transport.responseStarted &&
+          runtimeResult.output.finalContentBytes > 0,
+        responseCompleted: runtimeResult.transport.responseCompleted,
+        streamCompleted: runtimeResult.transport.responseCompleted,
+        doneObserved:
+          runtimeResult.transport.responseCompleted &&
+          runtimeResult.transport.statusClass === "success",
+        contentTypeAllowed:
+          runtimeResult.transport.safeHeaders.contentType === "text/event-stream",
+        responseByteCount: runtimeResult.transport.responseByteCount ?? 0,
+        reasoningObserved: runtimeResult.output.reasoningObserved,
+        finalContentPresent:
+          typeof runtimeResult.output.finalContent === "string" &&
+          runtimeResult.output.finalContent.length > 0,
+        finalContentBytes: runtimeResult.output.finalContentBytes,
+        toolProposalObserved: runtimeResult.output.toolProposalObserved,
+        retryCount: 0,
+        fallbackCount: 0,
+        toolCallCount: 0,
+        directActionAttempted: false,
+        executorInvocationDelta: 0,
+        acceptanceConsumed: true,
+        realNetworkRequestSent: this.realNetworkTransportUsed(),
         credentialExposed: false,
         promptExposed: false,
         rawResponseExposed: false,
@@ -246,6 +372,12 @@ export class CloudProviderAcceptanceService {
     if (!profile.enabledByReleaseGate) {
       reasons.push("provider_disabled");
     }
+    if (!this.realAcceptanceCapabilityEnabled()) {
+      reasons.push("real_run_disabled");
+    }
+    if (this.options.releaseChannel !== "development") {
+      reasons.push("unsupported_release_channel");
+    }
     if (!credentialStatus?.secureStorageAvailable) {
       reasons.push("secure_store_unavailable");
     } else if (credentialStatus.status === "invalid") {
@@ -269,6 +401,12 @@ export class CloudProviderAcceptanceService {
     if (!consent.acceptanceConsent) {
       reasons.push("consent_missing");
     }
+    if (!consent.providerKeyTypeConfirmed) {
+      reasons.push("credential_type_unconfirmed");
+    }
+    if (!consent.apiBalanceConfirmedByUser) {
+      reasons.push("api_balance_unconfirmed");
+    }
     if (this.running && options.ignoreCurrentRun !== true) {
       reasons.push("acceptance_already_running");
     }
@@ -276,14 +414,21 @@ export class CloudProviderAcceptanceService {
       reasons.push("acceptance_already_consumed");
     }
     const uniqueReasons = [...new Set(reasons)];
-    const ready = uniqueReasons.length === 0;
+    const realReady = uniqueReasons.length === 0;
+    const fakeReasons = uniqueReasons.filter(
+      (reason) =>
+        reason !== "real_run_disabled" &&
+        reason !== "unsupported_release_channel" &&
+        reason !== "api_balance_unconfirmed",
+    );
+    const fakeReady = fakeReasons.length === 0 && this.fakeAcceptanceCapabilityEnabled();
     return CloudProviderAcceptancePreflightResultSchema.parse({
       schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
       acceptanceId: profile.acceptanceId,
       acceptanceVersion: profile.acceptanceVersion,
       acceptanceState: status.ledger.consumed
         ? "consumed"
-        : ready
+        : realReady
           ? "ready"
           : "blocked",
       providerId: profile.providerId,
@@ -291,10 +436,15 @@ export class CloudProviderAcceptanceService {
       endpointProfileId: profile.endpointProfileId,
       endpointOrigin: profile.endpointOrigin,
       operationPath: profile.operationPath,
+      httpMethod: "POST",
+      redirectPolicy: "none",
       fullEndpointMatch: this.fullEndpointMatches(profile),
       credentialBindingId: profile.credentialBindingId,
       credentialConfigured: credentialStatus?.configured === true,
       credentialStorageEncrypted: credentialStatus?.encrypted === true,
+      secureStorageAvailable: credentialStatus?.secureStorageAvailable === true,
+      providerKeyTypeConfirmed: consent.providerKeyTypeConfirmed,
+      apiBalanceConfirmedByUser: consent.apiBalanceConfirmedByUser,
       ...(credentialStatus?.configured === true
         ? { credentialTypeConfirmed: credentialStatus.credentialType }
         : {}),
@@ -304,8 +454,10 @@ export class CloudProviderAcceptanceService {
       userContentIncluded: false,
       stream: profile.stream,
       streamUsageIncluded: profile.streamUsageIncluded,
+      includeUsage: true,
       thinkingType: profile.thinkingType,
       reasoningEffortPresent: profile.reasoningEffortPresent,
+      reasoningEffort: "absent",
       maxTokens: profile.maxTokens,
       timeoutHeadersMs: profile.timeoutPolicy.headersMs,
       timeoutFirstEventMs: profile.timeoutPolicy.firstEventMs,
@@ -318,13 +470,14 @@ export class CloudProviderAcceptanceService {
       executorReachable: false,
       productRoutingEnabled: false,
       cloudEgressConfirmed: consent.cloudEgressAllowed,
+      realAcceptanceCapability: this.realAcceptanceCapabilityEnabled(),
       pricingTier: profile.pricingTier,
       priorRequestCount: status.ledger.requestCount,
       consumed: status.ledger.consumed,
-      allowSingleRealAcceptance: false,
-      allowFakeAcceptance: ready,
+      allowSingleRealAcceptance: realReady,
+      allowFakeAcceptance: fakeReady,
       realNetworkRequestSent: false,
-      reasonCodes: ready ? ["ready"] : uniqueReasons,
+      reasonCodes: realReady ? ["ready"] : uniqueReasons,
       credentialExposed: false,
       promptExposed: false,
       rawResponseExposed: false,
@@ -341,15 +494,43 @@ export class CloudProviderAcceptanceService {
     return profile;
   }
 
-  private createRuntime(): CloudReasoningRuntime {
+  private createRuntime(kind: "fake" | "real"): CloudReasoningRuntime {
     const profile = this.currentProfile();
+    const transport =
+      kind === "fake"
+        ? this.options.transport ?? new DeepSeekFakeAcceptanceTransport()
+        : this.options.transport;
+    const fetchImpl =
+      kind === "real" && !transport
+        ? this.options.fetch ?? realDeepSeekFetch()
+        : undefined;
     return new CloudReasoningRuntime({
       endpointProfiles: [createEndpointProfile()],
       modelProfiles: [createModelProfile(profile)],
       timeoutPolicies: [createTimeoutPolicy(profile)],
-      transport: this.options.transport ?? new DeepSeekFakeAcceptanceTransport(),
+      ...(transport ? { transport } : {}),
+      ...(fetchImpl ? { fetch: fetchImpl } : {}),
       now: () => new Date(this.now()),
     });
+  }
+
+  private realAcceptanceCapabilityEnabled(): boolean {
+    return (
+      this.options.capabilityFlagEnabled &&
+      this.options.realRunCapabilityEnabled &&
+      this.options.releaseChannel === "development"
+    );
+  }
+
+  private fakeAcceptanceCapabilityEnabled(): boolean {
+    return (
+      this.options.fakeAcceptanceCapabilityEnabled ??
+      !this.options.realRunCapabilityEnabled
+    );
+  }
+
+  private realNetworkTransportUsed(): boolean {
+    return this.options.transport === undefined && this.options.fetch === undefined;
   }
 
   private fullEndpointMatches(profile: CloudProviderAcceptanceProfile): boolean {
@@ -383,6 +564,16 @@ export class CloudProviderAcceptanceService {
   private now(): string {
     return (this.options.now?.() ?? new Date()).toISOString();
   }
+}
+
+function realDeepSeekFetch(): CloudReasoningFetch {
+  const fetchImpl = globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    return async () => {
+      throw new Error("CLOUD_PROVIDER_ACCEPTANCE_FETCH_UNAVAILABLE");
+    };
+  }
+  return (url, init) => fetchImpl(url, init as RequestInit);
 }
 
 export class DeepSeekFakeAcceptanceTransport {

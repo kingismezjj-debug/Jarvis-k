@@ -57,9 +57,12 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(useJarvisSource).toContain(
       "window.jarvis.getCloudProviderAcceptanceStatus",
     );
-    expect(cloudAcceptancePanelSource).toContain("FAKE ONLY");
+    expect(cloudAcceptancePanelSource).toContain("DEEPSEEK");
     expect(cloudAcceptancePanelSource).toContain(
       "realNetworkRequestSent === false",
+    );
+    expect(cloudAcceptancePanelSource).toContain(
+      "preflightResult.allowSingleRealAcceptance === true",
     );
     expect(cloudAcceptancePanelSource).not.toContain("window.jarvis");
     expect(cloudAcceptancePanelSource).not.toContain("ipcRenderer");
@@ -73,7 +76,8 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(cloudAcceptancePanelSource).not.toContain("responseJson");
     expect(cloudAcceptancePanelSource).not.toContain("credential.value");
     expect(cloudAcceptancePanelSource).not.toContain("raw response");
-    expect(cloudAcceptancePanelSource).toContain("no real network");
+    expect(cloudAcceptancePanelSource).toContain("No real API request");
+    expect(cloudAcceptancePanelSource).toContain("No user content");
   });
 
   it("keeps GLM acceptance diagnostics free of prompt, key, and raw body output", () => {

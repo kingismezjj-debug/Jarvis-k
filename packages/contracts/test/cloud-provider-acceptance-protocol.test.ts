@@ -106,7 +106,7 @@ describe("cloud provider acceptance protocol", () => {
     ).toThrow();
   });
 
-  it("keeps real acceptance unavailable in this phase", () => {
+  it("projects the DeepSeek real acceptance gate without raw content", () => {
     const preflight = CloudProviderAcceptancePreflightResultSchema.parse({
       schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
       acceptanceId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID,
@@ -117,11 +117,16 @@ describe("cloud provider acceptance protocol", () => {
       endpointProfileId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ENDPOINT_PROFILE_ID,
       endpointOrigin: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ORIGIN,
       operationPath: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_OPERATION_PATH,
+      httpMethod: "POST",
+      redirectPolicy: "none",
       fullEndpointMatch: true,
       credentialBindingId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
       credentialConfigured: true,
       credentialStorageEncrypted: true,
+      secureStorageAvailable: true,
       credentialTypeConfirmed: CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_TYPE,
+      providerKeyTypeConfirmed: true,
+      apiBalanceConfirmedByUser: true,
       protocolFamily: "openai_chat_completions",
       requestContractId:
         CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_REQUEST_CONTRACT_ID,
@@ -129,8 +134,10 @@ describe("cloud provider acceptance protocol", () => {
       userContentIncluded: false,
       stream: true,
       streamUsageIncluded: true,
+      includeUsage: true,
       thinkingType: "disabled",
       reasoningEffortPresent: false,
+      reasoningEffort: "absent",
       maxTokens: 512,
       timeoutHeadersMs: 15_000,
       timeoutFirstEventMs: 60_000,
@@ -143,11 +150,12 @@ describe("cloud provider acceptance protocol", () => {
       executorReachable: false,
       productRoutingEnabled: false,
       cloudEgressConfirmed: true,
+      realAcceptanceCapability: true,
       pricingTier: "low",
       priorRequestCount: 0,
       consumed: false,
-      allowSingleRealAcceptance: false,
-      allowFakeAcceptance: true,
+      allowSingleRealAcceptance: true,
+      allowFakeAcceptance: false,
       realNetworkRequestSent: false,
       reasonCodes: ["ready"],
       credentialExposed: false,
@@ -155,8 +163,8 @@ describe("cloud provider acceptance protocol", () => {
       rawResponseExposed: false,
     });
 
-    expect(preflight.allowSingleRealAcceptance).toBe(false);
-    expect(preflight.allowFakeAcceptance).toBe(true);
+    expect(preflight.allowSingleRealAcceptance).toBe(true);
+    expect(preflight.allowFakeAcceptance).toBe(false);
     expect(preflight.realNetworkRequestSent).toBe(false);
   });
 

@@ -3869,6 +3869,9 @@ export interface JarvisBridge {
   runCloudProviderFakeAcceptance(
     request: CloudProviderAcceptanceConsentRequest,
   ): Promise<CloudProviderAcceptanceDiagnosticReport>;
+  runCloudProviderRealAcceptance(
+    request: CloudProviderAcceptanceConsentRequest,
+  ): Promise<CloudProviderAcceptanceDiagnosticReport>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;

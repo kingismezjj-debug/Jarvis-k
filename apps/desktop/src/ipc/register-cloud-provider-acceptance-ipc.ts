@@ -17,6 +17,7 @@ import {
   IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import type { CloudProviderAcceptanceService } from "../cloud-provider-acceptance/cloud-provider-acceptance-service";
@@ -27,6 +28,7 @@ const CHANNELS = [
   IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_DELETE_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL,
 ] as const;
 
 export function registerCloudProviderAcceptanceIpc(options: {
@@ -93,6 +95,17 @@ export function registerCloudProviderAcceptanceIpc(options: {
       );
     },
   );
+  options.ipcMain.handle(
+    IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL,
+    (event, rawInput) => {
+      if (!isMainWindowSender(event)) {
+        throw new Error("CLOUD_PROVIDER_ACCEPTANCE_UNAVAILABLE");
+      }
+      return options.service.runRealAcceptance(
+        CloudProviderAcceptanceConsentRequestSchema.parse(rawInput),
+      );
+    },
+  );
 
   return () => unregisterCloudProviderAcceptanceIpc(options.ipcMain);
 }
@@ -112,6 +125,10 @@ function unavailableStatus() {
     source: "desktop-main",
     productRoutingEnabled: false,
     realRunCapabilityEnabled: false,
+    realAcceptanceCapabilityEnabled: false,
+    fakeAcceptanceCapabilityEnabled: false,
+    releaseChannel: "development",
+    secureStorageAvailable: false,
     profiles: [
       {
         schemaVersion: 1,
@@ -211,18 +228,25 @@ function rejectedPreflight() {
     endpointProfileId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ENDPOINT_PROFILE_ID,
     endpointOrigin: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_ORIGIN,
     operationPath: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_OPERATION_PATH,
+    httpMethod: "POST",
+    redirectPolicy: "none",
     fullEndpointMatch: true,
     credentialBindingId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
     credentialConfigured: false,
     credentialStorageEncrypted: false,
+    secureStorageAvailable: false,
+    providerKeyTypeConfirmed: false,
+    apiBalanceConfirmedByUser: false,
     protocolFamily: "openai_chat_completions",
     requestContractId: CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_REQUEST_CONTRACT_ID,
     fixedInput: true,
     userContentIncluded: false,
     stream: true,
     streamUsageIncluded: true,
+    includeUsage: true,
     thinkingType: "disabled",
     reasoningEffortPresent: false,
+    reasoningEffort: "absent",
     maxTokens: 512,
     timeoutHeadersMs: 15000,
     timeoutFirstEventMs: 60000,
@@ -235,6 +259,7 @@ function rejectedPreflight() {
     executorReachable: false,
     productRoutingEnabled: false,
     cloudEgressConfirmed: false,
+    realAcceptanceCapability: false,
     pricingTier: "low",
     priorRequestCount: 0,
     consumed: false,

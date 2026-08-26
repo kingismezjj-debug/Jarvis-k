@@ -18,6 +18,7 @@ export interface CloudProviderAcceptancePanelProps {
     readonly preflight: () => void;
     readonly refreshStatus: () => void;
     readonly runFakeAcceptance: () => void;
+    readonly runRealAcceptance: () => void;
     readonly saveCredential: (secret: string) => void;
   };
   readonly preflightResult: CloudProviderAcceptancePreflightResult | null;
@@ -53,8 +54,16 @@ export function CloudProviderAcceptancePanel({
     preflightResult.allowFakeAcceptance === true &&
     preflightResult.allowSingleRealAcceptance === false &&
     preflightResult.realNetworkRequestSent === false;
+  const canRunReal =
+    preflightResult?.acceptanceId ===
+      CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID &&
+    status.ledger.acceptanceId === CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID &&
+    status.ledger.consumed === false &&
+    preflightResult.allowSingleRealAcceptance === true &&
+    preflightResult.consumed === false &&
+    preflightResult.realNetworkRequestSent === false;
 
-  const confirmRun = () => {
+  const confirmFakeRun = () => {
     const accepted = window.confirm(
       [
         "Run DeepSeek fake acceptance diagnostic?",
@@ -69,11 +78,38 @@ export function CloudProviderAcceptancePanel({
         "Retry: NO",
         `Max tokens: ${preflightResult?.maxTokens ?? "unavailable"}`,
         "",
-        "No real API request or charge will occur in this phase.",
+         "No real API request or charge will occur in this phase.",
+         "No user content is included.",
       ].join("\n"),
     );
     if (accepted) {
       actions.runFakeAcceptance();
+    }
+  };
+  const confirmRealRun = () => {
+    const accepted = window.confirm(
+      [
+        "Run one-time DeepSeek real acceptance diagnostic?",
+        `Acceptance ID: ${preflightResult?.acceptanceId ?? "unavailable"}`,
+        `Acceptance version: ${preflightResult?.acceptanceVersion ?? "unavailable"}`,
+        "Provider: DeepSeek",
+        "Model: deepseek-v4-flash",
+        "Endpoint: official DeepSeek API",
+        "Mode: no-thinking streaming",
+        `Max output: ${preflightResult?.maxTokens ?? "unavailable"}`,
+        `Overall timeout: ${preflightResult?.timeoutOverallMs ?? "unavailable"} ms`,
+        "Fixed diagnostic only: YES",
+        "User content included: NO",
+        "Tool execution: NO",
+        "Retry: NO",
+        "Fallback: NO",
+        "Product routing disabled: YES",
+        "",
+        "This may produce a small API fee and is consumed on attempt.",
+      ].join("\n"),
+    );
+    if (accepted) {
+      actions.runRealAcceptance();
     }
   };
 
@@ -86,11 +122,11 @@ export function CloudProviderAcceptancePanel({
         <div>
           <h3 className="text-sm font-semibold">Cloud Provider Acceptance</h3>
           <p className="text-xs text-muted-foreground">
-            DeepSeek fake diagnostic / no real network / no product routing
+            DeepSeek single real acceptance gate / fixed diagnostic / no product routing
           </p>
         </div>
         <Badge className="rounded-md text-[10px]" variant="outline">
-          FAKE ONLY
+          DEEPSEEK
         </Badge>
       </div>
 
@@ -127,6 +163,15 @@ export function CloudProviderAcceptancePanel({
           label="secure store"
           value={status.secureStorageAvailable ? "available" : "unavailable"}
         />
+        <MetricRow
+          label="real gate"
+          value={status.realAcceptanceCapabilityEnabled ? "ON" : "OFF"}
+        />
+        <MetricRow
+          label="fake gate"
+          value={status.fakeAcceptanceCapabilityEnabled ? "ON" : "OFF"}
+        />
+        <MetricRow label="release channel" value={status.releaseChannel} />
         <MetricRow
           label="profile enabled"
           value={profile?.enabledByReleaseGate ? "YES" : "NO"}
@@ -197,7 +242,8 @@ export function CloudProviderAcceptancePanel({
         <span>
           This is a DeepSeek official platform API key (
           {CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_TYPE}) and will be encrypted
-          locally. This phase still uses fake transport only.
+          locally. It is not a web or app membership credential, and the account
+          has API balance for a small fixed diagnostic.
         </span>
       </label>
 
@@ -223,11 +269,20 @@ export function CloudProviderAcceptancePanel({
         <Button
           className="h-8 rounded-md px-2.5 text-xs"
           disabled={sending || !canRunFake}
-          onClick={confirmRun}
+          onClick={confirmFakeRun}
           type="button"
           variant="default"
         >
           Run fake diagnostic
+        </Button>
+        <Button
+          className="h-8 rounded-md px-2.5 text-xs"
+          disabled={sending || !canRunReal}
+          onClick={confirmRealRun}
+          type="button"
+          variant="default"
+        >
+          Run one-time real diagnostic
         </Button>
       </div>
 
@@ -246,8 +301,17 @@ export function CloudProviderAcceptancePanel({
             value={preflightResult.allowSingleRealAcceptance ? "YES" : "NO"}
           />
           <MetricRow
+            label="real gate"
+            value={preflightResult.realAcceptanceCapability ? "ON" : "OFF"}
+          />
+          <MetricRow
             label="endpoint"
             value={`${preflightResult.endpointOrigin}${preflightResult.operationPath}`}
+          />
+          <MetricRow label="method" value={preflightResult.httpMethod} />
+          <MetricRow
+            label="redirect"
+            value={preflightResult.redirectPolicy}
           />
           <MetricRow
             label="endpoint match"
@@ -263,11 +327,19 @@ export function CloudProviderAcceptancePanel({
           />
           <MetricRow
             label="include usage"
-            value={preflightResult.streamUsageIncluded ? "YES" : "NO"}
+            value={
+              preflightResult.streamUsageIncluded && preflightResult.includeUsage
+                ? "YES"
+                : "NO"
+            }
           />
           <MetricRow
             label="thinking"
             value={preflightResult.thinkingType}
+          />
+          <MetricRow
+            label="reasoning effort"
+            value={preflightResult.reasoningEffort}
           />
           <MetricRow
             label="max tokens"
@@ -292,6 +364,14 @@ export function CloudProviderAcceptancePanel({
             value={preflightResult.realNetworkRequestSent ? "YES" : "NO"}
           />
           <MetricRow
+            label="key type confirmed"
+            value={preflightResult.providerKeyTypeConfirmed ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="api balance confirmed"
+            value={preflightResult.apiBalanceConfirmedByUser ? "YES" : "NO"}
+          />
+          <MetricRow
             label="reasons"
             value={preflightResult.reasonCodes.join(", ")}
           />
@@ -314,6 +394,22 @@ export function CloudProviderAcceptancePanel({
           <MetricRow
             label="response completed"
             value={report.responseCompleted ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="headers received"
+            value={report.headersReceived ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="first event"
+            value={report.firstEventReceived ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="stream completed"
+            value={report.streamCompleted ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="done observed"
+            value={report.doneObserved ? "YES" : "NO"}
           />
           <MetricRow
             label="response bytes"

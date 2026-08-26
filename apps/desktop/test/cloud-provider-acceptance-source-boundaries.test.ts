@@ -20,6 +20,7 @@ describe("cloud provider acceptance source boundaries", () => {
   );
   const coreRuntimeSource = readWorkspaceFile("packages/core/src/runtime.ts");
   const preloadSource = readWorkspaceFile("apps/desktop/src/preload.ts");
+  const mainSource = readWorkspaceFile("apps/desktop/src/main.ts");
 
   it("keeps acceptance out of product CoreRuntime routing", () => {
     expect(coreRuntimeSource).not.toContain("CloudProviderAcceptanceService");
@@ -36,6 +37,33 @@ describe("cloud provider acceptance source boundaries", () => {
     expect(vaultSource).not.toContain("argv");
     expect(serviceSource).not.toContain("process.env");
     expect(serviceSource).not.toContain("argv");
+  });
+
+  it("opens the real DeepSeek gate only from Desktop Main trusted development flags", () => {
+    expect(mainSource).toContain("JARVIS_K_ENABLE_EVALUATION_UI");
+    expect(mainSource).toContain(
+      "JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI",
+    );
+    expect(mainSource).toContain("JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE");
+    expect(mainSource).toContain(
+      'storageProfile.releaseChannel === "development"',
+    );
+    expect(mainSource).toContain(
+      "realRunCapabilityEnabled: cloudProviderAcceptanceFlagEnabled",
+    );
+    expect(serviceSource).toContain("realAcceptanceCapabilityEnabled()");
+    expect(serviceSource).toContain('this.options.releaseChannel === "development"');
+    expect(serviceSource).not.toContain("JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE");
+  });
+
+  it("keeps DeepSeek acceptance identity and profile fixed by trusted code", () => {
+    expect(serviceSource).toContain("CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID");
+    expect(serviceSource).toContain("CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_MODEL_ID");
+    expect(serviceSource).not.toContain("process.env.JARVIS_K_DEEPSEEK");
+    expect(serviceSource).not.toContain("acceptanceVersion++");
+    expect(serviceSource).not.toContain("rawInput.acceptanceId");
+    expect(serviceSource).not.toContain("options.acceptanceId");
+    expect(preloadSource).not.toContain("JARVIS_K_DEEPSEEK");
   });
 
   it("keeps plaintext credentials scoped to the broker closure", () => {

@@ -49,6 +49,7 @@ import {
   IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL,
   IPC_CLOUD_PROVIDER_ACCEPTANCE_STATUS_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
@@ -357,6 +358,13 @@ const bridge: JarvisBridge = {
     CloudProviderAcceptanceDiagnosticReportSchema.parse(
       await ipcRenderer.invoke(
         IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL,
+        CloudProviderAcceptanceConsentRequestSchema.parse(request)
+      )
+    ),
+  runCloudProviderRealAcceptance: async (request) =>
+    CloudProviderAcceptanceDiagnosticReportSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL,
         CloudProviderAcceptanceConsentRequestSchema.parse(request)
       )
     ),

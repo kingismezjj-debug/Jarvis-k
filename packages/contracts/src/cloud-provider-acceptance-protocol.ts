@@ -15,6 +15,8 @@ export const IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL =
   "jarvis-k:cloud-provider-acceptance-preflight";
 export const IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL =
   "jarvis-k:cloud-provider-acceptance-fake-run";
+export const IPC_CLOUD_PROVIDER_ACCEPTANCE_REAL_RUN_CHANNEL =
+  "jarvis-k:cloud-provider-acceptance-real-run";
 
 export const CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_ID =
   "deepseek-v4-flash-advanced-brain-acceptance-v1" as const;
@@ -83,6 +85,8 @@ export const CloudProviderAcceptanceReasonCodeSchema = z.enum([
   "endpoint_profile_mismatch",
   "cloud_egress_not_allowed",
   "consent_missing",
+  "api_balance_unconfirmed",
+  "unsupported_release_channel",
   "request_contract_invalid",
   "ledger_unavailable",
   "acceptance_already_running",
@@ -202,6 +206,8 @@ export const CloudProviderAcceptanceConsentRequestSchema = z
     acceptanceId: CloudProviderAcceptanceIdSchema,
     cloudEgressAllowed: z.boolean(),
     acceptanceConsent: z.boolean(),
+    providerKeyTypeConfirmed: z.boolean().optional().default(false),
+    apiBalanceConfirmedByUser: z.boolean().optional().default(false),
   })
   .strict();
 export type CloudProviderAcceptanceConsentRequest = z.infer<
@@ -260,7 +266,11 @@ export const CloudProviderAcceptanceStatusSchema = z
     capabilityFlagEnabled: z.boolean(),
     source: z.literal("desktop-main"),
     productRoutingEnabled: z.literal(false),
-    realRunCapabilityEnabled: z.literal(false),
+    realRunCapabilityEnabled: z.boolean(),
+    realAcceptanceCapabilityEnabled: z.boolean(),
+    fakeAcceptanceCapabilityEnabled: z.boolean(),
+    releaseChannel: z.enum(["development", "alpha", "stable", "test"]),
+    secureStorageAvailable: z.boolean(),
     profiles: z.array(CloudProviderAcceptanceProfileSchema).min(1).max(8),
     credentialBindings: z
       .array(CloudProviderCredentialBindingProfileSchema)
@@ -309,6 +319,8 @@ export const CloudProviderAcceptancePreflightResultSchema = z
     operationPath: z.literal(
       CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_OPERATION_PATH,
     ),
+    httpMethod: z.literal("POST"),
+    redirectPolicy: z.literal("none"),
     fullEndpointMatch: z.boolean(),
     credentialBindingId: z.literal(
       CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_BINDING_ID,
@@ -316,6 +328,9 @@ export const CloudProviderAcceptancePreflightResultSchema = z
     credentialConfigured: z.boolean(),
     credentialStorageEncrypted: z.boolean(),
     credentialTypeConfirmed: CloudProviderAcceptanceCredentialTypeSchema.optional(),
+    secureStorageAvailable: z.boolean(),
+    providerKeyTypeConfirmed: z.boolean(),
+    apiBalanceConfirmedByUser: z.boolean(),
     protocolFamily: z.literal("openai_chat_completions"),
     requestContractId: z.literal(
       CLOUD_PROVIDER_ACCEPTANCE_DEEPSEEK_FLASH_REQUEST_CONTRACT_ID,
@@ -324,8 +339,10 @@ export const CloudProviderAcceptancePreflightResultSchema = z
     userContentIncluded: z.literal(false),
     stream: z.literal(true),
     streamUsageIncluded: z.literal(true),
+    includeUsage: z.literal(true),
     thinkingType: z.literal("disabled"),
     reasoningEffortPresent: z.literal(false),
+    reasoningEffort: z.literal("absent"),
     maxTokens: z.literal(512),
     timeoutHeadersMs: z.literal(15_000),
     timeoutFirstEventMs: z.literal(60_000),
@@ -338,10 +355,11 @@ export const CloudProviderAcceptancePreflightResultSchema = z
     executorReachable: z.literal(false),
     productRoutingEnabled: z.literal(false),
     cloudEgressConfirmed: z.boolean(),
+    realAcceptanceCapability: z.boolean(),
     pricingTier: z.literal("low"),
     priorRequestCount: z.number().int().min(0).max(1),
     consumed: z.boolean(),
-    allowSingleRealAcceptance: z.literal(false),
+    allowSingleRealAcceptance: z.boolean(),
     allowFakeAcceptance: z.boolean(),
     realNetworkRequestSent: z.literal(false),
     reasonCodes: z.array(CloudProviderAcceptanceReasonCodeSchema).max(20),
@@ -375,6 +393,7 @@ export const CloudProviderAcceptanceDiagnosticReportSchema = z
     latencyMs: z.number().int().nonnegative(),
     httpStatus: z.number().int().min(100).max(599).optional(),
     httpStatusClass: CloudReasoningTransportStatusClassSchema,
+    reasonCode: CloudReasoningTransportReasonCodeSchema,
     sanitizedResultCategory: z.union([
       z.literal("fixed_diagnostic_ok"),
       CloudReasoningTransportReasonCodeSchema,
@@ -389,7 +408,12 @@ export const CloudProviderAcceptanceDiagnosticReportSchema = z
       .strict(),
     requestSent: z.boolean(),
     responseStarted: z.boolean(),
+    headersReceived: z.boolean(),
+    firstEventReceived: z.boolean(),
     responseCompleted: z.boolean(),
+    streamCompleted: z.boolean(),
+    doneObserved: z.boolean(),
+    contentTypeAllowed: z.boolean(),
     responseByteCount: z.number().int().nonnegative().max(128_000),
     reasoningObserved: z.boolean(),
     finalContentPresent: z.boolean(),
