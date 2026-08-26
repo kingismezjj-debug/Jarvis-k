@@ -67,10 +67,7 @@ import {
   createElectronPetSkinAssetSource
 } from "./pet-skin/pet-skin-studio-service";
 import { registerPetSkinStudioIpc } from "./ipc/register-pet-skin-studio-ipc";
-import {
-  GlmAdvancedBrainAcceptanceService,
-  RealGlmAcceptanceTransport
-} from "./glm-advanced-brain-acceptance/glm-advanced-brain-acceptance-service";
+import { GlmAdvancedBrainAcceptanceService } from "./glm-advanced-brain-acceptance/glm-advanced-brain-acceptance-service";
 import { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./glm-advanced-brain-acceptance/secure-glm-advanced-brain-credential-store";
 import { registerGlmAdvancedBrainAcceptanceIpc } from "./ipc/register-glm-advanced-brain-acceptance-ipc";
 
@@ -365,8 +362,6 @@ if (!hasSingleInstanceLock) {
       currentJarvisVersion: app.getVersion(),
       forbiddenExportRoots: [storageProfile.petSkinRootPath]
     });
-    const glmAdvancedBrainAcceptanceEnabled =
-      process.env.JARVIS_K_ENABLE_GLM_ADVANCED_BRAIN_ACCEPTANCE === "1";
     glmAdvancedBrainAcceptanceService = new GlmAdvancedBrainAcceptanceService({
       settingsPath: path.join(
         app.getPath("userData"),
@@ -379,10 +374,7 @@ if (!hasSingleInstanceLock) {
         ),
         getSecureStoreService().encryption()
       ),
-      acceptanceFlagEnabled: glmAdvancedBrainAcceptanceEnabled,
-      ...(glmAdvancedBrainAcceptanceEnabled
-        ? { transport: new RealGlmAcceptanceTransport() }
-        : {})
+      acceptanceFlagEnabled: false
     });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,

@@ -1266,6 +1266,10 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
       path.resolve(import.meta.dirname, "..", "src", "preload.ts"),
       "utf8",
     );
+    const desktopMainSource = readFileSync(
+      path.resolve(import.meta.dirname, "..", "src", "main.ts"),
+      "utf8",
+    );
     const productGlmProviderSource = readFileSync(
       path.resolve(
         import.meta.dirname,
@@ -1348,7 +1352,13 @@ describe("GlmAdvancedBrainAcceptanceService", () => {
     expect(productGlmProviderSource).toContain(
       "export const GLM_ADVANCED_BRAIN_DEFAULT_TIMEOUT_MS = 45_000",
     );
-    expect(productGlmProviderSource).toContain("maxTimeoutMs: 120_000");
+    expect(productGlmProviderSource).toContain(
+      "maxTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.overallTimeoutMs",
+    );
+    expect(desktopMainSource).not.toContain(
+      "JARVIS_K_ENABLE_GLM_ADVANCED_BRAIN_ACCEPTANCE",
+    );
+    expect(desktopMainSource).not.toContain("new RealGlmAcceptanceTransport");
   });
 });
 
