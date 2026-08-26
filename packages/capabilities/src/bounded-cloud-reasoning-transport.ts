@@ -1,9 +1,15 @@
 import {
   ADVANCED_BRAIN_SCHEMA_VERSION,
   CloudProviderEndpointProfileSchema,
+  CloudReasoningModelCapabilityProfileSchema,
+  CloudReasoningProviderHealthProjectionSchema,
+  CloudReasoningTimeoutPolicySchema,
   CloudReasoningTransportRequestSchema,
   CloudReasoningTransportResultSchema,
   type CloudProviderEndpointProfile,
+  type CloudReasoningModelCapabilityProfile,
+  type CloudReasoningProviderHealthProjection,
+  type CloudReasoningTimeoutPolicy,
   type CloudReasoningTransportReasonCode,
   type CloudReasoningTransportRequest,
   type CloudReasoningTransportResult,
@@ -20,7 +26,7 @@ export interface CloudReasoningFetchInit {
   readonly headers: {
     readonly Authorization: string;
     readonly "Content-Type": "application/json";
-    readonly Accept: "application/json";
+    readonly Accept: "application/json" | "text/event-stream";
     readonly "X-Jarvis-K-Request-Id": string;
   };
   readonly body: string;
@@ -52,9 +58,99 @@ export interface BoundedCloudReasoningTransportOptions {
 export interface CloudReasoningTransportSendOptions {
   readonly credential: CloudReasoningRuntimeCredential;
   readonly signal?: AbortSignal;
+  readonly timeoutPolicy?: CloudReasoningTimeoutPolicy;
+}
+
+export interface CloudReasoningRuntimeOptions {
+  readonly endpointProfiles: readonly CloudProviderEndpointProfile[];
+  readonly modelProfiles: readonly CloudReasoningModelCapabilityProfile[];
+  readonly timeoutPolicies: readonly CloudReasoningTimeoutPolicy[];
+  readonly fetch: CloudReasoningFetch;
+  readonly now?: () => Date;
+}
+
+export interface CloudReasoningRuntimeRequest {
+  readonly transportRequest: CloudReasoningTransportRequest;
+  readonly modelProfile: CloudReasoningModelCapabilityProfile;
+  readonly timeoutPolicyId: string;
+  readonly stream: boolean;
+  readonly maxFinalContentChars: number;
+  readonly retryPolicy?: CloudReasoningRetryPolicy;
+}
+
+export interface CloudReasoningRetryPolicy {
+  readonly automaticRetry: boolean;
+  readonly maxAttempts: 1;
+}
+
+export interface OpenAiChatCompletionsParseResult {
+  readonly ok: boolean;
+  readonly finalContent?: string;
+  readonly finalContentBytes: number;
+  readonly reasoningObserved: boolean;
+  readonly finishReason?: string;
+  readonly usage?: {
+    readonly promptTokens?: number;
+    readonly completionTokens?: number;
+    readonly totalTokens?: number;
+    readonly reasoningTokens?: number;
+  };
+  readonly toolProposalObserved: boolean;
+  readonly category:
+    | "completed"
+    | "response_too_large"
+    | "invalid_provider_output"
+    | "no_final_answer"
+    | "output_budget_exhausted_before_final"
+    | "untrusted_tool_proposal_blocked"
+    | "malformed_stream";
+}
+
+export interface CloudReasoningRuntimeResult {
+  readonly transport: CloudReasoningTransportResult;
+  readonly output: OpenAiChatCompletionsParseResult;
+  readonly health: CloudReasoningProviderHealthProjection;
+  readonly diagnostics: {
+    readonly schemaVersion: typeof ADVANCED_BRAIN_SCHEMA_VERSION;
+    readonly providerId: string;
+    readonly deploymentId: string;
+    readonly modelId: string;
+    readonly protocolFamily: "openai_chat_completions";
+    readonly endpointProfileId: string;
+    readonly requestTimeoutPolicyId: string;
+    readonly statusClass: CloudReasoningTransportStatusClass;
+    readonly reasonCode: CloudReasoningTransportReasonCode;
+    readonly requestSent: boolean;
+    readonly responseStarted: boolean;
+    readonly responseCompleted: boolean;
+    readonly retryCount: number;
+    readonly fallbackCount: 0;
+    readonly reasoningObserved: boolean;
+    readonly finalContentPresent: boolean;
+    readonly finalContentBytes: number;
+    readonly finishReason?: string;
+    readonly contentType: string | "not_available";
+    readonly jsonDecoded: boolean | "not_available";
+    readonly toolProposalObserved: boolean;
+    readonly promptExposed: false;
+    readonly credentialExposed: false;
+    readonly responseBodyLogged: false;
+    readonly directActionAttempted: false;
+  };
 }
 
 const TEXT_ENCODER = new TextEncoder();
+const JSON_CONTENT_TYPE = "application/json";
+const SSE_CONTENT_TYPE = "text/event-stream";
+
+export const DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY =
+  CloudReasoningTimeoutPolicySchema.parse({
+    policyId: "reasoning-default-v1",
+    connectOrHeadersTimeoutMs: 15_000,
+    firstEventTimeoutMs: 60_000,
+    streamIdleTimeoutMs: 30_000,
+    overallTimeoutMs: 180_000,
+  });
 
 export class BoundedCloudReasoningTransport {
   private readonly profiles: readonly CloudProviderEndpointProfile[];
@@ -174,15 +270,68 @@ export class BoundedCloudReasoningTransport {
       profile.timeoutBounds.minTimeoutMs,
       profile.timeoutBounds.maxTimeoutMs,
     );
+    const timeoutPolicy = effectiveTimeoutPolicy(options.timeoutPolicy, timeoutMs);
     const controller = new AbortController();
     this.activeControllers.add(controller);
     const cleanupExternalAbort = bindExternalAbort(options.signal, controller);
     let timeout = false;
-    const timer = setTimeout(() => {
-      timeout = true;
-      controller.abort();
-    }, timeoutMs);
-
+    let timeoutReason: CloudReasoningTransportReasonCode = "timeout";
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const armTimeout = (
+      reasonCode: CloudReasoningTransportReasonCode,
+      durationMs: number,
+    ): ReturnType<typeof setTimeout> => {
+      const timer = setTimeout(() => {
+        timeout = true;
+        timeoutReason = reasonCode;
+        controller.abort();
+      }, durationMs);
+      timers.add(timer);
+      return timer;
+    };
+    const clearArmedTimeout = (timer: ReturnType<typeof setTimeout> | undefined) => {
+      if (timer) {
+        clearTimeout(timer);
+        timers.delete(timer);
+      }
+    };
+    const clearAllTimeouts = () => {
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+      timers.clear();
+    };
+    const overallTimer = armTimeout(
+      timeoutPolicy.granular ? "overall_timeout" : "timeout",
+      timeoutPolicy.policy.overallTimeoutMs,
+    );
+    const headersTimer = armTimeout(
+      timeoutPolicy.granular ? "headers_timeout" : "timeout",
+      timeoutPolicy.policy.connectOrHeadersTimeoutMs,
+    );
+    let firstEventTimer: ReturnType<typeof setTimeout> | undefined;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const markFirstEvent = () => {
+      clearArmedTimeout(firstEventTimer);
+      firstEventTimer = undefined;
+    };
+    const resetIdleTimer = () => {
+      clearArmedTimeout(idleTimer);
+      idleTimer = armTimeout(
+        timeoutPolicy.granular ? "stream_idle_timeout" : "timeout",
+        timeoutPolicy.policy.streamIdleTimeoutMs,
+      );
+    };
+    const armFirstEventTimer = () => {
+      firstEventTimer = armTimeout(
+        timeoutPolicy.granular ? "first_event_timeout" : "timeout",
+        timeoutPolicy.policy.firstEventTimeoutMs,
+      );
+    };
+    const markChunk = () => {
+      markFirstEvent();
+      resetIdleTimer();
+    };
     let requestSent = false;
     let responseStarted = false;
     try {
@@ -192,13 +341,14 @@ export class BoundedCloudReasoningTransport {
         headers: {
           Authorization: `Bearer ${options.credential.value}`,
           "Content-Type": "application/json",
-          Accept: "application/json",
+          Accept: isStreamingRequest(request.data) ? SSE_CONTENT_TYPE : JSON_CONTENT_TYPE,
           "X-Jarvis-K-Request-Id": request.data.requestId,
         },
         body,
         signal: controller.signal,
-        redirect: "manual",
+          redirect: "manual",
       });
+      clearArmedTimeout(headersTimer);
       responseStarted = true;
       const httpStatus = response.status;
       if (httpStatus >= 300 && httpStatus < 400) {
@@ -215,7 +365,7 @@ export class BoundedCloudReasoningTransport {
       }
       const contentType = response.headers.get("content-type") ?? "";
       const safeHeaders = safeResponseHeaders(response.headers);
-      if (!isJsonContentType(contentType)) {
+      if (!isJsonContentType(contentType) && !isEventStreamContentType(contentType)) {
         await cancelResponseBody(response.body);
         return this.result({
           request: request.data,
@@ -257,10 +407,18 @@ export class BoundedCloudReasoningTransport {
         });
       }
 
+      armFirstEventTimer();
       const read = await readBoundedResponseBody(
         response,
         maxResponseBytes,
         controller,
+        {
+          onChunk: markChunk,
+          onComplete: () => {
+            markFirstEvent();
+            clearArmedTimeout(idleTimer);
+          },
+        },
       );
       if (!read.ok) {
         return this.result({
@@ -276,7 +434,9 @@ export class BoundedCloudReasoningTransport {
       }
       let responseJson: unknown;
       try {
-        responseJson = read.text.length > 0 ? JSON.parse(read.text) : {};
+        responseJson = isEventStreamContentType(contentType)
+          ? { sseText: read.text }
+          : read.text.length > 0 ? JSON.parse(read.text) : {};
       } catch {
         return this.result({
           request: request.data,
@@ -338,7 +498,7 @@ export class BoundedCloudReasoningTransport {
             ? "cancelled"
             : "network_error",
         reasonCode: timeout
-          ? "timeout"
+          ? timeoutReason
           : externallyCancelled || this.disposed
             ? "cancelled"
             : "network_unavailable",
@@ -348,7 +508,8 @@ export class BoundedCloudReasoningTransport {
         timeout,
       });
     } finally {
-      clearTimeout(timer);
+      clearAllTimeouts();
+      clearArmedTimeout(overallTimer);
       cleanupExternalAbort();
       this.activeControllers.delete(controller);
     }
@@ -414,6 +575,687 @@ export class BoundedCloudReasoningTransport {
   }
 }
 
+export class CloudReasoningRuntime {
+  private readonly transport: BoundedCloudReasoningTransport;
+  private readonly endpointProfiles: readonly CloudProviderEndpointProfile[];
+  private readonly modelProfiles: readonly CloudReasoningModelCapabilityProfile[];
+  private readonly timeoutPolicies: readonly CloudReasoningTimeoutPolicy[];
+  private readonly now: () => Date;
+  private readonly failures = new Map<string, number>();
+  private readonly successes = new Map<string, string>();
+  private disposed = false;
+
+  public constructor(options: CloudReasoningRuntimeOptions) {
+    this.endpointProfiles = options.endpointProfiles.map((profile) =>
+      CloudProviderEndpointProfileSchema.parse(profile),
+    );
+    this.modelProfiles = options.modelProfiles.map((profile) =>
+      CloudReasoningModelCapabilityProfileSchema.parse(profile),
+    );
+    this.timeoutPolicies = options.timeoutPolicies.map((policy) =>
+      CloudReasoningTimeoutPolicySchema.parse(policy),
+    );
+    this.now = options.now ?? (() => new Date());
+    this.transport = new BoundedCloudReasoningTransport({
+      endpointProfiles: this.endpointProfiles,
+      fetch: options.fetch,
+      now: this.now,
+    });
+  }
+
+  public async runOpenAiChatCompletions(
+    input: CloudReasoningRuntimeRequest,
+    options: CloudReasoningTransportSendOptions,
+  ): Promise<CloudReasoningRuntimeResult> {
+    const runtimeInput = this.validateRuntimeInput(input);
+    if (!runtimeInput.ok) {
+      const transport = this.emptyTransportResult(
+        input.transportRequest,
+        runtimeInput.reasonCode,
+        runtimeInput.statusClass,
+      );
+      return this.runtimeResult(input, transport, emptyParseResult(runtimeInput.reasonCode));
+    }
+    if (this.disposed) {
+      const transport = this.emptyTransportResult(
+        input.transportRequest,
+        "cancelled",
+        "cancelled",
+      );
+      return this.runtimeResult(input, transport, emptyParseResult("cancelled"));
+    }
+
+    const retryEnabled = input.retryPolicy?.automaticRetry === true;
+    const first = await this.sendOnce(input, options);
+    if (
+      retryEnabled &&
+      first.transport.requestSent &&
+      !first.transport.responseStarted &&
+      isRetryableBeforeResponse(first.transport.reasonCode)
+    ) {
+      const second = await this.sendOnce(input, options);
+      return this.withRetryDiagnostics(second, 1);
+    }
+    return this.withRetryDiagnostics(first, 0);
+  }
+
+  public healthFor(
+    profile: CloudReasoningModelCapabilityProfile,
+  ): CloudReasoningProviderHealthProjection {
+    const parsed = CloudReasoningModelCapabilityProfileSchema.parse(profile);
+    const key = healthKey(parsed);
+    const consecutiveFailureCount = this.failures.get(key) ?? 0;
+    const lastSuccessAt = this.successes.get(key);
+    return CloudReasoningProviderHealthProjectionSchema.parse({
+      schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+      providerId: parsed.providerId,
+      deploymentId: parsed.deploymentId,
+      modelId: parsed.modelId,
+      state: !parsed.enabled
+        ? "disabled"
+        : consecutiveFailureCount === 0
+          ? lastSuccessAt
+            ? "ready"
+            : "unknown"
+          : consecutiveFailureCount > 2
+            ? "degraded"
+            : "unavailable",
+      ...(lastSuccessAt ? { lastSuccessAt } : {}),
+      consecutiveFailureCount,
+      source: "runtime_observation",
+    });
+  }
+
+  public dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    this.transport.dispose();
+  }
+
+  private async sendOnce(
+    input: CloudReasoningRuntimeRequest,
+    options: CloudReasoningTransportSendOptions,
+  ): Promise<CloudReasoningRuntimeResult> {
+    const request = normalizeRuntimeTransportRequest(input);
+    const transport = await this.transport.send(request, {
+      ...options,
+      timeoutPolicy: this.timeoutPolicyFor(input.timeoutPolicyId),
+    });
+    const parse =
+      transport.statusClass === "success" &&
+      input.modelProfile.protocolFamily === "openai_chat_completions"
+        ? parseOpenAiChatCompletionsTransportResult({
+            transport,
+            maxFinalContentChars: input.maxFinalContentChars,
+          })
+        : emptyParseResult(transport.reasonCode);
+    return this.runtimeResult(input, transport, parse);
+  }
+
+  private runtimeResult(
+    input: CloudReasoningRuntimeRequest,
+    transport: CloudReasoningTransportResult,
+    output: OpenAiChatCompletionsParseResult,
+  ): CloudReasoningRuntimeResult {
+    const health = this.recordHealth(input.modelProfile, transport);
+    return {
+      transport,
+      output,
+      health,
+      diagnostics: runtimeDiagnostics(input, transport, output, 0),
+    };
+  }
+
+  private withRetryDiagnostics(
+    result: CloudReasoningRuntimeResult,
+    retryCount: number,
+  ): CloudReasoningRuntimeResult {
+    return {
+      ...result,
+      diagnostics: {
+        ...result.diagnostics,
+        retryCount,
+      },
+    };
+  }
+
+  private recordHealth(
+    profile: CloudReasoningModelCapabilityProfile,
+    transport: CloudReasoningTransportResult,
+  ): CloudReasoningProviderHealthProjection {
+    const key = healthKey(profile);
+    const now = this.now().toISOString();
+    if (transport.statusClass === "success") {
+      this.failures.set(key, 0);
+      this.successes.set(key, now);
+      return CloudReasoningProviderHealthProjectionSchema.parse({
+        schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+        providerId: profile.providerId,
+        deploymentId: profile.deploymentId,
+        modelId: profile.modelId,
+        state: "ready",
+        lastAttemptAt: now,
+        lastSuccessAt: now,
+        consecutiveFailureCount: 0,
+        source: "runtime_observation",
+      });
+    }
+    const count = (this.failures.get(key) ?? 0) + 1;
+    this.failures.set(key, count);
+    const state =
+      transport.statusClass === "auth_failure"
+        ? "credential_missing"
+        : transport.statusClass === "rate_limited"
+          ? "rate_limited"
+          : count > 2
+            ? "degraded"
+            : "unavailable";
+    return CloudReasoningProviderHealthProjectionSchema.parse({
+      schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+      providerId: profile.providerId,
+      deploymentId: profile.deploymentId,
+      modelId: profile.modelId,
+      state,
+      lastAttemptAt: now,
+      sanitizedFailureCategory: transport.reasonCode,
+      consecutiveFailureCount: count,
+      source: "runtime_observation",
+    });
+  }
+
+  private validateRuntimeInput(
+    input: CloudReasoningRuntimeRequest,
+  ):
+    | { readonly ok: true }
+    | {
+        readonly ok: false;
+        readonly statusClass: CloudReasoningTransportStatusClass;
+        readonly reasonCode: CloudReasoningTransportReasonCode;
+      } {
+    const request = CloudReasoningTransportRequestSchema.safeParse(
+      input.transportRequest,
+    );
+    const model = CloudReasoningModelCapabilityProfileSchema.safeParse(
+      input.modelProfile,
+    );
+    if (!request.success || !model.success) {
+      return { ok: false, statusClass: "failed", reasonCode: "invalid_request" };
+    }
+    const registeredModel = this.modelProfiles.find(
+      (candidate) =>
+        candidate.providerId === model.data.providerId &&
+        candidate.deploymentId === model.data.deploymentId &&
+        candidate.modelId === model.data.modelId,
+    );
+    if (!registeredModel || !sameModelProfile(registeredModel, model.data)) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    if (model.data.protocolFamily !== "openai_chat_completions") {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    if (!model.data.enabled) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "model_not_available",
+      };
+    }
+    if (
+      model.data.providerId !== request.data.providerId ||
+      model.data.deploymentId !== request.data.deploymentId ||
+      model.data.credentialBindingId !== request.data.credentialBindingId
+    ) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    const policy = this.timeoutPolicies.find(
+      (candidate) => candidate.policyId === input.timeoutPolicyId,
+    );
+    if (!policy || policy.policyId !== model.data.requestTimeoutPolicyId) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    if (input.stream && !model.data.supportsStreaming) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    if (!input.stream && !model.data.supportsNonStreaming) {
+      return {
+        ok: false,
+        statusClass: "blocked",
+        reasonCode: "invalid_request",
+      };
+    }
+    return { ok: true };
+  }
+
+  private emptyTransportResult(
+    requestInput: CloudReasoningTransportRequest,
+    reasonCode: CloudReasoningTransportReasonCode,
+    statusClass: CloudReasoningTransportStatusClass,
+  ): CloudReasoningTransportResult {
+    const request = fallbackRequest(requestInput);
+    return CloudReasoningTransportResultSchema.parse({
+      schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+      requestId: request.requestId,
+      providerId: request.providerId,
+      deploymentId: request.deploymentId,
+      operation: request.operation,
+      statusClass,
+      reasonCode,
+      safeHeaders: {},
+      latencyMs: 0,
+      requestSent: false,
+      responseStarted: false,
+      responseCompleted: false,
+      cancelled: statusClass === "cancelled",
+      timeout: statusClass === "timeout",
+      automaticRetry: false,
+      automaticFallback: false,
+      credentialExposed: false,
+      requestBodyExposed: false,
+      responseBodyLogged: false,
+    });
+  }
+
+  private timeoutPolicyFor(policyId: string): CloudReasoningTimeoutPolicy {
+    const policy = this.timeoutPolicies.find(
+      (candidate) => candidate.policyId === policyId,
+    );
+    return policy ?? DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY;
+  }
+}
+
+export function parseOpenAiChatCompletionsJson(input: {
+  readonly body: unknown;
+  readonly maxFinalContentChars: number;
+}): OpenAiChatCompletionsParseResult {
+  if (!isRecord(input.body) || !Array.isArray(input.body.choices)) {
+    return invalidParse("invalid_provider_output");
+  }
+  const choice = input.body.choices[0];
+  if (!isRecord(choice)) {
+    return invalidParse("invalid_provider_output");
+  }
+  const message = choice.message;
+  if (!isRecord(message)) {
+    return invalidParse("invalid_provider_output");
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(message, "tool_calls") ||
+    Object.prototype.hasOwnProperty.call(message, "function_call")
+  ) {
+    return invalidParse("untrusted_tool_proposal_blocked", {
+      toolProposalObserved: true,
+    });
+  }
+  const content = typeof message.content === "string" ? message.content : "";
+  const reasoningObserved = typeof message.reasoning_content === "string";
+  const finishReason =
+    typeof choice.finish_reason === "string" ? choice.finish_reason : undefined;
+  const usage = parseUsage(input.body.usage);
+  if (content.length === 0) {
+    const partial = {
+      reasoningObserved,
+      ...(finishReason ? { finishReason } : {}),
+      ...(usage ? { usage } : {}),
+    };
+    return invalidParse(
+      finishReason === "length"
+        ? "output_budget_exhausted_before_final"
+        : "no_final_answer",
+      partial,
+    );
+  }
+  const bounded = boundFinalContent(content, input.maxFinalContentChars);
+  if (!bounded.ok) {
+    return invalidParse("response_too_large", {
+      reasoningObserved,
+      ...(finishReason ? { finishReason } : {}),
+      ...(usage ? { usage } : {}),
+    });
+  }
+  return {
+    ok: true,
+    finalContent: content,
+    finalContentBytes: TEXT_ENCODER.encode(content).byteLength,
+    reasoningObserved,
+    ...(finishReason ? { finishReason } : {}),
+    ...(usage ? { usage } : {}),
+    toolProposalObserved: false,
+    category: "completed",
+  };
+}
+
+export function parseOpenAiChatCompletionsSse(input: {
+  readonly text: string;
+  readonly maxFinalContentChars: number;
+}): OpenAiChatCompletionsParseResult {
+  let finalContent = "";
+  let reasoningObserved = false;
+  let finishReason: string | undefined;
+  let usage: OpenAiChatCompletionsParseResult["usage"];
+  for (const event of parseSseEvents(input.text)) {
+    const payload = event.dataLines.join("\n").trim();
+    if (payload === "[DONE]") {
+      continue;
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(payload);
+    } catch {
+      return invalidParse("malformed_stream");
+    }
+    if (!isRecord(json) || !Array.isArray(json.choices)) {
+      return invalidParse("malformed_stream");
+    }
+    usage = parseUsage(json.usage) ?? usage;
+    if (json.choices.length === 0) {
+      continue;
+    }
+    const choice = json.choices[0];
+    if (!isRecord(choice)) {
+      return invalidParse("malformed_stream");
+    }
+    finishReason =
+      typeof choice.finish_reason === "string" ? choice.finish_reason : finishReason;
+    const delta = isRecord(choice.delta) ? choice.delta : {};
+    if (
+      Object.prototype.hasOwnProperty.call(delta, "tool_calls") ||
+      Object.prototype.hasOwnProperty.call(delta, "function_call")
+    ) {
+      return invalidParse("untrusted_tool_proposal_blocked", {
+        reasoningObserved,
+        toolProposalObserved: true,
+      });
+    }
+    if (typeof delta.reasoning_content === "string") {
+      reasoningObserved = true;
+    }
+    if (typeof delta.content === "string") {
+      finalContent += delta.content;
+      if (finalContent.length > input.maxFinalContentChars) {
+        return invalidParse("response_too_large", {
+          reasoningObserved,
+          ...(finishReason ? { finishReason } : {}),
+          ...(usage ? { usage } : {}),
+        });
+      }
+    }
+  }
+  if (finalContent.length === 0) {
+    const partial = {
+      reasoningObserved,
+      ...(finishReason ? { finishReason } : {}),
+      ...(usage ? { usage } : {}),
+    };
+    return invalidParse(
+      finishReason === "length"
+        ? "output_budget_exhausted_before_final"
+        : "no_final_answer",
+      partial,
+    );
+  }
+  return {
+    ok: true,
+    finalContent,
+    finalContentBytes: TEXT_ENCODER.encode(finalContent).byteLength,
+    reasoningObserved,
+    ...(finishReason ? { finishReason } : {}),
+    ...(usage ? { usage } : {}),
+    toolProposalObserved: false,
+    category: "completed",
+  };
+}
+
+function parseOpenAiChatCompletionsTransportResult(input: {
+  readonly transport: CloudReasoningTransportResult;
+  readonly maxFinalContentChars: number;
+}): OpenAiChatCompletionsParseResult {
+  const sseText =
+    isRecord(input.transport.responseJson) &&
+    typeof input.transport.responseJson.sseText === "string"
+      ? input.transport.responseJson.sseText
+      : undefined;
+  return sseText !== undefined
+    ? parseOpenAiChatCompletionsSse({
+        text: sseText,
+        maxFinalContentChars: input.maxFinalContentChars,
+      })
+    : parseOpenAiChatCompletionsJson({
+        body: input.transport.responseJson,
+        maxFinalContentChars: input.maxFinalContentChars,
+      });
+}
+
+function runtimeDiagnostics(
+  input: CloudReasoningRuntimeRequest,
+  transport: CloudReasoningTransportResult,
+  output: OpenAiChatCompletionsParseResult,
+  retryCount: number,
+): CloudReasoningRuntimeResult["diagnostics"] {
+  const contentType = transport.safeHeaders.contentType ?? "not_available";
+  return {
+    schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+    providerId: input.modelProfile.providerId,
+    deploymentId: input.modelProfile.deploymentId,
+    modelId: input.modelProfile.modelId,
+    protocolFamily: "openai_chat_completions",
+    endpointProfileId: input.modelProfile.endpointProfileId,
+    requestTimeoutPolicyId: input.timeoutPolicyId,
+    statusClass: transport.statusClass,
+    reasonCode:
+      transport.statusClass === "success" && !output.ok
+        ? parseCategoryToReason(output.category)
+        : transport.reasonCode,
+    requestSent: transport.requestSent,
+    responseStarted: transport.responseStarted,
+    responseCompleted: transport.responseCompleted,
+    retryCount,
+    fallbackCount: 0,
+    reasoningObserved: output.reasoningObserved,
+    finalContentPresent: typeof output.finalContent === "string" && output.finalContent.length > 0,
+    finalContentBytes: output.finalContentBytes,
+    ...(output.finishReason ? { finishReason: output.finishReason } : {}),
+    contentType,
+    jsonDecoded:
+      transport.responseStarted && isJsonContentType(contentType)
+        ? transport.responseCompleted
+        : "not_available",
+    toolProposalObserved: output.toolProposalObserved,
+    promptExposed: false,
+    credentialExposed: false,
+    responseBodyLogged: false,
+    directActionAttempted: false,
+  };
+}
+
+function normalizeRuntimeTransportRequest(
+  input: CloudReasoningRuntimeRequest,
+): CloudReasoningTransportRequest {
+  const policy = CloudReasoningTimeoutPolicySchema.parse({
+    policyId: input.timeoutPolicyId,
+    connectOrHeadersTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.connectOrHeadersTimeoutMs,
+    firstEventTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.firstEventTimeoutMs,
+    streamIdleTimeoutMs: DEFAULT_CLOUD_REASONING_TIMEOUT_POLICY.streamIdleTimeoutMs,
+    overallTimeoutMs: input.transportRequest.timeoutMs,
+  });
+  void policy;
+  return CloudReasoningTransportRequestSchema.parse({
+    ...input.transportRequest,
+    timeoutMs: input.transportRequest.timeoutMs,
+    bodyJson: {
+      ...input.transportRequest.bodyJson,
+      stream: input.stream,
+    },
+  });
+}
+
+function emptyParseResult(
+  reasonCode: CloudReasoningTransportReasonCode,
+): OpenAiChatCompletionsParseResult {
+  return invalidParse(parseReasonToOutputCategory(reasonCode));
+}
+
+function invalidParse(
+  category: OpenAiChatCompletionsParseResult["category"],
+  partial: Partial<Omit<OpenAiChatCompletionsParseResult, "ok" | "category" | "finalContentBytes">> = {},
+): OpenAiChatCompletionsParseResult {
+  return {
+    ok: false,
+    finalContentBytes: 0,
+    reasoningObserved: partial.reasoningObserved ?? false,
+    ...(partial.finishReason ? { finishReason: partial.finishReason } : {}),
+    ...(partial.usage ? { usage: partial.usage } : {}),
+    toolProposalObserved: partial.toolProposalObserved ?? false,
+    category,
+  };
+}
+
+function parseUsage(
+  usage: unknown,
+): OpenAiChatCompletionsParseResult["usage"] | undefined {
+  if (!isRecord(usage)) {
+    return undefined;
+  }
+  const promptTokens = safeTokenCount(usage.prompt_tokens);
+  const completionTokens = safeTokenCount(usage.completion_tokens);
+  const totalTokens = safeTokenCount(usage.total_tokens);
+  const completionDetails = isRecord(usage.completion_tokens_details)
+    ? usage.completion_tokens_details
+    : {};
+  const reasoningTokens = safeTokenCount(completionDetails.reasoning_tokens);
+  return {
+    ...(promptTokens !== undefined ? { promptTokens } : {}),
+    ...(completionTokens !== undefined ? { completionTokens } : {}),
+    ...(totalTokens !== undefined ? { totalTokens } : {}),
+    ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+  };
+}
+
+function safeTokenCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+function boundFinalContent(
+  content: string,
+  maxChars: number,
+): { readonly ok: true } | { readonly ok: false } {
+  return content.length <= maxChars &&
+    TEXT_ENCODER.encode(content).byteLength <= maxChars * 4
+    ? { ok: true }
+    : { ok: false };
+}
+
+function parseSseEvents(text: string): Array<{ readonly dataLines: string[] }> {
+  const events: Array<{ dataLines: string[] }> = [];
+  let dataLines: string[] = [];
+  for (const rawLine of text.replace(/\r\n/gu, "\n").split("\n")) {
+    const line = rawLine.trimEnd();
+    if (line.length === 0) {
+      if (dataLines.length > 0) {
+        events.push({ dataLines });
+        dataLines = [];
+      }
+      continue;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+  if (dataLines.length > 0) {
+    events.push({ dataLines });
+  }
+  return events;
+}
+
+function sameModelProfile(
+  left: CloudReasoningModelCapabilityProfile,
+  right: CloudReasoningModelCapabilityProfile,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function parseReasonToOutputCategory(
+  reasonCode: CloudReasoningTransportReasonCode,
+): OpenAiChatCompletionsParseResult["category"] {
+  if (reasonCode === "response_too_large") {
+    return "response_too_large";
+  }
+  if (reasonCode === "malformed_stream") {
+    return "malformed_stream";
+  }
+  if (reasonCode === "untrusted_tool_proposal_blocked") {
+    return "untrusted_tool_proposal_blocked";
+  }
+  if (reasonCode === "output_budget_exhausted_before_final") {
+    return "output_budget_exhausted_before_final";
+  }
+  if (reasonCode === "no_final_answer") {
+    return "no_final_answer";
+  }
+  return "invalid_provider_output";
+}
+
+function parseCategoryToReason(
+  category: OpenAiChatCompletionsParseResult["category"],
+): CloudReasoningTransportReasonCode {
+  return category === "completed" ? "completed" : category;
+}
+
+function isRetryableBeforeResponse(
+  reasonCode: CloudReasoningTransportReasonCode,
+): boolean {
+  return (
+    reasonCode === "dns_resolution_failed" ||
+    reasonCode === "connection_reset" ||
+    reasonCode === "network_unavailable" ||
+    reasonCode === "network_failure_unclassified" ||
+    reasonCode === "provider_server_error" ||
+    reasonCode === "rate_limited"
+  );
+}
+
+function healthKey(profile: CloudReasoningModelCapabilityProfile): string {
+  return `${profile.providerId}:${profile.deploymentId}:${profile.modelId}`;
+}
+
+function isStreamingRequest(request: CloudReasoningTransportRequest): boolean {
+  return (
+    isRecord(request.bodyJson) &&
+    (request.bodyJson as Record<string, unknown>).stream === true
+  );
+}
+
+function isEventStreamContentType(value: string): boolean {
+  return /^text\/event-stream(?:\s*;.*)?$/iu.test(value.trim());
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function fallbackRequest(input: CloudReasoningTransportRequest): CloudReasoningTransportRequest {
   const fallback = {
     schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
@@ -468,6 +1310,31 @@ function resolveEndpoint(
 
 function clampTimeout(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function effectiveTimeoutPolicy(
+  policy: CloudReasoningTimeoutPolicy | undefined,
+  fallbackTimeoutMs: number,
+): {
+  readonly granular: boolean;
+  readonly policy: CloudReasoningTimeoutPolicy;
+} {
+  if (policy) {
+    return {
+      granular: true,
+      policy: CloudReasoningTimeoutPolicySchema.parse(policy),
+    };
+  }
+  return {
+    granular: false,
+    policy: CloudReasoningTimeoutPolicySchema.parse({
+      policyId: "legacy-single-timeout",
+      connectOrHeadersTimeoutMs: fallbackTimeoutMs,
+      firstEventTimeoutMs: fallbackTimeoutMs,
+      streamIdleTimeoutMs: fallbackTimeoutMs,
+      overallTimeoutMs: fallbackTimeoutMs,
+    }),
+  };
 }
 
 function bindExternalAbort(
@@ -541,6 +1408,10 @@ async function readBoundedResponseBody(
   response: CloudReasoningFetchResponse,
   maxBytes: number,
   controller: AbortController,
+  events: {
+    readonly onChunk?: () => void;
+    readonly onComplete?: () => void;
+  } = {},
 ): Promise<{ ok: true; text: string } | { ok: false }> {
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -551,6 +1422,7 @@ async function readBoundedResponseBody(
       return false;
     }
     chunks.push(chunk);
+    events.onChunk?.();
     return true;
   };
 
@@ -570,6 +1442,7 @@ async function readBoundedResponseBody(
     } finally {
       reader.releaseLock?.();
     }
+    events.onComplete?.();
     return { ok: true, text: decodeChunks(chunks, total) };
   }
 
@@ -580,18 +1453,22 @@ async function readBoundedResponseBody(
         return { ok: false };
       }
     }
+    events.onComplete?.();
     return { ok: true, text: decodeChunks(chunks, total) };
   }
 
   if (response.text) {
     const text = await response.text();
+    events.onChunk?.();
     if (TEXT_ENCODER.encode(text).byteLength > maxBytes) {
       controller.abort();
       return { ok: false };
     }
+    events.onComplete?.();
     return { ok: true, text };
   }
 
+  events.onComplete?.();
   return { ok: true, text: "" };
 }
 
