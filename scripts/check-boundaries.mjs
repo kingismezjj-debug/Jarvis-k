@@ -360,7 +360,10 @@ const packages = [
   {
     name: "desktop",
     root: path.join(root, "apps", "desktop"),
-    allowedWorkspaceImports: new Set(["@jarvis-k/contracts"]),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
     forbiddenImportPrefixes: [
       "react",
       "ws",

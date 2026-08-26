@@ -7,3 +7,4 @@ export * from "./qwen-product-routing-activation";
 export * from "./pet-skin-protocol";
 export * from "./advanced-brain-protocol";
 export * from "./glm-advanced-brain-acceptance-protocol";
+export * from "./cloud-provider-acceptance-protocol";

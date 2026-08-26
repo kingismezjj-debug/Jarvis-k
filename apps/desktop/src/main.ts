@@ -70,6 +70,16 @@ import { registerPetSkinStudioIpc } from "./ipc/register-pet-skin-studio-ipc";
 import { GlmAdvancedBrainAcceptanceService } from "./glm-advanced-brain-acceptance/glm-advanced-brain-acceptance-service";
 import { SecureGlmAdvancedBrainAcceptanceCredentialStore } from "./glm-advanced-brain-acceptance/secure-glm-advanced-brain-credential-store";
 import { registerGlmAdvancedBrainAcceptanceIpc } from "./ipc/register-glm-advanced-brain-acceptance-ipc";
+import { CloudProviderAcceptanceService } from "./cloud-provider-acceptance/cloud-provider-acceptance-service";
+import { CloudProviderAcceptanceLedger } from "./cloud-provider-acceptance/cloud-provider-acceptance-ledger";
+import { CloudProviderAcceptanceProfileRegistry } from "./cloud-provider-acceptance/cloud-provider-acceptance-profile-registry";
+import { CloudProviderCredentialBroker } from "./cloud-provider-acceptance/cloud-provider-credential-broker";
+import { CloudProviderCredentialVault } from "./cloud-provider-acceptance/cloud-provider-credential-vault";
+import {
+  CloudProviderCredentialBindingRegistry,
+  type CloudProviderAcceptanceReleaseChannel
+} from "./cloud-provider-acceptance/credential-binding-registry";
+import { registerCloudProviderAcceptanceIpc } from "./ipc/register-cloud-provider-acceptance-ipc";
 
 let mainWindow: BrowserWindow | null = null;
 let supervisorController: DesktopSupervisorController | null = null;
@@ -101,6 +111,8 @@ let petSkinStudioIpcDisposer: (() => void) | null = null;
 let glmAdvancedBrainAcceptanceService: GlmAdvancedBrainAcceptanceService | null =
   null;
 let glmAdvancedBrainAcceptanceIpcDisposer: (() => void) | null = null;
+let cloudProviderAcceptanceService: CloudProviderAcceptanceService | null = null;
+let cloudProviderAcceptanceIpcDisposer: (() => void) | null = null;
 let desktopRuntimeDisposeStarted = false;
 let startupSource: DesktopStartupSource = resolveDesktopStartupSource();
 let loginItemController: LoginItemController | null = null;
@@ -327,6 +339,8 @@ if (!hasSingleInstanceLock) {
       loginItemController,
       evaluationCapabilityAvailable:
         process.env.JARVIS_K_ENABLE_EVALUATION_UI === "1",
+      cloudProviderAcceptanceCapabilityAvailable:
+        process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1",
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
     petController = new DesktopPetController({
@@ -375,6 +389,38 @@ if (!hasSingleInstanceLock) {
         getSecureStoreService().encryption()
       ),
       acceptanceFlagEnabled: false
+    });
+    const cloudProviderAcceptanceFlagEnabled =
+      process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1";
+    const cloudProviderCredentialBindingRegistry =
+      new CloudProviderCredentialBindingRegistry({
+        releaseChannel:
+          storageProfile.releaseChannel as CloudProviderAcceptanceReleaseChannel
+      });
+    const cloudProviderCredentialVault = new CloudProviderCredentialVault({
+      rootDirectory: path.join(app.getPath("userData"), "cloud-provider-credentials"),
+      encryption: getSecureStoreService().encryption(),
+      bindingRegistry: cloudProviderCredentialBindingRegistry
+    });
+    const cloudProviderAcceptanceProfileRegistry =
+      new CloudProviderAcceptanceProfileRegistry({
+        enabledByReleaseGate: cloudProviderAcceptanceFlagEnabled
+      });
+    cloudProviderAcceptanceService = new CloudProviderAcceptanceService({
+      bindingRegistry: cloudProviderCredentialBindingRegistry,
+      credentialVault: cloudProviderCredentialVault,
+      credentialBroker: new CloudProviderCredentialBroker(
+        cloudProviderCredentialVault
+      ),
+      profileRegistry: cloudProviderAcceptanceProfileRegistry,
+      ledger: new CloudProviderAcceptanceLedger({
+        ledgerPath: path.join(
+          app.getPath("userData"),
+          "cloud-provider-acceptance-ledger.json"
+        )
+      }),
+      capabilityFlagEnabled: cloudProviderAcceptanceFlagEnabled,
+      realRunCapabilityEnabled: false
     });
     trayController = new DesktopTrayController({
       getMainWindow: () => mainWindow,
@@ -534,6 +580,11 @@ if (!hasSingleInstanceLock) {
         getMainWindow: () => mainWindow,
         service: glmAdvancedBrainAcceptanceService
       });
+    cloudProviderAcceptanceIpcDisposer = registerCloudProviderAcceptanceIpc({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      service: cloudProviderAcceptanceService
+    });
     qwenRuntimeIpcDisposer = registerQwenRuntimeIpc({
       ipcMain,
       qwenRuntimeController,
@@ -589,6 +640,9 @@ function disposeDesktopRuntime(): void {
   glmAdvancedBrainAcceptanceIpcDisposer?.();
   glmAdvancedBrainAcceptanceIpcDisposer = null;
   glmAdvancedBrainAcceptanceService = null;
+  cloudProviderAcceptanceIpcDisposer?.();
+  cloudProviderAcceptanceIpcDisposer = null;
+  cloudProviderAcceptanceService = null;
   if (petSkinStudioService) {
     void petSkinStudioService.dispose();
     petSkinStudioService = null;

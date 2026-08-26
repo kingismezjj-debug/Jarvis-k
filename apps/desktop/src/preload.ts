@@ -45,6 +45,11 @@ import {
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_MODEL_SET_CHANNEL,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_PREFLIGHT_CHANNEL,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_STATUS_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_DELETE_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL,
+  IPC_CLOUD_PROVIDER_ACCEPTANCE_STATUS_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL,
   IPC_QWEN_RUNTIME_CONTROL_STATUS_CHANNEL,
   IPC_TTS_SETTINGS_OPEN_CHANNEL,
@@ -87,6 +92,13 @@ import {
   GlmAdvancedBrainAcceptanceSaveCredentialRequestSchema,
   GlmAdvancedBrainAcceptanceSetModelRequestSchema,
   GlmAdvancedBrainAcceptanceStatusSchema,
+  CloudProviderAcceptanceCommandResultSchema,
+  CloudProviderAcceptanceConsentRequestSchema,
+  CloudProviderAcceptanceDeleteCredentialRequestSchema,
+  CloudProviderAcceptanceDiagnosticReportSchema,
+  CloudProviderAcceptancePreflightResultSchema,
+  CloudProviderAcceptanceSaveCredentialRequestSchema,
+  CloudProviderAcceptanceStatusSchema,
   createCommandEnvelope
 } from "@jarvis-k/contracts";
 
@@ -314,6 +326,38 @@ const bridge: JarvisBridge = {
       await ipcRenderer.invoke(
         IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_DIAGNOSTIC_CHANNEL,
         GlmAdvancedBrainAcceptanceConsentRequestSchema.parse(request)
+      )
+    ),
+  getCloudProviderAcceptanceStatus: async () =>
+    CloudProviderAcceptanceStatusSchema.parse(
+      await ipcRenderer.invoke(IPC_CLOUD_PROVIDER_ACCEPTANCE_STATUS_CHANNEL)
+    ),
+  saveCloudProviderAcceptanceCredential: async (request) =>
+    CloudProviderAcceptanceCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
+        CloudProviderAcceptanceSaveCredentialRequestSchema.parse(request)
+      )
+    ),
+  deleteCloudProviderAcceptanceCredential: async (request) =>
+    CloudProviderAcceptanceCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CLOUD_PROVIDER_ACCEPTANCE_CREDENTIAL_DELETE_CHANNEL,
+        CloudProviderAcceptanceDeleteCredentialRequestSchema.parse(request)
+      )
+    ),
+  preflightCloudProviderAcceptance: async (request) =>
+    CloudProviderAcceptancePreflightResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CLOUD_PROVIDER_ACCEPTANCE_PREFLIGHT_CHANNEL,
+        CloudProviderAcceptanceConsentRequestSchema.parse(request)
+      )
+    ),
+  runCloudProviderFakeAcceptance: async (request) =>
+    CloudProviderAcceptanceDiagnosticReportSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CLOUD_PROVIDER_ACCEPTANCE_FAKE_RUN_CHANNEL,
+        CloudProviderAcceptanceConsentRequestSchema.parse(request)
       )
     ),
   getUiSurfaceCapabilityStatus: async () =>

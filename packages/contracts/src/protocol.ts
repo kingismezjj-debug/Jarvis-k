@@ -54,6 +54,15 @@ import type {
   GlmAdvancedBrainAcceptanceSetModelRequest,
   GlmAdvancedBrainAcceptanceStatus,
 } from "./glm-advanced-brain-acceptance-protocol";
+import type {
+  CloudProviderAcceptanceCommandResult,
+  CloudProviderAcceptanceConsentRequest,
+  CloudProviderAcceptanceDeleteCredentialRequest,
+  CloudProviderAcceptanceDiagnosticReport,
+  CloudProviderAcceptancePreflightResult,
+  CloudProviderAcceptanceSaveCredentialRequest,
+  CloudProviderAcceptanceStatus,
+} from "./cloud-provider-acceptance-protocol";
 
 export const PROTOCOL_VERSION = 1 as const;
 export const IPC_COMMAND_CHANNEL = "jarvis-k:command";
@@ -470,6 +479,7 @@ export type CommandRouterProductModeSetResult = z.infer<
 export const UiSurfaceCapabilityStatusSchema = z
   .object({
     evaluationCapabilityAvailable: z.boolean(),
+    cloudProviderAcceptanceCapabilityAvailable: z.boolean().default(false),
     source: z.literal("desktop-main"),
     sensitiveValuesExposed: z.literal(false),
     rendererWritable: z.literal(false),
@@ -3846,6 +3856,19 @@ export interface JarvisBridge {
   runGlmAdvancedBrainAcceptanceDiagnostic(
     request: GlmAdvancedBrainAcceptanceConsentRequest,
   ): Promise<GlmAdvancedBrainAcceptanceDiagnosticReport>;
+  getCloudProviderAcceptanceStatus(): Promise<CloudProviderAcceptanceStatus>;
+  saveCloudProviderAcceptanceCredential(
+    request: CloudProviderAcceptanceSaveCredentialRequest,
+  ): Promise<CloudProviderAcceptanceCommandResult>;
+  deleteCloudProviderAcceptanceCredential(
+    request: CloudProviderAcceptanceDeleteCredentialRequest,
+  ): Promise<CloudProviderAcceptanceCommandResult>;
+  preflightCloudProviderAcceptance(
+    request: CloudProviderAcceptanceConsentRequest,
+  ): Promise<CloudProviderAcceptancePreflightResult>;
+  runCloudProviderFakeAcceptance(
+    request: CloudProviderAcceptanceConsentRequest,
+  ): Promise<CloudProviderAcceptanceDiagnosticReport>;
   getVoiceServiceStatus(): Promise<VoiceServiceStatus>;
   openVoiceSettings(): Promise<VoiceServiceStatus>;
   getTtsServiceStatus(): Promise<TtsServiceStatus>;

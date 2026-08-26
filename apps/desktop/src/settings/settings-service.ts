@@ -36,6 +36,7 @@ export interface SettingsServiceOptions {
   }) => void;
   loginItemController?: LoginItemController;
   evaluationCapabilityAvailable?: boolean;
+  cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
 }
 
@@ -53,6 +54,8 @@ export class SettingsService {
     return {
       evaluationCapabilityAvailable:
         this.options.evaluationCapabilityAvailable === true,
+      cloudProviderAcceptanceCapabilityAvailable:
+        this.options.cloudProviderAcceptanceCapabilityAvailable === true,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
