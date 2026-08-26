@@ -61,6 +61,57 @@ export type CloudReasoningRedirectPolicy = z.infer<
   typeof CloudReasoningRedirectPolicySchema
 >;
 
+export const CloudReasoningProtocolFamilySchema = z.enum([
+  "openai_chat_completions",
+  "openai_responses",
+  "anthropic_messages",
+  "dashscope_native",
+  "local_openai_compatible",
+  "custom_adapter",
+]);
+export type CloudReasoningProtocolFamily = z.infer<
+  typeof CloudReasoningProtocolFamilySchema
+>;
+
+export const CloudReasoningThinkingPolicySchema = z.enum([
+  "unsupported",
+  "optional",
+  "mandatory",
+]);
+export type CloudReasoningThinkingPolicy = z.infer<
+  typeof CloudReasoningThinkingPolicySchema
+>;
+
+export const CloudReasoningTimeoutPolicyIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[a-z0-9][a-z0-9._:-]*$/u);
+export type CloudReasoningTimeoutPolicyId = z.infer<
+  typeof CloudReasoningTimeoutPolicyIdSchema
+>;
+
+export const CloudReasoningDataEgressClassSchema = z.enum([
+  "none",
+  "cloud_fixed_diagnostic",
+  "cloud_user_content",
+]);
+export type CloudReasoningDataEgressClass = z.infer<
+  typeof CloudReasoningDataEgressClassSchema
+>;
+
+export const CloudReasoningPricingTierSchema = z.enum([
+  "free",
+  "low",
+  "medium",
+  "high",
+  "unknown",
+]);
+export type CloudReasoningPricingTier = z.infer<
+  typeof CloudReasoningPricingTierSchema
+>;
+
 export const CloudReasoningTransportReasonCodeSchema = z.enum([
   "completed",
   "invalid_endpoint_profile",
@@ -70,16 +121,34 @@ export const CloudReasoningTransportReasonCodeSchema = z.enum([
   "response_too_large",
   "unsupported_content_type",
   "authentication_transport_failure",
+  "credential_rejected",
+  "permission_denied",
+  "dns_resolution_failed",
+  "tls_handshake_failed",
+  "connection_refused",
+  "connection_reset",
+  "proxy_failed",
+  "headers_timeout",
+  "first_event_timeout",
+  "stream_idle_timeout",
+  "overall_timeout",
   "rate_limited",
+  "quota_restricted",
+  "model_not_available",
+  "invalid_request",
   "provider_client_error",
   "provider_server_error",
+  "provider_error_unrecognized",
   "timeout",
   "cancelled",
   "network_unavailable",
+  "network_failure_unclassified",
   "redirect_blocked",
   "invalid_response",
+  "malformed_stream",
   "invalid_provider_output",
   "output_budget_exhausted_before_final",
+  "structured_output_invalid",
   "no_final_answer",
   "untrusted_tool_proposal_blocked",
   "provider_contract_deviation",
@@ -142,9 +211,9 @@ const CloudJsonObjectSchema = z
 
 export const CloudReasoningTimeoutBoundsSchema = z
   .object({
-    minTimeoutMs: z.number().int().min(100).max(120_000),
-    defaultTimeoutMs: z.number().int().min(100).max(120_000),
-    maxTimeoutMs: z.number().int().min(100).max(120_000),
+    minTimeoutMs: z.number().int().min(100).max(300_000),
+    defaultTimeoutMs: z.number().int().min(100).max(300_000),
+    maxTimeoutMs: z.number().int().min(100).max(300_000),
   })
   .strict()
   .superRefine((bounds, context) => {
@@ -165,6 +234,42 @@ export const CloudReasoningTimeoutBoundsSchema = z
   });
 export type CloudReasoningTimeoutBounds = z.infer<
   typeof CloudReasoningTimeoutBoundsSchema
+>;
+
+export const CloudReasoningTimeoutPolicySchema = z
+  .object({
+    policyId: CloudReasoningTimeoutPolicyIdSchema,
+    connectOrHeadersTimeoutMs: z.number().int().min(100).max(120_000),
+    firstEventTimeoutMs: z.number().int().min(100).max(180_000),
+    streamIdleTimeoutMs: z.number().int().min(100).max(180_000),
+    overallTimeoutMs: z.number().int().min(100).max(300_000),
+  })
+  .strict()
+  .superRefine((policy, context) => {
+    if (policy.connectOrHeadersTimeoutMs > policy.overallTimeoutMs) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["connectOrHeadersTimeoutMs"],
+        message: "Header timeout must not exceed overall timeout.",
+      });
+    }
+    if (policy.firstEventTimeoutMs > policy.overallTimeoutMs) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["firstEventTimeoutMs"],
+        message: "First event timeout must not exceed overall timeout.",
+      });
+    }
+    if (policy.streamIdleTimeoutMs > policy.overallTimeoutMs) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["streamIdleTimeoutMs"],
+        message: "Idle timeout must not exceed overall timeout.",
+      });
+    }
+  });
+export type CloudReasoningTimeoutPolicy = z.infer<
+  typeof CloudReasoningTimeoutPolicySchema
 >;
 
 export const CloudReasoningOperationPathSchema = z
@@ -236,6 +341,117 @@ export type CloudProviderEndpointProfile = z.infer<
   typeof CloudProviderEndpointProfileSchema
 >;
 
+export const CloudReasoningModelCapabilityProfileSchema = z
+  .object({
+    schemaVersion: z.literal(ADVANCED_BRAIN_SCHEMA_VERSION),
+    providerId: ProviderIdSchema,
+    modelId: ModelIdSchema,
+    protocolFamily: CloudReasoningProtocolFamilySchema,
+    deploymentId: DeploymentIdSchema,
+    trustClass: CloudReasoningTrustClassSchema,
+    region: z.enum(["mainland_china", "global", "local", "unknown"]),
+    supportsStreaming: z.boolean(),
+    supportsNonStreaming: z.boolean(),
+    supportsThinking: z.boolean(),
+    thinkingPolicy: CloudReasoningThinkingPolicySchema,
+    supportsReasoningEffort: z.boolean(),
+    supportsTools: z.boolean(),
+    supportsStructuredOutput: z.boolean(),
+    supportsVision: z.boolean(),
+    supportsImages: z.boolean(),
+    contextWindow: z.number().int().positive().max(10_000_000),
+    maxOutputTokens: z.number().int().positive().max(1_000_000),
+    recommendedOutputTokens: z.number().int().positive().max(1_000_000),
+    requestTimeoutPolicyId: CloudReasoningTimeoutPolicyIdSchema,
+    credentialBindingId: CredentialBindingIdSchema,
+    endpointProfileId: z.string().trim().min(1).max(128),
+    executionSemantics: z.enum([
+      "not_executed",
+      "fixture",
+      "simulated",
+      "real_provider",
+    ]),
+    dataEgressClass: CloudReasoningDataEgressClassSchema,
+    pricingTier: CloudReasoningPricingTierSchema,
+    enabled: z.boolean(),
+  })
+  .strict()
+  .superRefine((profile, context) => {
+    if (!profile.supportsStreaming && !profile.supportsNonStreaming) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["supportsStreaming"],
+        message: "At least one response mode must be supported.",
+      });
+    }
+    if (profile.recommendedOutputTokens > profile.maxOutputTokens) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["recommendedOutputTokens"],
+        message: "Recommended output tokens must not exceed the maximum.",
+      });
+    }
+    if (profile.thinkingPolicy === "unsupported" && profile.supportsThinking) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["supportsThinking"],
+        message: "Unsupported thinking policy cannot advertise thinking.",
+      });
+    }
+    if (profile.thinkingPolicy !== "unsupported" && !profile.supportsThinking) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["thinkingPolicy"],
+        message: "Thinking policy requires thinking support.",
+      });
+    }
+    if (
+      profile.protocolFamily !== "openai_chat_completions" &&
+      profile.enabled
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["enabled"],
+        message: "Only openai_chat_completions is implemented in this phase.",
+      });
+    }
+  });
+export type CloudReasoningModelCapabilityProfile = z.infer<
+  typeof CloudReasoningModelCapabilityProfileSchema
+>;
+
+export const CloudReasoningProviderHealthStateSchema = z.enum([
+  "unknown",
+  "ready",
+  "degraded",
+  "unavailable",
+  "rate_limited",
+  "credential_missing",
+  "disabled",
+]);
+export type CloudReasoningProviderHealthState = z.infer<
+  typeof CloudReasoningProviderHealthStateSchema
+>;
+
+export const CloudReasoningProviderHealthProjectionSchema = z
+  .object({
+    schemaVersion: z.literal(ADVANCED_BRAIN_SCHEMA_VERSION),
+    providerId: ProviderIdSchema,
+    deploymentId: DeploymentIdSchema,
+    modelId: ModelIdSchema,
+    state: CloudReasoningProviderHealthStateSchema,
+    lastAttemptAt: z.string().datetime().optional(),
+    lastSuccessAt: z.string().datetime().optional(),
+    sanitizedFailureCategory: CloudReasoningTransportReasonCodeSchema.optional(),
+    consecutiveFailureCount: z.number().int().nonnegative().max(10_000),
+    cooldownUntil: z.string().datetime().optional(),
+    source: z.literal("runtime_observation"),
+  })
+  .strict();
+export type CloudReasoningProviderHealthProjection = z.infer<
+  typeof CloudReasoningProviderHealthProjectionSchema
+>;
+
 export const CloudReasoningTransportRequestSchema = z
   .object({
     schemaVersion: z.literal(ADVANCED_BRAIN_SCHEMA_VERSION),
@@ -247,7 +463,7 @@ export const CloudReasoningTransportRequestSchema = z
     contentType: z.literal("application/json"),
     bodyJson: CloudJsonObjectSchema,
     credentialBindingId: CredentialBindingIdSchema,
-    timeoutMs: z.number().int().min(100).max(120_000),
+    timeoutMs: z.number().int().min(100).max(300_000),
     maxResponseBytes: z.number().int().min(2).max(2_000_000),
   })
   .strict();

@@ -5,6 +5,9 @@ import {
   AdvancedBrainProviderCapabilityProfileSchema,
   AdvancedBrainProviderResultSchema,
   AdvancedBrainRequestSchema,
+  CloudReasoningModelCapabilityProfileSchema,
+  CloudReasoningProviderHealthProjectionSchema,
+  CloudReasoningTimeoutPolicySchema,
 } from "../src";
 
 describe("Advanced Brain protocol", () => {
@@ -109,6 +112,64 @@ describe("Advanced Brain protocol", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts provider-neutral cloud model capability profiles", () => {
+    const profile = CloudReasoningModelCapabilityProfileSchema.parse(
+      cloudModelProfileFixture(),
+    );
+
+    expect(profile.protocolFamily).toBe("openai_chat_completions");
+    expect(profile.thinkingPolicy).toBe("optional");
+    expect(profile.credentialBindingId).toBe("glm.advanced-brain.api-key");
+  });
+
+  it("keeps unimplemented protocol families fail-closed when enabled", () => {
+    for (const protocolFamily of [
+      "openai_responses",
+      "anthropic_messages",
+      "dashscope_native",
+      "local_openai_compatible",
+      "custom_adapter",
+    ] as const) {
+      expect(() =>
+        CloudReasoningModelCapabilityProfileSchema.parse({
+          ...cloudModelProfileFixture(),
+          protocolFamily,
+          enabled: true,
+        }),
+      ).toThrow("Only openai_chat_completions");
+    }
+  });
+
+  it("validates four-layer timeout policies and safe health projections", () => {
+    const timeoutPolicy = CloudReasoningTimeoutPolicySchema.parse({
+      policyId: "reasoning-default-v1",
+      connectOrHeadersTimeoutMs: 15_000,
+      firstEventTimeoutMs: 60_000,
+      streamIdleTimeoutMs: 30_000,
+      overallTimeoutMs: 180_000,
+    });
+    const health = CloudReasoningProviderHealthProjectionSchema.parse({
+      schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+      providerId: "advanced-brain.glm",
+      deploymentId: "standard_paas_v4",
+      modelId: "glm-5.2",
+      state: "ready",
+      lastAttemptAt: "2026-08-26T00:00:00.000Z",
+      lastSuccessAt: "2026-08-26T00:00:00.000Z",
+      consecutiveFailureCount: 0,
+      source: "runtime_observation",
+    });
+
+    expect(timeoutPolicy.overallTimeoutMs).toBe(180_000);
+    expect(health.source).toBe("runtime_observation");
+    expect(() =>
+      CloudReasoningProviderHealthProjectionSchema.parse({
+        ...health,
+        prompt: "must not be projected",
+      }),
+    ).toThrow();
+  });
 });
 
 function profileFixture() {
@@ -178,5 +239,36 @@ function resultFixture() {
     localPathExposed: false,
     networkRequestIssued: false,
     completedAt: "2026-08-25T00:00:00.000Z",
+  };
+}
+
+function cloudModelProfileFixture() {
+  return {
+    schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
+    providerId: "advanced-brain.glm",
+    modelId: "glm-5.2",
+    protocolFamily: "openai_chat_completions",
+    deploymentId: "standard_paas_v4",
+    trustClass: "provider_managed",
+    region: "mainland_china",
+    supportsStreaming: true,
+    supportsNonStreaming: true,
+    supportsThinking: true,
+    thinkingPolicy: "optional",
+    supportsReasoningEffort: false,
+    supportsTools: false,
+    supportsStructuredOutput: true,
+    supportsVision: false,
+    supportsImages: false,
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    recommendedOutputTokens: 256,
+    requestTimeoutPolicyId: "reasoning-default-v1",
+    credentialBindingId: "glm.advanced-brain.api-key",
+    endpointProfileId: "standard_paas_v4",
+    executionSemantics: "real_provider",
+    dataEgressClass: "cloud_user_content",
+    pricingTier: "medium",
+    enabled: true,
   };
 }
