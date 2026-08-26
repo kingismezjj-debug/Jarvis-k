@@ -24,6 +24,7 @@ const expectedWorkspaceModules = [
   "@jarvis-k/inference-adapter-embedding-local",
   "@jarvis-k/inference-adapter-fixture",
   "@jarvis-k/inference-adapter-glm-chat-answer-runtime",
+  "@jarvis-k/inference-adapter-deepseek-runtime",
   "@jarvis-k/inference-adapter-glm-planner",
   "@jarvis-k/inference-adapter-glm-runtime",
   "@jarvis-k/inference-adapter-openai-chat-answer",

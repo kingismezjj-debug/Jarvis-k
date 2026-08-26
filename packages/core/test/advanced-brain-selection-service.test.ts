@@ -3,6 +3,10 @@ import {
   ADVANCED_BRAIN_SCHEMA_VERSION,
   type AdvancedBrainProviderCapabilityProfile,
 } from "@jarvis-k/contracts";
+import {
+  createDeepSeekAdvancedReasoningProfile,
+  createDeepSeekCloudReasoningModelCapabilityProfile,
+} from "@jarvis-k/inference-adapter-deepseek-runtime";
 import { AdvancedBrainSelectionService } from "../src/advanced-brain";
 
 describe("AdvancedBrainSelectionService", () => {
@@ -128,6 +132,73 @@ describe("AdvancedBrainSelectionService", () => {
     expect(allowed.selectedProviderId).toBe("advanced-brain.fixture");
     expect(allowed.automaticFallbackAllowed).toBe(false);
     expect(allowed.directExecutionAllowed).toBe(false);
+  });
+
+  it("can rank explicitly enabled DeepSeek profiles in deterministic fake selection", () => {
+    const flash = createDeepSeekAdvancedReasoningProfile({
+      enabled: true,
+      modelId: "deepseek-v4-flash",
+      healthStatus: "healthy",
+    });
+    const pro = createDeepSeekAdvancedReasoningProfile({
+      enabled: true,
+      modelId: "deepseek-v4-pro",
+      healthStatus: "healthy",
+    });
+
+    expect(
+      select({
+        strategy: "mainland_first",
+        providers: [profile({ providerId: "advanced-brain.global", regionAvailability: ["global"] }), flash],
+      }).selectedProviderId,
+    ).toBe("advanced-brain.deepseek");
+    expect(
+      select({
+        strategy: "quality_first",
+        providers: [flash, pro],
+      }).selectedModelId,
+    ).toBe("deepseek-v4-pro");
+    expect(
+      select({
+        strategy: "cost_first",
+        providers: [pro, flash],
+      }).selectedModelId,
+    ).toBe("deepseek-v4-flash");
+  });
+
+  it("does not auto-fallback from GLM to DeepSeek without explicit enabled provider selection", () => {
+    const glmDegraded = profile({
+      providerId: "advanced-brain.glm",
+      modelId: "glm-5.3",
+      privacyClass: "cloud",
+      regionAvailability: ["mainland_china"],
+      healthStatus: "unhealthy",
+    });
+    const deepSeekDefaultOff = createDeepSeekAdvancedReasoningProfile({
+      enabled: false,
+      modelId: "deepseek-v4-pro",
+      healthStatus: "healthy",
+    });
+
+    const result = select({
+      strategy: "quality_first",
+      providers: [glmDegraded, deepSeekDefaultOff],
+    });
+
+    expect(result.status).toBe("unavailable");
+    expect(result.selectedProviderId).toBeUndefined();
+    expect(result.automaticFallbackAllowed).toBe(false);
+  });
+
+  it("keeps DeepSeek cloud runtime model profiles default disabled", () => {
+    const flash = createDeepSeekCloudReasoningModelCapabilityProfile({
+      enabled: false,
+      modelId: "deepseek-v4-flash",
+    });
+
+    expect(flash.enabled).toBe(false);
+    expect(flash.dataEgressClass).toBe("cloud_user_content");
+    expect(flash.supportsVision).toBe(false);
   });
 });
 

@@ -66,6 +66,7 @@ import {
   createCoreHostPlannerComposition,
 } from "./composition/planner-composition";
 import { createCoreHostGlmAdvancedBrainComposition } from "./composition/glm-advanced-brain-composition";
+import { createCoreHostDeepSeekAdvancedBrainComposition } from "./composition/deepseek-advanced-brain-composition";
 import { createCoreHostVoiceComposition } from "./composition/voice-composition";
 import { loadRuntimeConfig } from "./config/runtime-config";
 import { loadCoreHostStoragePaths } from "./config/storage-paths";
@@ -283,6 +284,11 @@ const glmAdvancedBrainComposition = createCoreHostGlmAdvancedBrainComposition({
   runtimeConfig,
 });
 void glmAdvancedBrainComposition;
+const deepSeekAdvancedBrainComposition =
+  createCoreHostDeepSeekAdvancedBrainComposition({
+    runtimeConfig,
+  });
+void deepSeekAdvancedBrainComposition;
 const activeHeavyPlanner = plannerComposition.activeHeavyPlanner;
 const configurableHeavyPlannerProvider =
   plannerComposition.configurableHeavyPlannerProvider;

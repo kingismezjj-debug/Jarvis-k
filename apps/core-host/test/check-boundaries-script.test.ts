@@ -25,6 +25,7 @@ const workspaceRoots = [
   path.join("packages", "inference-adapter-glm-chat-answer-runtime"),
   path.join("packages", "inference-adapter-glm-planner"),
   path.join("packages", "inference-adapter-glm-runtime"),
+  path.join("packages", "inference-adapter-deepseek-runtime"),
   path.join("packages", "memory"),
   path.join("packages", "memory-sqlite"),
   path.join("packages", "voice-capture-browser"),
@@ -176,6 +177,17 @@ describe("check-boundaries script", () => {
     await writeSourceFile(
       path.join(directory, "apps", "core-host"),
       "import { GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID } from \"@jarvis-k/inference-adapter-glm-runtime\";\nvoid GLM_RUNTIME_HEAVY_PLANNER_PROVIDER_ID;\n"
+    );
+
+    await expect(runBoundaryCheck(directory)).resolves.toContain(
+      "PASS dependency boundaries"
+    );
+  });
+
+  it("allows Core Host to import the DeepSeek Advanced Brain runtime adapter", async () => {
+    await writeSourceFile(
+      path.join(directory, "apps", "core-host"),
+      "import { DEEPSEEK_ADVANCED_BRAIN_PROVIDER_ID } from \"@jarvis-k/inference-adapter-deepseek-runtime\";\nvoid DEEPSEEK_ADVANCED_BRAIN_PROVIDER_ID;\n"
     );
 
     await expect(runBoundaryCheck(directory)).resolves.toContain(

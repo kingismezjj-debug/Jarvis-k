@@ -21,6 +21,8 @@ export interface RuntimeConfig {
   readonly glmRuntimeHeavyPlannerOneWindowApproved: boolean;
   readonly glmAdvancedBrainEnabled: boolean;
   readonly glmAdvancedBrainModelId?: string | undefined;
+  readonly deepSeekAdvancedBrainEnabled: boolean;
+  readonly deepSeekAdvancedBrainModelId?: string | undefined;
   readonly smokeVoiceEnabled: boolean;
   readonly brainOpenActionsDisabled: boolean;
   readonly realWindowsExecutionEnabled: boolean;
@@ -56,6 +58,7 @@ const BOOLEAN_ENV_KEYS = [
   "JARVIS_K_ENABLE_HEAVY_PLANNER_GLM",
   "JARVIS_K_HEAVY_PLANNER_GLM_ONE_WINDOW_APPROVED",
   "JARVIS_K_ENABLE_ADVANCED_BRAIN_GLM",
+  "JARVIS_K_ENABLE_ADVANCED_BRAIN_DEEPSEEK",
   "JARVIS_K_SMOKE_VOICE",
   "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS",
   "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION",
@@ -112,6 +115,14 @@ export function loadRuntimeConfig(
   ) {
     throw new Error("GLM Advanced Brain model id is invalid.");
   }
+  const deepSeekAdvancedBrainModelId =
+    env.JARVIS_K_ADVANCED_BRAIN_DEEPSEEK_MODEL_ID?.trim();
+  if (
+    deepSeekAdvancedBrainModelId !== undefined &&
+    deepSeekAdvancedBrainModelId.length > 300
+  ) {
+    throw new Error("DeepSeek Advanced Brain model id is invalid.");
+  }
   const voicePilotExpectedProviderId = parseVoicePilotExpectedProviderId(env);
   return {
     mode,
@@ -150,6 +161,13 @@ export function loadRuntimeConfig(
     ),
     glmAdvancedBrainEnabled: flag(env, "JARVIS_K_ENABLE_ADVANCED_BRAIN_GLM"),
     ...(glmAdvancedBrainModelId ? { glmAdvancedBrainModelId } : {}),
+    deepSeekAdvancedBrainEnabled: flag(
+      env,
+      "JARVIS_K_ENABLE_ADVANCED_BRAIN_DEEPSEEK",
+    ),
+    ...(deepSeekAdvancedBrainModelId
+      ? { deepSeekAdvancedBrainModelId }
+      : {}),
     smokeVoiceEnabled: flag(env, "JARVIS_K_SMOKE_VOICE"),
     brainOpenActionsDisabled: flag(env, "JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS"),
     realWindowsExecutionEnabled: flag(env, "JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION"),

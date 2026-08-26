@@ -189,6 +189,22 @@ const packages = [
     ]
   },
   {
+    name: "inference-adapter-deepseek-runtime",
+    root: path.join(root, "packages", "inference-adapter-deepseek-runtime"),
+    allowedWorkspaceImports: new Set([
+      "@jarvis-k/capabilities",
+      "@jarvis-k/contracts"
+    ]),
+    forbiddenImportPrefixes: [
+      "electron",
+      "node:",
+      "react",
+      "ws",
+      "sql.js",
+      ...forbiddenModelRuntimeDependencies
+    ]
+  },
+  {
     name: "inference-adapter-glm-chat-answer-runtime",
     root: path.join(
       root,
@@ -308,6 +324,7 @@ const packages = [
       "@jarvis-k/inference-adapter-embedding-local",
       "@jarvis-k/inference-adapter-fixture",
       "@jarvis-k/inference-adapter-glm-chat-answer-runtime",
+      "@jarvis-k/inference-adapter-deepseek-runtime",
       "@jarvis-k/inference-adapter-glm-planner",
       "@jarvis-k/inference-adapter-glm-runtime",
       "@jarvis-k/inference-adapter-openai-chat-answer",
