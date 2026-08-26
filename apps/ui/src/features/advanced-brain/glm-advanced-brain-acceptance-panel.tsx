@@ -72,6 +72,9 @@ export function GlmAdvancedBrainAcceptancePanel({
         "Retry: NO",
         `Maximum output tokens: ${preflightResult?.maxOutputTokens ?? "unavailable"}`,
         `Mandatory thinking: ${preflightResult?.mandatoryThinking ? "YES" : "NO"}`,
+        `Thinking type: ${preflightResult?.thinkingType ?? "unavailable"}`,
+        `Response format: ${preflightResult?.responseFormatPresent ? "present" : "absent"}`,
+        `Sampling mode: ${preflightResult?.samplingMode ?? "unavailable"}`,
         `Requested timeout: ${preflightResult?.requestedTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
         `Effective timeout: ${preflightResult?.effectiveTimeoutMs ?? GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS} ms`,
         `Timeout bounded: ${preflightResult?.timeoutBounded ? "YES" : "NO"}`,
@@ -340,6 +343,10 @@ export function GlmAdvancedBrainAcceptancePanel({
             }
           />
           <MetricRow
+            label="request contract"
+            value={preflightResult.requestContractId}
+          />
+          <MetricRow
             label="request profile"
             value={preflightResult.requestContractProfileId}
           />
@@ -352,12 +359,20 @@ export function GlmAdvancedBrainAcceptancePanel({
             value={preflightResult.mandatoryThinking ? "YES" : "NO"}
           />
           <MetricRow
+            label="thinking type"
+            value={preflightResult.thinkingType}
+          />
+          <MetricRow
             label="thinking disabled"
             value={preflightResult.thinkingDisabled ? "YES" : "NO"}
           />
           <MetricRow
-            label="reasoning effort"
-            value={preflightResult.reasoningEffort ?? "none"}
+            label="response format"
+            value={preflightResult.responseFormatPresent ? "present" : "absent"}
+          />
+          <MetricRow
+            label="sampling mode"
+            value={preflightResult.samplingMode}
           />
           <MetricRow
             label="requested timeout"

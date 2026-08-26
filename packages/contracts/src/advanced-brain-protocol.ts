@@ -105,6 +105,8 @@ export type CloudReasoningTransportStatusClass = z.infer<
   typeof CloudReasoningTransportStatusClassSchema
 >;
 
+const CloudJsonObjectKeySchema = z.string().min(1).max(128);
+
 const CloudJsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
   z.union([
     z.string().max(50_000),
@@ -112,13 +114,29 @@ const CloudJsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
     z.boolean(),
     z.null(),
     z.array(CloudJsonValueSchema).max(512),
-    z.record(z.string().min(1).max(128), CloudJsonValueSchema),
+    CloudJsonObjectSchema,
   ]),
 );
 const CloudJsonObjectSchema = z
-  .record(z.string().min(1).max(128), CloudJsonValueSchema)
-  .refine((value) => Object.keys(value).length <= 512, {
-    message: "JSON object has too many keys.",
+  .record(CloudJsonValueSchema)
+  .superRefine((value, context) => {
+    const keys = Object.keys(value);
+    if (keys.length > 512) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "JSON object has too many keys.",
+      });
+    }
+    for (const key of keys) {
+      const result = CloudJsonObjectKeySchema.safeParse(key);
+      if (!result.success) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: "JSON object key is invalid.",
+        });
+      }
+    }
   });
 
 export const CloudReasoningTimeoutBoundsSchema = z

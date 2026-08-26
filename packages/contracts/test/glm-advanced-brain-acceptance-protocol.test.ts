@@ -7,7 +7,6 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
@@ -83,11 +82,15 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
+      requestContractId: "glm-5.2-fixed-diagnostic-no-thinking",
       requestContractProfileId: "glm-5.2-fixed-diagnostic-no-thinking",
       maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
       maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
       mandatoryThinking: false,
+      thinkingType: "disabled",
       thinkingDisabled: true,
+      responseFormatPresent: false,
+      samplingMode: "deterministic",
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       timeoutBounded: true,
@@ -149,12 +152,16 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
-      requestContractProfileId: "glm-5.3-fixed-diagnostic-mandatory-thinking",
+      requestContractId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
+      requestContractProfileId:
+        "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
       maximumOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
       maxOutputTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
       mandatoryThinking: true,
+      thinkingType: "enabled",
       thinkingDisabled: false,
-      reasoningEffort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+      responseFormatPresent: false,
+      samplingMode: "deterministic",
       requestedTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       effectiveTimeoutMs: GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS,
       timeoutBounded: true,
@@ -179,9 +186,11 @@ describe("GLM Advanced Brain acceptance protocol", () => {
       rawResponseExposed: false,
     });
 
-    expect(preflight.maxOutputTokens).toBe(512);
+    expect(preflight.maxOutputTokens).toBe(1024);
     expect(preflight.mandatoryThinking).toBe(true);
-    expect(preflight.reasoningEffort).toBe("low");
+    expect(preflight.thinkingType).toBe("enabled");
+    expect(preflight.responseFormatPresent).toBe(false);
+    expect(preflight.samplingMode).toBe("deterministic");
   });
 
   it("requires explicit platform API key confirmation", () => {

@@ -13,7 +13,7 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_FULL_ENDPOINT,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
-  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+  GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_THINKING_TYPE,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
   GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
@@ -38,6 +38,8 @@ import {
   type GlmAdvancedBrainAcceptanceOutputValidationCategory,
   type GlmAdvancedBrainAcceptanceProviderErrorCategory,
   type GlmAdvancedBrainAcceptanceRequestContractProfileId,
+  type GlmAdvancedBrainAcceptanceSamplingMode,
+  type GlmAdvancedBrainAcceptanceThinkingType,
   type GlmAdvancedBrainAcceptancePreflightResult,
   type GlmAdvancedBrainAcceptanceReasonCode,
   type GlmAdvancedBrainAcceptanceStatus,
@@ -332,7 +334,7 @@ export class GlmAdvancedBrainAcceptanceService {
     if (!this.options.acceptanceFlagEnabled) {
       reasons.push("acceptance_flag_missing", "provider_disabled");
     }
-    if (!settings.selectedModelId) {
+    if (settings.selectedModelId !== "glm-5.3") {
       reasons.push("model_not_selected");
     }
     if (!credentialStatus.secureStorageAvailable) {
@@ -373,7 +375,7 @@ export class GlmAdvancedBrainAcceptanceService {
 
   private fixedRequestReasonCodes(): GlmAdvancedBrainAcceptanceReasonCode[] {
     const reasons: GlmAdvancedBrainAcceptanceReasonCode[] = [];
-    for (const modelId of ["glm-5.2", "glm-5.3"] as const) {
+    for (const modelId of ["glm-5.3"] as const) {
       const request = createFixedDiagnosticRequest(modelId);
       const body = request.bodyJson as Record<string, unknown>;
       const contract = fixedDiagnosticRequestContract(modelId);
@@ -398,7 +400,22 @@ export class GlmAdvancedBrainAcceptanceService {
       if (Object.prototype.hasOwnProperty.call(body, "function_call")) {
         reasons.push("tool_capability_present");
       }
-      if (modelId === "glm-5.3" && hasThinkingDisabled(body)) {
+      if (Object.prototype.hasOwnProperty.call(body, "response_format")) {
+        reasons.push("invalid_provider_output");
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(body, "temperature") ||
+        Object.prototype.hasOwnProperty.call(body, "top_p")
+      ) {
+        reasons.push("invalid_provider_output");
+      }
+      if (body.do_sample !== false) {
+        reasons.push("invalid_provider_output");
+      }
+      if (
+        !isRecord(body.thinking) ||
+        body.thinking.type !== contract.thinkingType
+      ) {
         reasons.push("invalid_provider_output");
       }
     }
@@ -410,9 +427,7 @@ export class GlmAdvancedBrainAcceptanceService {
     reasonCodes: GlmAdvancedBrainAcceptanceReasonCode[],
   ): GlmAdvancedBrainAcceptancePreflightResult {
     const uniqueReasons = [...new Set(reasonCodes)];
-    const contract = fixedDiagnosticRequestContract(
-      status.selectedModelId ?? "glm-5.2",
-    );
+    const contract = fixedDiagnosticRequestContract("glm-5.3");
     return GlmAdvancedBrainAcceptancePreflightResultSchema.parse({
       acceptanceId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
       acceptanceVersion: GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION,
@@ -421,7 +436,7 @@ export class GlmAdvancedBrainAcceptanceService {
         uniqueReasons.length === 0 ||
         (uniqueReasons.length === 1 && uniqueReasons[0] === "ready"),
       providerId: GLM_ADVANCED_BRAIN_ACCEPTANCE_PROVIDER_ID,
-      ...(status.selectedModelId ? { modelId: status.selectedModelId } : {}),
+      modelId: "glm-5.3",
       endpointProfileId: GLM_ADVANCED_BRAIN_ACCEPTANCE_ENDPOINT_PROFILE_ID,
       endpointOrigin: GLM_ADVANCED_BRAIN_ACCEPTANCE_ORIGIN,
       operationPath: GLM_ADVANCED_BRAIN_ACCEPTANCE_OPERATION_PATH,
@@ -441,14 +456,15 @@ export class GlmAdvancedBrainAcceptanceService {
       userContentIncluded: false,
       fileIncluded: false,
       imageIncluded: false,
+      requestContractId: contract.profileId,
       requestContractProfileId: contract.profileId,
       maximumOutputTokens: contract.maxTokens,
       maxOutputTokens: contract.maxTokens,
       mandatoryThinking: contract.mandatoryThinking,
+      thinkingType: contract.thinkingType,
       thinkingDisabled: contract.thinkingDisabled,
-      ...(contract.reasoningEffort
-        ? { reasoningEffort: contract.reasoningEffort }
-        : {}),
+      responseFormatPresent: contract.responseFormatPresent,
+      samplingMode: contract.samplingMode,
       requestedTimeoutMs: FIXED_TIMEOUT_MS,
       effectiveTimeoutMs: FIXED_TIMEOUT_MS,
       timeoutBounded: true,
@@ -797,7 +813,7 @@ function normalizeGlmChatCompletionsResponse(
   const evidence = analyzeGlmChatCompletionsResponse(responseJson, options);
   const parsedContent =
     typeof evidence.finalContent === "string"
-      ? parseJsonObject(evidence.finalContent)
+      ? parseDiagnosticFinalContent(evidence.finalContent)
       : null;
   return {
     ...(parsedContent
@@ -829,6 +845,16 @@ function providerHttpErrorResponseProjection(input: {
       outputValidationCategory: "provider_http_error",
     },
   };
+}
+
+function parseDiagnosticFinalContent(value: string): Record<string, unknown> | null {
+  return parseJsonObject(stripSingleJsonCodeFence(value));
+}
+
+function stripSingleJsonCodeFence(value: string): string {
+  const trimmed = value.trim();
+  const match = /^```(?:json|JSON)?\s*([\s\S]*?)\s*```$/u.exec(trimmed);
+  return match?.[1] ?? value;
 }
 
 function analyzeGlmChatCompletionsResponse(
@@ -909,7 +935,7 @@ function analyzeGlmChatCompletionsResponse(
             : "invalid_provider_output",
     };
   }
-  const parsedContent = parseJsonObject(finalContent);
+  const parsedContent = parseDiagnosticFinalContent(finalContent);
   const validDiagnostic =
     parsedContent?.diagnostic === "ok" &&
     parsedContent.directActionAttempted === false &&
@@ -1039,11 +1065,9 @@ function createFixedDiagnosticRequest(
       ],
       stream: false,
       max_tokens: contract.maxTokens,
-      ...(contract.thinkingDisabled
-        ? { thinking: { type: "disabled" } }
-        : {}),
-      ...(contract.reasoningEffort
-        ? { reasoning_effort: contract.reasoningEffort }
+      thinking: { type: contract.thinkingType },
+      ...(contract.samplingMode === "deterministic"
+        ? { do_sample: false }
         : {}),
     },
     credentialBindingId: GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_BINDING_ID,
@@ -1060,22 +1084,29 @@ function fixedDiagnosticRequestContract(
     | typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS
     | typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS;
   readonly mandatoryThinking: boolean;
+  readonly thinkingType: GlmAdvancedBrainAcceptanceThinkingType;
   readonly thinkingDisabled: boolean;
-  readonly reasoningEffort?: typeof GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT;
+  readonly responseFormatPresent: false;
+  readonly samplingMode: GlmAdvancedBrainAcceptanceSamplingMode;
 } {
   return modelId === "glm-5.3"
     ? {
-        profileId: "glm-5.3-fixed-diagnostic-mandatory-thinking",
+        profileId: "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
         maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS,
         mandatoryThinking: true,
+        thinkingType: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_THINKING_TYPE,
         thinkingDisabled: false,
-        reasoningEffort: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT,
+        responseFormatPresent: false,
+        samplingMode: "deterministic",
       }
     : {
         profileId: "glm-5.2-fixed-diagnostic-no-thinking",
         maxTokens: GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS,
         mandatoryThinking: false,
+        thinkingType: "disabled",
         thinkingDisabled: true,
+        responseFormatPresent: false,
+        samplingMode: "deterministic",
       };
 }
 
@@ -1396,10 +1427,6 @@ function acceptanceReasonCodeForOutputValidation(
     case "transport_failure":
       return "transport_failed";
   }
-}
-
-function hasThinkingDisabled(body: Record<string, unknown>): boolean {
-  return isRecord(body.thinking) && body.thinking.type === "disabled";
 }
 
 function safeNonNegativeInteger(value: unknown): number {

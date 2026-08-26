@@ -36,14 +36,16 @@ export const GLM_ADVANCED_BRAIN_ACCEPTANCE_V1_ID =
   "glm-advanced-brain-acceptance-fixed-request" as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_V2_ID =
   "glm-advanced-brain-acceptance-fixed-request-v2" as const;
-export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID =
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_V3_ID =
   "glm-advanced-brain-acceptance-fixed-request-v3" as const;
-export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 3 as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID =
+  "glm-advanced-brain-acceptance-fixed-request-v4" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_VERSION = 4 as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS = 30_000 as const;
 export const GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM52_MAX_TOKENS = 64 as const;
-export const GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS = 512 as const;
-export const GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT =
-  "low" as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS = 1024 as const;
+export const GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_THINKING_TYPE =
+  "enabled" as const;
 
 export const GlmAdvancedBrainAcceptanceIdSchema = z.literal(
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CURRENT_ID,
@@ -175,10 +177,27 @@ export type GlmAdvancedBrainAcceptanceConsentRequest = z.infer<
 
 export const GlmAdvancedBrainAcceptanceRequestContractProfileIdSchema = z.enum([
   "glm-5.2-fixed-diagnostic-no-thinking",
-  "glm-5.3-fixed-diagnostic-mandatory-thinking",
+  "glm-5.3-fixed-diagnostic-mandatory-thinking-v2",
 ]);
 export type GlmAdvancedBrainAcceptanceRequestContractProfileId = z.infer<
   typeof GlmAdvancedBrainAcceptanceRequestContractProfileIdSchema
+>;
+
+export const GlmAdvancedBrainAcceptanceThinkingTypeSchema = z.enum([
+  "enabled",
+  "disabled",
+  "absent",
+]);
+export type GlmAdvancedBrainAcceptanceThinkingType = z.infer<
+  typeof GlmAdvancedBrainAcceptanceThinkingTypeSchema
+>;
+
+export const GlmAdvancedBrainAcceptanceSamplingModeSchema = z.enum([
+  "deterministic",
+  "provider_default",
+]);
+export type GlmAdvancedBrainAcceptanceSamplingMode = z.infer<
+  typeof GlmAdvancedBrainAcceptanceSamplingModeSchema
 >;
 
 export const GlmAdvancedBrainAcceptanceFinishReasonSchema = z.enum([
@@ -282,6 +301,7 @@ export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
     userContentIncluded: z.literal(false),
     fileIncluded: z.literal(false),
     imageIncluded: z.literal(false),
+    requestContractId: GlmAdvancedBrainAcceptanceRequestContractProfileIdSchema,
     requestContractProfileId:
       GlmAdvancedBrainAcceptanceRequestContractProfileIdSchema,
     maximumOutputTokens: z.number().int().min(1).max(1024),
@@ -290,10 +310,10 @@ export const GlmAdvancedBrainAcceptancePreflightResultSchema = z
       z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_MAX_TOKENS),
     ]),
     mandatoryThinking: z.boolean(),
+    thinkingType: GlmAdvancedBrainAcceptanceThinkingTypeSchema,
     thinkingDisabled: z.boolean(),
-    reasoningEffort: z
-      .literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_GLM53_REASONING_EFFORT)
-      .optional(),
+    responseFormatPresent: z.literal(false),
+    samplingMode: GlmAdvancedBrainAcceptanceSamplingModeSchema,
     requestedTimeoutMs: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS),
     effectiveTimeoutMs: z.literal(GLM_ADVANCED_BRAIN_ACCEPTANCE_TIMEOUT_MS),
     timeoutBounded: z.literal(true),

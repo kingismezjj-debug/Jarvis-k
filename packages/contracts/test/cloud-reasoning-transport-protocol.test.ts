@@ -96,6 +96,35 @@ describe("Cloud reasoning transport protocol", () => {
     ).toThrow();
   });
 
+  it("allows bounded nested JSON request metadata such as provider thinking options", () => {
+    const request = CloudReasoningTransportRequestSchema.parse({
+      ...requestFixture(),
+      bodyJson: {
+        model: "glm-5.3",
+        stream: false,
+        max_tokens: 1024,
+        thinking: { type: "enabled" },
+        messages: [
+          { role: "system", content: "fixed diagnostic" },
+          { role: "user", content: "{\"diagnostic\":\"fixed\"}" },
+        ],
+      },
+    });
+
+    expect(request.bodyJson).toMatchObject({
+      thinking: { type: "enabled" },
+      max_tokens: 1024,
+    });
+    expect(() =>
+      CloudReasoningTransportRequestSchema.parse({
+        ...requestFixture(),
+        bodyJson: {
+          [""]: "bad",
+        },
+      }),
+    ).toThrow();
+  });
+
   it("keeps transport results sanitized and fail-closed", () => {
     const result = CloudReasoningTransportResultSchema.parse({
       schemaVersion: ADVANCED_BRAIN_SCHEMA_VERSION,
