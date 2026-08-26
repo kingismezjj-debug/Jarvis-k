@@ -36,6 +36,8 @@ export function CloudProviderAcceptancePanel({
 }: CloudProviderAcceptancePanelProps) {
   const [draftKey, setDraftKey] = useState("");
   const [platformKeyConfirmed, setPlatformKeyConfirmed] = useState(false);
+  const [realConfirmationRequested, setRealConfirmationRequested] =
+    useState(false);
   if (!status?.capabilityFlagEnabled) {
     return null;
   }
@@ -86,31 +88,10 @@ export function CloudProviderAcceptancePanel({
       actions.runFakeAcceptance();
     }
   };
+  const realConfirmationVisible = canRunReal && realConfirmationRequested;
   const confirmRealRun = () => {
-    const accepted = window.confirm(
-      [
-        "Run one-time DeepSeek real acceptance diagnostic?",
-        `Acceptance ID: ${preflightResult?.acceptanceId ?? "unavailable"}`,
-        `Acceptance version: ${preflightResult?.acceptanceVersion ?? "unavailable"}`,
-        "Provider: DeepSeek",
-        "Model: deepseek-v4-flash",
-        "Endpoint: official DeepSeek API",
-        "Mode: no-thinking streaming",
-        `Max output: ${preflightResult?.maxTokens ?? "unavailable"}`,
-        `Overall timeout: ${preflightResult?.timeoutOverallMs ?? "unavailable"} ms`,
-        "Fixed diagnostic only: YES",
-        "User content included: NO",
-        "Tool execution: NO",
-        "Retry: NO",
-        "Fallback: NO",
-        "Product routing disabled: YES",
-        "",
-        "This may produce a small API fee and is consumed on attempt.",
-      ].join("\n"),
-    );
-    if (accepted) {
-      actions.runRealAcceptance();
-    }
+    setRealConfirmationRequested(false);
+    actions.runRealAcceptance();
   };
 
   return (
@@ -278,13 +259,74 @@ export function CloudProviderAcceptancePanel({
         <Button
           className="h-8 rounded-md px-2.5 text-xs"
           disabled={sending || !canRunReal}
-          onClick={confirmRealRun}
+          onClick={() => setRealConfirmationRequested(true)}
           type="button"
           variant="default"
         >
           Run one-time real diagnostic
         </Button>
       </div>
+
+      {realConfirmationVisible ? (
+        <div
+          className="mb-3 rounded-md border bg-muted/25 p-3 text-xs"
+          data-testid="cloud-provider-real-confirmation"
+        >
+          <h4 className="mb-2 font-semibold">
+            Confirm one-time DeepSeek real acceptance diagnostic
+          </h4>
+          <dl className="mb-3 divide-y divide-border border-y text-[11px]">
+            <MetricRow
+              label="acceptance id"
+              value={preflightResult?.acceptanceId ?? "unavailable"}
+            />
+            <MetricRow
+              label="acceptance version"
+              value={String(preflightResult?.acceptanceVersion ?? "unavailable")}
+            />
+            <MetricRow label="provider" value="DeepSeek" />
+            <MetricRow label="model" value="deepseek-v4-flash" />
+            <MetricRow label="endpoint" value="official DeepSeek API" />
+            <MetricRow label="mode" value="no-thinking streaming" />
+            <MetricRow
+              label="max output"
+              value={`${preflightResult?.maxTokens ?? "unavailable"} tokens`}
+            />
+            <MetricRow
+              label="overall timeout"
+              value={`${preflightResult?.timeoutOverallMs ?? "unavailable"} ms`}
+            />
+            <MetricRow label="fixed diagnostic only" value="YES" />
+            <MetricRow label="user content included" value="NO" />
+            <MetricRow label="tool execution" value="NO" />
+            <MetricRow label="retry" value="NO" />
+            <MetricRow label="fallback" value="NO" />
+            <MetricRow label="product routing disabled" value="YES" />
+            <MetricRow label="small API fee possible" value="YES" />
+            <MetricRow label="consumed on attempt" value="YES" />
+          </dl>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="h-8 rounded-md px-2.5 text-xs"
+              disabled={sending || !canRunReal}
+              onClick={confirmRealRun}
+              type="button"
+              variant="default"
+            >
+              Confirm and run one-time real diagnostic
+            </Button>
+            <Button
+              className="h-8 rounded-md px-2.5 text-xs"
+              disabled={sending}
+              onClick={() => setRealConfirmationRequested(false)}
+              type="button"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {preflightResult ? (
         <dl className="mb-3 divide-y divide-border border-y text-[11px]">

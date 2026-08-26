@@ -64,6 +64,12 @@ describe("product/developer/evaluation UI boundaries", () => {
     expect(cloudAcceptancePanelSource).toContain(
       "preflightResult.allowSingleRealAcceptance === true",
     );
+    expect(cloudAcceptancePanelSource).toContain(
+      'data-testid="cloud-provider-real-confirmation"',
+    );
+    expect(cloudAcceptancePanelSource).toContain(
+      "Confirm and run one-time real diagnostic",
+    );
     expect(cloudAcceptancePanelSource).not.toContain("window.jarvis");
     expect(cloudAcceptancePanelSource).not.toContain("ipcRenderer");
     expect(cloudAcceptancePanelSource).not.toContain("safeStorage");
