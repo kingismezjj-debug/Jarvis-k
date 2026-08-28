@@ -15,21 +15,30 @@ const prototypeDirectory = path.resolve(
   "settings-control-center",
 );
 
+const readPrototypeSource = () =>
+  ["index.html", "app.mjs", "prototype-data.mjs", "styles.css"]
+    .map((file) => readFileSync(path.join(prototypeDirectory, file), "utf8"))
+    .join("\n");
+
+const productCategoryOrder = [
+  "general",
+  "appearance_pet",
+  "voice_audio",
+  "models_intelligence",
+  "tools_plugins",
+  "memory_privacy",
+  "notifications",
+  "about_updates",
+];
+
 describe("Jarvis Control Center prototype", () => {
-  it("covers the approved settings information architecture in English and Chinese", () => {
+  it("models the revised Product information architecture", () => {
+    expect(prototypeModule.productCategoryOrder).toEqual(productCategoryOrder);
     expect(prototypeModule.categoryOrder).toEqual([
-      "general",
-      "appearance_pet",
-      "voice_audio",
-      "models_intelligence",
-      "tools_automation",
-      "plugins_mcp",
-      "memory_privacy",
-      "notifications",
-      "advanced",
+      ...productCategoryOrder,
       "developer_evaluation",
-      "about_updates",
     ]);
+
     for (const locale of prototypeModule.locales) {
       for (const categoryId of prototypeModule.categoryOrder) {
         expect(prototypeModule.prototypeCopy[locale].categories[categoryId]).toBeTruthy();
@@ -38,9 +47,7 @@ describe("Jarvis Control Center prototype", () => {
   });
 
   it("keeps the prototype static and disconnected from Product runtime APIs", () => {
-    const combined = ["index.html", "app.mjs", "prototype-data.mjs", "styles.css"]
-      .map((file) => readFileSync(path.join(prototypeDirectory, file), "utf8"))
-      .join("\n");
+    const combined = readPrototypeSource();
 
     for (const forbidden of [
       "window.jarvis",
@@ -56,7 +63,6 @@ describe("Jarvis Control Center prototype", () => {
     ]) {
       expect(combined).not.toContain(forbidden);
     }
-    expect(combined).toContain("Prototype data");
   });
 
   it("does not wire the prototype into Product navigation or packaged Alpha files", () => {
@@ -103,22 +109,90 @@ describe("Jarvis Control Center prototype", () => {
   });
 
   it("represents required prototype examples", () => {
-    const categories = prototypeModule.settingsCategories;
-    const allSettings = categories.flatMap((category: { sections: { settings: unknown[] }[] }) =>
-      category.sections.flatMap((section) => section.settings),
+    const allSettings = prototypeModule.settingsCategories.flatMap(
+      (category: { sections: { settings: unknown[] }[] }) =>
+        category.sections.flatMap((section) => section.settings),
     );
-    expect(categories.some((category: { id: string }) => category.id === "developer_evaluation")).toBe(true);
     expect(
-      allSettings.some(
-        (setting: { control?: string; sensitive?: boolean; status?: string }) =>
-          setting.control === "credential" && setting.sensitive === true,
+      prototypeModule.settingsCategories.some(
+        (category: { id: string }) => category.id === "developer_evaluation",
       ),
     ).toBe(true);
     expect(
-      allSettings.some((setting: { status?: string }) => setting.status === "unavailable"),
+      allSettings.some(
+        (setting: { kind?: string; sensitive?: boolean }) =>
+          setting.kind === "credential" && setting.sensitive === true,
+      ),
     ).toBe(true);
     expect(
-      allSettings.some((setting: { danger?: string }) => setting.danger === "high"),
+      allSettings.some((setting: { kind?: string }) => setting.kind === "unavailable"),
     ).toBe(true);
+    expect(
+      allSettings.some((setting: { kind?: string }) => setting.kind === "danger"),
+    ).toBe(true);
+    expect(
+      allSettings.some((setting: { kind?: string }) => setting.kind === "diagnostic"),
+    ).toBe(true);
+  });
+
+  it("keeps internal labels out of normal Product copy", () => {
+    const productCategories = prototypeModule.settingsCategories.filter(
+      (category: { id: string }) => productCategoryOrder.includes(category.id),
+    );
+    const productText = JSON.stringify(productCategories);
+
+    for (const forbidden of [
+      "EVERYONE",
+      "READY",
+      "PRODUCT",
+      "PLANNED",
+      "NEEDS_SETUP",
+      "DANGER ZONE",
+      "PROTOTYPE DATA",
+      "controlType",
+      "capabilityId",
+      "developer.",
+    ]) {
+      expect(productText).not.toContain(forbidden);
+    }
+
+    expect(prototypeModule.prototypeFlags.productHasStatusRail).toBe(false);
+    expect(prototypeModule.prototypeFlags.productShowsDeveloperCategoryByDefault).toBe(false);
+    expect(prototypeModule.prototypeFlags.productShowsInternalControlType).toBe(false);
+  });
+
+  it("keeps Chinese Product copy productized without mojibake or untranslated controls", () => {
+    const localizedValues: string[] = [];
+    const collect = (value: unknown) => {
+      if (!value || typeof value !== "object") return;
+      const record = value as Record<string, unknown>;
+      if (typeof record["zh-CN"] === "string") {
+        localizedValues.push(record["zh-CN"]);
+      }
+      for (const child of Object.values(record)) collect(child);
+    };
+    collect(prototypeModule.prototypeCopy["zh-CN"]);
+    collect(
+      prototypeModule.settingsCategories.filter((category: { id: string }) =>
+        productCategoryOrder.includes(category.id),
+      ),
+    );
+    const zhCopy = localizedValues.join("\n");
+    expect(zhCopy).not.toMatch(/[�锟閿鈥]/);
+
+    for (const forbidden of [
+      "Prototype",
+      "Developer tools",
+      "Danger zone",
+      "Change",
+      "switch",
+      "segmented",
+      "select",
+      "button",
+      "ready",
+      "unavailable",
+    ]) {
+      expect(zhCopy).not.toContain(forbidden);
+    }
   });
 });
