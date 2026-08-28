@@ -1,0 +1,85 @@
+export const locales = ["en", "zh-CN"];
+
+export const galleryCopy = {
+  en: {
+    title: "Jarvis-K UI Foundation",
+    subtitle: "Isolated component gallery for design tokens, accessibility states, and Settings foundation components.",
+    searchLabel: "Search settings",
+    searchPlaceholder: "Search language, provider, pet, updates",
+    categories: ["General", "Appearance & Pet", "Voice & Audio", "Models & Intelligence"],
+    basicControls: "General components",
+    settingsControls: "Settings components",
+    stateLanguage: "Status language",
+    density: "Density",
+    dangerous: "Reset & Recovery",
+    unavailable: "Capability unavailable",
+    diagnostics: "Developer diagnostics",
+    resetTitle: "Restore default settings",
+    resetDescription: "Restores product preferences without deleting credentials, memory, or local data.",
+    emptyTitle: "No matching settings",
+    emptyDescription: "Try another keyword or browse a category.",
+    longText:
+      "Use this long English sentence to verify wrapping, focus boundaries, and readable line height at narrow widths and 200% zoom.",
+    identityLayer: "Jarvis Identity Layer",
+    compactAction: "Compact",
+    primaryAction: "Primary action",
+    runCheck: "Run check",
+    openDetails: "Open details",
+    quietAction: "Quiet action",
+    keyboardTitle: "Keyboard and focus",
+    keyboardDescription:
+      "Tab, Shift+Tab, Enter, Space and Escape behavior are represented in the component contract.",
+    rowsDescription: "Rows show current values, not generic change buttons.",
+    manageConnection: "Manage connection",
+  },
+  "zh-CN": {
+    title: "Jarvis-K UI 基础组件",
+    subtitle: "隔离组件库，用于验证设计 Token、无障碍状态和设置基础组件。",
+    searchLabel: "搜索设置",
+    searchPlaceholder: "搜索语言、Provider、桌宠、更新",
+    categories: ["通用", "外观与桌宠", "语音与音频", "模型与智能"],
+    basicControls: "基础组件",
+    settingsControls: "设置组件",
+    stateLanguage: "状态文案",
+    density: "显示密度",
+    dangerous: "重置与恢复",
+    unavailable: "能力暂不可用",
+    diagnostics: "开发诊断",
+    resetTitle: "恢复默认设置",
+    resetDescription: "恢复产品偏好，不会删除凭据、记忆或本地数据。",
+    emptyTitle: "没有找到匹配设置",
+    emptyDescription: "换一个关键词，或浏览左侧分类。",
+    longText:
+      "这是一段较长的中文说明，用来验证窄窗口和 200% 缩放下的换行、焦点边界和可读行高。",
+    identityLayer: "Jarvis 身份层",
+    compactAction: "紧凑密度",
+    primaryAction: "主要操作",
+    runCheck: "运行检查",
+    openDetails: "打开详情",
+    quietAction: "低强调操作",
+    keyboardTitle: "键盘与焦点",
+    keyboardDescription:
+      "Tab、Shift+Tab、Enter、Space 和 Escape 行为由组件合同表达。",
+    rowsDescription: "设置行显示当前值，不使用统一的更改按钮。",
+    manageConnection: "管理连接",
+  },
+};
+
+export const statusRows = [
+  ["ready", "success"],
+  ["configured", "success"],
+  ["not_configured", "warning"],
+  ["unavailable", "warning"],
+  ["requires_setup", "warning"],
+  ["disabled", "muted"],
+  ["local_only", "info"],
+  ["read_only", "info"],
+  ["update_available", "info"],
+];
+
+export const galleryFlags = {
+  productRuntimeConnected: false,
+  packagedInAlpha: false,
+  usesFakeDataOnly: true,
+  exposesInternalIdsOnlyInDeveloperExample: true,
+};

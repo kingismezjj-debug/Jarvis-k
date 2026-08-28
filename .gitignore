@@ -5,6 +5,7 @@ artifacts/*.png
 artifacts/*.json
 artifacts/manual/
 artifacts/ui-0/
+artifacts/ui-1/
 artifacts/packaged/
 artifacts/package-verify/
 models/
