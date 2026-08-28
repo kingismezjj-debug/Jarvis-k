@@ -10,6 +10,10 @@ UI-0 created audit evidence and an isolated Settings prototype. UI-0R revised
 the prototype after human review. Neither phase changes Product Settings
 behavior.
 
+UI-1 adds design tokens, presentation-only foundation components, Settings
+foundation components, and an isolated Component Gallery. Real Settings
+migration remains deferred to UI-2.
+
 ## Revised Prototype Awaiting Review
 
 Prototype source:
@@ -44,7 +48,7 @@ Revision decisions:
   value/state.
 - Narrow windows use a compact category selector instead of the full left nav.
 
-## UI-1 Candidate, After User Approval
+## UI-1 Foundation
 
 Design Tokens and Foundation Components.
 
@@ -71,6 +75,14 @@ Acceptance:
 - Component accessibility tests.
 - English/Chinese/narrow screenshots.
 - No Product/Developer gate regressions.
+
+Status:
+
+- Token source: `apps/ui/src/design-system/tokens.ts`.
+- Components: `apps/ui/src/design-system/foundation-components.tsx` and
+  `apps/ui/src/design-system/settings-components.tsx`.
+- Gallery: `prototypes/ui-foundation-gallery`.
+- Product Settings are still not migrated.
 
 ## UI-2 Candidate
 

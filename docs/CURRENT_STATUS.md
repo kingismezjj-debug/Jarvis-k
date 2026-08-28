@@ -22,7 +22,8 @@ Desktop Alpha stabilization and Windows packaging.
 - Launch-at-login implementation status: implementation complete; manual login acceptance deferred to next release candidate.
 - Installer validation cadence: moved to release-candidate validation instead of every ordinary feature slice.
 - Phase UI-0 Settings IA/i18n audit and isolated prototype: **COMPLETE**.
-- Phase UI-0R Jarvis Control Center prototype revision: **COMPLETE / AWAITING USER REVIEW**.
+- Phase UI-0R Jarvis Control Center prototype revision: **COMPLETE / REVIEWED**.
+- Phase UI-1 Design Tokens and Foundation Components: **COMPLETE / FOUNDATION READY**.
 
 ## Verification Cadence
 
@@ -38,4 +39,4 @@ Desktop Alpha stabilization and Windows packaging.
 
 ## Next Stage
 
-- Review the revised Jarvis Control Center prototype before UI-1.
+- Await explicit approval before UI-2 Settings Registry and Internationalization Migration.
