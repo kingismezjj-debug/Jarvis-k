@@ -68,6 +68,8 @@
     "typecheck": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:inference-adapter-deepseek-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run typecheck --workspaces --if-present",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:sensitive-artifacts": "node scripts/check-sensitive-artifacts.mjs",
+    "audit:ui-strings": "node scripts/audit-ui-visible-strings.mjs --json",
+    "prototype:settings:capture": "node scripts/capture-ui0-settings-prototype.mjs",
     "plugin:validate:examples": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/plugins/stock-analysis examples/plugins/ecommerce-product-comparison",
     "plugin:validate:local-template": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/local-plugins/hello-readonly",
     "ci": "npm run typecheck && npm test && npm run check:boundaries && npm run check:sensitive-artifacts && npm run build",
