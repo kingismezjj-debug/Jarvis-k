@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-08-20
+Updated: 2026-08-28
 
 ## Product Stage
 
@@ -21,6 +21,7 @@ Desktop Alpha stabilization and Windows packaging.
 - Phase 4A-4A manual launch-at-login acceptance: **DEFERRED**.
 - Launch-at-login implementation status: implementation complete; manual login acceptance deferred to next release candidate.
 - Installer validation cadence: moved to release-candidate validation instead of every ordinary feature slice.
+- Phase UI-0 Settings IA/i18n audit and isolated prototype: **COMPLETE**.
 
 ## Verification Cadence
 
@@ -36,4 +37,4 @@ Desktop Alpha stabilization and Windows packaging.
 
 ## Next Stage
 
-- Wait for Phase 4B Desktop Pet MVP instructions.
+- Review the isolated Jarvis Control Center prototype before UI-1.
