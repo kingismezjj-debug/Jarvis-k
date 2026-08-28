@@ -16,6 +16,21 @@ Scope: design-only decisions. No dependency is installed by this phase.
 
 Summary count: Build 12, Adopt 6, Wrap 12, Learn 8, Reject 7.
 
+## Count Reconciliation
+
+`docs/architecture/oss-capability-decomposition.md` tracks 126 leaf capabilities.
+This matrix tracks 45 explicit third-party reuse candidates, not every leaf
+capability. The remaining 81 leaves are accounted for in the decomposition
+document as Jarvis-owned, deferred, learn-only, or not-yet-candidate
+implementation areas and are intentionally not counted as separate OSS reuse
+rows here.
+
+| Count | Meaning |
+| ---: | --- |
+| 126 | Total leaf capabilities in the OSS-0 decomposition |
+| 45 | Explicit reuse candidates in this matrix |
+| 81 | Non-matrix leaf capabilities retained in the decomposition document |
+
 ## Recommended Candidates
 
 | Area | Candidate | Source | License note | Decision | Why |

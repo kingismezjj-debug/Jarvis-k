@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-08-26
+Updated: 2026-08-28
 
 ## Current Product Phase
 
@@ -43,6 +43,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase 5B-2C Provider-Neutral Credential Vault and Cloud Acceptance Framework is implemented offline: cloud provider credential bindings are Main-owned and safeStorage-backed, DeepSeek fake acceptance uses a persistent one-time ledger and shared `CloudReasoningRuntime`, Developer/Evaluation UI is separately gated, Product routing remains disabled, and fake-transport tests prove `realNetworkRequestSent=false`.
 - Phase 5B-2D-0 DeepSeek single real acceptance final gate is prepared offline: the real gate is development-only behind Developer/Evaluation/DeepSeek flags, uses the provider-neutral credential vault and one-time ledger, exposes a fixed DeepSeek V4 Flash no-thinking streaming contract with safe preflight/confirmation/report projection, and remains fake-transport verified with `realNetworkRequestSent=false`.
 - Phase OSS-0 architecture reset is documented: complete capability decomposition, OSS reuse decisions, third-party trust boundaries, UI/Settings/i18n blueprint, and OSS/UI roadmap are defined with no production behavior change.
+- Phase OSS-1 provider protocol adapter decision is complete: Jarvis keeps bounded transport, credential broker, four-layer timeout, sanitized projection, and acceptance semantics; an isolated fake-only `CloudModelProtocolAdapter` conformance spike compares the current runtime without adding third-party SDK dependencies or changing Product routing.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
