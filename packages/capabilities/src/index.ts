@@ -31,3 +31,4 @@ export * from "./developer-alpha-hardening-fixture";
 export * from "./observability-aggregator";
 export * from "./observability-fixture";
 export * from "./bounded-cloud-reasoning-transport";
+export * from "./cloud-model-protocol-adapter";
