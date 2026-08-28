@@ -88,6 +88,7 @@ import { CommandRouterSettingsPanel } from "@/features/settings/command-router-s
 import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governance-settings-panel";
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { VoiceSettingsPanel } from "@/features/settings/voice-settings-panel";
+import { SettingsV2GeneralView } from "@/features/settings-v2/settings-v2-general-view";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { VoiceControlPanel } from "@/features/voice/voice-control-panel";
 import { VoiceRegressionPanel } from "@/features/voice/voice-regression-panel";
@@ -1742,6 +1743,9 @@ export default function App() {
 
   return (
     <AppShell
+      allowNarrowLayout={
+        activeView === "settings" && uiSurfaceMode.settingsV2SurfaceEnabled
+      }
       header={
         <AppBrandHeader
           connection={connection}
@@ -2420,6 +2424,43 @@ export default function App() {
               </div>
             </ScrollArea>
           ) : activeView === "settings" ? (
+            uiSurfaceMode.settingsV2SurfaceEnabled ? (
+              <ScrollArea className="min-h-0 flex-1">
+                <SettingsV2GeneralView
+                  desktopLaunchAtLoginStatus={desktopLaunchAtLoginStatus}
+                  desktopSettings={desktopSettings}
+                  error={error}
+                  locale={uiLanguage}
+                  onRefreshDesktopSettings={() => {
+                    void trackAction(
+                      "Refresh desktop settings",
+                      refreshDesktopSettings,
+                      "Desktop settings refreshed",
+                    );
+                  }}
+                  onSelectLanguage={handleSelectLanguage}
+                  onSetDesktopCloseButtonBehavior={(behavior) => {
+                    void trackAction(
+                      "Change close behavior",
+                      async () => setDesktopCloseButtonBehavior(behavior),
+                      "Close behavior updated",
+                    );
+                  }}
+                  onSetDesktopLaunchAtLoginEnabled={(enabled) => {
+                    void trackAction(
+                      enabled
+                        ? "Enable launch at login"
+                        : "Disable launch at login",
+                      async () => setDesktopLaunchAtLoginEnabled(enabled),
+                      enabled
+                        ? "Launch at login enabled"
+                        : "Launch at login disabled",
+                    );
+                  }}
+                  sending={sending}
+                />
+              </ScrollArea>
+            ) : (
             <ScrollArea className="min-h-0 flex-1">
               <div
                 className="grid gap-5 px-8 py-7 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
@@ -2844,6 +2885,7 @@ export default function App() {
                 ) : null}
               </div>
             </ScrollArea>
+            )
           ) : (
             <ScrollArea className="min-h-0 flex-1">
               <ActivityView

@@ -21,6 +21,8 @@ describe("ui surface mode", () => {
       effectiveSurface: "product",
       evaluationCapabilityAvailable: false,
       evaluationSurfaceEnabled: false,
+      settingsV2CapabilityAvailable: false,
+      settingsV2SurfaceEnabled: false,
     });
   });
 
@@ -42,6 +44,8 @@ describe("ui surface mode", () => {
       evaluationSurfaceEnabled: true,
       cloudProviderAcceptanceCapabilityAvailable: false,
       cloudProviderAcceptanceSurfaceEnabled: false,
+      settingsV2CapabilityAvailable: false,
+      settingsV2SurfaceEnabled: false,
     });
 
     expect(
@@ -87,12 +91,60 @@ describe("ui surface mode", () => {
         developerModeEnabled: true,
         capabilityStatus: {
           evaluationCapabilityAvailable: true,
+          settingsV2CapabilityAvailable: true,
           source: "desktop-main",
           sensitiveValuesExposed: false,
           rendererWritable: true,
         },
       }).effectiveSurface,
     ).toBe("developer");
+    expect(
+      projectUiSurfaceMode({
+        developerModeEnabled: false,
+        capabilityStatus: {
+          evaluationCapabilityAvailable: false,
+          settingsV2CapabilityAvailable: true,
+          source: "desktop-main",
+          sensitiveValuesExposed: false,
+          rendererWritable: true,
+        },
+      }).settingsV2SurfaceEnabled,
+    ).toBe(false);
+  });
+
+  it("uses only trusted desktop-main projection to enable Settings V2", () => {
+    expect(
+      projectUiSurfaceMode({
+        developerModeEnabled: false,
+        capabilityStatus: {
+          evaluationCapabilityAvailable: false,
+          settingsV2CapabilityAvailable: true,
+          source: "desktop-main",
+          sensitiveValuesExposed: false,
+          rendererWritable: false,
+        },
+      }),
+    ).toMatchObject({
+      effectiveSurface: "product",
+      settingsV2CapabilityAvailable: true,
+      settingsV2SurfaceEnabled: true,
+    });
+
+    expect(
+      projectUiSurfaceMode({
+        developerModeEnabled: true,
+        capabilityStatus: {
+          evaluationCapabilityAvailable: true,
+          settingsV2CapabilityAvailable: true,
+          source: "renderer",
+          sensitiveValuesExposed: false,
+          rendererWritable: false,
+        },
+      }),
+    ).toMatchObject({
+      evaluationSurfaceEnabled: false,
+      settingsV2SurfaceEnabled: false,
+    });
   });
 
   it("persists developer mode locally only", () => {

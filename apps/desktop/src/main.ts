@@ -344,6 +344,9 @@ if (!hasSingleInstanceLock) {
         process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1" &&
         process.env.JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE === "1" &&
         storageProfile.releaseChannel === "development",
+      settingsV2CapabilityAvailable:
+        process.env.JARVIS_K_ENABLE_SETTINGS_V2 === "1" &&
+        storageProfile.releaseChannel === "development",
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
     petController = new DesktopPetController({

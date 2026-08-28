@@ -22,6 +22,7 @@ function createSettingsService(input: {
   cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
   packagedAlphaLoginItem?: boolean;
+  settingsV2CapabilityAvailable?: boolean;
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
@@ -40,6 +41,7 @@ function createSettingsService(input: {
     evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
     cloudProviderAcceptanceCapabilityAvailable:
       input.cloudProviderAcceptanceCapabilityAvailable,
+    settingsV2CapabilityAvailable: input.settingsV2CapabilityAvailable,
     desktopSettingsPath: input.desktopSettingsPath,
   });
   return {
@@ -65,6 +67,7 @@ describe("SettingsService", () => {
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: false,
+      settingsV2CapabilityAvailable: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
@@ -201,6 +204,7 @@ describe("SettingsService", () => {
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: true,
+      settingsV2CapabilityAvailable: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
@@ -215,6 +219,21 @@ describe("SettingsService", () => {
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: true,
       evaluationCapabilityAvailable: true,
+      settingsV2CapabilityAvailable: false,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    });
+  });
+
+  it("exposes Settings V2 only as a read-only safe projection", () => {
+    const { service } = createSettingsService({
+      settingsV2CapabilityAvailable: true,
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toEqual({
+      cloudProviderAcceptanceCapabilityAvailable: false,
+      evaluationCapabilityAvailable: false,
+      settingsV2CapabilityAvailable: true,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,

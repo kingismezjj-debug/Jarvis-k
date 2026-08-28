@@ -70,6 +70,7 @@
     "check:sensitive-artifacts": "node scripts/check-sensitive-artifacts.mjs",
     "audit:ui-strings": "node scripts/audit-ui-visible-strings.mjs --json",
     "prototype:settings:capture": "node scripts/capture-ui0-settings-prototype.mjs",
+    "settings-v2:capture": "node scripts/capture-ui2a-settings-v2.mjs",
     "gallery:ui-foundation:capture": "node scripts/capture-ui1-component-gallery.mjs",
     "plugin:validate:examples": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/plugins/stock-analysis examples/plugins/ecommerce-product-comparison",
     "plugin:validate:local-template": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/local-plugins/hello-readonly",

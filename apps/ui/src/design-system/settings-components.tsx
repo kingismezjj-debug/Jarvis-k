@@ -95,7 +95,7 @@ export function SettingValueAction({
   return (
     <button className="jk-value-action" onClick={onAction} type="button">
       <span>{value}</span>
-      <span aria-hidden="true">›</span>
+      <span aria-hidden="true">&gt;</span>
       <span className="jk-sr-only">{actionLabel}</span>
     </button>
   );
@@ -106,16 +106,19 @@ export function SettingSwitchRow({
   description,
   checked,
   onCheckedChange,
+  disabled = false,
 }: {
   title: string;
   description: string;
   checked: boolean;
   onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <SettingRow description={description} title={title}>
       <Switch
         checked={checked}
+        disabled={disabled}
         label={title}
         onCheckedChange={onCheckedChange}
       />
@@ -265,12 +268,14 @@ export function DangerSection({
   impact,
   actionLabel,
   onAction,
+  actionDisabled = false,
 }: {
   title: string;
   description: string;
   impact: string;
   actionLabel: string;
   onAction?: () => void;
+  actionDisabled?: boolean;
 }) {
   return (
     <section className="jk-section jk-danger-section">
@@ -279,7 +284,11 @@ export function DangerSection({
         <p>{description}</p>
       </header>
       <SettingRow description={impact} title={actionLabel}>
-        <Button onClick={onAction} variant={"danger" satisfies ButtonVariant}>
+        <Button
+          disabled={actionDisabled}
+          onClick={onAction}
+          variant={"danger" satisfies ButtonVariant}
+        >
           {actionLabel}
         </Button>
       </SettingRow>

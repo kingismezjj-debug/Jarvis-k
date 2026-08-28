@@ -9,6 +9,8 @@ export type UiSurfaceMode = {
   cloudProviderAcceptanceSurfaceEnabled: boolean;
   evaluationCapabilityAvailable: boolean;
   evaluationSurfaceEnabled: boolean;
+  settingsV2CapabilityAvailable: boolean;
+  settingsV2SurfaceEnabled: boolean;
 };
 
 export function readStoredDeveloperMode(storage: Storage | undefined): boolean {
@@ -33,16 +35,19 @@ export function projectUiSurfaceMode(input: {
   capabilityStatus: {
     cloudProviderAcceptanceCapabilityAvailable?: unknown;
     evaluationCapabilityAvailable?: unknown;
+    settingsV2CapabilityAvailable?: unknown;
     source?: unknown;
     sensitiveValuesExposed?: unknown;
     rendererWritable?: unknown;
   } | null;
 }): UiSurfaceMode {
-  const evaluationCapabilityAvailable =
-    input.capabilityStatus?.evaluationCapabilityAvailable === true &&
-    input.capabilityStatus.source === "desktop-main" &&
+  const trustedMainProjection =
+    input.capabilityStatus?.source === "desktop-main" &&
     input.capabilityStatus.sensitiveValuesExposed === false &&
     input.capabilityStatus.rendererWritable === false;
+  const evaluationCapabilityAvailable =
+    input.capabilityStatus?.evaluationCapabilityAvailable === true &&
+    trustedMainProjection;
   const evaluationSurfaceEnabled =
     input.developerModeEnabled && evaluationCapabilityAvailable;
   const cloudProviderAcceptanceCapabilityAvailable =
@@ -50,6 +55,9 @@ export function projectUiSurfaceMode(input: {
     input.capabilityStatus?.cloudProviderAcceptanceCapabilityAvailable === true;
   const cloudProviderAcceptanceSurfaceEnabled =
     evaluationSurfaceEnabled && cloudProviderAcceptanceCapabilityAvailable;
+  const settingsV2CapabilityAvailable =
+    trustedMainProjection &&
+    input.capabilityStatus?.settingsV2CapabilityAvailable === true;
   return {
     developerModeEnabled: input.developerModeEnabled,
     effectiveSurface: evaluationSurfaceEnabled
@@ -61,5 +69,7 @@ export function projectUiSurfaceMode(input: {
     cloudProviderAcceptanceSurfaceEnabled,
     evaluationCapabilityAvailable,
     evaluationSurfaceEnabled,
+    settingsV2CapabilityAvailable,
+    settingsV2SurfaceEnabled: settingsV2CapabilityAvailable,
   };
 }

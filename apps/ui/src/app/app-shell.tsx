@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { SkinThemeId, UiLanguage } from "./types";
 
 export type AppShellProps = {
+  allowNarrowLayout?: boolean;
   children: ReactNode;
   header: ReactNode;
   inspector?: ReactNode;
@@ -19,6 +20,7 @@ export type AppShellProps = {
 };
 
 export function AppShell({
+  allowNarrowLayout = false,
   children,
   header,
   inspector,
@@ -34,7 +36,10 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div
-      className="flex h-screen min-h-[620px] min-w-[920px] flex-col overflow-hidden bg-background text-foreground"
+      className={cn(
+        "flex h-screen min-h-[620px] flex-col overflow-hidden bg-background text-foreground",
+        !allowNarrowLayout && "min-w-[920px]",
+      )}
       data-testid="jarvis-app"
       data-skin-theme={skinTheme}
       data-ui-language={uiLanguage}

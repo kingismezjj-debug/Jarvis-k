@@ -480,6 +480,7 @@ export const UiSurfaceCapabilityStatusSchema = z
   .object({
     evaluationCapabilityAvailable: z.boolean(),
     cloudProviderAcceptanceCapabilityAvailable: z.boolean().default(false),
+    settingsV2CapabilityAvailable: z.boolean().default(false),
     source: z.literal("desktop-main"),
     sensitiveValuesExposed: z.literal(false),
     rendererWritable: z.literal(false),
