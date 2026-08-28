@@ -2,14 +2,15 @@
 
 Date: 2026-08-28
 
-Audit HEAD: `b77dff2d98765bdf3ce5867881fdf1fae2ad69a1`
+Audit HEAD: `fd4ff9513940c20f218dcdf834599bb597c9402e`
 
 ## Current Decision
 
-UI-0 creates audit evidence and an isolated Settings prototype. It does not
-change Product Settings behavior.
+UI-0 created audit evidence and an isolated Settings prototype. UI-0R revised
+the prototype after human review. Neither phase changes Product Settings
+behavior.
 
-## Approved Prototype
+## Revised Prototype Awaiting Review
 
 Prototype source:
 
@@ -29,7 +30,21 @@ Prototype constraints:
 - Not wired into Product navigation.
 - Not included in packaged Alpha files.
 
-## UI-1 Candidate
+Revision decisions:
+
+- Normal Product Settings use eight top-level categories.
+- `Advanced` is not a permanent top-level Product category; advanced options
+  move into the category they affect.
+- `Developer & Evaluation` appears only when Developer Mode is on.
+- Evaluation tools remain behind a second capability gate.
+- Persistent Status Summary is removed from normal Settings.
+- System Status and Diagnostics move under About & Updates.
+- Rows show current values instead of generic change buttons.
+- Search results show count, category breadcrumb, description, and current
+  value/state.
+- Narrow windows use a compact category selector instead of the full left nav.
+
+## UI-1 Candidate, After User Approval
 
 Design Tokens and Foundation Components.
 
