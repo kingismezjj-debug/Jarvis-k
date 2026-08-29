@@ -29,6 +29,12 @@ export const settingsV2SectionIds = [
   "models_answer",
   "models_local",
   "models_routing",
+  "tools_automation",
+  "tools_apps",
+  "tools_websites",
+  "tools_files",
+  "tools_plugins",
+  "tools_mcp",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -66,6 +72,12 @@ export const settingsV2BindingIds = [
   "models.local_models",
   "models.routing_policy",
   "models.cloud_local_status",
+  "tools.automation_summary",
+  "tools.approved_apps",
+  "tools.safe_websites",
+  "tools.file_search",
+  "tools.plugins",
+  "tools.mcp_connections",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -119,7 +131,7 @@ export const settingsV2Categories: Array<{
   {
     id: "tools_plugins",
     labelKey: "settings.categories.tools_plugins",
-    migrated: false,
+    migrated: true,
   },
   {
     id: "memory_privacy",
@@ -653,11 +665,154 @@ export const settingsV2ModelsIntelligenceDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2ToolsPluginsDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.tools.automation_safeguards",
+    categoryId: "tools_plugins",
+    sectionId: "tools_automation",
+    labelKey: "settings.tools.automation.label",
+    descriptionKey: "settings.tools.automation.description",
+    searchKeywordKeys: [
+      "settings.tools.automation.label",
+      "settings.tools.automation.description",
+      "settings.tools.automation.guarded",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "tools.automation_summary",
+    validationContractId: "tools-automation-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "tools.automation.safe_summary",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.tools.automation",
+  },
+  {
+    settingId: "settings.tools.approved_apps",
+    categoryId: "tools_plugins",
+    sectionId: "tools_apps",
+    labelKey: "settings.tools.approvedApps.label",
+    descriptionKey: "settings.tools.approvedApps.description",
+    searchKeywordKeys: [
+      "settings.tools.approvedApps.label",
+      "settings.tools.approvedApps.description",
+      "settings.tools.approvedApps.managed",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "tools.approved_apps",
+    validationContractId: "approved-apps-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "tools.approved_apps.safe_summary",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.tools.approved_apps",
+  },
+  {
+    settingId: "settings.tools.safe_websites",
+    categoryId: "tools_plugins",
+    sectionId: "tools_websites",
+    labelKey: "settings.tools.safeWebsites.label",
+    descriptionKey: "settings.tools.safeWebsites.description",
+    searchKeywordKeys: [
+      "settings.tools.safeWebsites.label",
+      "settings.tools.safeWebsites.description",
+      "settings.tools.safeWebsites.confirmFirst",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "tools.safe_websites",
+    validationContractId: "safe-websites-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "tools.safe_websites.safe_summary",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.tools.safe_websites",
+  },
+  {
+    settingId: "settings.tools.file_search",
+    categoryId: "tools_plugins",
+    sectionId: "tools_files",
+    labelKey: "settings.tools.fileSearch.label",
+    descriptionKey: "settings.tools.fileSearch.description",
+    searchKeywordKeys: [
+      "settings.tools.fileSearch.label",
+      "settings.tools.fileSearch.description",
+      "settings.tools.fileSearch.readOnly",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "tools.file_search",
+    validationContractId: "file-search-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "tools.file_search.safe_summary",
+    dangerLevel: "none",
+    order: 40,
+    helpReferenceId: "settings.tools.file_search",
+  },
+  {
+    settingId: "settings.tools.plugins",
+    categoryId: "tools_plugins",
+    sectionId: "tools_plugins",
+    labelKey: "settings.tools.plugins.label",
+    descriptionKey: "settings.tools.plugins.description",
+    searchKeywordKeys: [
+      "settings.tools.plugins.label",
+      "settings.tools.plugins.description",
+      "settings.tools.plugins.noneInstalled",
+      "settings.tools.plugins.availableForUse",
+    ],
+    controlType: "action",
+    settingBindingId: "tools.plugins",
+    validationContractId: "plugin-management-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "tools.plugins.safe_summary",
+    dangerLevel: "none",
+    order: 50,
+    helpReferenceId: "settings.tools.plugins",
+  },
+  {
+    settingId: "settings.tools.mcp_connections",
+    categoryId: "tools_plugins",
+    sectionId: "tools_mcp",
+    labelKey: "settings.tools.mcp.label",
+    descriptionKey: "settings.tools.mcp.description",
+    searchKeywordKeys: [
+      "settings.tools.mcp.label",
+      "settings.tools.mcp.description",
+      "settings.tools.mcp.unavailable",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "tools.mcp_connections",
+    validationContractId: "external-tool-connection-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "tools.mcp.safe_summary",
+    dangerLevel: "none",
+    order: 60,
+    helpReferenceId: "settings.tools.mcp",
+  },
+];
+
 export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2GeneralDefinitions,
   ...settingsV2AppearancePetDefinitions,
   ...settingsV2VoiceAudioDefinitions,
   ...settingsV2ModelsIntelligenceDefinitions,
+  ...settingsV2ToolsPluginsDefinitions,
 ];
 
 export function validateSettingsV2Registry(
@@ -725,7 +880,8 @@ export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
         definition.categoryId === "general" ||
         definition.categoryId === "appearance_pet" ||
         definition.categoryId === "voice_audio" ||
-        definition.categoryId === "models_intelligence",
+        definition.categoryId === "models_intelligence" ||
+        definition.categoryId === "tools_plugins",
     )
     .sort((left, right) => left.order - right.order);
 }

@@ -208,6 +208,56 @@ export type SettingsV2CopyKey =
   | "settings.models.status.degraded"
   | "settings.models.status.notVerified"
   | "settings.models.status.noNetworkOnOpen"
+  | "settings.tools.title"
+  | "settings.tools.description"
+  | "settings.tools.section.automation"
+  | "settings.tools.section.apps"
+  | "settings.tools.section.websites"
+  | "settings.tools.section.files"
+  | "settings.tools.section.plugins"
+  | "settings.tools.section.mcp"
+  | "settings.tools.automation.label"
+  | "settings.tools.automation.description"
+  | "settings.tools.automation.guarded"
+  | "settings.tools.automation.confirmation"
+  | "settings.tools.automation.noRunOnOpen"
+  | "settings.tools.approvedApps.label"
+  | "settings.tools.approvedApps.description"
+  | "settings.tools.approvedApps.managed"
+  | "settings.tools.approvedApps.confirmation"
+  | "settings.tools.approvedApps.noLaunchOnOpen"
+  | "settings.tools.safeWebsites.label"
+  | "settings.tools.safeWebsites.description"
+  | "settings.tools.safeWebsites.confirmFirst"
+  | "settings.tools.safeWebsites.noBrowserOnOpen"
+  | "settings.tools.safeWebsites.unknownAsk"
+  | "settings.tools.fileSearch.label"
+  | "settings.tools.fileSearch.description"
+  | "settings.tools.fileSearch.readOnly"
+  | "settings.tools.fileSearch.filenameOnly"
+  | "settings.tools.fileSearch.noScanOnOpen"
+  | "settings.tools.plugins.label"
+  | "settings.tools.plugins.description"
+  | "settings.tools.plugins.action"
+  | "settings.tools.plugins.noneInstalled"
+  | "settings.tools.plugins.installed"
+  | "settings.tools.plugins.enabled"
+  | "settings.tools.plugins.availableForUse"
+  | "settings.tools.plugins.readOnly"
+  | "settings.tools.plugins.thirdPartyDisabled"
+  | "settings.tools.plugins.noMarketplace"
+  | "settings.tools.plugins.statusUnknown"
+  | "settings.tools.plugins.refreshNeeded"
+  | "settings.tools.mcp.label"
+  | "settings.tools.mcp.description"
+  | "settings.tools.mcp.unavailable"
+  | "settings.tools.mcp.available"
+  | "settings.tools.mcp.statusUnknown"
+  | "settings.tools.mcp.notConnected"
+  | "settings.tools.mcp.noAutoConnect"
+  | "settings.tools.mcp.noExternalRun"
+  | "settings.tools.mcp.userControlled"
+  | "settings.tools.status.noExecutionOnOpen"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -511,6 +561,79 @@ export const settingsV2Copy: Record<
     "settings.models.status.notVerified": "Not verified",
     "settings.models.status.noNetworkOnOpen":
       "Opening this page does not connect online services or load, download, or delete models.",
+    "settings.tools.title": "Tools & Plugins",
+    "settings.tools.description":
+      "Review desktop actions, safe website access, read-only file search, installed plugins, and external tool connection readiness without running anything.",
+    "settings.tools.section.automation": "Tools and automation",
+    "settings.tools.section.apps": "Approved apps",
+    "settings.tools.section.websites": "Safe website access",
+    "settings.tools.section.files": "File search",
+    "settings.tools.section.plugins": "Plugins",
+    "settings.tools.section.mcp": "External tool connections",
+    "settings.tools.automation.label": "Automation safeguards",
+    "settings.tools.automation.description":
+      "Desktop actions remain controlled by Jarvis safety and confirmation checks.",
+    "settings.tools.automation.guarded": "Guarded by safety checks",
+    "settings.tools.automation.confirmation":
+      "Higher-risk actions still require confirmation.",
+    "settings.tools.automation.noRunOnOpen":
+      "Opening this page does not run a tool.",
+    "settings.tools.approvedApps.label": "Approved app openings",
+    "settings.tools.approvedApps.description":
+      "App opening uses the existing approved-app policy and does not expose system paths here.",
+    "settings.tools.approvedApps.managed": "Managed by safety policy",
+    "settings.tools.approvedApps.confirmation":
+      "Unknown or unsupported apps are not opened from this page.",
+    "settings.tools.approvedApps.noLaunchOnOpen":
+      "Opening this page does not launch apps.",
+    "settings.tools.safeWebsites.label": "Safe website openings",
+    "settings.tools.safeWebsites.description":
+      "Website opening keeps the existing confirmation behavior for unknown destinations.",
+    "settings.tools.safeWebsites.confirmFirst": "Unknown websites ask first",
+    "settings.tools.safeWebsites.noBrowserOnOpen":
+      "Opening this page does not open a browser.",
+    "settings.tools.safeWebsites.unknownAsk":
+      "New website requests stay behind confirmation.",
+    "settings.tools.fileSearch.label": "Local file search",
+    "settings.tools.fileSearch.description":
+      "File search remains read-only and only returns safe result summaries.",
+    "settings.tools.fileSearch.readOnly": "Read-only",
+    "settings.tools.fileSearch.filenameOnly": "Filename-focused results",
+    "settings.tools.fileSearch.noScanOnOpen":
+      "Opening this page does not scan or index files.",
+    "settings.tools.plugins.label": "Installed plugins",
+    "settings.tools.plugins.description":
+      "Plugin status comes from the existing plugin management service.",
+    "settings.tools.plugins.action": "Open plugin management",
+    "settings.tools.plugins.noneInstalled": "No plugins installed",
+    "settings.tools.plugins.installed": "installed",
+    "settings.tools.plugins.enabled": "enabled",
+    "settings.tools.plugins.availableForUse": "Ready for safe use",
+    "settings.tools.plugins.readOnly": "Read-only plugins",
+    "settings.tools.plugins.thirdPartyDisabled":
+      "Third-party code stays disabled by default.",
+    "settings.tools.plugins.noMarketplace":
+      "Marketplace access has not been used.",
+    "settings.tools.plugins.statusUnknown":
+      "Plugin status has not been reported yet.",
+    "settings.tools.plugins.refreshNeeded":
+      "Refresh plugin management to read the latest local status.",
+    "settings.tools.mcp.label": "External tool connections (MCP)",
+    "settings.tools.mcp.description":
+      "External tool connections are shown only as safe readiness status in this version.",
+    "settings.tools.mcp.unavailable": "Not available in this version",
+    "settings.tools.mcp.available": "Available",
+    "settings.tools.mcp.statusUnknown":
+      "Connection status has not been reported yet.",
+    "settings.tools.mcp.notConnected": "No connection is active.",
+    "settings.tools.mcp.noAutoConnect":
+      "Opening this page does not connect to external tools.",
+    "settings.tools.mcp.noExternalRun":
+      "External tool startup and execution stay disabled.",
+    "settings.tools.mcp.userControlled":
+      "Connections remain user controlled.",
+    "settings.tools.status.noExecutionOnOpen":
+      "Opening this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools.",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -518,7 +641,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Search currently covers General, Appearance & Pet, Voice & Audio, and Models & Intelligence settings.",
+      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, and Tools & Plugins settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -781,6 +904,68 @@ export const settingsV2Copy: Record<
     "settings.models.status.notVerified": "尚未验证",
     "settings.models.status.noNetworkOnOpen":
       "打开此页面不会连接在线服务，也不会加载、下载或删除模型。",
+    "settings.tools.title": "工具与插件",
+    "settings.tools.description":
+      "查看桌面操作、安全网站访问、只读文件搜索、已安装插件和外部工具连接状态。打开本页不会运行任何工具。",
+    "settings.tools.section.automation": "工具与自动化",
+    "settings.tools.section.apps": "已批准应用",
+    "settings.tools.section.websites": "安全网站访问",
+    "settings.tools.section.files": "文件搜索",
+    "settings.tools.section.plugins": "插件",
+    "settings.tools.section.mcp": "外部工具连接",
+    "settings.tools.automation.label": "自动化安全保护",
+    "settings.tools.automation.description":
+      "桌面操作继续受 Jarvis 的安全检查和确认规则保护。",
+    "settings.tools.automation.guarded": "受安全检查保护",
+    "settings.tools.automation.confirmation": "风险较高的操作仍需要确认。",
+    "settings.tools.automation.noRunOnOpen": "打开本页不会运行工具。",
+    "settings.tools.approvedApps.label": "已批准的应用打开",
+    "settings.tools.approvedApps.description":
+      "应用打开继续使用现有已批准应用规则，本页不显示系统路径。",
+    "settings.tools.approvedApps.managed": "由安全规则管理",
+    "settings.tools.approvedApps.confirmation":
+      "未知或不支持的应用不会从本页打开。",
+    "settings.tools.approvedApps.noLaunchOnOpen": "打开本页不会启动应用。",
+    "settings.tools.safeWebsites.label": "安全网站打开",
+    "settings.tools.safeWebsites.description":
+      "网站打开继续沿用未知目标先确认的规则。",
+    "settings.tools.safeWebsites.confirmFirst": "未知网站会先询问",
+    "settings.tools.safeWebsites.noBrowserOnOpen": "打开本页不会打开浏览器。",
+    "settings.tools.safeWebsites.unknownAsk": "新网站请求仍需要确认。",
+    "settings.tools.fileSearch.label": "本机文件搜索",
+    "settings.tools.fileSearch.description":
+      "文件搜索保持只读，只返回安全的结果摘要。",
+    "settings.tools.fileSearch.readOnly": "只读",
+    "settings.tools.fileSearch.filenameOnly": "以文件名结果为主",
+    "settings.tools.fileSearch.noScanOnOpen":
+      "打开本页不会扫描、索引或读取文件内容。",
+    "settings.tools.plugins.label": "已安装插件",
+    "settings.tools.plugins.description":
+      "插件状态来自现有插件管理服务。",
+    "settings.tools.plugins.action": "打开插件管理",
+    "settings.tools.plugins.noneInstalled": "未安装插件",
+    "settings.tools.plugins.installed": "已安装",
+    "settings.tools.plugins.enabled": "已启用",
+    "settings.tools.plugins.availableForUse": "可安全使用",
+    "settings.tools.plugins.readOnly": "只读插件",
+    "settings.tools.plugins.thirdPartyDisabled":
+      "第三方代码默认保持关闭。",
+    "settings.tools.plugins.noMarketplace": "尚未使用插件市场访问。",
+    "settings.tools.plugins.statusUnknown": "尚未读取插件状态。",
+    "settings.tools.plugins.refreshNeeded":
+      "刷新插件管理后可读取最新本机状态。",
+    "settings.tools.mcp.label": "外部工具连接（MCP）",
+    "settings.tools.mcp.description":
+      "此版本只显示外部工具连接的安全状态。",
+    "settings.tools.mcp.unavailable": "当前版本暂不可用",
+    "settings.tools.mcp.available": "可用",
+    "settings.tools.mcp.statusUnknown": "尚未读取连接状态。",
+    "settings.tools.mcp.notConnected": "当前没有活动连接。",
+    "settings.tools.mcp.noAutoConnect": "打开本页不会连接外部工具。",
+    "settings.tools.mcp.noExternalRun": "外部工具启动和运行保持关闭。",
+    "settings.tools.mcp.userControlled": "连接仍由用户控制。",
+    "settings.tools.status.noExecutionOnOpen":
+      "打开本页不会运行工具、启动应用、打开网站、搜索文件、调用插件或连接外部工具。",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
@@ -788,7 +973,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
     "settings.search.noResultsDescription":
-      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能设置。",
+      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

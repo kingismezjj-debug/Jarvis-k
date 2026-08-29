@@ -11,6 +11,7 @@ import type {
   InferenceProviderDescriptor,
   ModelInventoryItem,
   ModelManifest,
+  PluginManagementStatusResult,
   ResourceSchedulerDiagnostics,
 } from "@jarvis-k/contracts";
 
@@ -106,6 +107,63 @@ const resourceDiagnostics = {
   activeLeaseCount: 0,
   exclusiveGpuLeaseActive: false,
 } as ResourceSchedulerDiagnostics;
+
+const pluginManagementStatus = {
+  plugins: [
+    {
+      manifest: {
+        id: "cn.jarvis-k.stock-analysis",
+        name: "Stock Analysis Sample",
+        version: "0.1.0",
+        runtime: "node-worker",
+        capabilities: ["stock.quote"],
+        permissions: [],
+      },
+      source: "bundled",
+      state: "enabled",
+      stateSource: "policy_default",
+      statePersisted: false,
+      stateToggleAvailable: false,
+      executionMode: "bundled_read_only_runtime",
+      executable: true,
+      routeSelectable: true,
+      riskAssessment: {
+        declaredRiskTier: "low",
+        effectiveRiskTier: "low",
+        confirmationPolicy: "none",
+        capabilityStatuses: [
+          {
+            capability: "stock.quote",
+            manifestRisk: "low",
+            riskTier: "low",
+            readOnly: true,
+            confirmationPolicy: "none",
+          },
+        ],
+        permissionStatuses: [],
+        reasonCodes: [],
+      },
+      reasonCodes: [],
+    },
+  ],
+  listedAt: "2026-08-29T00:00:00.000Z",
+  defaultThirdPartyExecutionState: "disabled",
+  thirdPartyCodeExecuted: false,
+  marketplaceAccessed: false,
+  mcpAdapter: {
+    status: "disabled",
+    mode: "compatibility_status_only",
+    defaultExecutionState: "disabled",
+    externalServerStartupAllowed: false,
+    externalToolExecutionAllowed: false,
+    toolCallForwardingAllowed: false,
+    permissionLayerRequired: true,
+    credentialExposed: false,
+    rawToolOutputPersisted: false,
+    marketplaceAccessed: false,
+    reasonCodes: ["MCP_ADAPTER_STATUS_ONLY"],
+  },
+} as unknown as PluginManagementStatusResult;
 
 function renderView(
   props: Partial<React.ComponentProps<typeof SettingsV2GeneralView>> = {},
@@ -274,6 +332,75 @@ describe("Settings V2 General view", () => {
     expect(html).not.toContain("fixture");
     expect(html).not.toContain("此页面不会检查云端连接");
     expect((html.match(/不会连接在线服务/g) ?? []).length).toBe(1);
+  });
+
+  it("renders Tools & Plugins from existing safe product projections", () => {
+    const html = renderView({
+      initialCategoryId: "tools_plugins",
+      pluginManagementStatus,
+    });
+    expect(html).toContain("Tools &amp; Plugins");
+    expect(html).toContain("Guarded by safety checks");
+    expect(html).toContain("Managed by safety policy");
+    expect(html).toContain("Unknown websites ask first");
+    expect(html).toContain("Read-only");
+    expect(html).toContain("1 installed, 1 enabled");
+    expect(html).toContain("Ready for safe use: 1");
+    expect(html).toContain("External tool connections (MCP)");
+    expect(html).toContain("Not available in this version");
+    for (const forbidden of [
+      "cn.jarvis-k.stock-analysis",
+      "stock.quote",
+      "compatibility_status_only",
+      "MCP_ADAPTER_STATUS_ONLY",
+      "externalServerStartupAllowed",
+      "manifest",
+      "digest",
+      "stdio",
+      "spawn",
+      "C:\\\\",
+      "fixture",
+      "Evaluation",
+      "Pilot",
+      "acceptance",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("renders productized zh-CN Tools & Plugins copy without raw states", () => {
+    const html = renderView({
+      initialCategoryId: "tools_plugins",
+      locale: "zh",
+      pluginManagementStatus,
+    });
+    expect(html).toContain("工具与插件");
+    expect(html).toContain("受安全检查保护");
+    expect(html).toContain("由安全规则管理");
+    expect(html).toContain("未知网站会先询问");
+    expect(html).toContain("只读");
+    expect(html).toContain("已安装 1 个，已启用 1 个");
+    expect(html).toContain("外部工具连接（MCP）");
+    for (const forbidden of [
+      "fixture",
+      "evaluation",
+      "capabilityId",
+      "controlType",
+      "manifest",
+      "digest",
+      "transport",
+      "stdio",
+      "spawn",
+      "env",
+      "Provider",
+      "compatibility_status_only",
+      "MCP_ADAPTER_STATUS_ONLY",
+      "cn.jarvis-k.stock-analysis",
+      "stock.quote",
+      "C:\\\\",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
   });
 
   it("includes Voice & Audio in product search results with current values", () => {

@@ -129,7 +129,7 @@ async function runGateOnScenario() {
     await window.getByTestId("settings-v2-voice-audio").waitFor({
       timeout: 5_000,
     });
-    await window.getByText("Speech recognition provider").waitFor({
+    await window.getByText("Speech recognition service").waitFor({
       timeout: 5_000,
     });
     await window.getByText("Not configured").first().waitFor({
@@ -157,6 +157,30 @@ async function runGateOnScenario() {
     await window
       .getByText(
         "Opening this page does not connect online services or load, download, or delete models.",
+        { exact: true },
+      )
+      .waitFor({
+        timeout: 5_000,
+      });
+    await window
+      .locator('[data-testid="settings-v2-category-nav"] button')
+      .filter({ hasText: "Tools & Plugins" })
+      .click();
+    await window.getByTestId("settings-v2-tools-plugins").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("Automation safeguards").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("Installed plugins", { exact: true }).waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("External tool connections (MCP)").waitFor({
+      timeout: 5_000,
+    });
+    await window
+      .getByText(
+        "Opening this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools.",
         { exact: true },
       )
       .waitFor({

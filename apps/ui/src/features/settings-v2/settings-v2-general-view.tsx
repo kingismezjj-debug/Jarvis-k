@@ -12,6 +12,7 @@ import type {
   ModelManifest,
   ModelOperationSnapshot,
   PetSkinRegistryProjection,
+  PluginManagementStatusResult,
   ResourceSchedulerDiagnostics,
   TtsServiceStatus,
   VoiceMode,
@@ -53,6 +54,7 @@ import {
   type SettingsV2Locale,
 } from "./settings-v2-copy";
 import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
+import { buildSettingsV2ToolsPluginsProductViewModel } from "./settings-v2-tools-view-model";
 import "./settings-v2.css";
 
 export type SettingsV2GeneralViewProps = {
@@ -95,6 +97,8 @@ export type SettingsV2GeneralViewProps = {
   onOpenModelOperations?: () => void;
   onSetCommandRouterProductModeEnabled?: (enabled: boolean) => void;
   onSetChatAnswerProductModeEnabled?: (enabled: boolean) => void;
+  pluginManagementStatus?: PluginManagementStatusResult | null;
+  onOpenPluginManagement?: () => void;
   initialCategoryId?: SettingsV2CategoryId;
 };
 
@@ -339,6 +343,12 @@ function getSectionLabel(
     models_answer: "settings.models.section.answer",
     models_local: "settings.models.section.local",
     models_routing: "settings.models.section.routing",
+    tools_automation: "settings.tools.section.automation",
+    tools_apps: "settings.tools.section.apps",
+    tools_websites: "settings.tools.section.websites",
+    tools_files: "settings.tools.section.files",
+    tools_plugins: "settings.tools.section.plugins",
+    tools_mcp: "settings.tools.section.mcp",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -363,6 +373,7 @@ function getDefinitionValue({
   modelManifests,
   modelOperations,
   resourceDiagnostics,
+  pluginManagementStatus,
 }: {
   definition: SettingsV2Definition;
   desktopSettings: DesktopSettings | null;
@@ -383,6 +394,7 @@ function getDefinitionValue({
   modelManifests?: ModelManifest[];
   modelOperations?: ModelOperationSnapshot[];
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
+  pluginManagementStatus?: PluginManagementStatusResult | null;
 }): string {
   const modelsViewModel = buildSettingsV2ModelsProductViewModel({
     chatAnswerProductModeStatus,
@@ -394,6 +406,10 @@ function getDefinitionValue({
     modelManifests,
     modelOperations,
     resourceDiagnostics,
+  });
+  const toolsViewModel = buildSettingsV2ToolsPluginsProductViewModel({
+    locale,
+    pluginManagementStatus,
   });
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
@@ -467,6 +483,24 @@ function getDefinitionValue({
   if (definition.settingBindingId === "models.cloud_local_status") {
     return modelsViewModel.routing.onlineAnswerStatus;
   }
+  if (definition.settingBindingId === "tools.automation_summary") {
+    return toolsViewModel.automation.value;
+  }
+  if (definition.settingBindingId === "tools.approved_apps") {
+    return toolsViewModel.approvedApps.value;
+  }
+  if (definition.settingBindingId === "tools.safe_websites") {
+    return toolsViewModel.safeWebsites.value;
+  }
+  if (definition.settingBindingId === "tools.file_search") {
+    return toolsViewModel.fileSearch.value;
+  }
+  if (definition.settingBindingId === "tools.plugins") {
+    return toolsViewModel.plugins.value;
+  }
+  if (definition.settingBindingId === "tools.mcp_connections") {
+    return toolsViewModel.mcpConnections.value;
+  }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
@@ -490,6 +524,7 @@ function getSearchResults({
   modelManifests,
   modelOperations,
   resourceDiagnostics,
+  pluginManagementStatus,
 }: {
   query: string;
   locale: SettingsV2Locale;
@@ -510,6 +545,7 @@ function getSearchResults({
   modelManifests?: ModelManifest[];
   modelOperations?: ModelOperationSnapshot[];
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
+  pluginManagementStatus?: PluginManagementStatusResult | null;
 }) {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
@@ -547,6 +583,7 @@ function getSearchResults({
         modelManifests,
         modelOperations,
         resourceDiagnostics,
+        pluginManagementStatus,
       }),
     }));
 }
@@ -589,6 +626,8 @@ export function SettingsV2GeneralView({
   onOpenModelOperations,
   onSetCommandRouterProductModeEnabled,
   onSetChatAnswerProductModeEnabled,
+  pluginManagementStatus,
+  onOpenPluginManagement,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -630,6 +669,7 @@ export function SettingsV2GeneralView({
         modelManifests,
         modelOperations,
         resourceDiagnostics,
+        pluginManagementStatus,
       }),
     [
       activeThemeId,
@@ -644,6 +684,7 @@ export function SettingsV2GeneralView({
       modelManifests,
       modelOperations,
       petSkinRegistry,
+      pluginManagementStatus,
       resourceDiagnostics,
       searchQuery,
       ttsServiceStatus,
@@ -690,6 +731,10 @@ export function SettingsV2GeneralView({
     modelManifests,
     modelOperations,
     resourceDiagnostics,
+  });
+  const toolsViewModel = buildSettingsV2ToolsPluginsProductViewModel({
+    locale,
+    pluginManagementStatus,
   });
 
   return (
@@ -1291,6 +1336,147 @@ export function SettingsV2GeneralView({
                   data-testid="settings-v2-cloud-local-status"
                 >
                   {modelsViewModel.routing.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+            </section>
+          ) : selectedCategoryId === "tools_plugins" ? (
+            <section data-testid="settings-v2-tools-plugins">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.tools.description")}
+                title={tSettingsV2(locale, "settings.tools.title")}
+              />
+              <InlineNotice title={tSettingsV2(locale, "settings.status.localOnly")}>
+                {toolsViewModel.safeNotice}
+              </InlineNotice>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.tools.section.automation")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.tools.automation.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.tools.automation.label")}
+                  value={toolsViewModel.automation.value}
+                />
+                <div
+                  className="settings-v2-tools-status-grid"
+                  data-testid="settings-v2-tools-automation-status"
+                >
+                  {toolsViewModel.automation.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.tools.section.apps")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.tools.approvedApps.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.tools.approvedApps.label")}
+                  value={toolsViewModel.approvedApps.value}
+                />
+                <div
+                  className="settings-v2-tools-status-grid"
+                  data-testid="settings-v2-approved-apps-status"
+                >
+                  {toolsViewModel.approvedApps.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.tools.section.websites")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.tools.safeWebsites.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.tools.safeWebsites.label")}
+                  value={toolsViewModel.safeWebsites.value}
+                />
+                <div
+                  className="settings-v2-tools-status-grid"
+                  data-testid="settings-v2-safe-websites-status"
+                >
+                  {toolsViewModel.safeWebsites.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.tools.section.files")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.tools.fileSearch.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.tools.fileSearch.label")}
+                  value={toolsViewModel.fileSearch.value}
+                />
+                <div
+                  className="settings-v2-tools-status-grid"
+                  data-testid="settings-v2-file-search-status"
+                >
+                  {toolsViewModel.fileSearch.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.tools.section.plugins")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.tools.plugins.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.tools.plugins.label")}
+                >
+                  <SettingValueAction
+                    actionLabel={tSettingsV2(
+                      locale,
+                      "settings.tools.plugins.action",
+                    )}
+                    onAction={onOpenPluginManagement}
+                    value={toolsViewModel.plugins.value}
+                  />
+                </SettingRow>
+                <div
+                  className="settings-v2-tools-status-grid"
+                  data-testid="settings-v2-plugins-status"
+                >
+                  {toolsViewModel.plugins.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.tools.section.mcp")}
+              >
+                <SettingRow
+                  description={tSettingsV2(locale, "settings.tools.mcp.description")}
+                  title={tSettingsV2(locale, "settings.tools.mcp.label")}
+                  value={toolsViewModel.mcpConnections.value}
+                />
+                <div
+                  className="settings-v2-tools-status-grid"
+                  data-testid="settings-v2-mcp-status"
+                >
+                  {toolsViewModel.mcpConnections.details.map((detail) => (
                     <span key={detail}>{detail}</span>
                   ))}
                 </div>

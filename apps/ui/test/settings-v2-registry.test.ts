@@ -7,6 +7,7 @@ import {
   settingsV2GeneralDefinitions,
   settingsV2ModelsIntelligenceDefinitions,
   settingsV2ProductDefinitions,
+  settingsV2ToolsPluginsDefinitions,
   settingsV2VoiceAudioDefinitions,
   validateSettingsV2Registry,
   type SettingsV2Definition,
@@ -20,7 +21,7 @@ const cloneDefinition = (
 });
 
 describe("Settings V2 registry", () => {
-  it("registers General, Appearance & Pet, Voice & Audio, and Models & Intelligence vertical slices", () => {
+  it("registers General, Appearance & Pet, Voice & Audio, Models & Intelligence, and Tools & Plugins vertical slices", () => {
     expect(settingsV2Categories.map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
@@ -36,12 +37,14 @@ describe("Settings V2 registry", () => {
       "appearance_pet",
       "voice_audio",
       "models_intelligence",
+      "tools_plugins",
     ]);
     expect(settingsV2GeneralDefinitions).toHaveLength(4);
     expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
     expect(settingsV2VoiceAudioDefinitions).toHaveLength(6);
     expect(settingsV2ModelsIntelligenceDefinitions).toHaveLength(5);
-    expect(settingsV2ProductDefinitions).toHaveLength(21);
+    expect(settingsV2ToolsPluginsDefinitions).toHaveLength(6);
+    expect(settingsV2ProductDefinitions).toHaveLength(27);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -122,23 +125,29 @@ describe("Settings V2 registry", () => {
       "settings.appearance.theme",
       "settings.voice.provider",
       "settings.models.fast_command_understanding",
+      "settings.tools.automation_safeguards",
       "settings.general.close_button_behavior",
       "settings.pet.show",
       "settings.voice.capture_mode",
       "settings.models.answer_provider",
+      "settings.tools.approved_apps",
       "settings.general.launch_at_login",
       "settings.pet.keep_on_top",
       "settings.voice.microphone_permission",
       "settings.models.local_models",
+      "settings.tools.safe_websites",
       "settings.general.reset_recovery",
       "settings.pet.reduced_motion",
       "settings.voice.push_to_talk",
       "settings.models.routing_policy",
+      "settings.tools.file_search",
       "settings.pet.reset_position",
       "settings.voice.tts",
       "settings.models.cloud_local_status",
+      "settings.tools.plugins",
       "settings.skin.current",
       "settings.voice.wake_word",
+      "settings.tools.mcp_connections",
     ]);
   });
 });

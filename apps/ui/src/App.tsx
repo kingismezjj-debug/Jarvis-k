@@ -2620,6 +2620,10 @@ export default function App() {
                         : "Command understanding disabled",
                     );
                   }}
+                  pluginManagementStatus={pluginManagementStatus}
+                  onOpenPluginManagement={() => {
+                    setActiveView("plugins");
+                  }}
                   resourceDiagnostics={resourceDiagnostics}
                   ttsServiceStatus={ttsServiceStatus}
                   voiceCaptureAvailable={coreOnline && !textOnlyAcceptanceMode}
