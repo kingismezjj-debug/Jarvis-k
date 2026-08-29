@@ -187,4 +187,34 @@ describe("Jarvis UI design tokens", () => {
     expect(css).toContain("--jk-color-background-canvas");
     expect(css).toContain("--jk-layout-narrow-breakpoint");
   });
+
+  it("maps Settings V2 foundation tokens for each trusted product theme", () => {
+    const css = readFileSync(
+      path.join(designSystemDirectory, "foundation.css"),
+      "utf8",
+    );
+
+    for (const theme of ["signal", "harbor", "ember"]) {
+      expect(css).toContain(`:root[data-jarvis-theme="${theme}"] .jk-theme`);
+      expect(css).toContain(`.jk-theme[data-jarvis-theme="${theme}"]`);
+    }
+    for (const token of [
+      "--jk-color-background-canvas",
+      "--jk-color-background-surface",
+      "--jk-color-background-elevated",
+      "--jk-color-text-primary",
+      "--jk-color-text-secondary",
+      "--jk-color-border-default",
+      "--jk-color-accent-default",
+      "--jk-color-focus-ring",
+      "--jk-color-overlay-scrim",
+      "--jk-color-input-background",
+      "--jk-color-navigation-background",
+      "--jk-color-danger-surface",
+    ]) {
+      expect(css).toContain(token);
+    }
+    expect(css).toContain("--jk-color-background-canvas: #f6f8fb");
+    expect(css).toContain("--jk-color-input-background: #e7edf5");
+  });
 });

@@ -365,6 +365,7 @@ export function SettingsV2GeneralView({
   return (
     <div
       className="jk-theme settings-v2-shell"
+      data-jarvis-theme={activeThemeId}
       data-testid="settings-v2-view"
     >
       <SettingsPageHeader

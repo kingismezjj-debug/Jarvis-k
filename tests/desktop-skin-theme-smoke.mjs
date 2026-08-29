@@ -77,11 +77,15 @@ try {
     .getByTestId("skin-theme-current")
     .getByText("Harbor")
     .waitFor({ timeout: 5_000 });
-  const storedHarborTheme = await window.evaluate(() =>
-    window.localStorage.getItem("jarvis-k-ui-theme"),
-  );
-  if (storedHarborTheme !== "harbor") {
-    throw new Error("Harbor theme was not persisted to localStorage.");
+  const storedHarborSettings = await window.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Desktop bridge unavailable.");
+    return window.jarvis.getDesktopSettings();
+  });
+  if (
+    storedHarborSettings.uiTheme !== "harbor" ||
+    storedHarborSettings.uiThemeExplicitlyConfigured !== true
+  ) {
+    throw new Error("Harbor theme was not persisted to Desktop Settings.");
   }
 
   await window.screenshot({ path: screenshotPath, fullPage: true });
@@ -93,30 +97,28 @@ try {
   await window.setViewportSize({ width: 1440, height: 900 });
   await waitForReady(window);
   await assertTheme(window, "harbor");
-  const persistedAfterRestart = await window.evaluate(() =>
-    window.localStorage.getItem("jarvis-k-ui-theme"),
-  );
+  const persistedAfterRestart = await window.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Desktop bridge unavailable.");
+    return window.jarvis.getDesktopSettings();
+  });
 
   await window.evaluate(() => {
     window.localStorage.setItem("jarvis-k-ui-theme", "external-script-theme");
   });
   await window.reload();
   await waitForReady(window);
-  await assertTheme(window, "signal");
+  await assertTheme(window, "harbor");
   const storedAfterInvalidRecovery = await window.evaluate(() =>
     window.localStorage.getItem("jarvis-k-ui-theme"),
   );
-  if (storedAfterInvalidRecovery !== null) {
-    throw new Error("Invalid skin theme value was not removed during recovery.");
-  }
 
   const metrics = {
     status: "PASS",
     defaultTheme: "signal",
     selectedTheme: "harbor",
-    persistedAfterRestart,
-    recoveredThemeAfterInvalidStorage: "signal",
-    invalidStoredThemeRemoved: storedAfterInvalidRecovery === null,
+    persistedAfterRestart: persistedAfterRestart.uiTheme,
+    recoveredThemeAfterInvalidStorage: "harbor",
+    invalidStoredThemeIgnored: storedAfterInvalidRecovery === "external-script-theme",
     executableSkinCodeLoaded: false,
     externalSkinUrlLoaded: false,
     screenshotPath,

@@ -15,6 +15,7 @@ const desktopSettings: DesktopSettings = {
   closeToTrayNoticeShown: false,
   launchAtLoginEnabled: false,
   uiTheme: "signal",
+  uiThemeExplicitlyConfigured: true,
   desktopPetEnabled: false,
   desktopPetAlwaysOnTop: true,
   desktopPetReducedMotion: "system",
@@ -180,6 +181,18 @@ describe("Settings V2 General view", () => {
     ]) {
       expect(html).not.toContain(forbidden);
     }
+  });
+
+  it("inherits the trusted active theme on the Settings V2 token root", () => {
+    const html = renderView({
+      activeThemeId: "harbor",
+      desktopSettings: {
+        ...desktopSettings,
+        uiTheme: "harbor",
+      },
+    });
+    expect(html).toContain('class="jk-theme settings-v2-shell"');
+    expect(html).toContain('data-jarvis-theme="harbor"');
   });
 
   it("keeps Reset & Recovery non-executable", () => {

@@ -547,6 +547,7 @@ export const DesktopSettingsSchema = z
     closeToTrayNoticeShown: z.boolean(),
     launchAtLoginEnabled: z.boolean(),
     uiTheme: DesktopUiThemeSchema,
+    uiThemeExplicitlyConfigured: z.boolean(),
     desktopPetEnabled: z.boolean(),
     desktopPetAlwaysOnTop: z.boolean(),
     desktopPetReducedMotion: DesktopPetReducedMotionSchema,
@@ -3817,6 +3818,9 @@ export interface JarvisBridge {
   getDesktopSettings(): Promise<DesktopSettings>;
   getDesktopLaunchAtLoginStatus(): Promise<DesktopLaunchAtLoginStatus>;
   setDesktopUiTheme(theme: DesktopUiTheme): Promise<DesktopSettingsSetResult>;
+  migrateLegacyDesktopUiTheme(
+    theme: DesktopUiTheme,
+  ): Promise<DesktopSettingsSetResult>;
   setDesktopCloseButtonBehavior(
     behavior: DesktopCloseButtonBehavior,
   ): Promise<DesktopSettingsSetResult>;

@@ -84,6 +84,9 @@ export function registerSettingsIpc(
       if ("launchAtLoginEnabled" in input) {
         return options.settingsService.setDesktopLaunchAtLoginEnabled(rawInput);
       }
+      if ("legacyUiTheme" in input) {
+        return options.settingsService.migrateLegacyDesktopUiTheme(rawInput);
+      }
       if ("uiTheme" in input) {
         return options.settingsService.setDesktopUiTheme(rawInput);
       }

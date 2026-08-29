@@ -14,6 +14,7 @@ async function seedDesktopSettings(userDataDirectory) {
         closeToTrayNoticeShown: true,
         launchAtLoginEnabled: false,
         uiTheme: "signal",
+        uiThemeExplicitlyConfigured: true,
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",

@@ -171,6 +171,12 @@ const bridge: JarvisBridge = {
         uiTheme: theme
       })
     ),
+  migrateLegacyDesktopUiTheme: async (theme: DesktopUiTheme) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_SET_CHANNEL, {
+        legacyUiTheme: theme
+      })
+    ),
   setDesktopCloseButtonBehavior: async (
     behavior: DesktopCloseButtonBehavior
   ) =>

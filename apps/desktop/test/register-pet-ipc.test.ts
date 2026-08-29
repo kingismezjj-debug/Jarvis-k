@@ -37,6 +37,7 @@ function desktopSettings(overrides: Record<string, unknown> = {}) {
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
     uiTheme: "signal",
+    uiThemeExplicitlyConfigured: false,
     desktopPetEnabled: false,
     desktopPetAlwaysOnTop: true,
     desktopPetReducedMotion: "system",

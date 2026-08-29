@@ -60,6 +60,7 @@ function desktopSettings(petSettings: ReturnType<typeof createSettingsService> e
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
     uiTheme: "signal",
+    uiThemeExplicitlyConfigured: false,
     desktopPetEnabled: petSettings.enabled,
     desktopPetAlwaysOnTop: petSettings.alwaysOnTop,
     desktopPetReducedMotion: petSettings.reducedMotion,

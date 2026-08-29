@@ -90,6 +90,7 @@ describe("SettingsService", () => {
       closeToTrayNoticeShown: false,
       launchAtLoginEnabled: false,
       uiTheme: "signal",
+      uiThemeExplicitlyConfigured: false,
       desktopPetEnabled: false,
       desktopPetAlwaysOnTop: true,
       desktopPetReducedMotion: "system",
@@ -125,6 +126,7 @@ describe("SettingsService", () => {
         closeButtonBehavior: "quit",
         launchAtLoginEnabled: false,
         uiTheme: "signal",
+        uiThemeExplicitlyConfigured: false,
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",
@@ -149,6 +151,7 @@ describe("SettingsService", () => {
         ok: true,
         settings: {
           uiTheme: "harbor",
+          uiThemeExplicitlyConfigured: true,
           persistedLocally: true,
           syncedToCloud: false,
         },
@@ -156,11 +159,142 @@ describe("SettingsService", () => {
 
       const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
       expect(stored.uiTheme).toBe("harbor");
+      expect(stored.uiThemeExplicitlyConfigured).toBe(true);
       const reloaded = createSettingsService({ desktopSettingsPath }).service;
       expect(reloaded.getDesktopSettings().uiTheme).toBe("harbor");
+      expect(reloaded.getDesktopSettings().uiThemeExplicitlyConfigured).toBe(
+        true,
+      );
       expect(service.setDesktopUiTheme({ uiTheme: "unknown" })).toMatchObject({
         ok: false,
         settings: { uiTheme: "harbor" },
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("migrates one allowlisted legacy theme only when no trusted theme exists", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-legacy-theme-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({ desktopSettingsPath });
+
+      expect(
+        service.migrateLegacyDesktopUiTheme({ legacyUiTheme: "harbor" }),
+      ).toMatchObject({
+        ok: true,
+        settings: {
+          uiTheme: "harbor",
+          uiThemeExplicitlyConfigured: true,
+          persistedLocally: true,
+          syncedToCloud: false,
+        },
+      });
+      expect(
+        service.migrateLegacyDesktopUiTheme({ legacyUiTheme: "ember" }),
+      ).toMatchObject({
+        ok: false,
+        settings: {
+          uiTheme: "harbor",
+          uiThemeExplicitlyConfigured: true,
+        },
+      });
+
+      const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
+      expect(stored).toMatchObject({
+        uiTheme: "harbor",
+        uiThemeExplicitlyConfigured: true,
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it.each(["signal", "harbor", "ember"] as const)(
+    "accepts the legacy %s theme id through the controlled migration bridge",
+    (legacyTheme) => {
+      const { service } = createSettingsService();
+      expect(
+        service.migrateLegacyDesktopUiTheme({ legacyUiTheme: legacyTheme }),
+      ).toMatchObject({
+        ok: true,
+        settings: {
+          uiTheme: legacyTheme,
+          uiThemeExplicitlyConfigured: true,
+        },
+      });
+    },
+  );
+
+  it("rejects unknown legacy theme values without changing trusted settings", () => {
+    const { service } = createSettingsService();
+    expect(
+      service.migrateLegacyDesktopUiTheme({ legacyUiTheme: "external-css" }),
+    ).toMatchObject({
+      ok: false,
+      settings: {
+        uiTheme: "signal",
+        uiThemeExplicitlyConfigured: false,
+      },
+    });
+  });
+
+  it("does not let legacy theme migration overwrite an explicit theme", () => {
+    const { service } = createSettingsService();
+    expect(service.setDesktopUiTheme({ uiTheme: "ember" })).toMatchObject({
+      ok: true,
+      settings: {
+        uiTheme: "ember",
+        uiThemeExplicitlyConfigured: true,
+      },
+    });
+    expect(
+      service.migrateLegacyDesktopUiTheme({ legacyUiTheme: "harbor" }),
+    ).toMatchObject({
+      ok: false,
+      settings: {
+        uiTheme: "ember",
+        uiThemeExplicitlyConfigured: true,
+      },
+    });
+  });
+
+  it("does not let legacy theme migration overwrite a loaded non-default service theme", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-nondefault-theme-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      await writeFile(
+        desktopSettingsPath,
+        JSON.stringify({
+          closeButtonBehavior: "minimize_to_tray",
+          closeToTrayNoticeShown: true,
+          launchAtLoginEnabled: false,
+          uiTheme: "harbor",
+          desktopPetEnabled: false,
+          desktopPetAlwaysOnTop: true,
+          desktopPetReducedMotion: "system",
+          firstRunOnboardingVersion: 1,
+          firstRunOnboardingState: "completed",
+          persistedLocally: true,
+          syncedToCloud: false,
+        }),
+        "utf8",
+      );
+
+      const { service } = createSettingsService({ desktopSettingsPath });
+      expect(
+        service.migrateLegacyDesktopUiTheme({ legacyUiTheme: "ember" }),
+      ).toMatchObject({
+        ok: false,
+        settings: {
+          uiTheme: "harbor",
+          uiThemeExplicitlyConfigured: false,
+        },
       });
     } finally {
       await rm(directory, { force: true, recursive: true });
@@ -229,6 +363,7 @@ describe("SettingsService", () => {
         closeToTrayNoticeShown: true,
         launchAtLoginEnabled: false,
         uiTheme: "signal",
+        uiThemeExplicitlyConfigured: false,
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",

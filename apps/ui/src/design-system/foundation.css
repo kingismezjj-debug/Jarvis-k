@@ -3,6 +3,9 @@
   --jk-color-background-surface: #0f1b26;
   --jk-color-background-elevated: #142434;
   --jk-color-background-subtle: #10202d;
+  --jk-color-input-background: #10202d;
+  --jk-color-navigation-background: #0f1b26;
+  --jk-color-danger-surface: rgba(255, 107, 122, 0.11);
   --jk-color-text-primary: #edf7ff;
   --jk-color-text-secondary: #b7c8d8;
   --jk-color-text-muted: #7f92a5;
@@ -74,6 +77,99 @@
   color: var(--jk-color-text-primary);
   font-family: var(--jk-typography-font-family-ui);
   letter-spacing: var(--jk-typography-letter-spacing);
+}
+
+:root[data-jarvis-theme="signal"] .jk-theme,
+.jk-theme[data-jarvis-theme="signal"] {
+  --jk-color-background-canvas: #081018;
+  --jk-color-background-surface: #0f1b26;
+  --jk-color-background-elevated: #142434;
+  --jk-color-background-subtle: #10202d;
+  --jk-color-input-background: #10202d;
+  --jk-color-navigation-background: #0f1b26;
+  --jk-color-danger-surface: rgba(255, 107, 122, 0.11);
+  --jk-color-text-primary: #edf7ff;
+  --jk-color-text-secondary: #b7c8d8;
+  --jk-color-text-muted: #7f92a5;
+  --jk-color-text-inverse: #061016;
+  --jk-color-border-default: #26394a;
+  --jk-color-border-subtle: #1b2a38;
+  --jk-color-border-strong: #3d5568;
+  --jk-color-accent-default: #21d8ef;
+  --jk-color-accent-hover: #6eeaff;
+  --jk-color-accent-pressed: #0eb7cd;
+  --jk-color-accent-subtle: #0b3440;
+  --jk-color-focus-ring: #8ff4ff;
+  --jk-color-status-success: #53d88f;
+  --jk-color-status-warning: #f2b84b;
+  --jk-color-status-danger: #ff6b7a;
+  --jk-color-status-info: #6da7ff;
+  --jk-color-overlay-scrim: rgba(3, 10, 16, 0.72);
+  --jk-shadow-surface: 0 1px 0 rgba(255, 255, 255, 0.04);
+  --jk-shadow-elevated: 0 14px 34px rgba(0, 0, 0, 0.24);
+  --jk-shadow-dialog: 0 22px 70px rgba(0, 0, 0, 0.36);
+}
+
+:root[data-jarvis-theme="harbor"] .jk-theme,
+.jk-theme[data-jarvis-theme="harbor"] {
+  --jk-color-background-canvas: #f6f8fb;
+  --jk-color-background-surface: #ffffff;
+  --jk-color-background-elevated: #eef3f9;
+  --jk-color-background-subtle: #edf2f8;
+  --jk-color-input-background: #e7edf5;
+  --jk-color-navigation-background: #eef3f9;
+  --jk-color-danger-surface: rgba(209, 73, 91, 0.1);
+  --jk-color-text-primary: #172033;
+  --jk-color-text-secondary: #526077;
+  --jk-color-text-muted: #647187;
+  --jk-color-text-inverse: #ffffff;
+  --jk-color-border-default: #cfd8e6;
+  --jk-color-border-subtle: #dce5f0;
+  --jk-color-border-strong: #aebdd0;
+  --jk-color-accent-default: #2563eb;
+  --jk-color-accent-hover: #1d4ed8;
+  --jk-color-accent-pressed: #1e40af;
+  --jk-color-accent-subtle: #dbeafe;
+  --jk-color-focus-ring: #2563eb;
+  --jk-color-status-success: #138f63;
+  --jk-color-status-warning: #b7791f;
+  --jk-color-status-danger: #d1495b;
+  --jk-color-status-info: #2563eb;
+  --jk-color-overlay-scrim: rgba(15, 23, 42, 0.34);
+  --jk-shadow-surface: 0 1px 0 rgba(23, 32, 51, 0.04);
+  --jk-shadow-elevated: 0 14px 34px rgba(23, 32, 51, 0.14);
+  --jk-shadow-dialog: 0 22px 70px rgba(23, 32, 51, 0.2);
+}
+
+:root[data-jarvis-theme="ember"] .jk-theme,
+.jk-theme[data-jarvis-theme="ember"] {
+  --jk-color-background-canvas: #120f12;
+  --jk-color-background-surface: #1c171b;
+  --jk-color-background-elevated: #241d22;
+  --jk-color-background-subtle: #281f25;
+  --jk-color-input-background: #30252b;
+  --jk-color-navigation-background: #1c171b;
+  --jk-color-danger-surface: rgba(255, 95, 115, 0.11);
+  --jk-color-text-primary: #f8f2ee;
+  --jk-color-text-secondary: #d7c9c1;
+  --jk-color-text-muted: #b9aba4;
+  --jk-color-text-inverse: #1a0f0a;
+  --jk-color-border-default: #44323a;
+  --jk-color-border-subtle: #352830;
+  --jk-color-border-strong: #604650;
+  --jk-color-accent-default: #ff8a5c;
+  --jk-color-accent-hover: #ffad88;
+  --jk-color-accent-pressed: #e66f43;
+  --jk-color-accent-subtle: #3a211b;
+  --jk-color-focus-ring: #ff8a5c;
+  --jk-color-status-success: #75e0b8;
+  --jk-color-status-warning: #ffd166;
+  --jk-color-status-danger: #ff5f73;
+  --jk-color-status-info: #9b8cff;
+  --jk-color-overlay-scrim: rgba(18, 15, 18, 0.74);
+  --jk-shadow-surface: 0 1px 0 rgba(255, 255, 255, 0.04);
+  --jk-shadow-elevated: 0 14px 34px rgba(0, 0, 0, 0.26);
+  --jk-shadow-dialog: 0 22px 70px rgba(0, 0, 0, 0.4);
 }
 
 .jk-theme[data-density="compact"] {
@@ -174,7 +270,7 @@
 .jk-select {
   border: 1px solid var(--jk-color-border-default);
   border-radius: var(--jk-radius-md);
-  background: var(--jk-color-background-subtle);
+  background: var(--jk-color-input-background);
   color: var(--jk-color-text-primary);
   font: inherit;
   padding: var(--jk-spacing-2) var(--jk-spacing-3);
@@ -320,6 +416,7 @@
 }
 
 .jk-category-nav {
+  background: var(--jk-color-navigation-background);
   display: flex;
   flex-direction: column;
   gap: var(--jk-spacing-1);
@@ -362,6 +459,7 @@
 }
 
 .jk-danger-section {
+  background: var(--jk-color-danger-surface);
   border-color: var(--jk-color-status-danger);
 }
 

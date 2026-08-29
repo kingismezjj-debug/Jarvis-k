@@ -473,6 +473,24 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     return true;
   }, []);
 
+  const migrateLegacyDesktopUiTheme = useCallback(
+    async (theme: DesktopUiTheme) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      const result = await window.jarvis.migrateLegacyDesktopUiTheme(theme);
+      setDesktopSettings(result.settings);
+      if (!result.ok) {
+        setError(result.message ?? "Legacy desktop theme migration was rejected.");
+        return false;
+      }
+      setError(null);
+      return true;
+    },
+    [],
+  );
+
   const setDesktopPetEnabled = useCallback(async (enabled: boolean) => {
     if (!window.jarvis) {
       setError("Desktop bridge unavailable.");
@@ -1250,6 +1268,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setDesktopCloseButtonBehavior,
     setDesktopLaunchAtLoginEnabled,
     setDesktopUiTheme,
+    migrateLegacyDesktopUiTheme,
     setDesktopPetAlwaysOnTop,
     setDesktopPetEnabled,
     setDesktopPetReducedMotion,

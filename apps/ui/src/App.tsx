@@ -54,6 +54,7 @@ import { primaryNavigation } from "@/app/navigation";
 import {
   builtInSkinThemes,
   defaultSkinThemeId,
+  readLegacySkinThemePreference,
 } from "@/app/skin-themes";
 import type {
   ActionStatus,
@@ -201,6 +202,7 @@ export default function App() {
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
     setDesktopUiTheme,
+    migrateLegacyDesktopUiTheme,
     setGlmAdvancedBrainAcceptanceModel,
     saveCloudProviderAcceptanceCredential,
     saveGlmAdvancedBrainAcceptanceCredential,
@@ -242,6 +244,7 @@ export default function App() {
   const [lastAction, setLastAction] = useState<ActionStatus | null>(null);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(readInitialLanguage);
   const [skinTheme, setSkinTheme] = useState<SkinThemeId>(defaultSkinThemeId);
+  const legacyThemeMigrationAttemptedRef = useRef(false);
   const [localTtsEnabled, setLocalTtsEnabled] = useState(false);
   const [localTtsStatus, setLocalTtsStatus] =
     useState<LocalTtsStatus>("disabled");
@@ -889,6 +892,23 @@ export default function App() {
       setSkinTheme(desktopSettings.uiTheme);
     }
   }, [desktopSettings?.uiTheme, skinTheme]);
+
+  useEffect(() => {
+    if (
+      !desktopSettings ||
+      desktopSettings.uiThemeExplicitlyConfigured ||
+      desktopSettings.uiTheme !== defaultSkinThemeId ||
+      legacyThemeMigrationAttemptedRef.current
+    ) {
+      return;
+    }
+    legacyThemeMigrationAttemptedRef.current = true;
+    const legacyTheme = readLegacySkinThemePreference();
+    if (!legacyTheme) {
+      return;
+    }
+    void migrateLegacyDesktopUiTheme(legacyTheme);
+  }, [desktopSettings, migrateLegacyDesktopUiTheme]);
 
   useEffect(() => {
     if (activeView === "settings") {

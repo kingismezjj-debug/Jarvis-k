@@ -1,6 +1,7 @@
 import type { SkinThemeId } from "./types";
 
 export const defaultSkinThemeId: SkinThemeId = "signal";
+export const legacySkinThemeStorageKey = "jarvis-k-ui-theme";
 
 export const builtInSkinThemes: Array<{
   id: SkinThemeId;
@@ -38,4 +39,15 @@ export const builtInSkinThemeIds = new Set<SkinThemeId>(
 
 export function isSkinThemeId(value: string | null): value is SkinThemeId {
   return builtInSkinThemeIds.has(value as SkinThemeId);
+}
+
+export function readLegacySkinThemePreference(
+  storage: Pick<Storage, "getItem"> = window.localStorage,
+): SkinThemeId | null {
+  try {
+    const value = storage.getItem(legacySkinThemeStorageKey);
+    return isSkinThemeId(value) ? value : null;
+  } catch {
+    return null;
+  }
 }

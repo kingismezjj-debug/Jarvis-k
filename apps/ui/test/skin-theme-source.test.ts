@@ -31,8 +31,11 @@ describe("skin theme source", () => {
     expect(appSource).toContain('id: "ember"');
     expect(appSource).toContain("builtInSkinThemeIds");
     expect(appSource).toContain("defaultSkinThemeId");
+    expect(appSource).toContain("readLegacySkinThemePreference");
+    expect(appSource).toContain("migrateLegacyDesktopUiTheme");
     expect(appSource).not.toContain("readInitialSkinTheme");
     expect(appSource).not.toContain("THEME_STORAGE_KEY");
+    expect(appSource).not.toContain("localStorage.setItem(\"jarvis-k-ui-theme\"");
   });
 
   it("projects the selected theme through static CSS variables", () => {

@@ -168,6 +168,33 @@ export class SettingsService {
     }
     return this.updateDesktopSettings({
       uiTheme: parsed.data,
+      uiThemeExplicitlyConfigured: true,
+    });
+  }
+
+  public migrateLegacyDesktopUiTheme(rawInput: unknown): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    const parsed = DesktopUiThemeSchema.safeParse(raw.legacyUiTheme);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Legacy desktop theme setting is invalid.",
+      };
+    }
+    if (
+      this.desktopSettings.uiThemeExplicitlyConfigured ||
+      this.desktopSettings.uiTheme !== "signal"
+    ) {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Desktop theme already has a trusted setting.",
+      };
+    }
+    return this.updateDesktopSettings({
+      uiTheme: parsed.data,
+      uiThemeExplicitlyConfigured: true,
     });
   }
 
@@ -515,6 +542,7 @@ export class SettingsService {
         | "desktopPetReducedMotion"
         | "desktopPetPosition"
         | "uiTheme"
+        | "uiThemeExplicitlyConfigured"
       >
     >,
   ): DesktopSettingsSetResult {
@@ -538,6 +566,7 @@ function createDesktopSettings(
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
     uiTheme: "signal",
+    uiThemeExplicitlyConfigured: false,
     desktopPetEnabled: false,
     desktopPetAlwaysOnTop: true,
     desktopPetReducedMotion: "system",
@@ -557,11 +586,16 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
     DesktopFirstRunOnboardingStateSchema.safeParse(
       raw.firstRunOnboardingState,
     ).data ?? "pending";
+  const parsedTheme = DesktopUiThemeSchema.safeParse(raw.uiTheme);
   const candidate = {
     closeButtonBehavior,
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
     launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
-    uiTheme: DesktopUiThemeSchema.safeParse(raw.uiTheme).data ?? "signal",
+    uiTheme: parsedTheme.data ?? "signal",
+    uiThemeExplicitlyConfigured:
+      typeof raw.uiThemeExplicitlyConfigured === "boolean"
+        ? raw.uiThemeExplicitlyConfigured
+        : false,
     desktopPetEnabled: raw.desktopPetEnabled === true,
     desktopPetAlwaysOnTop:
       typeof raw.desktopPetAlwaysOnTop === "boolean"
@@ -591,7 +625,11 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
     ...createDesktopSettings(closeButtonBehavior),
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
     launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
-    uiTheme: DesktopUiThemeSchema.safeParse(raw.uiTheme).data ?? "signal",
+    uiTheme: parsedTheme.data ?? "signal",
+    uiThemeExplicitlyConfigured:
+      typeof raw.uiThemeExplicitlyConfigured === "boolean"
+        ? raw.uiThemeExplicitlyConfigured
+        : false,
     desktopPetEnabled: raw.desktopPetEnabled === true,
     desktopPetAlwaysOnTop:
       typeof raw.desktopPetAlwaysOnTop === "boolean"
