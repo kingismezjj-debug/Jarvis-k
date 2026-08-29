@@ -28,12 +28,12 @@ export function ConversationComposer({
 }: ConversationComposerProps) {
   return (
     <form
-      className="flex h-[88px] shrink-0 items-center gap-2.5 border-t bg-card px-6"
+      className="flex h-[88px] shrink-0 items-center gap-2.5 border-t bg-card px-6 max-[520px]:h-auto max-[520px]:min-h-[76px] max-[520px]:px-3"
       onSubmit={onSubmit}
     >
       <Input
         aria-label="Command"
-        className="h-10 rounded-md bg-input/45 px-3.5"
+        className="h-10 min-w-0 flex-1 rounded-md bg-input/45 px-3.5"
         data-testid="command-input"
         onChange={(event) => onChange(event.target.value)}
         placeholder={copy.label.commandPlaceholder}
@@ -43,7 +43,7 @@ export function ConversationComposer({
         <TooltipTrigger asChild>
           <Button
             aria-label={copy.label.sendCommand}
-            className="size-10 rounded-md"
+            className="size-10 shrink-0 rounded-md"
             data-testid="send-command"
             disabled={sending}
             size="icon-lg"

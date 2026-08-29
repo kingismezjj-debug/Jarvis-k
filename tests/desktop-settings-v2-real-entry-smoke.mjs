@@ -172,9 +172,12 @@ async function runGateOnScenario() {
     await window.getByText("Automation safeguards").waitFor({
       timeout: 5_000,
     });
-    await window.getByText("Product plugins", { exact: true }).waitFor({
-      timeout: 5_000,
-    });
+    await window
+      .getByTestId("settings-v2-tools-section-plugins")
+      .getByRole("heading", { name: "Plugins" })
+      .waitFor({
+        timeout: 5_000,
+      });
     await window
       .getByTestId("settings-v2-tools-section-mcp")
       .getByRole("heading", { name: "External tool connections" })

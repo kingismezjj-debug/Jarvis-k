@@ -91,7 +91,7 @@ describe("Settings V2 Tools & Plugins product view model", () => {
     expect(viewModel.plugins.readOnlyCount).toBe(1);
     expect(viewModel.plugins.hiddenDeveloperExampleCount).toBe(0);
     expect(viewModel.plugins.value).toBe(
-      "1 Product plugins installed, 1 Product plugins enabled",
+      "1 Installed plugins, 1 Enabled plugins",
     );
     expect(viewModel.plugins.details).toContain("Ready for safe use: 0");
   });
@@ -110,8 +110,8 @@ describe("Settings V2 Tools & Plugins product view model", () => {
     expect(viewModel.plugins.availableCount).toBe(0);
     expect(viewModel.plugins.readOnlyCount).toBe(0);
     expect(viewModel.plugins.hiddenDeveloperExampleCount).toBe(1);
-    expect(viewModel.plugins.value).toBe("No Product plugins are installed");
-    expect(viewModel.plugins.details).toContain(
+    expect(viewModel.plugins.value).toBe("No plugins are currently available.");
+    expect(viewModel.plugins.details).not.toContain(
       "Developer example plugins are hidden from Product settings.",
     );
   });
@@ -126,9 +126,9 @@ describe("Settings V2 Tools & Plugins product view model", () => {
       pluginManagementStatus: emptyStatus,
     });
 
-    expect(viewModel.plugins.value).toBe("No Product plugins are installed");
-    expect(viewModel.plugins.details).toContain("Product plugins installed: 0");
-    expect(viewModel.plugins.details).toContain("Product plugins enabled: 0");
+    expect(viewModel.plugins.value).toBe("No plugins are currently available.");
+    expect(viewModel.plugins.details).toContain("Installed plugins: 0");
+    expect(viewModel.plugins.details).toContain("Enabled plugins: 0");
     expect(viewModel.plugins.details).not.toContain(
       "Developer example plugins are hidden from Product settings.",
     );
@@ -145,7 +145,6 @@ describe("Settings V2 Tools & Plugins product view model", () => {
     );
     expect(viewModel.mcpConnections.details).toEqual([
       "Opening or viewing this page does not connect to external tools.",
-      "External tool startup and execution stay disabled.",
     ]);
   });
 

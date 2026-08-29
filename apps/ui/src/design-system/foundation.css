@@ -359,6 +359,7 @@
 
 .jk-setting-control {
   justify-self: end;
+  min-width: 0;
 }
 
 .jk-setting-title {
@@ -380,6 +381,7 @@
   display: inline-flex;
   gap: var(--jk-spacing-2);
   font: inherit;
+  max-inline-size: 100%;
 }
 
 .jk-value-action,
@@ -392,9 +394,15 @@
 .jk-section-header {
   align-items: flex-start;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--jk-spacing-4);
   justify-content: space-between;
   padding: var(--jk-spacing-4);
+}
+
+.jk-settings-page-header > *,
+.jk-section-header > * {
+  min-width: 0;
 }
 
 .jk-settings-page-header h1,
@@ -443,6 +451,7 @@
   border: 1px solid var(--jk-color-border-subtle);
   border-radius: var(--jk-radius-lg);
   background: var(--jk-color-background-surface);
+  max-inline-size: 100%;
   padding: var(--jk-spacing-4);
 }
 

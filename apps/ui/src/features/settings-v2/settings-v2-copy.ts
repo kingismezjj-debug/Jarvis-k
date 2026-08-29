@@ -350,12 +350,12 @@ export const settingsV2Copy: Record<
     "settings.general.launchAtLogin.retry": "Retry",
     "settings.general.reset.label": "Restore default settings",
     "settings.general.reset.description":
-      "The full reset boundary is not connected in this slice.",
+      "Restore user-facing settings after a confirmation step.",
     "settings.general.reset.impact":
-      "This preview will not delete credentials, conversations, memory, plugins, skins, acceptance ledgers, or user files.",
+      "This feature will be available in a later version. It will not delete personal data or saved secure settings.",
     "settings.general.reset.action": "Restore default settings",
-    "settings.general.reset.details": "Review reset boundary",
-    "settings.general.reset.unsupported": "Reset is not available yet",
+    "settings.general.reset.details": "Review reset and recovery",
+    "settings.general.reset.unsupported": "Available in a later version",
     "settings.appearance.title": "Appearance & Pet",
     "settings.appearance.description":
       "Choose Jarvis colors, Desktop Pet visibility, motion, and the current local skin summary.",
@@ -533,7 +533,7 @@ export const settingsV2Copy: Record<
     "settings.models.localModels.busy": "A local model task is active",
     "settings.models.routingPolicy.label": "Routing policy",
     "settings.models.routingPolicy.description":
-      "Shows the product-level answer method. Internal routing details and evaluation tools stay hidden.",
+      "Shows the product-level answer method without exposing advanced routing details.",
     "settings.models.routingPolicy.safeSummary":
       "Safety and approval checks are unchanged.",
     "settings.models.routingPolicy.localRules": "Current answer method: local rules",
@@ -568,7 +568,7 @@ export const settingsV2Copy: Record<
       "Opening this page does not connect online services or load, download, or delete models.",
     "settings.tools.title": "Tools & Plugins",
     "settings.tools.description":
-      "Review desktop actions, safe website access, read-only file search, Product plugins, and external tool readiness.",
+      "Review desktop actions, safe website access, read-only file search, plugins, and external tool readiness.",
     "settings.tools.section.automation": "Tools and automation",
     "settings.tools.section.apps": "Approved apps",
     "settings.tools.section.websites": "Safe website access",
@@ -606,21 +606,21 @@ export const settingsV2Copy: Record<
     "settings.tools.fileSearch.filenameOnly": "Filename-focused results",
     "settings.tools.fileSearch.noScanOnOpen":
       "Search starts only after a separate user request.",
-    "settings.tools.plugins.label": "Product plugins",
+    "settings.tools.plugins.label": "Plugins",
     "settings.tools.plugins.description":
-      "Plugin status comes from the existing plugin management service.",
+      "Plugins available to you will appear here.",
     "settings.tools.plugins.action": "Open plugin management",
     "settings.tools.plugins.noneInstalled": "No plugins installed",
     "settings.tools.plugins.noProductPlugins":
-      "No Product plugins are installed",
+      "No plugins are currently available.",
     "settings.tools.plugins.installed": "installed",
-    "settings.tools.plugins.productInstalled": "Product plugins installed",
+    "settings.tools.plugins.productInstalled": "Installed plugins",
     "settings.tools.plugins.enabled": "enabled",
-    "settings.tools.plugins.productEnabled": "Product plugins enabled",
+    "settings.tools.plugins.productEnabled": "Enabled plugins",
     "settings.tools.plugins.availableForUse": "Ready for safe use",
     "settings.tools.plugins.readOnly": "Read-only plugins",
     "settings.tools.plugins.developerExamplesHidden":
-      "Developer example plugins are hidden from Product settings.",
+      "Some plugins are not shown here.",
     "settings.tools.plugins.thirdPartyDisabled":
       "Third-party code stays disabled by default.",
     "settings.tools.plugins.noMarketplace":
@@ -631,7 +631,7 @@ export const settingsV2Copy: Record<
       "Refresh plugin management to read the latest local status.",
     "settings.tools.mcp.label": "External tool connections",
     "settings.tools.mcp.description":
-      "External tool connections are shown only as safe readiness status in this version.",
+      "Opening this page does not connect to external tools.",
     "settings.tools.mcp.unavailable": "Not available in this version",
     "settings.tools.mcp.available": "Available",
     "settings.tools.mcp.statusUnknown":
@@ -640,7 +640,7 @@ export const settingsV2Copy: Record<
     "settings.tools.mcp.noAutoConnect":
       "Opening or viewing this page does not connect to external tools.",
     "settings.tools.mcp.noExternalRun":
-      "External tool startup and execution stay disabled.",
+      "Connections are not available in this version.",
     "settings.tools.mcp.userControlled":
       "Connections remain user controlled.",
     "settings.tools.safeViewing.title": "Safe viewing",
@@ -691,7 +691,7 @@ export const settingsV2Copy: Record<
     "settings.categories.about_updates": "关于与更新",
     "settings.general.title": "通用",
     "settings.general.description":
-      "管理界面语言、窗口关闭方式、登录后启动，以及重置边界。",
+      "管理界面语言、窗口关闭方式、登录后启动，以及恢复默认设置。",
     "settings.general.section.interface": "界面",
     "settings.general.section.desktop": "桌面行为",
     "settings.general.section.reset": "重置与恢复",
@@ -720,12 +720,12 @@ export const settingsV2Copy: Record<
       "仅在打包后的 Alpha 或 Stable 版本中可用。",
     "settings.general.launchAtLogin.retry": "重试",
     "settings.general.reset.label": "恢复默认设置",
-    "settings.general.reset.description": "完整重置边界尚未在本切片接入。",
+    "settings.general.reset.description": "确认后恢复面向用户的设置。",
     "settings.general.reset.impact":
-      "此预览不会删除凭证、对话、记忆、插件、皮肤、验收账本或用户文件。",
+      "此功能将在后续版本提供。它不会删除个人数据或已保存的安全设置。",
     "settings.general.reset.action": "恢复默认设置",
-    "settings.general.reset.details": "查看重置边界",
-    "settings.general.reset.unsupported": "重置暂不可用",
+    "settings.general.reset.details": "查看重置与恢复",
+    "settings.general.reset.unsupported": "后续版本提供",
     "settings.appearance.title": "外观与桌宠",
     "settings.appearance.description":
       "设置 Jarvis 的界面配色、桌宠显示方式、动效和当前皮肤摘要。",
@@ -887,7 +887,7 @@ export const settingsV2Copy: Record<
     "settings.models.localModels.busy": "有本地模型任务正在进行",
     "settings.models.routingPolicy.label": "路由策略",
     "settings.models.routingPolicy.description":
-      "显示产品级回答方式。内部路由细节和评测工具不会在此页显示。",
+      "显示面向用户的当前回答方式，不展示高级路由细节。",
     "settings.models.routingPolicy.safeSummary": "安全和确认规则保持不变。",
     "settings.models.routingPolicy.localRules": "当前回答方式：本地规则",
     "settings.models.routingPolicy.safety": "安全和确认规则保持独立生效。",
@@ -918,7 +918,7 @@ export const settingsV2Copy: Record<
       "打开此页面不会连接在线服务，也不会加载、下载或删除模型。",
     "settings.tools.title": "工具与插件",
     "settings.tools.description":
-      "查看桌面操作、安全网站访问、只读文件搜索、普通用户插件和外部工具准备状态。",
+      "查看桌面操作、安全网站访问、只读文件搜索、插件和外部工具状态。",
     "settings.tools.section.automation": "工具与自动化",
     "settings.tools.section.apps": "已批准应用",
     "settings.tools.section.websites": "安全网站访问",
@@ -951,20 +951,20 @@ export const settingsV2Copy: Record<
     "settings.tools.fileSearch.filenameOnly": "以文件名结果为主",
     "settings.tools.fileSearch.noScanOnOpen":
       "搜索只会在用户单独请求后开始。",
-    "settings.tools.plugins.label": "普通用户插件",
+    "settings.tools.plugins.label": "插件",
     "settings.tools.plugins.description":
-      "插件状态来自现有插件管理服务。",
+      "这里会显示可供你使用的插件。",
     "settings.tools.plugins.action": "打开插件管理",
     "settings.tools.plugins.noneInstalled": "未安装插件",
-    "settings.tools.plugins.noProductPlugins": "暂无面向普通用户的插件",
+    "settings.tools.plugins.noProductPlugins": "目前没有可供使用的插件。",
     "settings.tools.plugins.installed": "已安装",
-    "settings.tools.plugins.productInstalled": "普通用户插件已安装",
+    "settings.tools.plugins.productInstalled": "已安装插件",
     "settings.tools.plugins.enabled": "已启用",
-    "settings.tools.plugins.productEnabled": "普通用户插件已启用",
+    "settings.tools.plugins.productEnabled": "已启用插件",
     "settings.tools.plugins.availableForUse": "可安全使用",
     "settings.tools.plugins.readOnly": "只读插件",
     "settings.tools.plugins.developerExamplesHidden":
-      "开发示例插件已从普通设置中隐藏。",
+      "部分插件不会显示在这里。",
     "settings.tools.plugins.thirdPartyDisabled":
       "第三方代码默认保持关闭。",
     "settings.tools.plugins.noMarketplace": "尚未使用插件市场访问。",
@@ -973,13 +973,13 @@ export const settingsV2Copy: Record<
       "刷新插件管理后可读取最新本机状态。",
     "settings.tools.mcp.label": "外部工具连接",
     "settings.tools.mcp.description":
-      "此版本只显示外部工具连接的安全状态。",
+      "打开本页不会连接外部工具。",
     "settings.tools.mcp.unavailable": "当前版本暂不可用",
     "settings.tools.mcp.available": "可用",
     "settings.tools.mcp.statusUnknown": "尚未读取连接状态。",
     "settings.tools.mcp.notConnected": "当前没有活动连接。",
     "settings.tools.mcp.noAutoConnect": "打开或查看本页不会连接外部工具。",
-    "settings.tools.mcp.noExternalRun": "外部工具启动和运行保持关闭。",
+    "settings.tools.mcp.noExternalRun": "当前版本暂不支持连接。",
     "settings.tools.mcp.userControlled": "连接仍由用户控制。",
     "settings.tools.safeViewing.title": "安全查看",
     "settings.tools.status.noExecutionOnOpen":

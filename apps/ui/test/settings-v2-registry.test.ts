@@ -157,6 +157,76 @@ describe("Settings V2 registry", () => {
     ]);
   });
 
+  it("keeps product search text free of implementation and evaluation terms", () => {
+    const searchableDefinitions = getSettingsV2SearchableDefinitions();
+    const forbiddenEnglish = [
+      "this slice",
+      "boundary is not connected",
+      "developer example",
+      "management service",
+      "fixture",
+      "evaluation",
+      "raw descriptor",
+    ];
+    const forbiddenChinese = [
+      "本切片",
+      "边界尚未接入",
+      "开发示例",
+      "插件管理服务",
+      "测试夹具",
+      "评测",
+      "原始描述",
+    ];
+
+    for (const definition of searchableDefinitions) {
+      for (const locale of ["en", "zh"] as const) {
+        const text = [
+          tSettingsV2(locale, definition.labelKey),
+          tSettingsV2(locale, definition.descriptionKey),
+          ...definition.searchKeywordKeys.map((key) =>
+            tSettingsV2(locale, key),
+          ),
+        ]
+          .join(" ")
+          .toLocaleLowerCase();
+        const forbidden =
+          locale === "en" ? forbiddenEnglish : forbiddenChinese;
+        for (const term of forbidden) {
+          expect(text).not.toContain(term.toLocaleLowerCase());
+        }
+      }
+    }
+  });
+
+  it("keeps plugin search focused on plugin settings", () => {
+    const searchableDefinitions = getSettingsV2SearchableDefinitions();
+    const pluginMatches = searchableDefinitions.filter((definition) => {
+      const text = [
+        tSettingsV2("en", definition.labelKey),
+        tSettingsV2("en", definition.descriptionKey),
+        ...definition.searchKeywordKeys.map((key) => tSettingsV2("en", key)),
+      ]
+        .join(" ")
+        .toLocaleLowerCase();
+      return text.includes("plugin");
+    });
+    const zhPluginMatches = searchableDefinitions.filter((definition) => {
+      const text = [
+        tSettingsV2("zh", definition.labelKey),
+        tSettingsV2("zh", definition.descriptionKey),
+        ...definition.searchKeywordKeys.map((key) => tSettingsV2("zh", key)),
+      ].join(" ");
+      return text.includes("插件");
+    });
+
+    expect(pluginMatches.map((definition) => definition.settingId)).toEqual([
+      "settings.tools.plugins",
+    ]);
+    expect(zhPluginMatches.map((definition) => definition.settingId)).toEqual([
+      "settings.tools.plugins",
+    ]);
+  });
+
   it("formats the Settings V2 migration summary from the registry", () => {
     const migratedIds = getSettingsV2MigratedCategoryIds();
     const legacyIds = getSettingsV2LegacyCategoryIds();

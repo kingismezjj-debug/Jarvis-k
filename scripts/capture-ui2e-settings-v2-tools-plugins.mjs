@@ -135,6 +135,27 @@ async function setToolsCategory(page) {
 
 async function assertLayout(page, scenarioName, { expectToolsVisible = true } = {}) {
   const result = await page.evaluate(() => {
+    const viewport = {
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+    };
+    const rectSnapshot = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      return {
+        selector,
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        withinViewport:
+          rect.left >= -1 &&
+          rect.right <= viewport.width + 1,
+      };
+    };
     const selectors = [
       ".settings-v2-shell",
       ".jk-setting-row",
@@ -146,8 +167,27 @@ async function assertLayout(page, scenarioName, { expectToolsVisible = true } = 
       .flatMap((selector) => [...document.querySelectorAll(selector)])
       .filter((element) => element.scrollWidth > element.clientWidth + 1).length;
     const text = document.body.innerText;
+    const keyCards = [
+      '[data-testid="settings-v2-tools-section-plugins"]',
+      '[data-testid="settings-v2-tools-section-mcp"]',
+      '[data-testid="settings-v2-search-results"]',
+    ]
+      .map(rectSnapshot)
+      .filter(Boolean);
+    const settingsMainRect = rectSnapshot(".settings-v2-content");
+    const searchResultTitles = [
+      ...document.querySelectorAll(".jk-search-result h3"),
+    ].map((element) => element.textContent?.trim() ?? "");
     return {
-      bodyHorizontalOverflow: document.body.scrollWidth > window.innerWidth + 1,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      documentClientWidth: document.documentElement.clientWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      bodyClientWidth: document.body.clientWidth,
+      documentHorizontalOverflow:
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth + 1,
+      bodyHorizontalOverflow:
+        document.body.scrollWidth > document.body.clientWidth + 1,
       clippingCandidates,
       settingsV2Visible: Boolean(document.querySelector(".settings-v2-shell")),
       toolsVisible: Boolean(
@@ -164,8 +204,16 @@ async function assertLayout(page, scenarioName, { expectToolsVisible = true } = 
         document.querySelector(".settings-v2-wide-category") !== null &&
         getComputedStyle(document.querySelector(".settings-v2-wide-category")).display !==
           "none",
+      settingsMainRect,
+      keyCards,
+      keyCardsOutsideViewport: keyCards.filter((rect) => !rect.withinViewport)
+        .length,
+      searchResultTitles,
       forbiddenInternalText:
-        /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|providerId|resourceId|fallback|manifest|digest|transport|stdio|spawn|route trace|Agent Core|Memory alpha)\b/i.test(
+        /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|providerId|resourceId|fallback|manifest|digest|transport|stdio|spawn|route trace|Agent Core|Memory alpha|this slice|boundary is not connected|developer example|management service|raw descriptor)\b/i.test(
+          text,
+        ) ||
+        /本切片|边界尚未接入|开发示例|插件管理服务|原始描述|测试夹具|评测/u.test(
           text,
         ) ||
         /\bSETTINGS\b/u.test(text) ||
@@ -185,7 +233,10 @@ async function assertLayout(page, scenarioName, { expectToolsVisible = true } = 
     (!result.narrowCategoryVisible || result.wideCategoryVisible);
   if (
     result.bodyHorizontalOverflow ||
+    result.documentHorizontalOverflow ||
     result.clippingCandidates > 0 ||
+    result.settingsMainRect?.withinViewport === false ||
+    result.keyCardsOutsideViewport > 0 ||
     narrowLayoutInvalid ||
     !result.settingsV2Visible ||
     (expectToolsVisible && !result.toolsVisible) ||
@@ -226,6 +277,107 @@ async function assertThemeScope(page, expectedTheme, scenarioName) {
   return result;
 }
 
+async function assertShellLayout(page, scenarioName) {
+  const result = await page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const visibleRect = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const style = getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden") return null;
+      const rect = element.getBoundingClientRect();
+      return {
+        selector,
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+    };
+    const rects = [
+      visibleRect('[data-testid="core-status"]'),
+      visibleRect('[data-testid="last-action-status"]'),
+      visibleRect('[data-testid="command-input"]'),
+      visibleRect('[data-testid="send-command"]'),
+    ].filter(Boolean);
+    const overlaps = [];
+    for (let i = 0; i < rects.length; i += 1) {
+      for (let j = i + 1; j < rects.length; j += 1) {
+        const a = rects[i];
+        const b = rects[j];
+        const separated =
+          a.right <= b.left + 1 ||
+          b.right <= a.left + 1 ||
+          a.bottom <= b.top + 1 ||
+          b.bottom <= a.top + 1;
+        if (!separated) overlaps.push([a.selector, b.selector]);
+      }
+    }
+    const input = rects.find(
+      (rect) => rect.selector === '[data-testid="command-input"]',
+    );
+    const send = rects.find(
+      (rect) => rect.selector === '[data-testid="send-command"]',
+    );
+    return {
+      viewportWidth,
+      rects,
+      overlaps,
+      composerVisible: Boolean(input && send),
+      composerInputWidth: input?.width ?? 0,
+      composerInputBeforeSend: Boolean(input && send && input.right <= send.left + 2),
+      sendWithinViewport: Boolean(send && send.right <= viewportWidth + 1),
+    };
+  });
+  if (
+    result.overlaps.length > 0 ||
+    !result.composerVisible ||
+    result.composerInputWidth < 120 ||
+    !result.composerInputBeforeSend ||
+    !result.sendWithinViewport
+  ) {
+    throw new Error(
+      `Settings V2 shell layout guard failed for ${scenarioName}: ${JSON.stringify(
+        result,
+      )}`,
+    );
+  }
+  return result;
+}
+
+async function assertSearchResults(page, scenarioName, locale) {
+  const result = await page.evaluate(() => ({
+    titles: [...document.querySelectorAll(".jk-search-result h3")].map(
+      (element) => element.textContent?.trim() ?? "",
+    ),
+    text: document.body.innerText,
+  }));
+  const resetTitle = locale === "zh" ? "恢复默认设置" : "Restore default settings";
+  const pluginTitle = locale === "zh" ? "插件" : "Plugins";
+  if (!result.titles.includes(pluginTitle) || result.titles.includes(resetTitle)) {
+    throw new Error(
+      `Settings V2 search guard failed for ${scenarioName}: ${JSON.stringify({
+        titles: result.titles,
+      })}`,
+    );
+  }
+  if (
+    /this slice|boundary is not connected|developer example|management service|raw descriptor/i.test(
+      result.text,
+    ) ||
+    /本切片|边界尚未接入|开发示例|插件管理服务|原始描述/u.test(result.text)
+  ) {
+    throw new Error(
+      `Settings V2 search internal copy guard failed for ${scenarioName}: ${JSON.stringify(
+        result.titles,
+      )}`,
+    );
+  }
+  return { titles: result.titles };
+}
+
 async function captureScenario([name, width, height, locale, theme, search]) {
   const run = await launchApp({ theme, locale });
   try {
@@ -246,10 +398,21 @@ async function captureScenario([name, width, height, locale, theme, search]) {
     const layout = await assertLayout(run.page, name, {
       expectToolsVisible: !search,
     });
+    const shellLayout = await assertShellLayout(run.page, name);
+    const searchResults = search && name.startsWith("tools-plugins-search")
+      ? await assertSearchResults(run.page, name, locale)
+      : null;
     const themeScope = await assertThemeScope(run.page, theme, name);
     const screenshotPath = path.join(outputDirectory, `${name}.png`);
     await run.page.screenshot({ path: screenshotPath, fullPage: true });
-    return { name, path: screenshotPath, layout, themeScope };
+    return {
+      name,
+      path: screenshotPath,
+      layout,
+      shellLayout,
+      searchResults,
+      themeScope,
+    };
   } finally {
     await run.electronApp.close();
     await rm(run.tempUserData, { force: true, recursive: true });
@@ -259,9 +422,38 @@ async function captureScenario([name, width, height, locale, theme, search]) {
 async function captureSection(page, screenshotName, testId) {
   const locator = page.getByTestId(testId);
   await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate((element) => {
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+  await page.waitForTimeout(50);
+  const rect = await locator.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return {
+      left: Math.round(box.left),
+      right: Math.round(box.right),
+      top: Math.round(box.top),
+      bottom: Math.round(box.bottom),
+      width: Math.round(box.width),
+      height: Math.round(box.height),
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: document.documentElement.clientHeight,
+      withinViewport:
+        box.left >= -1 &&
+        box.right <= document.documentElement.clientWidth + 1 &&
+        box.top >= -1 &&
+        box.bottom <= document.documentElement.clientHeight + 1,
+    };
+  });
+  if (!rect.withinViewport) {
+    throw new Error(
+      `Section ${testId} is outside viewport for ${screenshotName}: ${JSON.stringify(
+        rect,
+      )}`,
+    );
+  }
   const screenshotPath = path.join(outputDirectory, `${screenshotName}.png`);
   await locator.screenshot({ path: screenshotPath });
-  return { name: screenshotName, path: screenshotPath, section: testId };
+  return { name: screenshotName, path: screenshotPath, section: testId, rect };
 }
 
 async function captureSectionSet({

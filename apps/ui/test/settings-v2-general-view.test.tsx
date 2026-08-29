@@ -204,7 +204,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Minimize to system tray");
     expect(html).toContain("Launch after Windows sign-in");
     expect(html).toContain("Not supported");
-    expect(html).toContain("Reset is not available yet");
+    expect(html).toContain("Available in a later version");
   });
 
   it("renders productized zh-CN General copy", () => {
@@ -218,7 +218,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("关闭主窗口时");
     expect(html).toContain("最小化到系统托盘");
     expect(html).toContain("登录后自动启动");
-    expect(html).toContain("重置暂不可用");
+    expect(html).toContain("后续版本提供");
     expect(html).not.toMatch(/[锟闁垾]/);
   });
 
@@ -351,11 +351,10 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Managed by safety policy");
     expect(html).toContain("Unknown websites ask first");
     expect(html).toContain("Read-only");
-    expect(html).toContain("No Product plugins are installed");
-    expect(html).toContain("Product plugins installed: 0");
-    expect(html).toContain(
-      "Developer example plugins are hidden from Product settings.",
-    );
+    expect(html).toContain("No plugins are currently available.");
+    expect(html).toContain("Installed plugins: 0");
+    expect(html).not.toContain("Developer example plugins");
+    expect(html).not.toContain("&gt;");
     expect(html).toContain("External tool connections");
     expect(html).toContain("Not available in this version");
     for (const forbidden of [
@@ -371,6 +370,8 @@ describe("Settings V2 General view", () => {
       "C:\\\\",
       "fixture",
       "Evaluation",
+      "management service",
+      "Product settings",
       "Pilot",
       "acceptance",
     ]) {
@@ -389,9 +390,10 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("由安全规则管理");
     expect(html).toContain("未知网站会先询问");
     expect(html).toContain("只读");
-    expect(html).toContain("暂无面向普通用户的插件");
-    expect(html).toContain("普通用户插件已安装: 0");
-    expect(html).toContain("开发示例插件已从普通设置中隐藏。");
+    expect(html).toContain("目前没有可供使用的插件。");
+    expect(html).toContain("已安装插件: 0");
+    expect(html).not.toContain("开发示例插件");
+    expect(html).not.toContain("插件管理服务");
     expect(html).toContain("外部工具连接");
     for (const forbidden of [
       "fixture",
@@ -424,8 +426,8 @@ describe("Settings V2 General view", () => {
       } as PluginManagementStatusResult,
     });
 
-    expect(html).toContain("No Product plugins are installed");
-    expect(html).toContain("Product plugins installed: 0");
+    expect(html).toContain("No plugins are currently available.");
+    expect(html).toContain("Installed plugins: 0");
     expect(html).not.toContain(
       "Developer example plugins are hidden from Product settings.",
     );
@@ -746,7 +748,7 @@ describe("Settings V2 General view", () => {
     const html = renderView();
     expect(html).toContain("Restore default settings");
     expect(html).toContain("disabled=\"\"");
-    expect(html).toContain("Review reset boundary");
+    expect(html).toContain("Review reset and recovery");
   });
 
   it("does not directly access runtime APIs from the Settings V2 renderer files", () => {

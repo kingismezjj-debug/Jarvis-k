@@ -93,16 +93,18 @@ export function AppViewHeader({
   title,
 }: AppViewHeaderProps) {
   return (
-    <div className="flex h-[70px] shrink-0 items-center justify-between gap-3 border-b px-7 max-[640px]:px-4">
-      <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold">{title}</h2>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
+    <div className="flex min-h-[70px] shrink-0 flex-wrap items-center justify-between gap-2 border-b px-7 py-3 max-[640px]:px-4">
+      <div className="min-w-0 flex-1 basis-[220px]">
+        <h2 className="break-words text-sm font-semibold leading-5">{title}</h2>
+        <p className="mt-0.5 break-words text-[11px] leading-4 text-muted-foreground">
+          {subtitle}
+        </p>
       </div>
-      <div className="flex min-w-0 items-center justify-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-[520px]:basis-full max-[520px]:justify-start max-[520px]:[&>button]:hidden">
         {lastAction && (
           <Badge
             className={cn(
-              "max-w-[260px] truncate rounded-md text-[10px] max-[760px]:max-w-[150px]",
+              "max-w-[260px] truncate rounded-md text-[10px] max-[760px]:max-w-[150px] max-[520px]:max-w-full",
               lastAction.tone === "success" && "text-success",
               lastAction.tone === "warning" && "text-warning",
               lastAction.tone === "accent" && "text-accent",

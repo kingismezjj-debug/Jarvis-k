@@ -135,11 +135,6 @@ function formatPluginSummary(
     `${tSettingsV2(locale, "settings.tools.plugins.availableForUse")}: ${availableCount}`,
     `${tSettingsV2(locale, "settings.tools.plugins.readOnly")}: ${readOnlyCount}`,
   ];
-  if (hiddenDeveloperExampleCount > 0) {
-    details.push(
-      tSettingsV2(locale, "settings.tools.plugins.developerExamplesHidden"),
-    );
-  }
   if (status.defaultThirdPartyExecutionState === "disabled") {
     details.push(
       tSettingsV2(locale, "settings.tools.plugins.thirdPartyDisabled"),
@@ -208,10 +203,7 @@ function formatMcpSummary(
   ) {
     return {
       value: tSettingsV2(locale, "settings.tools.mcp.unavailable"),
-      details: [
-        tSettingsV2(locale, "settings.tools.mcp.noAutoConnect"),
-        tSettingsV2(locale, "settings.tools.mcp.noExternalRun"),
-      ],
+      details: [tSettingsV2(locale, "settings.tools.mcp.noAutoConnect")],
     };
   }
   return {

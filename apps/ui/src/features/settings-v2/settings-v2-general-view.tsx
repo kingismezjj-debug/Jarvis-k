@@ -628,7 +628,6 @@ export function SettingsV2GeneralView({
   onSetCommandRouterProductModeEnabled,
   onSetChatAnswerProductModeEnabled,
   pluginManagementStatus,
-  onOpenPluginManagement,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -1446,16 +1445,8 @@ export function SettingsV2GeneralView({
                       "settings.tools.plugins.description",
                     )}
                     title={tSettingsV2(locale, "settings.tools.plugins.label")}
-                  >
-                    <SettingValueAction
-                      actionLabel={tSettingsV2(
-                        locale,
-                        "settings.tools.plugins.action",
-                      )}
-                      onAction={onOpenPluginManagement}
-                      value={toolsViewModel.plugins.value}
-                    />
-                  </SettingRow>
+                    value={toolsViewModel.plugins.value}
+                  />
                   <div
                     className="settings-v2-tools-status-grid"
                     data-testid="settings-v2-plugins-status"

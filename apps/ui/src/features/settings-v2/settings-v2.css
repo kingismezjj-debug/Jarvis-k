@@ -5,6 +5,8 @@
   min-height: 100%;
   overflow-x: hidden;
   padding: var(--jk-spacing-6);
+  max-width: 100%;
+  width: 100%;
 }
 
 .settings-v2-shell *,
@@ -60,10 +62,13 @@
     100%,
     calc(var(--jk-layout-content-max-width) + var(--jk-layout-navigation-width) + var(--jk-spacing-6))
   );
+  overflow-x: hidden;
 }
 
 .settings-v2-content {
   min-width: 0;
+  overflow-x: hidden;
+  padding-bottom: var(--jk-spacing-8);
 }
 
 .settings-v2-content [data-testid="settings-v2-general"],
@@ -292,7 +297,7 @@
 
 @media (max-width: 900px) {
   .settings-v2-shell {
-    padding: var(--jk-spacing-4);
+    padding: var(--jk-spacing-3);
   }
 
   .settings-v2-shell > .jk-settings-page-header {
@@ -300,6 +305,7 @@
   }
 
   .settings-v2-layout {
+    gap: var(--jk-spacing-4);
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -330,6 +336,7 @@
   .settings-v2-reset-details {
     align-items: stretch;
     flex-direction: column;
+    gap: var(--jk-spacing-2);
   }
 
   .settings-v2-theme-grid,
