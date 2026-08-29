@@ -286,6 +286,10 @@ async function collectCaptureDiagnostics(
       viewHeaderRect: rectSnapshot('[data-testid="last-action-status"]'),
       wideNavigationRect: rectSnapshot(".settings-v2-wide-category"),
       compactCategorySelectorRect: rectSnapshot(".settings-v2-narrow-category"),
+      toolsHeadingRect: rectSnapshot('[data-testid="settings-v2-tools-plugins"] h2'),
+      firstToolsSectionRect: rectSnapshot(
+        '[data-testid="settings-v2-tools-plugins"] .jk-section',
+      ),
       settingsMainRect: rectSnapshot(".settings-v2-content"),
       pluginsSectionRect: rectSnapshot(
         '[data-testid="settings-v2-tools-section-plugins"]',
@@ -295,6 +299,8 @@ async function collectCaptureDiagnostics(
       ),
       composerInputRect: rectSnapshot('[data-testid="command-input"]'),
       composerSendRect: rectSnapshot('[data-testid="send-command"]'),
+      scrollX: Math.round(window.scrollX),
+      scrollY: Math.round(window.scrollY),
     };
   });
   return {
@@ -328,14 +334,21 @@ function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
     diagnostics.documentElementClientHeight;
   const scaleX = diagnostics.screenshot.pixelWidth / cssWidth;
   const scaleY = diagnostics.screenshot.pixelHeight / cssHeight;
-  const rectFitsScreenshot = (rect) =>
+  const rectIntersectsViewport = (rect) =>
     Boolean(
       rect &&
         rect.visible &&
-        rect.left * scaleX >= -2 &&
-        rect.right * scaleX <= diagnostics.screenshot.pixelWidth + 2 &&
-        rect.top * scaleY >= -2 &&
-        rect.bottom * scaleY <= diagnostics.screenshot.pixelHeight + 2,
+        rect.right > 0 &&
+        rect.left < cssWidth &&
+        rect.bottom > 0 &&
+        rect.top < cssHeight,
+    );
+  const rectHorizontallyFitsViewport = (rect) =>
+    Boolean(
+      rect &&
+        rect.visible &&
+        rect.left >= -1 &&
+        rect.right <= cssWidth + 1,
     );
   const failures = [];
   if (diagnostics.screenshot.usesClip) failures.push("screenshot_used_clip");
@@ -354,18 +367,34 @@ function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
   if (diagnostics.wideNavigationRect?.visible) {
     failures.push("wide_settings_navigation_visible");
   }
-  if (!rectFitsScreenshot(diagnostics.appHeaderRect)) {
+  if (!rectIntersectsViewport(diagnostics.appHeaderRect)) {
     failures.push("app_header_outside_screenshot");
   }
-  if (!diagnostics.settingsMainRect?.visible) {
-    failures.push("settings_main_not_visible");
+  if (!rectIntersectsViewport(diagnostics.compactCategorySelectorRect)) {
+    failures.push("compact_selector_outside_current_viewport");
   }
-  const rightEdgeFitsScreenshot = (rect) =>
-    Boolean(rect && rect.visible && rect.right * scaleX <= diagnostics.screenshot.pixelWidth + 2);
-  if (!rightEdgeFitsScreenshot(diagnostics.settingsMainRect)) {
-    failures.push("settings_main_right_edge_clipped");
+  if (!rectIntersectsViewport(diagnostics.toolsHeadingRect)) {
+    failures.push("tools_heading_outside_current_viewport");
   }
-  if (!rightEdgeFitsScreenshot(diagnostics.composerSendRect)) {
+  if (!rectIntersectsViewport(diagnostics.firstToolsSectionRect)) {
+    failures.push("first_tools_card_outside_current_viewport");
+  }
+  if (!rectIntersectsViewport(diagnostics.settingsMainRect)) {
+    failures.push("settings_main_not_in_current_viewport");
+  }
+  if (!rectIntersectsViewport(diagnostics.composerInputRect)) {
+    failures.push("composer_input_outside_current_viewport");
+  }
+  if (!rectIntersectsViewport(diagnostics.composerSendRect)) {
+    failures.push("composer_send_outside_current_viewport");
+  }
+  if (!rectHorizontallyFitsViewport(diagnostics.firstToolsSectionRect)) {
+    failures.push("first_tools_card_horizontal_clipping");
+  }
+  if (!rectHorizontallyFitsViewport(diagnostics.settingsMainRect)) {
+    failures.push("settings_main_horizontal_clipping");
+  }
+  if (!rectHorizontallyFitsViewport(diagnostics.composerSendRect)) {
     failures.push("composer_send_right_edge_clipped");
   }
   if (failures.length > 0) {
@@ -380,8 +409,39 @@ function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
     cssHeight,
     scaleX,
     scaleY,
+    scrollX: diagnostics.scrollX,
+    scrollY: diagnostics.scrollY,
+    intersections: {
+      appHeader: rectIntersectsViewport(diagnostics.appHeaderRect),
+      compactCategorySelector: rectIntersectsViewport(
+        diagnostics.compactCategorySelectorRect,
+      ),
+      toolsHeading: rectIntersectsViewport(diagnostics.toolsHeadingRect),
+      firstToolsSection: rectIntersectsViewport(
+        diagnostics.firstToolsSectionRect,
+      ),
+      settingsMain: rectIntersectsViewport(diagnostics.settingsMainRect),
+      composerInput: rectIntersectsViewport(diagnostics.composerInputRect),
+      composerSend: rectIntersectsViewport(diagnostics.composerSendRect),
+    },
     failures,
   };
+}
+
+async function scrollToZoomMainEvidence(page) {
+  return await page.evaluate(() => {
+    const compactSelector = document.querySelector(".settings-v2-narrow-category");
+    const target = compactSelector ?? document.querySelector(".settings-v2-content");
+    if (!target) {
+      throw new Error("Settings V2 compact selector is unavailable for zoom capture.");
+    }
+    const absoluteTop = target.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ left: 0, top: Math.max(0, absoluteTop - 16), behavior: "instant" });
+    return {
+      scrollX: Math.round(window.scrollX),
+      scrollY: Math.round(window.scrollY),
+    };
+  });
 }
 
 async function assertLayout(page, scenarioName, { expectToolsVisible = true } = {}) {
@@ -812,7 +872,7 @@ try {
     zoomed.page,
     {
       width: 780,
-      height: 980,
+      height: 2600,
     },
     { useActualBrowserWindowContentSize: true },
   );
@@ -830,6 +890,7 @@ try {
   const name = "harbor-tools-plugins-zoom200";
   const layout = await assertLayout(zoomed.page, name);
   const themeScope = await assertThemeScope(zoomed.page, "harbor", name);
+  const zoomScrollPosition = await scrollToZoomMainEvidence(zoomed.page);
   const screenshotPath = path.join(outputDirectory, `${name}.png`);
   const browserWindowCapture = await captureVisibleBrowserWindow(
     zoomed.electronApp,
@@ -856,6 +917,7 @@ try {
     browserWindowCapture,
     captureDiagnostics,
     zoomViewport,
+    zoomScrollPosition,
     visualScreenshotCoverage,
     webContentsZoomFactor,
     devicePixelRatio: await zoomed.page.evaluate(() => window.devicePixelRatio),
