@@ -431,7 +431,7 @@ function getDefinitionValue({
     return modelsViewModel.routing.value;
   }
   if (definition.settingBindingId === "models.cloud_local_status") {
-    return modelsViewModel.answer.value;
+    return modelsViewModel.routing.onlineAnswerStatus;
   }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
@@ -1265,7 +1265,7 @@ export function SettingsV2GeneralView({
                     "settings.models.cloudLocalStatus.description",
                   )}
                   title={tSettingsV2(locale, "settings.models.cloudLocalStatus.label")}
-                  value={modelsViewModel.answer.value}
+                  value={modelsViewModel.routing.onlineAnswerStatus}
                 />
                 <div
                   className="settings-v2-models-status-grid"

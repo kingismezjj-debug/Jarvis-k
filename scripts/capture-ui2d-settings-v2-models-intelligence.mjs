@@ -158,6 +158,12 @@ async function assertLayout(page, scenarioName, { expectModelsVisible = true } =
         /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|profileId|providerId|resourceId|fallback)\b/.test(
           text,
         ) ||
+        text.includes("Selected for local use") ||
+        text.includes("已选择用于本地能力") ||
+        (text.includes("Current answer method: local rules") &&
+          text.includes("Current answer method: not configured")) ||
+        (text.includes("当前回答方式：本地规则") &&
+          text.includes("当前回答方式：未配置")) ||
         text.includes("未配置 / 未配置") ||
         text.includes("活动模型租约") ||
         text.includes("本地 Provider") ||

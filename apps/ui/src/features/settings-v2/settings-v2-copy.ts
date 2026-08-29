@@ -467,7 +467,7 @@ export const settingsV2Copy: Record<
     "settings.models.localModels.ready": "Local model ready",
     "settings.models.localModels.installedCount": "Installed on this device",
     "settings.models.localModels.installableCount": "Installable models",
-    "settings.models.localModels.selectedCount": "Selected for local use",
+    "settings.models.localModels.selectedCount": "Selected models",
     "settings.models.localModels.readyCount": "Ready now",
     "settings.models.localModels.unavailableCount": "Unavailable local models",
     "settings.models.localModels.busy": "A local model task is active",
@@ -484,7 +484,7 @@ export const settingsV2Copy: Record<
       "Current answer method: online service",
     "settings.models.routingPolicy.notConfigured":
       "Current answer method: not configured",
-    "settings.models.cloudLocalStatus.label": "Cloud and local status",
+    "settings.models.cloudLocalStatus.label": "Answer service and local status",
     "settings.models.cloudLocalStatus.description":
       "Separates local model readiness from online answer service configuration. Opening this page does not connect online services.",
     "settings.models.cloudLocalStatus.localProviders": "Local services",
@@ -739,7 +739,7 @@ export const settingsV2Copy: Record<
     "settings.models.localModels.ready": "本地模型已就绪",
     "settings.models.localModels.installedCount": "本机已安装",
     "settings.models.localModels.installableCount": "可安装模型",
-    "settings.models.localModels.selectedCount": "已选择用于本地能力",
+    "settings.models.localModels.selectedCount": "已选择模型",
     "settings.models.localModels.readyCount": "当前已就绪",
     "settings.models.localModels.unavailableCount": "暂不可用的本地模型",
     "settings.models.localModels.busy": "有本地模型任务正在进行",
@@ -751,8 +751,8 @@ export const settingsV2Copy: Record<
     "settings.models.routingPolicy.safety": "安全和确认规则保持独立生效。",
     "settings.models.routingPolicy.localModel": "当前回答方式：本地模型",
     "settings.models.routingPolicy.onlineService": "当前回答方式：在线服务",
-    "settings.models.routingPolicy.notConfigured": "当前回答方式：未配置",
-    "settings.models.cloudLocalStatus.label": "云端与本地状态",
+    "settings.models.routingPolicy.notConfigured": "当前回答方式：尚未配置",
+    "settings.models.cloudLocalStatus.label": "回答服务与本地状态",
     "settings.models.cloudLocalStatus.description":
       "区分本地模型就绪状态和在线回答服务配置。打开本页不会连接在线服务。",
     "settings.models.cloudLocalStatus.localProviders": "本地服务提供方",

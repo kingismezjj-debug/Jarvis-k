@@ -401,9 +401,33 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Local model ready");
     expect(html).toContain("Installed on this device: 1");
     expect(html).toContain("Installable models: 1");
-    expect(html).toContain("Selected for local use: 1");
+    expect(html).toContain("Selected models: 1");
     expect(html).toContain("Ready now: 1");
     expect(html).not.toContain("Missing:");
+  });
+
+  it("uses one authoritative current answer method when local rules handle routing and online service is unconfigured", () => {
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: {
+        enabled: true,
+        secureStorageAvailable: true,
+        credentialConfigured: false,
+      } as unknown as ChatAnswerProductModeStatus,
+      commandRouterProductModeStatus: {
+        enabled: false,
+        status: "disabled",
+      } as unknown as CommandRouterProductModeStatus,
+      modelInventory: [],
+      modelManifests: [],
+    });
+    const answerMethodMatches =
+      html.match(/Current answer method: local rules/g) ?? [];
+    expect(answerMethodMatches).toHaveLength(1);
+    expect(html).toContain(
+      "Online answer service: Allowed, service not configured",
+    );
+    expect(html).not.toContain("Current answer method: not configured");
   });
 
   it("keeps saved answer credentials separate from provider availability", () => {

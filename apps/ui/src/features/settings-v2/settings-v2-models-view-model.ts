@@ -17,11 +17,13 @@ import {
 export type SettingsV2ModelsProductViewModel = {
   command: {
     checked: boolean;
+    routingAvailable: boolean;
     value: string;
     detail: string;
   };
   answer: {
     checked: boolean;
+    answerAvailable: boolean;
     value: string;
     detail: string;
   };
@@ -36,6 +38,7 @@ export type SettingsV2ModelsProductViewModel = {
   routing: {
     value: string;
     details: string[];
+    onlineAnswerStatus: string;
   };
   operations: {
     activeCount: number;
@@ -81,15 +84,20 @@ export function buildSettingsV2ModelsProductViewModel({
     operations,
     routing: {
       value: selectCurrentAnswerMethod({
-        answerValue: answer.value,
-        commandEnabled: command.checked,
+        answerAvailable: answer.answerAvailable,
+        commandRoutingAvailable: command.routingAvailable,
         locale,
         localModelReady: localModels.readyCount > 0,
       }),
       details: [
-        tSettingsV2(locale, "settings.models.routingPolicy.localRules"),
+        localModels.value,
         tSettingsV2(locale, "settings.models.routingPolicy.safety"),
       ],
+      onlineAnswerStatus: formatSubjectStatus({
+        locale,
+        label: tSettingsV2(locale, "settings.models.answerProvider.label"),
+        value: answer.value,
+      }),
     },
     safeNotice: tSettingsV2(locale, "settings.models.status.noNetworkOnOpen"),
   };
@@ -102,6 +110,7 @@ function formatCommandRouter(
   if (!status) {
     return {
       checked: false,
+      routingAvailable: false,
       value: tSettingsV2(locale, "settings.status.unknown"),
       detail: tSettingsV2(locale, "settings.models.fastCommand.statusUnknown"),
     };
@@ -109,6 +118,7 @@ function formatCommandRouter(
   if (!status.enabled) {
     return {
       checked: false,
+      routingAvailable: true,
       value: tSettingsV2(locale, "settings.models.status.defaultCommandRouting"),
       detail: tSettingsV2(locale, "settings.models.fastCommand.defaultRoute"),
     };
@@ -116,12 +126,14 @@ function formatCommandRouter(
   if (status.status === "control_enabled_rules_only") {
     return {
       checked: true,
+      routingAvailable: true,
       value: tSettingsV2(locale, "settings.models.status.localRulesEnabled"),
       detail: tSettingsV2(locale, "settings.models.fastCommand.localRules"),
     };
   }
   return {
     checked: true,
+    routingAvailable: false,
     value: tSettingsV2(locale, "settings.models.status.localRoutingUnavailable"),
     detail: tSettingsV2(locale, "settings.models.fastCommand.statusUnavailable"),
   };
@@ -134,6 +146,7 @@ function formatAnswerService(
   if (!status) {
     return {
       checked: false,
+      answerAvailable: false,
       value: tSettingsV2(locale, "settings.status.unknown"),
       detail: tSettingsV2(locale, "settings.models.answerProvider.statusUnknown"),
     };
@@ -141,6 +154,7 @@ function formatAnswerService(
   if (!status.secureStorageAvailable) {
     return {
       checked: status.enabled,
+      answerAvailable: false,
       value: tSettingsV2(
         locale,
         "settings.models.answerProvider.secureStorageUnavailable",
@@ -151,6 +165,7 @@ function formatAnswerService(
   if (!status.credentialConfigured) {
     return {
       checked: status.enabled,
+      answerAvailable: false,
       value: status.enabled
         ? tSettingsV2(locale, "settings.models.answerProvider.allowedNeedsSetup")
         : tSettingsV2(locale, "settings.models.answerProvider.notConfigured"),
@@ -160,6 +175,7 @@ function formatAnswerService(
   if (status.realProviderRuntimeEnabled && status.networkAccessApproved) {
     return {
       checked: status.enabled,
+      answerAvailable: true,
       value: tSettingsV2(locale, "settings.models.answerProvider.available"),
       detail: tSettingsV2(locale, "settings.models.answerProvider.verified"),
     };
@@ -167,6 +183,7 @@ function formatAnswerService(
   if (status.enabled) {
     return {
       checked: true,
+      answerAvailable: false,
       value: tSettingsV2(
         locale,
         "settings.models.answerProvider.configuredNotVerified",
@@ -176,6 +193,7 @@ function formatAnswerService(
   }
   return {
     checked: false,
+    answerAvailable: false,
     value: tSettingsV2(locale, "settings.models.answerProvider.configuredOff"),
     detail: tSettingsV2(locale, "settings.models.answerProvider.savedOff"),
   };
@@ -286,27 +304,36 @@ function formatModelOperations(
   };
 }
 
+function formatSubjectStatus({
+  label,
+  locale,
+  value,
+}: {
+  label: string;
+  locale: SettingsV2Locale;
+  value: string;
+}): string {
+  return locale === "zh" ? `${label}：${value}` : `${label}: ${value}`;
+}
+
 function selectCurrentAnswerMethod({
-  answerValue,
-  commandEnabled,
+  answerAvailable,
+  commandRoutingAvailable,
   locale,
   localModelReady,
 }: {
-  answerValue: string;
-  commandEnabled: boolean;
+  answerAvailable: boolean;
+  commandRoutingAvailable: boolean;
   locale: SettingsV2Locale;
   localModelReady: boolean;
 }): string {
   if (localModelReady) {
     return tSettingsV2(locale, "settings.models.routingPolicy.localModel");
   }
-  if (
-    answerValue ===
-    tSettingsV2(locale, "settings.models.answerProvider.available")
-  ) {
+  if (answerAvailable) {
     return tSettingsV2(locale, "settings.models.routingPolicy.onlineService");
   }
-  if (commandEnabled) {
+  if (commandRoutingAvailable) {
     return tSettingsV2(locale, "settings.models.routingPolicy.localRules");
   }
   return tSettingsV2(locale, "settings.models.routingPolicy.notConfigured");
