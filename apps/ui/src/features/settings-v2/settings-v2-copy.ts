@@ -240,10 +240,14 @@ export type SettingsV2CopyKey =
   | "settings.tools.plugins.description"
   | "settings.tools.plugins.action"
   | "settings.tools.plugins.noneInstalled"
+  | "settings.tools.plugins.noProductPlugins"
   | "settings.tools.plugins.installed"
+  | "settings.tools.plugins.productInstalled"
   | "settings.tools.plugins.enabled"
+  | "settings.tools.plugins.productEnabled"
   | "settings.tools.plugins.availableForUse"
   | "settings.tools.plugins.readOnly"
+  | "settings.tools.plugins.developerExamplesHidden"
   | "settings.tools.plugins.thirdPartyDisabled"
   | "settings.tools.plugins.noMarketplace"
   | "settings.tools.plugins.statusUnknown"
@@ -257,6 +261,7 @@ export type SettingsV2CopyKey =
   | "settings.tools.mcp.noAutoConnect"
   | "settings.tools.mcp.noExternalRun"
   | "settings.tools.mcp.userControlled"
+  | "settings.tools.safeViewing.title"
   | "settings.tools.status.noExecutionOnOpen"
   | "settings.common.currentValue"
   | "settings.common.close"
@@ -297,7 +302,7 @@ export const settingsV2Copy: Record<
   en: {
     "settings.shell.title": "Jarvis Control Center",
     "settings.shell.description":
-      "General, Appearance & Pet, Voice & Audio, and Models & Intelligence settings are available in this preview. Other categories stay on the legacy settings surface.",
+      "Available categories are listed from the Settings registry. Categories not moved yet continue to use legacy settings.",
     "settings.shell.search": "Search settings",
     "settings.shell.category": "Settings category",
     "settings.shell.migratedOnly": "Settings preview",
@@ -563,7 +568,7 @@ export const settingsV2Copy: Record<
       "Opening this page does not connect online services or load, download, or delete models.",
     "settings.tools.title": "Tools & Plugins",
     "settings.tools.description":
-      "Review desktop actions, safe website access, read-only file search, installed plugins, and external tool connection readiness without running anything.",
+      "Review desktop actions, safe website access, read-only file search, Product plugins, and external tool readiness.",
     "settings.tools.section.automation": "Tools and automation",
     "settings.tools.section.apps": "Approved apps",
     "settings.tools.section.websites": "Safe website access",
@@ -577,7 +582,7 @@ export const settingsV2Copy: Record<
     "settings.tools.automation.confirmation":
       "Higher-risk actions still require confirmation.",
     "settings.tools.automation.noRunOnOpen":
-      "Opening this page does not run a tool.",
+      "Tool actions still start only from explicit user requests.",
     "settings.tools.approvedApps.label": "Approved app openings",
     "settings.tools.approvedApps.description":
       "App opening uses the existing approved-app policy and does not expose system paths here.",
@@ -585,13 +590,13 @@ export const settingsV2Copy: Record<
     "settings.tools.approvedApps.confirmation":
       "Unknown or unsupported apps are not opened from this page.",
     "settings.tools.approvedApps.noLaunchOnOpen":
-      "Opening this page does not launch apps.",
+      "App launches still require a separate command and safety gate.",
     "settings.tools.safeWebsites.label": "Safe website openings",
     "settings.tools.safeWebsites.description":
       "Website opening keeps the existing confirmation behavior for unknown destinations.",
     "settings.tools.safeWebsites.confirmFirst": "Unknown websites ask first",
     "settings.tools.safeWebsites.noBrowserOnOpen":
-      "Opening this page does not open a browser.",
+      "Website openings still require a separate command.",
     "settings.tools.safeWebsites.unknownAsk":
       "New website requests stay behind confirmation.",
     "settings.tools.fileSearch.label": "Local file search",
@@ -600,16 +605,22 @@ export const settingsV2Copy: Record<
     "settings.tools.fileSearch.readOnly": "Read-only",
     "settings.tools.fileSearch.filenameOnly": "Filename-focused results",
     "settings.tools.fileSearch.noScanOnOpen":
-      "Opening this page does not scan or index files.",
-    "settings.tools.plugins.label": "Installed plugins",
+      "Search starts only after a separate user request.",
+    "settings.tools.plugins.label": "Product plugins",
     "settings.tools.plugins.description":
       "Plugin status comes from the existing plugin management service.",
     "settings.tools.plugins.action": "Open plugin management",
     "settings.tools.plugins.noneInstalled": "No plugins installed",
+    "settings.tools.plugins.noProductPlugins":
+      "No Product plugins are installed",
     "settings.tools.plugins.installed": "installed",
+    "settings.tools.plugins.productInstalled": "Product plugins installed",
     "settings.tools.plugins.enabled": "enabled",
+    "settings.tools.plugins.productEnabled": "Product plugins enabled",
     "settings.tools.plugins.availableForUse": "Ready for safe use",
     "settings.tools.plugins.readOnly": "Read-only plugins",
+    "settings.tools.plugins.developerExamplesHidden":
+      "Developer example plugins are hidden from Product settings.",
     "settings.tools.plugins.thirdPartyDisabled":
       "Third-party code stays disabled by default.",
     "settings.tools.plugins.noMarketplace":
@@ -618,7 +629,7 @@ export const settingsV2Copy: Record<
       "Plugin status has not been reported yet.",
     "settings.tools.plugins.refreshNeeded":
       "Refresh plugin management to read the latest local status.",
-    "settings.tools.mcp.label": "External tool connections (MCP)",
+    "settings.tools.mcp.label": "External tool connections",
     "settings.tools.mcp.description":
       "External tool connections are shown only as safe readiness status in this version.",
     "settings.tools.mcp.unavailable": "Not available in this version",
@@ -627,13 +638,14 @@ export const settingsV2Copy: Record<
       "Connection status has not been reported yet.",
     "settings.tools.mcp.notConnected": "No connection is active.",
     "settings.tools.mcp.noAutoConnect":
-      "Opening this page does not connect to external tools.",
+      "Opening or viewing this page does not connect to external tools.",
     "settings.tools.mcp.noExternalRun":
       "External tool startup and execution stay disabled.",
     "settings.tools.mcp.userControlled":
       "Connections remain user controlled.",
+    "settings.tools.safeViewing.title": "Safe viewing",
     "settings.tools.status.noExecutionOnOpen":
-      "Opening this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools.",
+      "Opening or viewing this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools. Some plugins and external tools may use non-local connections only after separate setup and confirmation.",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -662,7 +674,7 @@ export const settingsV2Copy: Record<
   zh: {
     "settings.shell.title": "Jarvis 控制中心",
     "settings.shell.description":
-      "当前预览开放通用、外观与桌宠、语音与音频、模型与智能设置。其他分类仍保留在旧版设置界面中。",
+      "已开放分类由设置注册表生成。尚未迁移的分类继续使用旧版设置。",
     "settings.shell.search": "搜索设置",
     "settings.shell.category": "设置分类",
     "settings.shell.migratedOnly": "设置预览",
@@ -906,7 +918,7 @@ export const settingsV2Copy: Record<
       "打开此页面不会连接在线服务，也不会加载、下载或删除模型。",
     "settings.tools.title": "工具与插件",
     "settings.tools.description":
-      "查看桌面操作、安全网站访问、只读文件搜索、已安装插件和外部工具连接状态。打开本页不会运行任何工具。",
+      "查看桌面操作、安全网站访问、只读文件搜索、普通用户插件和外部工具准备状态。",
     "settings.tools.section.automation": "工具与自动化",
     "settings.tools.section.apps": "已批准应用",
     "settings.tools.section.websites": "安全网站访问",
@@ -918,19 +930,19 @@ export const settingsV2Copy: Record<
       "桌面操作继续受 Jarvis 的安全检查和确认规则保护。",
     "settings.tools.automation.guarded": "受安全检查保护",
     "settings.tools.automation.confirmation": "风险较高的操作仍需要确认。",
-    "settings.tools.automation.noRunOnOpen": "打开本页不会运行工具。",
+    "settings.tools.automation.noRunOnOpen": "工具操作只会从明确的用户请求开始。",
     "settings.tools.approvedApps.label": "已批准的应用打开",
     "settings.tools.approvedApps.description":
       "应用打开继续使用现有已批准应用规则，本页不显示系统路径。",
     "settings.tools.approvedApps.managed": "由安全规则管理",
     "settings.tools.approvedApps.confirmation":
       "未知或不支持的应用不会从本页打开。",
-    "settings.tools.approvedApps.noLaunchOnOpen": "打开本页不会启动应用。",
+    "settings.tools.approvedApps.noLaunchOnOpen": "应用启动仍需要单独命令和安全检查。",
     "settings.tools.safeWebsites.label": "安全网站打开",
     "settings.tools.safeWebsites.description":
       "网站打开继续沿用未知目标先确认的规则。",
     "settings.tools.safeWebsites.confirmFirst": "未知网站会先询问",
-    "settings.tools.safeWebsites.noBrowserOnOpen": "打开本页不会打开浏览器。",
+    "settings.tools.safeWebsites.noBrowserOnOpen": "网站打开仍需要单独命令。",
     "settings.tools.safeWebsites.unknownAsk": "新网站请求仍需要确认。",
     "settings.tools.fileSearch.label": "本机文件搜索",
     "settings.tools.fileSearch.description":
@@ -938,34 +950,40 @@ export const settingsV2Copy: Record<
     "settings.tools.fileSearch.readOnly": "只读",
     "settings.tools.fileSearch.filenameOnly": "以文件名结果为主",
     "settings.tools.fileSearch.noScanOnOpen":
-      "打开本页不会扫描、索引或读取文件内容。",
-    "settings.tools.plugins.label": "已安装插件",
+      "搜索只会在用户单独请求后开始。",
+    "settings.tools.plugins.label": "普通用户插件",
     "settings.tools.plugins.description":
       "插件状态来自现有插件管理服务。",
     "settings.tools.plugins.action": "打开插件管理",
     "settings.tools.plugins.noneInstalled": "未安装插件",
+    "settings.tools.plugins.noProductPlugins": "暂无面向普通用户的插件",
     "settings.tools.plugins.installed": "已安装",
+    "settings.tools.plugins.productInstalled": "普通用户插件已安装",
     "settings.tools.plugins.enabled": "已启用",
+    "settings.tools.plugins.productEnabled": "普通用户插件已启用",
     "settings.tools.plugins.availableForUse": "可安全使用",
     "settings.tools.plugins.readOnly": "只读插件",
+    "settings.tools.plugins.developerExamplesHidden":
+      "开发示例插件已从普通设置中隐藏。",
     "settings.tools.plugins.thirdPartyDisabled":
       "第三方代码默认保持关闭。",
     "settings.tools.plugins.noMarketplace": "尚未使用插件市场访问。",
     "settings.tools.plugins.statusUnknown": "尚未读取插件状态。",
     "settings.tools.plugins.refreshNeeded":
       "刷新插件管理后可读取最新本机状态。",
-    "settings.tools.mcp.label": "外部工具连接（MCP）",
+    "settings.tools.mcp.label": "外部工具连接",
     "settings.tools.mcp.description":
       "此版本只显示外部工具连接的安全状态。",
     "settings.tools.mcp.unavailable": "当前版本暂不可用",
     "settings.tools.mcp.available": "可用",
     "settings.tools.mcp.statusUnknown": "尚未读取连接状态。",
     "settings.tools.mcp.notConnected": "当前没有活动连接。",
-    "settings.tools.mcp.noAutoConnect": "打开本页不会连接外部工具。",
+    "settings.tools.mcp.noAutoConnect": "打开或查看本页不会连接外部工具。",
     "settings.tools.mcp.noExternalRun": "外部工具启动和运行保持关闭。",
     "settings.tools.mcp.userControlled": "连接仍由用户控制。",
+    "settings.tools.safeViewing.title": "安全查看",
     "settings.tools.status.noExecutionOnOpen":
-      "打开本页不会运行工具、启动应用、打开网站、搜索文件、调用插件或连接外部工具。",
+      "打开或查看本页不会运行工具、启动应用、打开网站、搜索文件、调用插件或连接外部工具。部分插件和外部工具可能在单独设置和确认后使用非本机连接。",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",

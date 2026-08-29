@@ -53,6 +53,7 @@ import {
   type SettingsV2CopyKey,
   type SettingsV2Locale,
 } from "./settings-v2-copy";
+import { formatSettingsV2MigrationSummary } from "./settings-v2-migration-summary";
 import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
 import { buildSettingsV2ToolsPluginsProductViewModel } from "./settings-v2-tools-view-model";
 import "./settings-v2.css";
@@ -749,7 +750,7 @@ export function SettingsV2GeneralView({
             {tSettingsV2(locale, "settings.shell.migratedOnly")}
           </span>
         }
-        description={tSettingsV2(locale, "settings.shell.description")}
+        description={formatSettingsV2MigrationSummary(locale)}
         title={tSettingsV2(locale, "settings.shell.title")}
       />
 
@@ -1347,7 +1348,7 @@ export function SettingsV2GeneralView({
                 description={tSettingsV2(locale, "settings.tools.description")}
                 title={tSettingsV2(locale, "settings.tools.title")}
               />
-              <InlineNotice title={tSettingsV2(locale, "settings.status.localOnly")}>
+              <InlineNotice title={tSettingsV2(locale, "settings.tools.safeViewing.title")}>
                 {toolsViewModel.safeNotice}
               </InlineNotice>
 
@@ -1435,52 +1436,56 @@ export function SettingsV2GeneralView({
                 </div>
               </SettingsSection>
 
-              <SettingsSection
-                title={tSettingsV2(locale, "settings.tools.section.plugins")}
-              >
-                <SettingRow
-                  description={tSettingsV2(
-                    locale,
-                    "settings.tools.plugins.description",
-                  )}
-                  title={tSettingsV2(locale, "settings.tools.plugins.label")}
+              <div data-testid="settings-v2-tools-section-plugins">
+                <SettingsSection
+                  title={tSettingsV2(locale, "settings.tools.section.plugins")}
                 >
-                  <SettingValueAction
-                    actionLabel={tSettingsV2(
+                  <SettingRow
+                    description={tSettingsV2(
                       locale,
-                      "settings.tools.plugins.action",
+                      "settings.tools.plugins.description",
                     )}
-                    onAction={onOpenPluginManagement}
-                    value={toolsViewModel.plugins.value}
-                  />
-                </SettingRow>
-                <div
-                  className="settings-v2-tools-status-grid"
-                  data-testid="settings-v2-plugins-status"
-                >
-                  {toolsViewModel.plugins.details.map((detail) => (
-                    <span key={detail}>{detail}</span>
-                  ))}
-                </div>
-              </SettingsSection>
+                    title={tSettingsV2(locale, "settings.tools.plugins.label")}
+                  >
+                    <SettingValueAction
+                      actionLabel={tSettingsV2(
+                        locale,
+                        "settings.tools.plugins.action",
+                      )}
+                      onAction={onOpenPluginManagement}
+                      value={toolsViewModel.plugins.value}
+                    />
+                  </SettingRow>
+                  <div
+                    className="settings-v2-tools-status-grid"
+                    data-testid="settings-v2-plugins-status"
+                  >
+                    {toolsViewModel.plugins.details.map((detail) => (
+                      <span key={detail}>{detail}</span>
+                    ))}
+                  </div>
+                </SettingsSection>
+              </div>
 
-              <SettingsSection
-                title={tSettingsV2(locale, "settings.tools.section.mcp")}
-              >
-                <SettingRow
-                  description={tSettingsV2(locale, "settings.tools.mcp.description")}
-                  title={tSettingsV2(locale, "settings.tools.mcp.label")}
-                  value={toolsViewModel.mcpConnections.value}
-                />
-                <div
-                  className="settings-v2-tools-status-grid"
-                  data-testid="settings-v2-mcp-status"
+              <div data-testid="settings-v2-tools-section-mcp">
+                <SettingsSection
+                  title={tSettingsV2(locale, "settings.tools.section.mcp")}
                 >
-                  {toolsViewModel.mcpConnections.details.map((detail) => (
-                    <span key={detail}>{detail}</span>
-                  ))}
-                </div>
-              </SettingsSection>
+                  <SettingRow
+                    description={tSettingsV2(locale, "settings.tools.mcp.description")}
+                    title={tSettingsV2(locale, "settings.tools.mcp.label")}
+                    value={toolsViewModel.mcpConnections.value}
+                  />
+                  <div
+                    className="settings-v2-tools-status-grid"
+                    data-testid="settings-v2-mcp-status"
+                  >
+                    {toolsViewModel.mcpConnections.details.map((detail) => (
+                      <span key={detail}>{detail}</span>
+                    ))}
+                  </div>
+                </SettingsSection>
+              </div>
             </section>
           ) : (
             <section

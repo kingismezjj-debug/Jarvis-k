@@ -104,6 +104,30 @@ import {
   waitForLocalTtsVoices,
 } from "@/voice/local-tts";
 
+function formatProductRuntimeSubtitle(
+  locale: UiLanguage,
+  runtimeMode: string,
+  memoryState: string | undefined,
+) {
+  const systemStatus =
+    runtimeMode === "standard"
+      ? locale === "zh"
+        ? "系统状态：就绪"
+        : "System status: ready"
+      : locale === "zh"
+        ? "系统状态：暂不可用"
+        : "System status: unavailable";
+  const memoryStatus =
+    memoryState === "enabled"
+      ? locale === "zh"
+        ? "记忆功能：开启"
+        : "Memory: on"
+      : locale === "zh"
+        ? "记忆功能：关闭"
+        : "Memory: off";
+  return `${systemStatus} / ${memoryStatus}`;
+}
+
 export default function App() {
   const uiSurfaceMode = useUiSurfaceMode();
   const {
@@ -861,10 +885,18 @@ export default function App() {
             : activeView === "voice"
               ? `${snapshot?.voice.mode ?? "manual"} / ${snapshot?.voice.state ?? "idle"}`
               : activeView === "settings"
-                ? `runtime ${runtimeMode} / Memory alpha ${memoryAlpha?.state ?? "unknown"}`
+                ? formatProductRuntimeSubtitle(
+                    uiLanguage,
+                    runtimeMode,
+                    memoryAlpha?.state,
+                  )
                 : activeView === "developer"
                   ? `${uiSurfaceMode.effectiveSurface} / evaluation ${evaluationSurfaceEnabled ? "available" : "hidden"}`
-                  : `${recentEvents.length} recent events / Memory alpha ${memoryAlpha?.state ?? "unknown"}`;
+                  : `${recentEvents.length} recent events / ${formatProductRuntimeSubtitle(
+                      uiLanguage,
+                      runtimeMode,
+                      memoryAlpha?.state,
+                    )}`;
 
   useEffect(() => {
     if (textOnlyAcceptanceMode && activeView === "voice") {
@@ -1956,7 +1988,7 @@ export default function App() {
             ) : (
               <>
                 <Badge className="rounded-md text-[10px]" variant="secondary">
-                  {activeView.toUpperCase()}
+                  {copy.nav[activeView]}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {lastAction?.label ?? copy.label.readyDiagnostics}

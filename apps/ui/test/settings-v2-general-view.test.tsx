@@ -194,6 +194,10 @@ describe("Settings V2 General view", () => {
   it("renders the real General settings values in English", () => {
     const html = renderView();
     expect(html).toContain("Jarvis Control Center");
+    expect(html).toContain("Available in this preview");
+    expect(html).toContain("Tools &amp; Plugins");
+    expect(html).toContain("Still in legacy settings");
+    expect(html).toContain("Memory &amp; Privacy");
     expect(html).toContain("Display language");
     expect(html).toContain("English");
     expect(html).toContain("When closing the main window");
@@ -206,6 +210,9 @@ describe("Settings V2 General view", () => {
   it("renders productized zh-CN General copy", () => {
     const html = renderView({ locale: "zh" });
     expect(html).toContain("Jarvis 控制中心");
+    expect(html).toContain("当前预览已开放");
+    expect(html).toContain("工具与插件");
+    expect(html).toContain("仍使用旧版设置");
     expect(html).toContain("界面语言");
     expect(html).toContain("中文（简体）");
     expect(html).toContain("关闭主窗口时");
@@ -344,9 +351,12 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Managed by safety policy");
     expect(html).toContain("Unknown websites ask first");
     expect(html).toContain("Read-only");
-    expect(html).toContain("1 installed, 1 enabled");
-    expect(html).toContain("Ready for safe use: 1");
-    expect(html).toContain("External tool connections (MCP)");
+    expect(html).toContain("No Product plugins are installed");
+    expect(html).toContain("Product plugins installed: 0");
+    expect(html).toContain(
+      "Developer example plugins are hidden from Product settings.",
+    );
+    expect(html).toContain("External tool connections");
     expect(html).toContain("Not available in this version");
     for (const forbidden of [
       "cn.jarvis-k.stock-analysis",
@@ -379,8 +389,10 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("由安全规则管理");
     expect(html).toContain("未知网站会先询问");
     expect(html).toContain("只读");
-    expect(html).toContain("已安装 1 个，已启用 1 个");
-    expect(html).toContain("外部工具连接（MCP）");
+    expect(html).toContain("暂无面向普通用户的插件");
+    expect(html).toContain("普通用户插件已安装: 0");
+    expect(html).toContain("开发示例插件已从普通设置中隐藏。");
+    expect(html).toContain("外部工具连接");
     for (const forbidden of [
       "fixture",
       "evaluation",
@@ -401,6 +413,22 @@ describe("Settings V2 General view", () => {
     ]) {
       expect(html).not.toContain(forbidden);
     }
+  });
+
+  it("renders a true empty Tools & Plugins Product state from an empty safe projection", () => {
+    const html = renderView({
+      initialCategoryId: "tools_plugins",
+      pluginManagementStatus: {
+        ...pluginManagementStatus,
+        plugins: [],
+      } as PluginManagementStatusResult,
+    });
+
+    expect(html).toContain("No Product plugins are installed");
+    expect(html).toContain("Product plugins installed: 0");
+    expect(html).not.toContain(
+      "Developer example plugins are hidden from Product settings.",
+    );
   });
 
   it("includes Voice & Audio in product search results with current values", () => {
@@ -607,7 +635,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Allowed, but the service has not been verified");
     expect(html).not.toContain("Connected");
     expect(html).not.toContain("Ready to use");
-    expect(html).not.toContain("Available");
+    expect(html).not.toContain("Current value: Available");
   });
 
   it("includes Models & Intelligence in product search results with current values", () => {
@@ -733,6 +761,8 @@ describe("Settings V2 General view", () => {
       "settings-v2-general-view.tsx",
       "settings-v2-registry.ts",
       "settings-v2-copy.ts",
+      "settings-v2-migration-summary.ts",
+      "settings-v2-tools-view-model.ts",
     ]
       .map((file) => readFileSync(path.join(featureDirectory, file), "utf8"))
       .join("\n");

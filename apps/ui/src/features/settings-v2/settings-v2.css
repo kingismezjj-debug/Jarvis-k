@@ -1,8 +1,16 @@
 .settings-v2-shell {
   background: var(--jk-color-background-canvas);
+  box-sizing: border-box;
   color: var(--jk-color-text-primary);
   min-height: 100%;
+  overflow-x: hidden;
   padding: var(--jk-spacing-6);
+}
+
+.settings-v2-shell *,
+.settings-v2-shell *::before,
+.settings-v2-shell *::after {
+  box-sizing: border-box;
 }
 
 .settings-v2-shell > .jk-settings-page-header,
@@ -48,7 +56,10 @@
   gap: var(--jk-spacing-6);
   grid-template-columns: var(--jk-layout-navigation-width) minmax(0, 1fr);
   margin: 0 auto;
-  max-width: calc(var(--jk-layout-content-max-width) + var(--jk-layout-navigation-width) + var(--jk-spacing-6));
+  max-width: min(
+    100%,
+    calc(var(--jk-layout-content-max-width) + var(--jk-layout-navigation-width) + var(--jk-spacing-6))
+  );
 }
 
 .settings-v2-content {
@@ -279,7 +290,7 @@
   gap: var(--jk-spacing-2);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .settings-v2-shell {
     padding: var(--jk-spacing-4);
   }
@@ -302,6 +313,17 @@
 
   .settings-v2-search-row {
     margin-bottom: var(--jk-spacing-4);
+  }
+
+  .settings-v2-search-row,
+  .settings-v2-layout,
+  .settings-v2-content,
+  .settings-v2-content [data-testid="settings-v2-general"],
+  .settings-v2-content [data-testid="settings-v2-appearance-pet"],
+  .settings-v2-content [data-testid="settings-v2-voice-audio"],
+  .settings-v2-content [data-testid="settings-v2-models-intelligence"],
+  .settings-v2-content [data-testid="settings-v2-tools-plugins"] {
+    max-width: 100%;
   }
 
   .settings-v2-status-row,

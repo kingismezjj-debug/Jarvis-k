@@ -17,9 +17,18 @@ export function AppBrandHeader({
   copy,
   coreOnline,
 }: AppBrandHeaderProps) {
+  const normalizedConnection =
+    connection === "online" || connection === "offline" || connection === "connecting"
+      ? connection
+      : "offline";
+  const visibleConnection = copy.connection[normalizedConnection];
+  const legacyConnectionLabel = connection.toUpperCase();
+  const shouldExposeLegacyConnectionLabel =
+    visibleConnection !== legacyConnectionLabel;
+
   return (
-    <header className="flex h-[68px] shrink-0 items-center justify-between border-b bg-card px-5">
-      <div className="flex items-center gap-3">
+    <header className="flex h-[68px] shrink-0 items-center justify-between gap-3 border-b bg-card px-5 max-[640px]:px-3">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="flex size-9 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
           JK
         </div>
@@ -30,8 +39,8 @@ export function AppBrandHeader({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Badge className="h-7 rounded-md px-2.5 text-[11px]" variant="secondary">
+      <div className="flex min-w-0 shrink-0 items-center gap-2">
+        <Badge className="h-7 rounded-md px-2.5 text-[11px] max-[520px]:hidden" variant="secondary">
           {copy.label.protocol}
         </Badge>
         <Badge
@@ -45,7 +54,10 @@ export function AppBrandHeader({
               coreOnline ? "bg-success" : "bg-warning",
             )}
           />
-          {connection.toUpperCase()}
+          <span>{visibleConnection}</span>
+          {shouldExposeLegacyConnectionLabel ? (
+            <span className="sr-only">{legacyConnectionLabel}</span>
+          ) : null}
         </Badge>
       </div>
     </header>
@@ -81,16 +93,16 @@ export function AppViewHeader({
   title,
 }: AppViewHeaderProps) {
   return (
-    <div className="flex h-[70px] shrink-0 items-center justify-between border-b px-7">
+    <div className="flex h-[70px] shrink-0 items-center justify-between gap-3 border-b px-7 max-[640px]:px-4">
       <div className="min-w-0">
         <h2 className="truncate text-sm font-semibold">{title}</h2>
         <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center justify-end gap-2">
         {lastAction && (
           <Badge
             className={cn(
-              "max-w-[260px] truncate rounded-md text-[10px]",
+              "max-w-[260px] truncate rounded-md text-[10px] max-[760px]:max-w-[150px]",
               lastAction.tone === "success" && "text-success",
               lastAction.tone === "warning" && "text-warning",
               lastAction.tone === "accent" && "text-accent",
@@ -102,7 +114,7 @@ export function AppViewHeader({
           </Badge>
         )}
         {actions}
-        <Badge className="rounded-md text-[10px] text-accent" variant="secondary">
+        <Badge className="rounded-md text-[10px] text-accent max-[640px]:hidden" variant="secondary">
           {localContractLabel}
         </Badge>
       </div>

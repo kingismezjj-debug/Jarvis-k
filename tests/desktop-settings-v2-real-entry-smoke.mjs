@@ -172,15 +172,18 @@ async function runGateOnScenario() {
     await window.getByText("Automation safeguards").waitFor({
       timeout: 5_000,
     });
-    await window.getByText("Installed plugins", { exact: true }).waitFor({
-      timeout: 5_000,
-    });
-    await window.getByText("External tool connections (MCP)").waitFor({
+    await window.getByText("Product plugins", { exact: true }).waitFor({
       timeout: 5_000,
     });
     await window
+      .getByTestId("settings-v2-tools-section-mcp")
+      .getByRole("heading", { name: "External tool connections" })
+      .waitFor({
+      timeout: 5_000,
+      });
+    await window
       .getByText(
-        "Opening this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools.",
+        "Opening or viewing this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools. Some plugins and external tools may use non-local connections only after separate setup and confirmation.",
         { exact: true },
       )
       .waitFor({

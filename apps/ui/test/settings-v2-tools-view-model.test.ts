@@ -5,10 +5,14 @@ import { buildSettingsV2ToolsPluginsProductViewModel } from "../src/features/set
 
 function pluginStatus({
   enabled = true,
+  id = "com.jarvis-k.product.readonly",
+  name = "Read-only Knowledge Lookup",
   routeSelectable = true,
   readOnly = true,
 }: {
   enabled?: boolean;
+  id?: string;
+  name?: string;
   routeSelectable?: boolean;
   readOnly?: boolean;
 } = {}): PluginManagementStatusResult {
@@ -16,11 +20,11 @@ function pluginStatus({
     plugins: [
       {
         manifest: {
-          id: "cn.jarvis-k.stock-analysis",
-          name: "Stock Analysis Sample",
+          id,
+          name,
           version: "0.1.0",
           runtime: "node-worker",
-          capabilities: ["stock.quote"],
+          capabilities: ["knowledge.lookup"],
           permissions: [],
         },
         source: "bundled",
@@ -37,7 +41,7 @@ function pluginStatus({
           confirmationPolicy: "none",
           capabilityStatuses: [
             {
-              capability: "stock.quote",
+              capability: "knowledge.lookup",
               manifestRisk: "low",
               riskTier: "low",
               readOnly,
@@ -85,8 +89,49 @@ describe("Settings V2 Tools & Plugins product view model", () => {
     expect(viewModel.plugins.enabledCount).toBe(1);
     expect(viewModel.plugins.availableCount).toBe(0);
     expect(viewModel.plugins.readOnlyCount).toBe(1);
-    expect(viewModel.plugins.value).toBe("1 installed, 1 enabled");
+    expect(viewModel.plugins.hiddenDeveloperExampleCount).toBe(0);
+    expect(viewModel.plugins.value).toBe(
+      "1 Product plugins installed, 1 Product plugins enabled",
+    );
     expect(viewModel.plugins.details).toContain("Ready for safe use: 0");
+  });
+
+  it("hides bundled sample plugins from the ordinary Product projection", () => {
+    const viewModel = buildSettingsV2ToolsPluginsProductViewModel({
+      locale: "en",
+      pluginManagementStatus: pluginStatus({
+        id: "cn.jarvis-k.stock-analysis",
+        name: "Stock Analysis Sample",
+      }),
+    });
+
+    expect(viewModel.plugins.installedCount).toBe(0);
+    expect(viewModel.plugins.enabledCount).toBe(0);
+    expect(viewModel.plugins.availableCount).toBe(0);
+    expect(viewModel.plugins.readOnlyCount).toBe(0);
+    expect(viewModel.plugins.hiddenDeveloperExampleCount).toBe(1);
+    expect(viewModel.plugins.value).toBe("No Product plugins are installed");
+    expect(viewModel.plugins.details).toContain(
+      "Developer example plugins are hidden from Product settings.",
+    );
+  });
+
+  it("renders a true empty Product plugin state from an empty safe projection", () => {
+    const emptyStatus = {
+      ...pluginStatus(),
+      plugins: [],
+    } as PluginManagementStatusResult;
+    const viewModel = buildSettingsV2ToolsPluginsProductViewModel({
+      locale: "en",
+      pluginManagementStatus: emptyStatus,
+    });
+
+    expect(viewModel.plugins.value).toBe("No Product plugins are installed");
+    expect(viewModel.plugins.details).toContain("Product plugins installed: 0");
+    expect(viewModel.plugins.details).toContain("Product plugins enabled: 0");
+    expect(viewModel.plugins.details).not.toContain(
+      "Developer example plugins are hidden from Product settings.",
+    );
   });
 
   it("does not describe the status-only MCP adapter as connected", () => {
@@ -99,7 +144,7 @@ describe("Settings V2 Tools & Plugins product view model", () => {
       "Not available in this version",
     );
     expect(viewModel.mcpConnections.details).toEqual([
-      "Opening this page does not connect to external tools.",
+      "Opening or viewing this page does not connect to external tools.",
       "External tool startup and execution stay disabled.",
     ]);
   });
@@ -111,14 +156,17 @@ describe("Settings V2 Tools & Plugins product view model", () => {
     });
 
     expect(viewModel.safeNotice).toContain("does not run tools");
+    expect(viewModel.safeNotice).toContain(
+      "may use non-local connections only after separate setup",
+    );
     expect(viewModel.approvedApps.details).toContain(
-      "Opening this page does not launch apps.",
+      "App launches still require a separate command and safety gate.",
     );
     expect(viewModel.safeWebsites.details).toContain(
-      "Opening this page does not open a browser.",
+      "Website openings still require a separate command.",
     );
     expect(viewModel.fileSearch.details).toContain(
-      "Opening this page does not scan or index files.",
+      "Search starts only after a separate user request.",
     );
   });
 });

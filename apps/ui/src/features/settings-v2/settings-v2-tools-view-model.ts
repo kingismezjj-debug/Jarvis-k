@@ -29,6 +29,7 @@ export type SettingsV2ToolsPluginsProductViewModel = {
     enabledCount: number;
     availableCount: number;
     readOnlyCount: number;
+    hiddenDeveloperExampleCount: number;
     details: string[];
   };
   mcpConnections: {
@@ -91,39 +92,54 @@ function formatPluginSummary(
       enabledCount: 0,
       availableCount: 0,
       readOnlyCount: 0,
+      hiddenDeveloperExampleCount: 0,
       details: [tSettingsV2(locale, "settings.tools.plugins.refreshNeeded")],
     };
   }
 
-  const installedCount = status.plugins.length;
-  const enabledCount = status.plugins.filter(
+  const productPlugins = status.plugins.filter(isProductVisiblePlugin);
+  const hiddenDeveloperExampleCount =
+    status.plugins.length - productPlugins.length;
+  const installedCount = productPlugins.length;
+  const enabledCount = productPlugins.filter(
     (plugin) => plugin.state === "enabled",
   ).length;
-  const availableCount = status.plugins.filter(
+  const availableCount = productPlugins.filter(
     (plugin) => plugin.state === "enabled" && plugin.routeSelectable,
   ).length;
-  const readOnlyCount = status.plugins.filter((plugin) =>
+  const readOnlyCount = productPlugins.filter((plugin) =>
     plugin.riskAssessment.capabilityStatuses.every(
       (capability) => capability.readOnly,
     ),
   ).length;
   const value =
     installedCount === 0
-      ? tSettingsV2(locale, "settings.tools.plugins.noneInstalled")
+      ? tSettingsV2(locale, "settings.tools.plugins.noProductPlugins")
       : formatCountPair({
           locale,
-          firstLabel: tSettingsV2(locale, "settings.tools.plugins.installed"),
+          firstLabel: tSettingsV2(
+            locale,
+            "settings.tools.plugins.productInstalled",
+          ),
           firstValue: installedCount,
-          secondLabel: tSettingsV2(locale, "settings.tools.plugins.enabled"),
+          secondLabel: tSettingsV2(
+            locale,
+            "settings.tools.plugins.productEnabled",
+          ),
           secondValue: enabledCount,
         });
 
   const details = [
-    `${tSettingsV2(locale, "settings.tools.plugins.installed")}: ${installedCount}`,
-    `${tSettingsV2(locale, "settings.tools.plugins.enabled")}: ${enabledCount}`,
+    `${tSettingsV2(locale, "settings.tools.plugins.productInstalled")}: ${installedCount}`,
+    `${tSettingsV2(locale, "settings.tools.plugins.productEnabled")}: ${enabledCount}`,
     `${tSettingsV2(locale, "settings.tools.plugins.availableForUse")}: ${availableCount}`,
     `${tSettingsV2(locale, "settings.tools.plugins.readOnly")}: ${readOnlyCount}`,
   ];
+  if (hiddenDeveloperExampleCount > 0) {
+    details.push(
+      tSettingsV2(locale, "settings.tools.plugins.developerExamplesHidden"),
+    );
+  }
   if (status.defaultThirdPartyExecutionState === "disabled") {
     details.push(
       tSettingsV2(locale, "settings.tools.plugins.thirdPartyDisabled"),
@@ -138,8 +154,39 @@ function formatPluginSummary(
     enabledCount,
     availableCount,
     readOnlyCount,
+    hiddenDeveloperExampleCount,
     details,
   };
+}
+
+export function isProductVisiblePlugin(
+  plugin: PluginManagementStatusResult["plugins"][number],
+): boolean {
+  const manifest = plugin.manifest;
+  const capabilityDescriptions = manifest.capabilities
+    .map((capability) =>
+      typeof capability === "string"
+        ? capability
+        : "description" in capability
+          ? capability.description
+          : "",
+    )
+    .filter((value): value is string => typeof value === "string");
+  const safeMetadataText = [
+    manifest.id,
+    manifest.name,
+    ...capabilityDescriptions,
+  ]
+    .join(" ")
+    .toLocaleLowerCase();
+
+  if (/\b(sample|example|demo|fixture)\b/u.test(safeMetadataText)) {
+    return false;
+  }
+  if (manifest.id.startsWith("examples.") || manifest.id.startsWith("cn.example.")) {
+    return false;
+  }
+  return true;
 }
 
 function formatMcpSummary(

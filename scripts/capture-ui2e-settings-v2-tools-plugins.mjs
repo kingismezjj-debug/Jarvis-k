@@ -24,12 +24,6 @@ const scenarios = [
   ["zh-tools-plugins-wide", 1440, 1200, "zh", "harbor", ""],
   ["zh-tools-plugins-narrow", 390, 1100, "zh", "harbor", ""],
   ["en-tools-plugins-narrow", 390, 1100, "en", "harbor", ""],
-  ["approved-apps-summary", 1440, 940, "en", "harbor", ""],
-  ["safe-websites-summary", 1440, 940, "en", "harbor", ""],
-  ["file-search-readonly", 1440, 940, "en", "harbor", ""],
-  ["plugins-installed-summary", 1440, 940, "en", "harbor", ""],
-  ["plugins-empty", 1440, 940, "en", "harbor", ""],
-  ["mcp-unavailable-or-summary", 1440, 940, "en", "harbor", ""],
   ["tools-plugins-search-en", 1440, 940, "en", "harbor", "plugin"],
   ["tools-plugins-search-zh", 1440, 940, "zh", "harbor", "插件"],
   ["search-empty", 1440, 940, "en", "harbor", "zz-no-match"],
@@ -111,7 +105,10 @@ async function launchApp({ theme, locale, settingsV2Enabled = true, chromiumArgs
 
 async function waitForAppReady(page) {
   await page.getByTestId("jarvis-app").waitFor({ timeout: 15_000 });
-  await page.getByTestId("core-status").getByText("ONLINE").waitFor({
+  await page.waitForFunction(() => {
+    const status = document.querySelector('[data-testid="core-status"]');
+    return status?.textContent?.includes("ONLINE") === true;
+  }, null, {
     timeout: 20_000,
   });
 }
@@ -159,10 +156,19 @@ async function assertLayout(page, scenarioName, { expectToolsVisible = true } = 
       searchVisible: Boolean(
         document.querySelector('[data-testid="settings-v2-search-results"]'),
       ),
+      narrowCategoryVisible:
+        document.querySelector(".settings-v2-narrow-category") !== null &&
+        getComputedStyle(document.querySelector(".settings-v2-narrow-category")).display !==
+          "none",
+      wideCategoryVisible:
+        document.querySelector(".settings-v2-wide-category") !== null &&
+        getComputedStyle(document.querySelector(".settings-v2-wide-category")).display !==
+          "none",
       forbiddenInternalText:
-        /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|providerId|resourceId|fallback|manifest|digest|transport|stdio|spawn|route trace)\b/i.test(
+        /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|providerId|resourceId|fallback|manifest|digest|transport|stdio|spawn|route trace|Agent Core|Memory alpha)\b/i.test(
           text,
         ) ||
+        /\bSETTINGS\b/u.test(text) ||
         text.includes("compatibility_status_only") ||
         text.includes("MCP_ADAPTER_STATUS_ONLY") ||
         text.includes("cn.jarvis-k.") ||
@@ -171,11 +177,16 @@ async function assertLayout(page, scenarioName, { expectToolsVisible = true } = 
         /[A-Z]:\\|\/Users\/|node_modules|\.env|JARVIS_K_/u.test(text),
       mediaCalls: window.__jarvisUi2eMediaCalls ?? 0,
       fetchCalls: window.__jarvisUi2eFetchCalls ?? 0,
+      viewportWidth: window.innerWidth,
     };
   });
+  const narrowLayoutInvalid =
+    result.viewportWidth <= 900 &&
+    (!result.narrowCategoryVisible || result.wideCategoryVisible);
   if (
     result.bodyHorizontalOverflow ||
     result.clippingCandidates > 0 ||
+    narrowLayoutInvalid ||
     !result.settingsV2Visible ||
     (expectToolsVisible && !result.toolsVisible) ||
     (!expectToolsVisible && !result.searchVisible) ||
@@ -227,7 +238,7 @@ async function captureScenario([name, width, height, locale, theme, search]) {
     } else {
       await run.page
         .getByText(
-          /Opening this page does not run tools|打开本页不会运行工具/,
+          /Safe viewing|安全查看/,
         )
         .first()
         .waitFor({ timeout: 5_000 });
@@ -245,6 +256,53 @@ async function captureScenario([name, width, height, locale, theme, search]) {
   }
 }
 
+async function captureSection(page, screenshotName, testId) {
+  const locator = page.getByTestId(testId);
+  await locator.scrollIntoViewIfNeeded();
+  const screenshotPath = path.join(outputDirectory, `${screenshotName}.png`);
+  await locator.screenshot({ path: screenshotPath });
+  return { name: screenshotName, path: screenshotPath, section: testId };
+}
+
+async function captureSectionSet({
+  locale,
+  theme,
+  viewport,
+  prefix,
+  zoomFactor,
+}) {
+  const run = await launchApp({ theme, locale });
+  const screenshots = [];
+  try {
+    await run.page.setViewportSize(viewport);
+    await openSettings(run.page);
+    await setToolsCategory(run.page);
+    if (zoomFactor) {
+      await run.electronApp.evaluate(
+        ({ BrowserWindow }, factor) => {
+          const mainWindow = BrowserWindow.getAllWindows().find(
+            (window) => !window.isDestroyed(),
+          );
+          mainWindow?.webContents.setZoomFactor(factor);
+        },
+        zoomFactor,
+      );
+    }
+    await assertLayout(run.page, `${prefix}-top`);
+    screenshots.push(
+      await captureSection(run.page, `${prefix}-plugins-section`, "settings-v2-tools-section-plugins"),
+    );
+    screenshots.push(
+      await captureSection(run.page, `${prefix}-external-connections-section`, "settings-v2-tools-section-mcp"),
+    );
+    return screenshots;
+  } finally {
+    await run.electronApp.close();
+    await rm(run.tempUserData, { force: true, recursive: true });
+  }
+}
+
+await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 
 const screenshots = [];
@@ -271,7 +329,7 @@ try {
   const themeScope = await assertThemeScope(zoomed.page, "harbor", name);
   const screenshotPath = path.join(outputDirectory, `${name}.png`);
   await zoomed.page.screenshot({ path: screenshotPath, fullPage: true });
-  screenshots.push({
+screenshots.push({
     name,
     path: screenshotPath,
     layout,
@@ -283,6 +341,40 @@ try {
   await zoomed.electronApp.close();
   await rm(zoomed.tempUserData, { force: true, recursive: true });
 }
+
+screenshots.push(
+  ...(await captureSectionSet({
+    locale: "zh",
+    theme: "harbor",
+    viewport: { width: 1440, height: 940 },
+    prefix: "zh-tools",
+  })),
+  ...(await captureSectionSet({
+    locale: "en",
+    theme: "harbor",
+    viewport: { width: 1440, height: 940 },
+    prefix: "en-tools",
+  })),
+  ...(await captureSectionSet({
+    locale: "zh",
+    theme: "harbor",
+    viewport: { width: 390, height: 900 },
+    prefix: "zh-tools-narrow",
+  })),
+  ...(await captureSectionSet({
+    locale: "en",
+    theme: "harbor",
+    viewport: { width: 390, height: 900 },
+    prefix: "en-tools-narrow",
+  })),
+  ...(await captureSectionSet({
+    locale: "en",
+    theme: "harbor",
+    viewport: { width: 780, height: 980 },
+    prefix: "harbor-tools-zoom200",
+    zoomFactor: 2,
+  })),
+);
 
 const gateOff = await launchApp({
   theme: "harbor",

@@ -6,6 +6,7 @@ import {
   validateSettingsV2CopyParity,
   type SettingsV2CopyKey,
 } from "../src/features/settings-v2/settings-v2-copy";
+import { uiCopy } from "../src/app/copy";
 
 describe("Settings V2 i18n foundation", () => {
   it("keeps English and zh-CN keys in parity", () => {
@@ -57,6 +58,37 @@ describe("Settings V2 i18n foundation", () => {
     for (const key of Object.keys(settingsV2Copy.en) as SettingsV2CopyKey[]) {
       expect(key.startsWith("settings.")).toBe(true);
       expect(settingsV2Copy.zh[key]).toBeTruthy();
+    }
+  });
+
+  it("keeps the zh-CN Product shell free of raw internal service labels", () => {
+    expect(uiCopy.zh.connection.online).toBe("在线");
+    expect(uiCopy.zh.nav.developer).toBe("开发者");
+    expect(uiCopy.zh.view.developer).toBe("开发者");
+    expect(uiCopy.zh.label.commandPlaceholder).toBe(
+      "向 Jarvis 发送文本命令",
+    );
+    expect(uiCopy.zh.label.agentCore).toBe("Jarvis");
+
+    const productShellText = [
+      uiCopy.zh.connection.online,
+      uiCopy.zh.nav.developer,
+      uiCopy.zh.view.developer,
+      uiCopy.zh.label.commandPlaceholder,
+      uiCopy.zh.label.agentCore,
+      uiCopy.zh.action.memoryAlphaDisabled,
+      uiCopy.zh.action.memoryAlphaIs,
+      uiCopy.zh.action.memoryAlphaRefreshed,
+    ].join("\n");
+
+    for (const forbidden of [
+      "runtime unknown",
+      "Memory alpha disabled",
+      "Memory Alpha",
+      "SETTINGS",
+      "Agent Core",
+    ]) {
+      expect(productShellText).not.toContain(forbidden);
     }
   });
 });

@@ -12,6 +12,12 @@ import {
   validateSettingsV2Registry,
   type SettingsV2Definition,
 } from "../src/features/settings-v2/settings-v2-registry";
+import {
+  formatSettingsV2MigrationSummary,
+  getSettingsV2LegacyCategoryIds,
+  getSettingsV2MigratedCategoryIds,
+} from "../src/features/settings-v2/settings-v2-migration-summary";
+import { tSettingsV2 } from "../src/features/settings-v2/settings-v2-copy";
 
 const cloneDefinition = (
   patch: Partial<SettingsV2Definition>,
@@ -149,5 +155,38 @@ describe("Settings V2 registry", () => {
       "settings.voice.wake_word",
       "settings.tools.mcp_connections",
     ]);
+  });
+
+  it("formats the Settings V2 migration summary from the registry", () => {
+    const migratedIds = getSettingsV2MigratedCategoryIds();
+    const legacyIds = getSettingsV2LegacyCategoryIds();
+    const enSummary = formatSettingsV2MigrationSummary("en");
+    const zhSummary = formatSettingsV2MigrationSummary("zh");
+
+    expect(migratedIds).toEqual([
+      "general",
+      "appearance_pet",
+      "voice_audio",
+      "models_intelligence",
+      "tools_plugins",
+    ]);
+    expect(legacyIds).toEqual([
+      "memory_privacy",
+      "notifications",
+      "about_updates",
+    ]);
+
+    for (const category of settingsV2Categories) {
+      const enLabel = tSettingsV2("en", category.labelKey);
+      const zhLabel = tSettingsV2("zh", category.labelKey);
+      expect(enSummary).toContain(enLabel);
+      expect(zhSummary).toContain(zhLabel);
+    }
+    expect(enSummary.indexOf("Tools & Plugins")).toBeLessThan(
+      enSummary.indexOf("Memory & Privacy"),
+    );
+    expect(zhSummary.indexOf("工具与插件")).toBeLessThan(
+      zhSummary.indexOf("记忆与隐私"),
+    );
   });
 });
