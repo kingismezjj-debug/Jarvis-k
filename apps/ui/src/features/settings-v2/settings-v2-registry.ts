@@ -25,6 +25,10 @@ export const settingsV2SectionIds = [
   "voice_capture",
   "voice_output",
   "wake_word",
+  "models_command",
+  "models_answer",
+  "models_local",
+  "models_routing",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -57,6 +61,11 @@ export const settingsV2BindingIds = [
   "voice.push_to_talk",
   "voice.tts_summary",
   "voice.wake_word",
+  "models.fast_command_understanding",
+  "models.answer_provider",
+  "models.local_models",
+  "models.routing_policy",
+  "models.cloud_local_status",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -105,7 +114,7 @@ export const settingsV2Categories: Array<{
   {
     id: "models_intelligence",
     labelKey: "settings.categories.models_intelligence",
-    migrated: false,
+    migrated: true,
   },
   {
     id: "tools_plugins",
@@ -521,10 +530,134 @@ export const settingsV2VoiceAudioDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2ModelsIntelligenceDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.models.fast_command_understanding",
+    categoryId: "models_intelligence",
+    sectionId: "models_command",
+    labelKey: "settings.models.fastCommand.label",
+    descriptionKey: "settings.models.fastCommand.description",
+    searchKeywordKeys: [
+      "settings.models.fastCommand.label",
+      "settings.models.fastCommand.description",
+      "settings.models.fastCommand.localRules",
+      "settings.models.status.localRulesEnabled",
+    ],
+    controlType: "switch",
+    settingBindingId: "models.fast_command_understanding",
+    validationContractId: "command-router-product-mode.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "models.fast_command_understanding.safe_status",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.models.fast_command_understanding",
+  },
+  {
+    settingId: "settings.models.answer_provider",
+    categoryId: "models_intelligence",
+    sectionId: "models_answer",
+    labelKey: "settings.models.answerProvider.label",
+    descriptionKey: "settings.models.answerProvider.description",
+    searchKeywordKeys: [
+      "settings.models.answerProvider.label",
+      "settings.models.answerProvider.description",
+      "settings.models.answerProvider.notConfigured",
+      "settings.models.answerProvider.configuredNotVerified",
+    ],
+    controlType: "switch",
+    settingBindingId: "models.answer_provider",
+    validationContractId: "chat-answer-product-mode.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "models.answer_provider.safe_status",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.models.answer_provider",
+  },
+  {
+    settingId: "settings.models.local_models",
+    categoryId: "models_intelligence",
+    sectionId: "models_local",
+    labelKey: "settings.models.localModels.label",
+    descriptionKey: "settings.models.localModels.description",
+    searchKeywordKeys: [
+      "settings.models.localModels.label",
+      "settings.models.localModels.description",
+      "settings.models.status.missing",
+      "settings.models.status.installed",
+      "settings.models.status.loaded",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "models.local_models",
+    validationContractId: "local-model-inventory-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "models.local_models.safe_summary",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.models.local_models",
+  },
+  {
+    settingId: "settings.models.routing_policy",
+    categoryId: "models_intelligence",
+    sectionId: "models_routing",
+    labelKey: "settings.models.routingPolicy.label",
+    descriptionKey: "settings.models.routingPolicy.description",
+    searchKeywordKeys: [
+      "settings.models.routingPolicy.label",
+      "settings.models.routingPolicy.description",
+      "settings.models.routingPolicy.safeSummary",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "models.routing_policy",
+    validationContractId: "model-routing-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "models.routing_policy.safe_summary",
+    dangerLevel: "none",
+    order: 40,
+    helpReferenceId: "settings.models.routing_policy",
+  },
+  {
+    settingId: "settings.models.cloud_local_status",
+    categoryId: "models_intelligence",
+    sectionId: "models_routing",
+    labelKey: "settings.models.cloudLocalStatus.label",
+    descriptionKey: "settings.models.cloudLocalStatus.description",
+    searchKeywordKeys: [
+      "settings.models.cloudLocalStatus.label",
+      "settings.models.cloudLocalStatus.description",
+      "settings.models.status.available",
+      "settings.models.status.notVerified",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "models.cloud_local_status",
+    validationContractId: "cloud-local-model-safe-status.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "models.cloud_local_status.safe_summary",
+    dangerLevel: "none",
+    order: 50,
+    helpReferenceId: "settings.models.cloud_local_status",
+  },
+];
+
 export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2GeneralDefinitions,
   ...settingsV2AppearancePetDefinitions,
   ...settingsV2VoiceAudioDefinitions,
+  ...settingsV2ModelsIntelligenceDefinitions,
 ];
 
 export function validateSettingsV2Registry(
@@ -591,7 +724,8 @@ export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
       (definition) =>
         definition.categoryId === "general" ||
         definition.categoryId === "appearance_pet" ||
-        definition.categoryId === "voice_audio",
+        definition.categoryId === "voice_audio" ||
+        definition.categoryId === "models_intelligence",
     )
     .sort((left, right) => left.order - right.order);
 }

@@ -84,6 +84,7 @@ async function runGateOnScenario() {
     const window = await electronApp.firstWindow();
     await window.addInitScript(() => {
       window.__jarvisSettingsV2MediaCalls = 0;
+      window.__jarvisSettingsV2FetchCalls = 0;
       const mediaDevices = navigator.mediaDevices;
       if (mediaDevices?.getUserMedia) {
         const original = mediaDevices.getUserMedia.bind(mediaDevices);
@@ -92,6 +93,11 @@ async function runGateOnScenario() {
           return original(constraints);
         };
       }
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (...args) => {
+        window.__jarvisSettingsV2FetchCalls += 1;
+        return originalFetch(...args);
+      };
     });
     await window.reload();
     await window.setViewportSize({ width: 1440, height: 940 });
@@ -132,8 +138,32 @@ async function runGateOnScenario() {
     await window.getByRole("heading", { name: "Wake word" }).waitFor({
       timeout: 5_000,
     });
+    await window
+      .locator('[data-testid="settings-v2-category-nav"] button')
+      .filter({ hasText: "Models & Intelligence" })
+      .click();
+    await window.getByTestId("settings-v2-models-intelligence").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByRole("heading", { name: "Fast command understanding" }).waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("General answer provider").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("Local model inventory", { exact: true }).waitFor({
+      timeout: 5_000,
+    });
+    await window
+      .getByText("No model load, download, deletion, or cloud verification")
+      .waitFor({
+        timeout: 5_000,
+      });
     const mediaCalls = await window.evaluate(
       () => window.__jarvisSettingsV2MediaCalls ?? 0,
+    );
+    const fetchCalls = await window.evaluate(
+      () => window.__jarvisSettingsV2FetchCalls ?? 0,
     );
     const legacyCount = await window.getByTestId("settings-view").count();
     const skinStudioCount = await countVisibleText(window, "Pet Skin Studio");
@@ -162,6 +192,9 @@ async function runGateOnScenario() {
     if (mediaCalls !== 0) {
       throw new Error(`Settings V2 started media capture: ${mediaCalls}`);
     }
+    if (fetchCalls !== 0) {
+      throw new Error(`Settings V2 made renderer network requests: ${fetchCalls}`);
+    }
     const screenshotPath = path.join(outputDirectory, "real-settings-v2-gate-on.png");
     await window.screenshot({ path: screenshotPath, fullPage: true });
     return {
@@ -175,6 +208,7 @@ async function runGateOnScenario() {
       developerNavCount,
       evaluationHiddenCount,
       mediaCalls,
+      fetchCalls,
     };
   } finally {
     await electronApp.close();

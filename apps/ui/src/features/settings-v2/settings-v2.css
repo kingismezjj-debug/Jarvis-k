@@ -57,7 +57,8 @@
 
 .settings-v2-content [data-testid="settings-v2-general"],
 .settings-v2-content [data-testid="settings-v2-appearance-pet"],
-.settings-v2-content [data-testid="settings-v2-voice-audio"] {
+.settings-v2-content [data-testid="settings-v2-voice-audio"],
+.settings-v2-content [data-testid="settings-v2-models-intelligence"] {
   display: grid;
   gap: var(--jk-spacing-4);
   max-width: var(--jk-layout-content-max-width);
@@ -252,7 +253,8 @@
   margin: 0;
 }
 
-.settings-v2-voice-status-grid {
+.settings-v2-voice-status-grid,
+.settings-v2-models-status-grid {
   border-top: 1px solid var(--jk-color-border-subtle);
   color: var(--jk-color-text-secondary);
   display: grid;
@@ -262,9 +264,16 @@
   padding: var(--jk-spacing-3) var(--jk-density-row-padding-inline);
 }
 
-.settings-v2-voice-status-grid span {
+.settings-v2-voice-status-grid span,
+.settings-v2-models-status-grid span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.settings-v2-models-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jk-spacing-2);
 }
 
 @media (max-width: 760px) {
@@ -301,7 +310,8 @@
   .settings-v2-theme-grid,
   .settings-v2-theme-preview,
   .settings-v2-skin-summary,
-  .settings-v2-voice-status-grid {
+  .settings-v2-voice-status-grid,
+  .settings-v2-models-status-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

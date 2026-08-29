@@ -4,8 +4,14 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type {
+  ChatAnswerProductModeStatus,
+  CommandRouterProductModeStatus,
   DesktopLaunchAtLoginStatus,
   DesktopSettings,
+  InferenceProviderDescriptor,
+  ModelInventoryItem,
+  ModelManifest,
+  ResourceSchedulerDiagnostics,
 } from "@jarvis-k/contracts";
 
 import { SettingsV2GeneralView } from "../src/features/settings-v2/settings-v2-general-view";
@@ -39,6 +45,67 @@ const launchStatus: DesktopLaunchAtLoginStatus = {
   productName: "Jarvis-K",
   errorCode: "LOGIN_ITEM_UNSUPPORTED_RELEASE_CHANNEL",
 };
+
+const commandRouterStatus = {
+  enabled: true,
+  status: "control_enabled_rules_only",
+} as unknown as CommandRouterProductModeStatus;
+
+const answerProviderStatus = {
+  enabled: true,
+  status: "control_enabled_runtime_locked",
+  secureStorageAvailable: true,
+  credentialConfigured: true,
+} as unknown as ChatAnswerProductModeStatus;
+
+const modelManifest = {
+  id: "Qwen/Qwen3-0.6B",
+  capability: "intent_router",
+  source: "huggingface",
+  revision: "main",
+  license: "apache-2.0",
+  runtime: "onnxruntime",
+  sizeBytes: 1024,
+  licenseRisk: "green",
+} as ModelManifest;
+
+const modelInventory = [
+  {
+    manifest: modelManifest,
+    status: "available",
+  },
+] as ModelInventoryItem[];
+
+const inferenceProviders = [
+  {
+    capability: "intent_router",
+    provider: "intent-router.qwen3-0.6b",
+    status: "unconfigured",
+    execution: "local",
+    modelIds: ["Qwen/Qwen3-0.6B"],
+    reasons: ["MODEL_NOT_SELECTED"],
+  },
+  {
+    capability: "embedding",
+    provider: "embedding.local.onnx",
+    status: "available",
+    execution: "local",
+    modelIds: [],
+    reasons: [],
+  },
+] as InferenceProviderDescriptor[];
+
+const resourceDiagnostics = {
+  checkedAt: "2026-08-29T00:00:00.000Z",
+  totalMemoryBytes: 16,
+  availableMemoryBytes: 8,
+  leasedMemoryBytes: 0,
+  totalVramBytes: 0,
+  availableVramBytes: 0,
+  leasedVramBytes: 0,
+  activeLeaseCount: 0,
+  exclusiveGpuLeaseActive: false,
+} as ResourceSchedulerDiagnostics;
 
 function renderView(
   props: Partial<React.ComponentProps<typeof SettingsV2GeneralView>> = {},
@@ -186,6 +253,78 @@ describe("Settings V2 General view", () => {
     });
     expect(html).toContain("Speech recognition provider");
     expect(html).toContain("Xunfei / Credentials saved locally");
+  });
+
+  it("renders Models & Intelligence from existing safe model projections", () => {
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: answerProviderStatus,
+      commandRouterProductModeStatus: commandRouterStatus,
+      inferenceProviders,
+      modelInventory,
+      modelManifests: [modelManifest],
+      resourceDiagnostics,
+    });
+    expect(html).toContain("Models &amp; Intelligence");
+    expect(html).toContain("Fast command understanding");
+    expect(html).toContain("Local rules enabled");
+    expect(html).toContain("General answer provider");
+    expect(html).toContain("Credentials saved locally, connection not checked");
+    expect(html).toContain("Not verified here");
+    expect(html).toContain("Local model inventory");
+    expect(html).toContain("Installed: 1");
+    expect(html).toContain("Loaded: 0");
+    expect(html).toContain("Missing: 0");
+    expect(html).toContain("No model load, download, deletion, or cloud verification");
+    for (const forbidden of [
+      "intent-router.qwen3-0.6b",
+      "Qwen/Qwen3-0.6B",
+      "embedding.local.onnx",
+      "MODEL_NOT_SELECTED",
+      "chat-answer.openai-compatible.deepseek",
+      "deepseek.v4",
+      "providerId",
+      "profileId",
+      "resourceId",
+      "credential value",
+      "Cloud Acceptance",
+      "fixture",
+      "C:\\\\",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps saved answer credentials separate from provider availability", () => {
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: {
+        enabled: true,
+        status: "control_enabled_runtime_locked",
+        secureStorageAvailable: true,
+        credentialConfigured: true,
+      } as unknown as ChatAnswerProductModeStatus,
+      commandRouterProductModeStatus: commandRouterStatus,
+    });
+    expect(html).toContain("Credentials saved locally, connection not checked");
+    expect(html).not.toContain("Connected");
+    expect(html).not.toContain("Ready to use");
+  });
+
+  it("includes Models & Intelligence in product search results with current values", () => {
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: {
+        enabled: false,
+        secureStorageAvailable: true,
+        credentialConfigured: false,
+      } as unknown as ChatAnswerProductModeStatus,
+      commandRouterProductModeStatus: commandRouterStatus,
+      modelInventory,
+      modelManifests: [modelManifest],
+    });
+    expect(html).toContain("Local model inventory");
+    expect(html).toContain("Installed: 1");
   });
 
   it("renders Appearance & Pet from real safe projections", () => {

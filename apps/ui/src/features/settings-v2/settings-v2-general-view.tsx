@@ -1,10 +1,18 @@
 import * as React from "react";
 import type {
+  ChatAnswerProductModeStatus,
+  CommandRouterProductModeStatus,
   DesktopCloseButtonBehavior,
   DesktopLaunchAtLoginStatus,
   DesktopPetReducedMotion,
   DesktopSettings,
+  InferenceProviderConfigurationReport,
+  InferenceProviderDescriptor,
+  ModelInventoryItem,
+  ModelManifest,
+  ModelOperationSnapshot,
   PetSkinRegistryProjection,
+  ResourceSchedulerDiagnostics,
   TtsServiceStatus,
   VoiceMode,
   VoicePermissionState,
@@ -74,6 +82,18 @@ export type SettingsV2GeneralViewProps = {
   onOpenVoicePage?: () => void;
   onOpenVoiceSettings?: () => void;
   onOpenTtsSettings?: () => void;
+  commandRouterProductModeStatus?: CommandRouterProductModeStatus | null;
+  chatAnswerProductModeStatus?: ChatAnswerProductModeStatus | null;
+  inferenceProviders?: InferenceProviderDescriptor[];
+  inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
+  modelInventory?: ModelInventoryItem[];
+  modelManifests?: ModelManifest[];
+  modelOperations?: ModelOperationSnapshot[];
+  resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
+  onRefreshModelStatus?: () => void;
+  onOpenModelOperations?: () => void;
+  onSetCommandRouterProductModeEnabled?: (enabled: boolean) => void;
+  onSetChatAnswerProductModeEnabled?: (enabled: boolean) => void;
   initialCategoryId?: SettingsV2CategoryId;
 };
 
@@ -203,6 +223,91 @@ function getTtsValueLabel(
   return `Doubao / ${tSettingsV2(locale, "settings.voice.tts.configured")}`;
 }
 
+function getCommandRouterValueLabel(
+  locale: SettingsV2Locale,
+  status: CommandRouterProductModeStatus | null | undefined,
+): string {
+  if (!status) return tSettingsV2(locale, "settings.status.unknown");
+  if (!status.enabled) {
+    return tSettingsV2(locale, "settings.models.status.localRulesOff");
+  }
+  return status.status === "control_enabled_rules_only"
+    ? tSettingsV2(locale, "settings.models.status.localRulesEnabled")
+    : tSettingsV2(locale, "settings.models.status.localRoutingUnavailable");
+}
+
+function getChatAnswerValueLabel(
+  locale: SettingsV2Locale,
+  status: ChatAnswerProductModeStatus | null | undefined,
+): string {
+  if (!status) return tSettingsV2(locale, "settings.status.unknown");
+  if (!status.secureStorageAvailable) {
+    return tSettingsV2(
+      locale,
+      "settings.models.answerProvider.secureStorageUnavailable",
+    );
+  }
+  if (!status.credentialConfigured) {
+    return tSettingsV2(locale, "settings.models.answerProvider.notConfigured");
+  }
+  return tSettingsV2(
+    locale,
+    "settings.models.answerProvider.configuredNotVerified",
+  );
+}
+
+function getProviderStatusLabel(
+  locale: SettingsV2Locale,
+  status: InferenceProviderDescriptor["status"],
+): string {
+  if (status === "available") {
+    return tSettingsV2(locale, "settings.models.status.available");
+  }
+  if (status === "degraded") {
+    return tSettingsV2(locale, "settings.models.status.degraded");
+  }
+  return tSettingsV2(locale, "settings.models.status.unconfigured");
+}
+
+function getLocalModelSummary(
+  locale: SettingsV2Locale,
+  modelInventory: ModelInventoryItem[] | undefined,
+  modelManifests: ModelManifest[] | undefined,
+): string {
+  const inventory = modelInventory ?? [];
+  const manifests = modelManifests ?? [];
+  const installed = inventory.filter((item) =>
+    item.status === "available" || item.status === "loaded",
+  ).length;
+  const loaded = inventory.filter((item) => item.status === "loaded").length;
+  const missing = Math.max(manifests.length - installed, 0);
+  return `${tSettingsV2(locale, "settings.models.status.installed")}: ${installed} / ${tSettingsV2(locale, "settings.models.status.loaded")}: ${loaded} / ${tSettingsV2(locale, "settings.models.status.missing")}: ${missing}`;
+}
+
+function getCloudLocalStatusSummary({
+  locale,
+  inferenceProviders,
+  inferenceProviderRequirements,
+  resourceDiagnostics,
+}: {
+  locale: SettingsV2Locale;
+  inferenceProviders?: InferenceProviderDescriptor[];
+  inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
+  resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
+}): string {
+  const providers = inferenceProviders ?? [];
+  const localAvailable = providers.filter(
+    (provider) =>
+      provider.execution === "local" && provider.status === "available",
+  ).length;
+  const cloudConfigured = (inferenceProviderRequirements ?? []).filter(
+    (report) =>
+      report.requirements.length > 0 &&
+      report.requirements.every((requirement) => requirement.configured),
+  ).length;
+  return `${tSettingsV2(locale, "settings.models.cloudLocalStatus.localProviders")}: ${localAvailable} / ${tSettingsV2(locale, "settings.models.cloudLocalStatus.cloudProviders")}: ${cloudConfigured} / ${tSettingsV2(locale, "settings.models.cloudLocalStatus.resourceLeases")}: ${resourceDiagnostics?.activeLeaseCount ?? 0}`;
+}
+
 function getThemeLabel(locale: SettingsV2Locale, themeId: SkinThemeId): string {
   return tSettingsV2(locale, getThemeCopyKey(themeId, "label"));
 }
@@ -280,6 +385,10 @@ function getSectionLabel(
     voice_capture: "settings.voice.section.capture",
     voice_output: "settings.voice.section.output",
     wake_word: "settings.voice.section.wake",
+    models_command: "settings.models.section.command",
+    models_answer: "settings.models.section.answer",
+    models_local: "settings.models.section.local",
+    models_routing: "settings.models.section.routing",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -296,6 +405,13 @@ function getDefinitionValue({
   voiceMode,
   voicePermission,
   voiceCaptureAvailable,
+  commandRouterProductModeStatus,
+  chatAnswerProductModeStatus,
+  inferenceProviders,
+  inferenceProviderRequirements,
+  modelInventory,
+  modelManifests,
+  resourceDiagnostics,
 }: {
   definition: SettingsV2Definition;
   desktopSettings: DesktopSettings | null;
@@ -308,6 +424,13 @@ function getDefinitionValue({
   voiceMode?: VoiceMode;
   voicePermission?: VoicePermissionState;
   voiceCaptureAvailable?: boolean;
+  commandRouterProductModeStatus?: CommandRouterProductModeStatus | null;
+  chatAnswerProductModeStatus?: ChatAnswerProductModeStatus | null;
+  inferenceProviders?: InferenceProviderDescriptor[];
+  inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
+  modelInventory?: ModelInventoryItem[];
+  modelManifests?: ModelManifest[];
+  resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
 }): string {
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
@@ -366,6 +489,26 @@ function getDefinitionValue({
   if (definition.settingBindingId === "voice.wake_word") {
     return tSettingsV2(locale, "settings.voice.wakeWord.unavailable");
   }
+  if (definition.settingBindingId === "models.fast_command_understanding") {
+    return getCommandRouterValueLabel(locale, commandRouterProductModeStatus);
+  }
+  if (definition.settingBindingId === "models.answer_provider") {
+    return getChatAnswerValueLabel(locale, chatAnswerProductModeStatus);
+  }
+  if (definition.settingBindingId === "models.local_models") {
+    return getLocalModelSummary(locale, modelInventory, modelManifests);
+  }
+  if (definition.settingBindingId === "models.routing_policy") {
+    return tSettingsV2(locale, "settings.models.routingPolicy.safeSummary");
+  }
+  if (definition.settingBindingId === "models.cloud_local_status") {
+    return getCloudLocalStatusSummary({
+      locale,
+      inferenceProviders,
+      inferenceProviderRequirements,
+      resourceDiagnostics,
+    });
+  }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
@@ -381,6 +524,13 @@ function getSearchResults({
   voiceMode,
   voicePermission,
   voiceCaptureAvailable,
+  commandRouterProductModeStatus,
+  chatAnswerProductModeStatus,
+  inferenceProviders,
+  inferenceProviderRequirements,
+  modelInventory,
+  modelManifests,
+  resourceDiagnostics,
 }: {
   query: string;
   locale: SettingsV2Locale;
@@ -393,6 +543,13 @@ function getSearchResults({
   voiceMode?: VoiceMode;
   voicePermission?: VoicePermissionState;
   voiceCaptureAvailable?: boolean;
+  commandRouterProductModeStatus?: CommandRouterProductModeStatus | null;
+  chatAnswerProductModeStatus?: ChatAnswerProductModeStatus | null;
+  inferenceProviders?: InferenceProviderDescriptor[];
+  inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
+  modelInventory?: ModelInventoryItem[];
+  modelManifests?: ModelManifest[];
+  resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
 }) {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
@@ -422,6 +579,13 @@ function getSearchResults({
         voiceMode,
         voicePermission,
         voiceCaptureAvailable,
+        commandRouterProductModeStatus,
+        chatAnswerProductModeStatus,
+        inferenceProviders,
+        inferenceProviderRequirements,
+        modelInventory,
+        modelManifests,
+        resourceDiagnostics,
       }),
     }));
 }
@@ -452,6 +616,18 @@ export function SettingsV2GeneralView({
   onOpenVoicePage,
   onOpenVoiceSettings,
   onOpenTtsSettings,
+  commandRouterProductModeStatus,
+  chatAnswerProductModeStatus,
+  inferenceProviders = [],
+  inferenceProviderRequirements = [],
+  modelInventory = [],
+  modelManifests = [],
+  modelOperations = [],
+  resourceDiagnostics,
+  onRefreshModelStatus,
+  onOpenModelOperations,
+  onSetCommandRouterProductModeEnabled,
+  onSetChatAnswerProductModeEnabled,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -485,13 +661,27 @@ export function SettingsV2GeneralView({
         voiceMode,
         voicePermission,
         voiceCaptureAvailable,
+        commandRouterProductModeStatus,
+        chatAnswerProductModeStatus,
+        inferenceProviders,
+        inferenceProviderRequirements,
+        modelInventory,
+        modelManifests,
+        resourceDiagnostics,
       }),
     [
       activeThemeId,
+      chatAnswerProductModeStatus,
+      commandRouterProductModeStatus,
       desktopLaunchAtLoginStatus,
       desktopSettings,
+      inferenceProviderRequirements,
+      inferenceProviders,
       locale,
+      modelInventory,
+      modelManifests,
       petSkinRegistry,
+      resourceDiagnostics,
       searchQuery,
       ttsServiceStatus,
       voiceCaptureAvailable,
@@ -530,6 +720,35 @@ export function SettingsV2GeneralView({
     ttsServiceStatus?.configured === true && ttsServiceStatus.voiceId
       ? tSettingsV2(locale, "settings.voice.tts.voiceConfigured")
       : tSettingsV2(locale, "settings.voice.tts.defaultVoice");
+  const commandRouterValue = getCommandRouterValueLabel(
+    locale,
+    commandRouterProductModeStatus,
+  );
+  const chatAnswerValue = getChatAnswerValueLabel(
+    locale,
+    chatAnswerProductModeStatus,
+  );
+  const localModelSummary = getLocalModelSummary(
+    locale,
+    modelInventory,
+    modelManifests,
+  );
+  const cloudLocalSummary = getCloudLocalStatusSummary({
+    locale,
+    inferenceProviders,
+    inferenceProviderRequirements,
+    resourceDiagnostics,
+  });
+  const localProviderCount = inferenceProviders.filter(
+    (provider) => provider.execution === "local",
+  ).length;
+  const cloudProviderCount = inferenceProviders.filter(
+    (provider) => provider.execution === "cloud",
+  ).length;
+  const activeModelOperations = modelOperations.filter(
+    (operation) =>
+      operation.phase !== "completed" && operation.phase !== "failed",
+  ).length;
 
   return (
     <div
@@ -1009,6 +1228,169 @@ export function SettingsV2GeneralView({
                   title={tSettingsV2(locale, "settings.voice.wakeWord.label")}
                   value={tSettingsV2(locale, "settings.voice.wakeWord.unavailable")}
                 />
+              </SettingsSection>
+            </section>
+          ) : selectedCategoryId === "models_intelligence" ? (
+            <section data-testid="settings-v2-models-intelligence">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.models.description")}
+                title={tSettingsV2(locale, "settings.models.title")}
+              />
+              <InlineNotice title={tSettingsV2(locale, "settings.status.localOnly")}>
+                {tSettingsV2(locale, "settings.models.status.noNetworkOnOpen")}
+              </InlineNotice>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.models.section.command")}
+              >
+                <SettingSwitchRow
+                  checked={commandRouterProductModeStatus?.enabled === true}
+                  description={tSettingsV2(
+                    locale,
+                    "settings.models.fastCommand.description",
+                  )}
+                  disabled={
+                    sending ||
+                    !commandRouterProductModeStatus ||
+                    !onSetCommandRouterProductModeEnabled
+                  }
+                  onCheckedChange={onSetCommandRouterProductModeEnabled}
+                  title={tSettingsV2(locale, "settings.models.fastCommand.label")}
+                />
+                <div
+                  className="settings-v2-models-status-grid"
+                  data-testid="settings-v2-command-router-status"
+                >
+                  <span>
+                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
+                    {commandRouterValue}
+                  </span>
+                  <span>{tSettingsV2(locale, "settings.models.fastCommand.localRules")}</span>
+                  <span>{tSettingsV2(locale, "settings.models.routingPolicy.safeSummary")}</span>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.models.section.answer")}
+              >
+                <SettingSwitchRow
+                  checked={chatAnswerProductModeStatus?.enabled === true}
+                  description={tSettingsV2(
+                    locale,
+                    "settings.models.answerProvider.description",
+                  )}
+                  disabled={
+                    sending ||
+                    !chatAnswerProductModeStatus ||
+                    !onSetChatAnswerProductModeEnabled
+                  }
+                  onCheckedChange={onSetChatAnswerProductModeEnabled}
+                  title={tSettingsV2(locale, "settings.models.answerProvider.label")}
+                />
+                <div
+                  className="settings-v2-models-status-grid"
+                  data-testid="settings-v2-answer-provider-status"
+                >
+                  <span>
+                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
+                    {chatAnswerValue}
+                  </span>
+                  <span>
+                    {chatAnswerProductModeStatus?.enabled
+                      ? tSettingsV2(locale, "settings.models.answerProvider.enabled")
+                      : tSettingsV2(locale, "settings.models.answerProvider.disabled")}
+                  </span>
+                  <span>{tSettingsV2(locale, "settings.models.status.notVerified")}</span>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.models.section.local")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.models.localModels.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.models.localModels.label")}
+                  value={localModelSummary}
+                />
+                <div
+                  className="settings-v2-models-status-grid"
+                  data-testid="settings-v2-local-model-status"
+                >
+                  <span>
+                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
+                    {localModelSummary}
+                  </span>
+                  <span>
+                    {activeModelOperations > 0
+                      ? `${tSettingsV2(locale, "settings.status.operationInProgress")}: ${activeModelOperations}`
+                      : tSettingsV2(locale, "settings.models.localModels.noOperations")}
+                  </span>
+                  <span className="settings-v2-models-actions">
+                    <Button
+                      disabled={!onRefreshModelStatus || sending}
+                      onClick={onRefreshModelStatus}
+                      variant="ghost"
+                    >
+                      {tSettingsV2(locale, "settings.models.localModels.refresh")}
+                    </Button>
+                    <Button
+                      disabled={!onOpenModelOperations}
+                      onClick={onOpenModelOperations}
+                      variant="secondary"
+                    >
+                      {tSettingsV2(locale, "settings.models.localModels.openOperations")}
+                    </Button>
+                  </span>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.models.section.routing")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.models.routingPolicy.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.models.routingPolicy.label")}
+                  value={tSettingsV2(
+                    locale,
+                    "settings.models.routingPolicy.safeSummary",
+                  )}
+                />
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.models.cloudLocalStatus.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.models.cloudLocalStatus.label")}
+                  value={cloudLocalSummary}
+                />
+                <div
+                  className="settings-v2-models-status-grid"
+                  data-testid="settings-v2-cloud-local-status"
+                >
+                  <span>
+                    {tSettingsV2(locale, "settings.models.cloudLocalStatus.localProviders")}:{" "}
+                    {localProviderCount}
+                  </span>
+                  <span>
+                    {tSettingsV2(locale, "settings.models.cloudLocalStatus.cloudProviders")}:{" "}
+                    {cloudProviderCount}
+                  </span>
+                  <span>
+                    {inferenceProviders.length > 0
+                      ? inferenceProviders
+                          .map((provider) =>
+                            getProviderStatusLabel(locale, provider.status),
+                          )
+                          .join(" / ")
+                      : tSettingsV2(locale, "settings.status.unknown")}
+                  </span>
+                </div>
               </SettingsSection>
             </section>
           ) : (

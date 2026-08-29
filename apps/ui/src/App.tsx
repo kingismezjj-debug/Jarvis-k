@@ -968,6 +968,21 @@ export default function App() {
   }, [activeView, developerModeEnabled, uiSurfaceMode.settingsV2SurfaceEnabled]);
 
   useEffect(() => {
+    if (activeView !== "settings" || !uiSurfaceMode.settingsV2SurfaceEnabled) {
+      return;
+    }
+    void refreshCommandRouterProductModeStatus();
+    void refreshChatAnswerProductModeStatus();
+    void refreshModelGovernance();
+  }, [
+    activeView,
+    refreshChatAnswerProductModeStatus,
+    refreshCommandRouterProductModeStatus,
+    refreshModelGovernance,
+    uiSurfaceMode.settingsV2SurfaceEnabled,
+  ]);
+
+  useEffect(() => {
     if (!ttsSafetyEligible) {
       return;
     }
@@ -2566,6 +2581,46 @@ export default function App() {
                       "Desktop Pet motion updated",
                     );
                   }}
+                  chatAnswerProductModeStatus={chatAnswerProductModeStatus}
+                  commandRouterProductModeStatus={commandRouterProductModeStatus}
+                  inferenceProviderRequirements={inferenceProviderRequirements}
+                  inferenceProviders={inferenceProviders}
+                  modelInventory={modelInventory}
+                  modelManifests={modelManifests}
+                  modelOperations={modelOperations}
+                  onOpenModelOperations={() => {
+                    setActiveView("tasks");
+                  }}
+                  onRefreshModelStatus={() => {
+                    void trackAction(
+                      "Refresh model status",
+                      refreshModelGovernance,
+                      "Model status refreshed",
+                    );
+                  }}
+                  onSetChatAnswerProductModeEnabled={(enabled) => {
+                    void trackAction(
+                      enabled
+                        ? "Enable answer provider"
+                        : "Disable answer provider",
+                      async () => setChatAnswerProductModeEnabled(enabled),
+                      enabled
+                        ? "Answer provider enabled"
+                        : "Answer provider disabled",
+                    );
+                  }}
+                  onSetCommandRouterProductModeEnabled={(enabled) => {
+                    void trackAction(
+                      enabled
+                        ? "Enable command understanding"
+                        : "Disable command understanding",
+                      async () => setCommandRouterProductModeEnabled(enabled),
+                      enabled
+                        ? "Command understanding enabled"
+                        : "Command understanding disabled",
+                    );
+                  }}
+                  resourceDiagnostics={resourceDiagnostics}
                   ttsServiceStatus={ttsServiceStatus}
                   voiceCaptureAvailable={coreOnline && !textOnlyAcceptanceMode}
                   voiceMode={snapshot?.voice.mode ?? "disabled"}

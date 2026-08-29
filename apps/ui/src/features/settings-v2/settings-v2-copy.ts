@@ -135,6 +135,50 @@ export type SettingsV2CopyKey =
   | "settings.voice.wakeWord.description"
   | "settings.voice.wakeWord.unavailable"
   | "settings.voice.privacy.localOnly"
+  | "settings.models.title"
+  | "settings.models.description"
+  | "settings.models.section.command"
+  | "settings.models.section.answer"
+  | "settings.models.section.local"
+  | "settings.models.section.routing"
+  | "settings.models.fastCommand.label"
+  | "settings.models.fastCommand.description"
+  | "settings.models.fastCommand.localRules"
+  | "settings.models.fastCommand.action"
+  | "settings.models.answerProvider.label"
+  | "settings.models.answerProvider.description"
+  | "settings.models.answerProvider.notConfigured"
+  | "settings.models.answerProvider.configuredNotVerified"
+  | "settings.models.answerProvider.secureStorageUnavailable"
+  | "settings.models.answerProvider.enabled"
+  | "settings.models.answerProvider.disabled"
+  | "settings.models.localModels.label"
+  | "settings.models.localModels.description"
+  | "settings.models.localModels.refresh"
+  | "settings.models.localModels.openOperations"
+  | "settings.models.localModels.noOperations"
+  | "settings.models.routingPolicy.label"
+  | "settings.models.routingPolicy.description"
+  | "settings.models.routingPolicy.safeSummary"
+  | "settings.models.cloudLocalStatus.label"
+  | "settings.models.cloudLocalStatus.description"
+  | "settings.models.cloudLocalStatus.localProviders"
+  | "settings.models.cloudLocalStatus.cloudProviders"
+  | "settings.models.cloudLocalStatus.resourceLeases"
+  | "settings.models.status.localRulesEnabled"
+  | "settings.models.status.localRulesOff"
+  | "settings.models.status.localRoutingUnavailable"
+  | "settings.models.status.missing"
+  | "settings.models.status.installed"
+  | "settings.models.status.selected"
+  | "settings.models.status.loaded"
+  | "settings.models.status.currentlyNotLoaded"
+  | "settings.models.status.available"
+  | "settings.models.status.unavailable"
+  | "settings.models.status.unconfigured"
+  | "settings.models.status.degraded"
+  | "settings.models.status.notVerified"
+  | "settings.models.status.noNetworkOnOpen"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -174,7 +218,7 @@ export const settingsV2Copy: Record<
   en: {
     "settings.shell.title": "Jarvis Control Center",
     "settings.shell.description":
-      "General, Appearance & Pet, and Voice & Audio settings are available in this preview. Other categories stay on the legacy settings surface.",
+      "General, Appearance & Pet, Voice & Audio, and Models & Intelligence settings are available in this preview. Other categories stay on the legacy settings surface.",
     "settings.shell.search": "Search settings",
     "settings.shell.category": "Settings category",
     "settings.shell.migratedOnly": "Settings preview",
@@ -340,6 +384,60 @@ export const settingsV2Copy: Record<
     "settings.voice.wakeWord.unavailable": "Not supported in this version",
     "settings.voice.privacy.localOnly":
       "This page only reads local status and does not start the microphone, ASR, or upload.",
+    "settings.models.title": "Models & Intelligence",
+    "settings.models.description":
+      "Review command understanding, answer provider readiness, local model inventory, and routing status without loading models or contacting cloud providers.",
+    "settings.models.section.command": "Fast command understanding",
+    "settings.models.section.answer": "Answer provider",
+    "settings.models.section.local": "Local models",
+    "settings.models.section.routing": "Routing and availability",
+    "settings.models.fastCommand.label": "Fast command understanding",
+    "settings.models.fastCommand.description":
+      "Use the existing local command rules for quick intent routing. Enabling this does not enable Qwen or any cloud model.",
+    "settings.models.fastCommand.localRules": "Local rules",
+    "settings.models.fastCommand.action": "Local rules mode",
+    "settings.models.answerProvider.label": "General answer provider",
+    "settings.models.answerProvider.description":
+      "Controls whether the existing provider-backed answer path may be used after secure credentials and runtime gates are ready.",
+    "settings.models.answerProvider.notConfigured": "Not configured",
+    "settings.models.answerProvider.configuredNotVerified":
+      "Credentials saved locally, connection not checked",
+    "settings.models.answerProvider.secureStorageUnavailable":
+      "Secure credential storage is unavailable",
+    "settings.models.answerProvider.enabled": "Enabled",
+    "settings.models.answerProvider.disabled": "Off",
+    "settings.models.localModels.label": "Local model inventory",
+    "settings.models.localModels.description":
+      "Shows installed, selected, loaded, and missing local model states from the existing model service.",
+    "settings.models.localModels.refresh": "Refresh model status",
+    "settings.models.localModels.openOperations": "Open model tasks",
+    "settings.models.localModels.noOperations": "No model tasks are running",
+    "settings.models.routingPolicy.label": "Routing policy",
+    "settings.models.routingPolicy.description":
+      "Shows the product-level routing summary. Internal route IDs, fallback chains, and evaluation tools stay hidden.",
+    "settings.models.routingPolicy.safeSummary":
+      "Local rules remain the deterministic fallback. Safety and approval checks are unchanged.",
+    "settings.models.cloudLocalStatus.label": "Cloud and local status",
+    "settings.models.cloudLocalStatus.description":
+      "Separates local availability from cloud configuration. Opening this page does not verify providers or start a request.",
+    "settings.models.cloudLocalStatus.localProviders": "Local providers",
+    "settings.models.cloudLocalStatus.cloudProviders": "Cloud providers",
+    "settings.models.cloudLocalStatus.resourceLeases": "Active model leases",
+    "settings.models.status.localRulesEnabled": "Local rules enabled",
+    "settings.models.status.localRulesOff": "Command routing off",
+    "settings.models.status.localRoutingUnavailable": "Local routing unavailable",
+    "settings.models.status.missing": "Missing",
+    "settings.models.status.installed": "Installed",
+    "settings.models.status.selected": "Selected",
+    "settings.models.status.loaded": "Loaded",
+    "settings.models.status.currentlyNotLoaded": "Currently not loaded",
+    "settings.models.status.available": "Available",
+    "settings.models.status.unavailable": "Unavailable",
+    "settings.models.status.unconfigured": "Not configured",
+    "settings.models.status.degraded": "Degraded",
+    "settings.models.status.notVerified": "Not verified here",
+    "settings.models.status.noNetworkOnOpen":
+      "No model load, download, deletion, or cloud verification runs when this page opens.",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -347,7 +445,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Search currently covers General, Appearance & Pet, and Voice & Audio settings.",
+      "Search currently covers General, Appearance & Pet, Voice & Audio, and Models & Intelligence settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -368,7 +466,7 @@ export const settingsV2Copy: Record<
   zh: {
     "settings.shell.title": "Jarvis 控制中心",
     "settings.shell.description":
-      "当前预览开放通用、外观与桌宠、语音与音频设置。其他分类仍保留在旧版设置界面中。",
+      "当前预览开放通用、外观与桌宠、语音与音频、模型与智能设置。其他分类仍保留在旧版设置界面中。",
     "settings.shell.search": "搜索设置",
     "settings.shell.category": "设置分类",
     "settings.shell.migratedOnly": "设置预览",
@@ -527,6 +625,60 @@ export const settingsV2Copy: Record<
     "settings.voice.wakeWord.unavailable": "当前版本不支持",
     "settings.voice.privacy.localOnly":
       "此页面只读取本机状态，不会启动麦克风、ASR 或上传。",
+    "settings.models.title": "模型与智能",
+    "settings.models.description":
+      "查看命令理解、回答服务、本地模型和路由状态。打开本页不会加载模型，也不会连接云端服务。",
+    "settings.models.section.command": "快速命令理解",
+    "settings.models.section.answer": "回答服务",
+    "settings.models.section.local": "本地模型",
+    "settings.models.section.routing": "路由与可用性",
+    "settings.models.fastCommand.label": "快速命令理解",
+    "settings.models.fastCommand.description":
+      "使用现有本地规则进行快速意图路由。开启此项不会启用 Qwen 或任何云端模型。",
+    "settings.models.fastCommand.localRules": "本地规则",
+    "settings.models.fastCommand.action": "本地规则模式",
+    "settings.models.answerProvider.label": "通用回答服务",
+    "settings.models.answerProvider.description":
+      "控制现有 Provider 回答路径是否可在安全凭据和运行门槛就绪后使用。",
+    "settings.models.answerProvider.notConfigured": "未配置",
+    "settings.models.answerProvider.configuredNotVerified":
+      "凭据已保存在本机，本页不检查连接",
+    "settings.models.answerProvider.secureStorageUnavailable":
+      "安全凭据存储不可用",
+    "settings.models.answerProvider.enabled": "已开启",
+    "settings.models.answerProvider.disabled": "关闭",
+    "settings.models.localModels.label": "本地模型清单",
+    "settings.models.localModels.description":
+      "从现有模型服务读取已安装、已选择、已加载和缺失状态。",
+    "settings.models.localModels.refresh": "刷新模型状态",
+    "settings.models.localModels.openOperations": "查看模型任务",
+    "settings.models.localModels.noOperations": "当前没有运行中的模型任务",
+    "settings.models.routingPolicy.label": "路由策略",
+    "settings.models.routingPolicy.description":
+      "显示产品级路由摘要。内部路由 ID、fallback 链和评测工具不会在此页显示。",
+    "settings.models.routingPolicy.safeSummary":
+      "本地规则仍是确定性 fallback。安全和确认规则保持不变。",
+    "settings.models.cloudLocalStatus.label": "云端与本地状态",
+    "settings.models.cloudLocalStatus.description":
+      "区分本地可用性和云端配置。打开本页不会验证 Provider，也不会发起请求。",
+    "settings.models.cloudLocalStatus.localProviders": "本地 Provider",
+    "settings.models.cloudLocalStatus.cloudProviders": "云端 Provider",
+    "settings.models.cloudLocalStatus.resourceLeases": "活动模型租约",
+    "settings.models.status.localRulesEnabled": "本地规则已启用",
+    "settings.models.status.localRulesOff": "命令路由关闭",
+    "settings.models.status.localRoutingUnavailable": "本地路由暂不可用",
+    "settings.models.status.missing": "缺失",
+    "settings.models.status.installed": "已安装",
+    "settings.models.status.selected": "已选择",
+    "settings.models.status.loaded": "已加载",
+    "settings.models.status.currentlyNotLoaded": "当前未加载",
+    "settings.models.status.available": "可用",
+    "settings.models.status.unavailable": "不可用",
+    "settings.models.status.unconfigured": "未配置",
+    "settings.models.status.degraded": "降级",
+    "settings.models.status.notVerified": "本页未验证",
+    "settings.models.status.noNetworkOnOpen":
+      "打开本页不会加载、下载、删除模型，也不会验证云端 Provider。",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
@@ -534,7 +686,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
     "settings.search.noResultsDescription":
-      "当前可搜索通用、外观与桌宠、语音与音频设置。",
+      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

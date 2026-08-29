@@ -5,6 +5,7 @@ import {
   settingsV2AppearancePetDefinitions,
   settingsV2Categories,
   settingsV2GeneralDefinitions,
+  settingsV2ModelsIntelligenceDefinitions,
   settingsV2ProductDefinitions,
   settingsV2VoiceAudioDefinitions,
   validateSettingsV2Registry,
@@ -19,7 +20,7 @@ const cloneDefinition = (
 });
 
 describe("Settings V2 registry", () => {
-  it("registers General, Appearance & Pet, and Voice & Audio vertical slices", () => {
+  it("registers General, Appearance & Pet, Voice & Audio, and Models & Intelligence vertical slices", () => {
     expect(settingsV2Categories.map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
@@ -34,11 +35,13 @@ describe("Settings V2 registry", () => {
       "general",
       "appearance_pet",
       "voice_audio",
+      "models_intelligence",
     ]);
     expect(settingsV2GeneralDefinitions).toHaveLength(4);
     expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
     expect(settingsV2VoiceAudioDefinitions).toHaveLength(6);
-    expect(settingsV2ProductDefinitions).toHaveLength(16);
+    expect(settingsV2ModelsIntelligenceDefinitions).toHaveLength(5);
+    expect(settingsV2ProductDefinitions).toHaveLength(21);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -118,17 +121,22 @@ describe("Settings V2 registry", () => {
       "settings.general.display_language",
       "settings.appearance.theme",
       "settings.voice.provider",
+      "settings.models.fast_command_understanding",
       "settings.general.close_button_behavior",
       "settings.pet.show",
       "settings.voice.capture_mode",
+      "settings.models.answer_provider",
       "settings.general.launch_at_login",
       "settings.pet.keep_on_top",
       "settings.voice.microphone_permission",
+      "settings.models.local_models",
       "settings.general.reset_recovery",
       "settings.pet.reduced_motion",
       "settings.voice.push_to_talk",
+      "settings.models.routing_policy",
       "settings.pet.reset_position",
       "settings.voice.tts",
+      "settings.models.cloud_local_status",
       "settings.skin.current",
       "settings.voice.wake_word",
     ]);
