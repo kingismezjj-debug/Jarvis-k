@@ -2,10 +2,13 @@ import * as React from "react";
 import type {
   DesktopCloseButtonBehavior,
   DesktopLaunchAtLoginStatus,
+  DesktopPetReducedMotion,
   DesktopSettings,
+  PetSkinRegistryProjection,
 } from "@jarvis-k/contracts";
 
-import type { UiLanguage } from "@/app/types";
+import { builtInSkinThemes } from "@/app/skin-themes";
+import type { SkinThemeId, UiLanguage } from "@/app/types";
 import {
   Button,
   Dialog,
@@ -34,6 +37,7 @@ import {
 import {
   formatSettingsV2Error,
   tSettingsV2,
+  type SettingsV2CopyKey,
   type SettingsV2Locale,
 } from "./settings-v2-copy";
 import "./settings-v2.css";
@@ -50,9 +54,23 @@ export type SettingsV2GeneralViewProps = {
     behavior: DesktopCloseButtonBehavior,
   ) => void;
   onSetDesktopLaunchAtLoginEnabled: (enabled: boolean) => void;
+  activeThemeId: SkinThemeId;
+  petSkinRegistry: PetSkinRegistryProjection | null;
+  onSelectTheme: (themeId: SkinThemeId) => void;
+  onSetDesktopPetEnabled: (enabled: boolean) => void;
+  onSetDesktopPetAlwaysOnTop: (enabled: boolean) => void;
+  onSetDesktopPetReducedMotion: (mode: DesktopPetReducedMotion) => void;
+  onResetDesktopPetPosition: () => void;
+  onOpenExistingSkinManagement?: () => void;
+  initialCategoryId?: SettingsV2CategoryId;
 };
 
-const migratedCategoryId: SettingsV2CategoryId = "general";
+const defaultCategoryId: SettingsV2CategoryId = "general";
+const desktopPetReducedMotionModes: DesktopPetReducedMotion[] = [
+  "system",
+  "on",
+  "off",
+];
 
 function normalizeSearchText(value: string): string {
   return value.trim().toLocaleLowerCase();
@@ -93,16 +111,97 @@ function getLaunchValueLabel(
     : tSettingsV2(locale, "settings.status.off");
 }
 
+function getThemeLabel(locale: SettingsV2Locale, themeId: SkinThemeId): string {
+  return tSettingsV2(locale, getThemeCopyKey(themeId, "label"));
+}
+
+function getThemeDescription(
+  locale: SettingsV2Locale,
+  themeId: SkinThemeId,
+): string {
+  return tSettingsV2(locale, getThemeCopyKey(themeId, "description"));
+}
+
+function getThemeCopyKey(
+  themeId: SkinThemeId,
+  kind: "label" | "description",
+): SettingsV2CopyKey {
+  if (themeId === "harbor") {
+    return kind === "label"
+      ? "settings.theme.harbor.label"
+      : "settings.theme.harbor.description";
+  }
+  if (themeId === "ember") {
+    return kind === "label"
+      ? "settings.theme.ember.label"
+      : "settings.theme.ember.description";
+  }
+  return kind === "label"
+    ? "settings.theme.signal.label"
+    : "settings.theme.signal.description";
+}
+
+function getPetVisibilityLabel(
+  locale: SettingsV2Locale,
+  settings: DesktopSettings | null,
+): string {
+  if (settings === null) return tSettingsV2(locale, "settings.status.unknown");
+  return settings.desktopPetEnabled
+    ? tSettingsV2(locale, "settings.pet.status.enabled")
+    : tSettingsV2(locale, "settings.pet.status.disabled");
+}
+
+function getReducedMotionLabel(
+  locale: SettingsV2Locale,
+  mode: DesktopPetReducedMotion,
+): string {
+  return tSettingsV2(
+    locale,
+    mode === "on"
+      ? "settings.pet.status.motionReduced"
+      : mode === "off"
+        ? "settings.pet.status.motionFull"
+        : "settings.pet.status.motionSystem",
+  );
+}
+
+function getCategoryLabel(
+  locale: SettingsV2Locale,
+  categoryId: SettingsV2CategoryId,
+): string {
+  const category = settingsV2Categories.find((item) => item.id === categoryId);
+  return category ? tSettingsV2(locale, category.labelKey) : "";
+}
+
+function getSectionLabel(
+  locale: SettingsV2Locale,
+  sectionId: SettingsV2Definition["sectionId"],
+): string {
+  const sectionKeys: Record<SettingsV2Definition["sectionId"], SettingsV2CopyKey> = {
+    interface: "settings.general.section.interface",
+    desktop: "settings.general.section.desktop",
+    reset: "settings.general.section.reset",
+    appearance: "settings.appearance.section.theme",
+    desktop_pet: "settings.appearance.section.pet",
+    pet_skin: "settings.appearance.section.skin",
+  };
+  return tSettingsV2(locale, sectionKeys[sectionId]);
+}
+
 function getDefinitionValue({
   definition,
   desktopSettings,
   desktopLaunchAtLoginStatus,
   locale,
+  activeThemeId,
+  petSkinRegistry,
 }: {
   definition: SettingsV2Definition;
   desktopSettings: DesktopSettings | null;
   desktopLaunchAtLoginStatus: DesktopLaunchAtLoginStatus | null;
   locale: SettingsV2Locale;
+  activeThemeId: SkinThemeId;
+  petSkinRegistry: PetSkinRegistryProjection | null;
 }): string {
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
@@ -116,6 +215,31 @@ function getDefinitionValue({
   if (definition.settingBindingId === "desktop.launch_at_login") {
     return getLaunchValueLabel(locale, desktopSettings, desktopLaunchAtLoginStatus);
   }
+  if (definition.settingBindingId === "ui.theme") {
+    return getThemeLabel(locale, activeThemeId);
+  }
+  if (definition.settingBindingId === "desktop.pet_enabled") {
+    return getPetVisibilityLabel(locale, desktopSettings);
+  }
+  if (definition.settingBindingId === "desktop.pet_always_on_top") {
+    if (desktopSettings === null) return tSettingsV2(locale, "settings.status.unknown");
+    return desktopSettings.desktopPetAlwaysOnTop
+      ? tSettingsV2(locale, "settings.status.on")
+      : tSettingsV2(locale, "settings.status.off");
+  }
+  if (definition.settingBindingId === "desktop.pet_reduced_motion") {
+    return getReducedMotionLabel(
+      locale,
+      desktopSettings?.desktopPetReducedMotion ?? "system",
+    );
+  }
+  if (definition.settingBindingId === "desktop.pet_position_reset") {
+    return tSettingsV2(locale, "settings.pet.resetPosition.action");
+  }
+  if (definition.settingBindingId === "desktop.pet_skin_summary") {
+    if (petSkinRegistry?.activeSkin) return petSkinRegistry.activeSkin.displayName;
+    return tSettingsV2(locale, "settings.skin.status.builtIn");
+  }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
@@ -124,11 +248,15 @@ function getSearchResults({
   locale,
   desktopSettings,
   desktopLaunchAtLoginStatus,
+  activeThemeId,
+  petSkinRegistry,
 }: {
   query: string;
   locale: SettingsV2Locale;
   desktopSettings: DesktopSettings | null;
   desktopLaunchAtLoginStatus: DesktopLaunchAtLoginStatus | null;
+  activeThemeId: SkinThemeId;
+  petSkinRegistry: PetSkinRegistryProjection | null;
 }) {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
@@ -151,6 +279,8 @@ function getSearchResults({
         desktopSettings,
         desktopLaunchAtLoginStatus,
         locale,
+        activeThemeId,
+        petSkinRegistry,
       }),
     }));
 }
@@ -165,12 +295,22 @@ export function SettingsV2GeneralView({
   onSelectLanguage,
   onSetDesktopCloseButtonBehavior,
   onSetDesktopLaunchAtLoginEnabled,
+  activeThemeId,
+  petSkinRegistry,
+  onSelectTheme,
+  onSetDesktopPetEnabled,
+  onSetDesktopPetAlwaysOnTop,
+  onSetDesktopPetReducedMotion,
+  onResetDesktopPetPosition,
+  onOpenExistingSkinManagement,
+  initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
-    React.useState<SettingsV2CategoryId>(migratedCategoryId);
+    React.useState<SettingsV2CategoryId>(initialCategoryId ?? defaultCategoryId);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [languageDialogOpen, setLanguageDialogOpen] = React.useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = React.useState(false);
+  const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
   const [resetDialogOpen, setResetDialogOpen] = React.useState(false);
 
   const categories = React.useMemo(
@@ -189,8 +329,17 @@ export function SettingsV2GeneralView({
         locale,
         desktopSettings,
         desktopLaunchAtLoginStatus,
+        activeThemeId,
+        petSkinRegistry,
       }),
-    [desktopLaunchAtLoginStatus, desktopSettings, locale, searchQuery],
+    [
+      activeThemeId,
+      desktopLaunchAtLoginStatus,
+      desktopSettings,
+      locale,
+      petSkinRegistry,
+      searchQuery,
+    ],
   );
 
   const closeBehavior =
@@ -198,6 +347,20 @@ export function SettingsV2GeneralView({
   const launchSupported = desktopLaunchAtLoginStatus?.supported === true;
   const launchCanModify =
     launchSupported && desktopLaunchAtLoginStatus?.canModify !== false;
+  const reducedMotion =
+    desktopSettings?.desktopPetReducedMotion ?? "system";
+  const activeSkinDisplayName =
+    petSkinRegistry?.activeSkin?.displayName ??
+    tSettingsV2(locale, "settings.skin.status.builtIn");
+  const activeSkinSource = petSkinRegistry?.activeSkin
+    ? tSettingsV2(locale, "settings.skin.status.local")
+    : tSettingsV2(locale, "settings.skin.status.builtIn");
+  const skinHealth =
+    petSkinRegistry === null
+      ? tSettingsV2(locale, "settings.skin.status.notLoaded")
+      : petSkinRegistry.registryHealthy
+        ? tSettingsV2(locale, "settings.skin.status.healthy")
+        : tSettingsV2(locale, "settings.skin.status.recovered");
 
   return (
     <div
@@ -258,7 +421,7 @@ export function SettingsV2GeneralView({
                 {searchResults.length > 0 ? (
                   searchResults.map(({ definition, value }) => (
                     <SettingsSearchResult
-                      breadcrumb={`${tSettingsV2(locale, "settings.categories.general")} / ${tSettingsV2(locale, definition.sectionId === "interface" ? "settings.general.section.interface" : definition.sectionId === "desktop" ? "settings.general.section.desktop" : "settings.general.section.reset")}`}
+                      breadcrumb={`${getCategoryLabel(locale, definition.categoryId)} / ${getSectionLabel(locale, definition.sectionId)}`}
                       description={tSettingsV2(locale, definition.descriptionKey)}
                       key={definition.settingId}
                       title={tSettingsV2(locale, definition.labelKey)}
@@ -278,7 +441,7 @@ export function SettingsV2GeneralView({
                 )}
               </div>
             </section>
-          ) : selectedCategoryId === migratedCategoryId ? (
+          ) : selectedCategoryId === "general" ? (
             <section data-testid="settings-v2-general">
               <SettingsPageHeader
                 description={tSettingsV2(locale, "settings.general.description")}
@@ -398,6 +561,142 @@ export function SettingsV2GeneralView({
                 </Button>
               </div>
             </section>
+          ) : selectedCategoryId === "appearance_pet" ? (
+            <section data-testid="settings-v2-appearance-pet">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.appearance.description")}
+                title={tSettingsV2(locale, "settings.appearance.title")}
+              />
+              {error ? (
+                <InlineNotice title={formatSettingsV2Error(locale, "save_failed")} tone="warning">
+                  {formatSettingsV2Error(locale, "unavailable")}
+                </InlineNotice>
+              ) : null}
+
+              <SettingsSection
+                description={tSettingsV2(
+                  locale,
+                  "settings.appearance.theme.previewDescription",
+                )}
+                title={tSettingsV2(locale, "settings.appearance.section.theme")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.appearance.theme.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.appearance.theme.label")}
+                >
+                  <SettingValueAction
+                    actionLabel={tSettingsV2(
+                      locale,
+                      "settings.appearance.theme.action",
+                    )}
+                    onAction={() => setThemeDialogOpen(true)}
+                    value={getThemeLabel(locale, activeThemeId)}
+                  />
+                </SettingRow>
+                <ThemeChoiceGrid
+                  activeThemeId={activeThemeId}
+                  locale={locale}
+                  onSelectTheme={onSelectTheme}
+                  sending={sending}
+                />
+                <ThemePreview activeThemeId={activeThemeId} locale={locale} />
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.appearance.section.pet")}
+              >
+                <SettingSwitchRow
+                  checked={desktopSettings?.desktopPetEnabled ?? false}
+                  description={tSettingsV2(locale, "settings.pet.show.description")}
+                  disabled={desktopSettings === null || sending}
+                  onCheckedChange={onSetDesktopPetEnabled}
+                  title={tSettingsV2(locale, "settings.pet.show.label")}
+                />
+                <SettingSwitchRow
+                  checked={desktopSettings?.desktopPetAlwaysOnTop ?? true}
+                  description={tSettingsV2(
+                    locale,
+                    "settings.pet.keepOnTop.description",
+                  )}
+                  disabled={desktopSettings === null || sending}
+                  onCheckedChange={onSetDesktopPetAlwaysOnTop}
+                  title={tSettingsV2(locale, "settings.pet.keepOnTop.label")}
+                />
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.pet.reducedMotion.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.pet.reducedMotion.label")}
+                >
+                  <div
+                    className="settings-v2-segmented"
+                    data-testid="settings-v2-pet-reduced-motion"
+                  >
+                    {desktopPetReducedMotionModes.map(
+                      (mode) => (
+                        <Button
+                          aria-pressed={reducedMotion === mode}
+                          className="settings-v2-segment"
+                          disabled={desktopSettings === null || sending}
+                          key={mode}
+                          onClick={() => onSetDesktopPetReducedMotion(mode)}
+                          variant={reducedMotion === mode ? "primary" : "ghost"}
+                        >
+                          {tSettingsV2(
+                            locale,
+                            mode === "system"
+                              ? "settings.pet.reducedMotion.system"
+                              : mode === "on"
+                                ? "settings.pet.reducedMotion.on"
+                                : "settings.pet.reducedMotion.off",
+                          )}
+                        </Button>
+                      ),
+                    )}
+                  </div>
+                </SettingRow>
+                <div className="settings-v2-status-row" data-testid="settings-v2-pet-status">
+                  <span>
+                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
+                    {getPetVisibilityLabel(locale, desktopSettings)} /{" "}
+                    {getReducedMotionLabel(locale, reducedMotion)}
+                  </span>
+                  <Button
+                    disabled={desktopSettings === null || sending}
+                    onClick={onResetDesktopPetPosition}
+                    variant="secondary"
+                  >
+                    {tSettingsV2(locale, "settings.pet.resetPosition.action")}
+                  </Button>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.appearance.section.skin")}
+              >
+                <SkinSummaryCard
+                  activeSkinDisplayName={activeSkinDisplayName}
+                  activeSkinSource={activeSkinSource}
+                  installedCount={petSkinRegistry?.installedSkins.length ?? 0}
+                  locale={locale}
+                  registryHealth={skinHealth}
+                />
+                <div className="settings-v2-status-row" data-testid="settings-v2-skin-management">
+                  <span>{tSettingsV2(locale, "settings.skin.manage.description")}</span>
+                  <Button
+                    disabled={!onOpenExistingSkinManagement}
+                    onClick={onOpenExistingSkinManagement}
+                    variant="secondary"
+                  >
+                    {tSettingsV2(locale, "settings.skin.manage.action")}
+                  </Button>
+                </div>
+              </SettingsSection>
+            </section>
           ) : (
             <section
               className="settings-v2-placeholder"
@@ -478,6 +777,31 @@ export function SettingsV2GeneralView({
       </Dialog>
 
       <Dialog
+        description={tSettingsV2(
+          locale,
+          "settings.appearance.theme.dialogDescription",
+        )}
+        onClose={() => setThemeDialogOpen(false)}
+        open={themeDialogOpen}
+        title={tSettingsV2(locale, "settings.appearance.theme.dialogTitle")}
+      >
+        <div className="settings-v2-dialog-actions" data-testid="settings-v2-theme-dialog">
+          {builtInSkinThemes.map((theme) => (
+            <Button
+              key={theme.id}
+              onClick={() => {
+                onSelectTheme(theme.id);
+                setThemeDialogOpen(false);
+              }}
+              variant={activeThemeId === theme.id ? "primary" : "secondary"}
+            >
+              {getThemeLabel(locale, theme.id)}
+            </Button>
+          ))}
+        </div>
+      </Dialog>
+
+      <Dialog
         description={tSettingsV2(locale, "settings.confirmation.resetDescription")}
         onClose={() => setResetDialogOpen(false)}
         open={resetDialogOpen}
@@ -493,5 +817,116 @@ export function SettingsV2GeneralView({
         </div>
       </Dialog>
     </div>
+  );
+}
+
+function ThemeChoiceGrid({
+  activeThemeId,
+  locale,
+  onSelectTheme,
+  sending,
+}: {
+  activeThemeId: SkinThemeId;
+  locale: SettingsV2Locale;
+  onSelectTheme: (themeId: SkinThemeId) => void;
+  sending: boolean;
+}) {
+  return (
+    <div className="settings-v2-theme-grid" data-testid="settings-v2-theme-choices">
+      {builtInSkinThemes.map((theme) => (
+        <button
+          aria-pressed={activeThemeId === theme.id}
+          className="settings-v2-theme-choice"
+          data-selected={activeThemeId === theme.id}
+          data-testid={`settings-v2-theme-${theme.id}`}
+          disabled={sending}
+          key={theme.id}
+          onClick={() => onSelectTheme(theme.id)}
+          type="button"
+        >
+          <span className="settings-v2-theme-swatches" aria-hidden="true">
+            {theme.swatches.map((color) => (
+              <span
+                className="settings-v2-theme-swatch"
+                key={color}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </span>
+          <strong>{getThemeLabel(locale, theme.id)}</strong>
+          <span>
+            {getThemeDescription(locale, theme.id)}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ThemePreview({
+  activeThemeId,
+  locale,
+}: {
+  activeThemeId: SkinThemeId;
+  locale: SettingsV2Locale;
+}) {
+  const activeTheme =
+    builtInSkinThemes.find((theme) => theme.id === activeThemeId) ??
+    builtInSkinThemes[0];
+  return (
+    <article className="settings-v2-theme-preview" data-testid="settings-v2-theme-preview">
+      <div className="settings-v2-theme-preview-frame">
+        <span className="settings-v2-theme-preview-dot" />
+        <div className="settings-v2-theme-preview-lines" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <span className="settings-v2-theme-preview-accent" />
+      </div>
+      <div className="jk-stack">
+        <strong>{tSettingsV2(locale, "settings.appearance.theme.previewTitle")}</strong>
+        <span className="jk-muted">
+          {getThemeLabel(locale, activeTheme.id)}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function SkinSummaryCard({
+  activeSkinDisplayName,
+  activeSkinSource,
+  installedCount,
+  locale,
+  registryHealth,
+}: {
+  activeSkinDisplayName: string;
+  activeSkinSource: string;
+  installedCount: number;
+  locale: SettingsV2Locale;
+  registryHealth: string;
+}) {
+  return (
+    <article className="settings-v2-skin-summary" data-testid="settings-v2-skin-summary">
+      <div className="jk-stack">
+        <strong>{activeSkinDisplayName}</strong>
+        <span className="jk-muted">{activeSkinSource}</span>
+      </div>
+      <dl>
+        <div>
+          <dt>{tSettingsV2(locale, "settings.common.currentValue")}</dt>
+          <dd>{registryHealth}</dd>
+        </div>
+        <div>
+          <dt>{tSettingsV2(locale, "settings.appearance.section.skin")}</dt>
+          <dd>
+            {installedCount > 0
+              ? `${installedCount}`
+              : tSettingsV2(locale, "settings.skin.empty.title")}
+          </dd>
+        </div>
+      </dl>
+    </article>
   );
 }

@@ -64,6 +64,7 @@ import {
   QwenRuntimeControlSetResultSchema,
   QwenRuntimeControlStatusSchema,
   type DesktopPetReducedMotion,
+  type DesktopUiTheme,
   type QwenRuntimeControlAction,
   type DesktopCloseButtonBehavior,
   type DesktopFirstRunOnboardingState,
@@ -163,6 +164,12 @@ const bridge: JarvisBridge = {
   getDesktopLaunchAtLoginStatus: async () =>
     DesktopLaunchAtLoginStatusSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL)
+    ),
+  setDesktopUiTheme: async (theme: DesktopUiTheme) =>
+    DesktopSettingsSetResultSchema.parse(
+      await ipcRenderer.invoke(IPC_DESKTOP_SETTINGS_SET_CHANNEL, {
+        uiTheme: theme
+      })
     ),
   setDesktopCloseButtonBehavior: async (
     behavior: DesktopCloseButtonBehavior

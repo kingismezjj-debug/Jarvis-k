@@ -14,6 +14,7 @@ const desktopSettings: DesktopSettings = {
   closeButtonBehavior: "minimize_to_tray",
   closeToTrayNoticeShown: false,
   launchAtLoginEnabled: false,
+  uiTheme: "signal",
   desktopPetEnabled: false,
   desktopPetAlwaysOnTop: true,
   desktopPetReducedMotion: "system",
@@ -46,10 +47,17 @@ function renderView(
       desktopLaunchAtLoginStatus={launchStatus}
       desktopSettings={desktopSettings}
       locale="en"
+      activeThemeId="signal"
       onRefreshDesktopSettings={vi.fn()}
       onSelectLanguage={vi.fn()}
+      onSelectTheme={vi.fn()}
       onSetDesktopCloseButtonBehavior={vi.fn()}
       onSetDesktopLaunchAtLoginEnabled={vi.fn()}
+      onSetDesktopPetAlwaysOnTop={vi.fn()}
+      onSetDesktopPetEnabled={vi.fn()}
+      onSetDesktopPetReducedMotion={vi.fn()}
+      onResetDesktopPetPosition={vi.fn()}
+      petSkinRegistry={null}
       sending={false}
       {...props}
     />,
@@ -90,8 +98,85 @@ describe("Settings V2 General view", () => {
       "Cloud Acceptance",
       "Qwen",
       "fixture",
+      "Skin Studio",
       "PROTOTYPE DATA",
       "DANGER ZONE",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("renders Appearance & Pet from real safe projections", () => {
+    const html = renderView({
+      activeThemeId: "harbor",
+      initialCategoryId: "appearance_pet",
+      desktopSettings: {
+        ...desktopSettings,
+        uiTheme: "harbor",
+        desktopPetEnabled: true,
+        desktopPetAlwaysOnTop: false,
+        desktopPetReducedMotion: "on",
+      },
+      petSkinRegistry: {
+        activeSkin: {
+          identity: {
+            skinId: "local.test",
+            skinVersion: "1.0.0",
+            packageDigest:
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          },
+          displayName: "Calm Local Skin",
+          trustState: "active_skin",
+          states: {
+            idle: { baseAssetId: "idle" },
+            listening: { baseAssetId: "listening" },
+            thinking: { baseAssetId: "thinking" },
+            success: { baseAssetId: "success" },
+            error: { baseAssetId: "error" },
+            offline: { baseAssetId: "offline" },
+          },
+          reducedMotionStates: {
+            idle: { baseAssetId: "idle-static" },
+            listening: { baseAssetId: "listening-static" },
+            thinking: { baseAssetId: "thinking-static" },
+            success: { baseAssetId: "success-static" },
+            error: { baseAssetId: "error-static" },
+            offline: { baseAssetId: "offline-static" },
+          },
+          resources: {},
+          sensitiveContentExposed: false,
+        },
+        activeSkinIdentity: {
+          skinId: "local.test",
+          skinVersion: "1.0.0",
+          packageDigest:
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
+        builtInFallback: {
+          skinId: "builtin.jarvis-k.robot",
+          trustState: "built_in_fallback",
+          removable: false,
+        },
+        installedSkins: [],
+        registryHealthy: true,
+      },
+    });
+    expect(html).toContain("Appearance &amp; Pet");
+    expect(html).toContain("Harbor");
+    expect(html).toContain("Show Desktop Pet");
+    expect(html).toContain("Visible");
+    expect(html).toContain("Reduced motion");
+    expect(html).toContain("Calm Local Skin");
+    expect(html).toContain("Installed local skin");
+    for (const forbidden of [
+      "aaaaaaaaaaaaaaaa",
+      "local.test",
+      "packageDigest",
+      "manifest",
+      "signature",
+      "C:\\\\",
+      "credential",
+      "Skin Studio",
     ]) {
       expect(html).not.toContain(forbidden);
     }

@@ -89,6 +89,7 @@ describe("SettingsService", () => {
       closeButtonBehavior: "minimize_to_tray",
       closeToTrayNoticeShown: false,
       launchAtLoginEnabled: false,
+      uiTheme: "signal",
       desktopPetEnabled: false,
       desktopPetAlwaysOnTop: true,
       desktopPetReducedMotion: "system",
@@ -123,6 +124,7 @@ describe("SettingsService", () => {
       expect(stored).toMatchObject({
         closeButtonBehavior: "quit",
         launchAtLoginEnabled: false,
+        uiTheme: "signal",
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",
@@ -131,6 +133,35 @@ describe("SettingsService", () => {
       });
       const reloaded = createSettingsService({ desktopSettingsPath }).service;
       expect(reloaded.getDesktopSettings().closeButtonBehavior).toBe("quit");
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("persists the interface theme through Desktop Settings", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-theme-settings-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({ desktopSettingsPath });
+      expect(service.setDesktopUiTheme({ uiTheme: "harbor" })).toMatchObject({
+        ok: true,
+        settings: {
+          uiTheme: "harbor",
+          persistedLocally: true,
+          syncedToCloud: false,
+        },
+      });
+
+      const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
+      expect(stored.uiTheme).toBe("harbor");
+      const reloaded = createSettingsService({ desktopSettingsPath }).service;
+      expect(reloaded.getDesktopSettings().uiTheme).toBe("harbor");
+      expect(service.setDesktopUiTheme({ uiTheme: "unknown" })).toMatchObject({
+        ok: false,
+        settings: { uiTheme: "harbor" },
+      });
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
@@ -197,6 +228,7 @@ describe("SettingsService", () => {
         closeButtonBehavior: "quit",
         closeToTrayNoticeShown: true,
         launchAtLoginEnabled: false,
+        uiTheme: "signal",
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",

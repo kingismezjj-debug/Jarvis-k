@@ -53,9 +53,7 @@ import {
 import { primaryNavigation } from "@/app/navigation";
 import {
   builtInSkinThemes,
-  persistSkinTheme,
-  readInitialSkinTheme,
-  THEME_STORAGE_KEY,
+  defaultSkinThemeId,
 } from "@/app/skin-themes";
 import type {
   ActionStatus,
@@ -202,6 +200,7 @@ export default function App() {
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
+    setDesktopUiTheme,
     setGlmAdvancedBrainAcceptanceModel,
     saveCloudProviderAcceptanceCredential,
     saveGlmAdvancedBrainAcceptanceCredential,
@@ -242,7 +241,7 @@ export default function App() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [lastAction, setLastAction] = useState<ActionStatus | null>(null);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(readInitialLanguage);
-  const [skinTheme, setSkinTheme] = useState<SkinThemeId>(readInitialSkinTheme);
+  const [skinTheme, setSkinTheme] = useState<SkinThemeId>(defaultSkinThemeId);
   const [localTtsEnabled, setLocalTtsEnabled] = useState(false);
   const [localTtsStatus, setLocalTtsStatus] =
     useState<LocalTtsStatus>("disabled");
@@ -886,6 +885,12 @@ export default function App() {
   }, [activeSkinTheme.colorScheme, skinTheme]);
 
   useEffect(() => {
+    if (desktopSettings?.uiTheme && desktopSettings.uiTheme !== skinTheme) {
+      setSkinTheme(desktopSettings.uiTheme);
+    }
+  }, [desktopSettings?.uiTheme, skinTheme]);
+
+  useEffect(() => {
     if (activeView === "settings") {
       void uiSurfaceMode.refreshUiSurfaceCapabilityStatus();
     }
@@ -931,11 +936,16 @@ export default function App() {
   }, [activeView, coreOnline, refreshUserControlledMemories]);
 
   useEffect(() => {
-    if (activeView === "settings" && developerModeEnabled) {
+    if (
+      activeView === "settings" &&
+      (developerModeEnabled || uiSurfaceMode.settingsV2SurfaceEnabled)
+    ) {
       void refreshPetSkinRegistry();
+    }
+    if (activeView === "settings" && developerModeEnabled) {
       void refreshPetSkinStudioDraft();
     }
-  }, [activeView, developerModeEnabled]);
+  }, [activeView, developerModeEnabled, uiSurfaceMode.settingsV2SurfaceEnabled]);
 
   useEffect(() => {
     if (!ttsSafetyEligible) {
@@ -1303,12 +1313,21 @@ export default function App() {
     });
   }
 
-  function handleSelectSkinTheme(themeId: SkinThemeId) {
+  async function handleSelectSkinTheme(themeId: SkinThemeId) {
+    const previousTheme = skinTheme;
     setSkinTheme(themeId);
-    persistSkinTheme(themeId);
     const nextTheme =
       builtInSkinThemes.find((theme) => theme.id === themeId) ??
       builtInSkinThemes[0];
+    const ok = await setDesktopUiTheme(themeId);
+    if (!ok) {
+      setSkinTheme(desktopSettings?.uiTheme ?? previousTheme);
+      setLastAction({
+        label: `${copy.settings.themeChanged} ${copy.action.failed}`,
+        tone: "warning",
+      });
+      return;
+    }
     setLastAction({
       label: `${copy.settings.themeChanged}: ${nextTheme.label}`,
       tone: "success",
@@ -2433,10 +2452,19 @@ export default function App() {
             uiSurfaceMode.settingsV2SurfaceEnabled ? (
               <ScrollArea className="min-h-0 flex-1">
                 <SettingsV2GeneralView
+                  activeThemeId={skinTheme}
                   desktopLaunchAtLoginStatus={desktopLaunchAtLoginStatus}
                   desktopSettings={desktopSettings}
                   error={error}
                   locale={uiLanguage}
+                  petSkinRegistry={petSkinRegistry}
+                  onOpenExistingSkinManagement={() => {
+                    void trackAction(
+                      "Refresh local skin management",
+                      refreshPetSkinRegistry,
+                      "Local skin status refreshed",
+                    );
+                  }}
                   onRefreshDesktopSettings={() => {
                     void trackAction(
                       "Refresh desktop settings",
@@ -2461,6 +2489,39 @@ export default function App() {
                       enabled
                         ? "Launch at login enabled"
                         : "Launch at login disabled",
+                      );
+                  }}
+                  onResetDesktopPetPosition={() => {
+                    void trackAction(
+                      "Reset Desktop Pet position",
+                      resetDesktopPetPosition,
+                      "Desktop Pet position reset",
+                    );
+                  }}
+                  onSelectTheme={(themeId) => {
+                    void handleSelectSkinTheme(themeId);
+                  }}
+                  onSetDesktopPetAlwaysOnTop={(enabled) => {
+                    void trackAction(
+                      enabled
+                        ? "Keep Desktop Pet on top"
+                        : "Disable Desktop Pet on top",
+                      async () => setDesktopPetAlwaysOnTop(enabled),
+                      "Desktop Pet setting updated",
+                    );
+                  }}
+                  onSetDesktopPetEnabled={(enabled) => {
+                    void trackAction(
+                      enabled ? "Show Desktop Pet" : "Hide Desktop Pet",
+                      async () => setDesktopPetEnabled(enabled),
+                      enabled ? "Desktop Pet shown" : "Desktop Pet hidden",
+                    );
+                  }}
+                  onSetDesktopPetReducedMotion={(mode) => {
+                    void trackAction(
+                      "Change Desktop Pet motion",
+                      async () => setDesktopPetReducedMotion(mode),
+                      "Desktop Pet motion updated",
                     );
                   }}
                   sending={sending}
@@ -2518,7 +2579,9 @@ export default function App() {
                   petSkinStudioLoading={petSkinStudioLoading}
                   petSkinStudioResult={petSkinStudioResult}
                   onActivatePetSkin={handleActivatePetSkin}
-                  onSelectTheme={handleSelectSkinTheme}
+                  onSelectTheme={(themeId) => {
+                    void handleSelectSkinTheme(themeId);
+                  }}
                   onCancelPetSkinPreview={handleCancelPetSkinPreview}
                   onExportPetSkinStudioDraft={handleExportPetSkinStudioDraft}
                   onOpenPetSkinStudioExportFolder={
@@ -2536,7 +2599,7 @@ export default function App() {
                     handleUpdatePetSkinStudioMetadata
                   }
                   showPetSkinPreview={developerModeEnabled}
-                  storageKey={THEME_STORAGE_KEY}
+                  storageKey="Desktop Settings Service"
                   themes={builtInSkinThemes}
                 />
 

@@ -7,6 +7,7 @@ import {
   DesktopPetPositionSchema,
   DesktopPetReducedMotionSchema,
   DesktopSettingsSchema,
+  DesktopUiThemeSchema,
 } from "@jarvis-k/contracts";
 import type {
   DesktopCloseButtonBehavior,
@@ -153,6 +154,21 @@ export class SettingsService {
       settings: this.desktopSettings,
       ...(result.message ? { message: result.message } : {}),
     };
+  }
+
+  public setDesktopUiTheme(rawInput: unknown): DesktopSettingsSetResult {
+    const raw = asRecord(rawInput);
+    const parsed = DesktopUiThemeSchema.safeParse(raw.uiTheme);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        settings: this.desktopSettings,
+        message: "Desktop theme setting is invalid.",
+      };
+    }
+    return this.updateDesktopSettings({
+      uiTheme: parsed.data,
+    });
   }
 
   public getDesktopPetSettings(): DesktopPetSettings {
@@ -498,6 +514,7 @@ export class SettingsService {
         | "desktopPetAlwaysOnTop"
         | "desktopPetReducedMotion"
         | "desktopPetPosition"
+        | "uiTheme"
       >
     >,
   ): DesktopSettingsSetResult {
@@ -520,6 +537,7 @@ function createDesktopSettings(
     closeButtonBehavior,
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
+    uiTheme: "signal",
     desktopPetEnabled: false,
     desktopPetAlwaysOnTop: true,
     desktopPetReducedMotion: "system",
@@ -543,6 +561,7 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
     closeButtonBehavior,
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
     launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
+    uiTheme: DesktopUiThemeSchema.safeParse(raw.uiTheme).data ?? "signal",
     desktopPetEnabled: raw.desktopPetEnabled === true,
     desktopPetAlwaysOnTop:
       typeof raw.desktopPetAlwaysOnTop === "boolean"
@@ -572,6 +591,7 @@ function migrateDesktopSettings(rawInput: unknown): DesktopSettings {
     ...createDesktopSettings(closeButtonBehavior),
     closeToTrayNoticeShown: raw.closeToTrayNoticeShown === true,
     launchAtLoginEnabled: raw.launchAtLoginEnabled === true,
+    uiTheme: DesktopUiThemeSchema.safeParse(raw.uiTheme).data ?? "signal",
     desktopPetEnabled: raw.desktopPetEnabled === true,
     desktopPetAlwaysOnTop:
       typeof raw.desktopPetAlwaysOnTop === "boolean"

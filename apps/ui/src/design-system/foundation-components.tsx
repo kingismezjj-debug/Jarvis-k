@@ -124,6 +124,7 @@ export function Switch({
   onCheckedChange,
   className,
   disabled,
+  showLabel = true,
 }: {
   label: string;
   checked: boolean;
@@ -131,6 +132,7 @@ export function Switch({
   onCheckedChange?: (checked: boolean) => void;
   className?: string;
   disabled?: boolean;
+  showLabel?: boolean;
 }) {
   const descriptionId = description ? React.useId() : undefined;
 
@@ -148,14 +150,16 @@ export function Switch({
       >
         <span aria-hidden="true" className="jk-switch-thumb" />
       </button>
-      <span className="jk-stack">
-        <span className="jk-setting-title">{label}</span>
-        {description ? (
-          <span className="jk-setting-description" id={descriptionId}>
-            {description}
-          </span>
-        ) : null}
-      </span>
+      {showLabel || description ? (
+        <span className="jk-stack">
+          {showLabel ? <span className="jk-setting-title">{label}</span> : null}
+          {description ? (
+            <span className="jk-setting-description" id={descriptionId}>
+              {description}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </div>
   );
 }

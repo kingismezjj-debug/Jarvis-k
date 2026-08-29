@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   getSettingsV2SearchableDefinitions,
+  settingsV2AppearancePetDefinitions,
   settingsV2Categories,
   settingsV2GeneralDefinitions,
+  settingsV2ProductDefinitions,
   validateSettingsV2Registry,
   type SettingsV2Definition,
 } from "../src/features/settings-v2/settings-v2-registry";
@@ -16,7 +18,7 @@ const cloneDefinition = (
 });
 
 describe("Settings V2 registry", () => {
-  it("registers only the General vertical slice", () => {
+  it("registers General and Appearance & Pet vertical slices", () => {
     expect(settingsV2Categories.map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
@@ -27,7 +29,13 @@ describe("Settings V2 registry", () => {
       "notifications",
       "about_updates",
     ]);
+    expect(settingsV2Categories.filter((category) => category.migrated).map((category) => category.id)).toEqual([
+      "general",
+      "appearance_pet",
+    ]);
     expect(settingsV2GeneralDefinitions).toHaveLength(4);
+    expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
+    expect(settingsV2ProductDefinitions).toHaveLength(10);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -98,16 +106,22 @@ describe("Settings V2 registry", () => {
     );
   });
 
-  it("returns deterministic General search definitions", () => {
+  it("returns deterministic General and Appearance & Pet search definitions", () => {
     expect(
       getSettingsV2SearchableDefinitions().map(
         (definition) => definition.settingId,
       ),
     ).toEqual([
       "settings.general.display_language",
+      "settings.appearance.theme",
       "settings.general.close_button_behavior",
+      "settings.pet.show",
       "settings.general.launch_at_login",
+      "settings.pet.keep_on_top",
       "settings.general.reset_recovery",
+      "settings.pet.reduced_motion",
+      "settings.pet.reset_position",
+      "settings.skin.current",
     ]);
   });
 });

@@ -20,6 +20,7 @@ import {
   type DesktopLaunchAtLoginStatus,
   type DesktopPetReducedMotion,
   type DesktopSettings,
+  type DesktopUiTheme,
   type EventEnvelope,
   type GlmAdvancedBrainAcceptanceCommandResult,
   type GlmAdvancedBrainAcceptanceDiagnosticReport,
@@ -451,6 +452,21 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     }
     if (!result.ok) {
       setError(result.message ?? "Launch at login setting was rejected.");
+      return false;
+    }
+    setError(null);
+    return true;
+  }, []);
+
+  const setDesktopUiTheme = useCallback(async (theme: DesktopUiTheme) => {
+    if (!window.jarvis) {
+      setError("Desktop bridge unavailable.");
+      return false;
+    }
+    const result = await window.jarvis.setDesktopUiTheme(theme);
+    setDesktopSettings(result.settings);
+    if (!result.ok) {
+      setError(result.message ?? "Desktop theme setting was rejected.");
       return false;
     }
     setError(null);
@@ -1233,6 +1249,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopLaunchAtLoginEnabled,
+    setDesktopUiTheme,
     setDesktopPetAlwaysOnTop,
     setDesktopPetEnabled,
     setDesktopPetReducedMotion,

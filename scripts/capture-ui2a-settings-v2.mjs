@@ -4,7 +4,7 @@ import path from "node:path";
 import { _electron as electron } from "playwright";
 
 const rootDirectory = path.resolve(import.meta.dirname, "..");
-const outputDirectory = path.join(rootDirectory, "artifacts", "ui-2a", "settings-v2");
+const outputDirectory = path.join(rootDirectory, "artifacts", "ui-2b", "settings-v2");
 
 const baseEnv = {
   ...process.env,
@@ -13,20 +13,21 @@ const baseEnv = {
 };
 
 const scenarios = [
-  { name: "settings-v2-general-en-wide", width: 1440, height: 940, language: "en" },
-  { name: "settings-v2-general-zh-wide", width: 1440, height: 940, language: "zh" },
-  { name: "settings-v2-general-en-narrow", width: 390, height: 980, language: "en" },
-  { name: "settings-v2-general-zh-narrow", width: 390, height: 980, language: "zh" },
-  { name: "settings-v2-search-en", width: 1440, height: 940, language: "en", search: "launch" },
-  { name: "settings-v2-search-zh", width: 1440, height: 940, language: "zh", search: "登录" },
+  { name: "settings-v2-appearance-en-wide", width: 1440, height: 940, language: "en", category: "appearance_pet" },
+  { name: "settings-v2-appearance-zh-wide", width: 1440, height: 940, language: "zh", category: "appearance_pet" },
+  { name: "settings-v2-appearance-en-narrow", width: 390, height: 980, language: "en", category: "appearance_pet" },
+  { name: "settings-v2-appearance-zh-narrow", width: 390, height: 980, language: "zh", category: "appearance_pet" },
+  { name: "settings-v2-theme-dialog", width: 1440, height: 940, language: "en", category: "appearance_pet", dialog: "theme" },
+  { name: "settings-v2-theme-preview", width: 1440, height: 940, language: "en", category: "appearance_pet", theme: "ember" },
+  { name: "settings-v2-pet-enabled", width: 1440, height: 940, language: "en", category: "appearance_pet", desktopPetEnabled: true },
+  { name: "settings-v2-pet-disabled", width: 1440, height: 940, language: "en", category: "appearance_pet", desktopPetEnabled: false },
+  { name: "settings-v2-skin-summary", width: 1440, height: 940, language: "en", category: "appearance_pet" },
+  { name: "settings-v2-no-skin", width: 1440, height: 940, language: "en", category: "appearance_pet" },
+  { name: "settings-v2-appearance-search-zh", width: 1440, height: 940, language: "zh", search: "桌宠" },
   { name: "settings-v2-search-empty", width: 1440, height: 940, language: "en", search: "zzzz-not-a-setting" },
-  { name: "settings-v2-language-dialog", width: 1440, height: 940, language: "en", dialog: "language" },
-  { name: "settings-v2-close-behavior", width: 1440, height: 940, language: "en", dialog: "close" },
-  { name: "settings-v2-auto-start-error", width: 1440, height: 940, language: "en" },
-  { name: "settings-v2-reset-confirmation", width: 1440, height: 940, language: "en", dialog: "reset" },
 ];
 
-async function launchApp({ settingsV2Enabled, chromiumArgs = [] }) {
+async function launchApp({ settingsV2Enabled, chromiumArgs = [], settings = {} }) {
   const tempUserData = await mkdtemp(path.join(os.tmpdir(), "jarvis-k-ui2a-settings-"));
   await writeFile(
     path.join(tempUserData, "jarvis-k-desktop-settings.json"),
@@ -35,7 +36,8 @@ async function launchApp({ settingsV2Enabled, chromiumArgs = [] }) {
         closeButtonBehavior: "minimize_to_tray",
         closeToTrayNoticeShown: false,
         launchAtLoginEnabled: false,
-        desktopPetEnabled: false,
+        uiTheme: settings.uiTheme ?? "signal",
+        desktopPetEnabled: settings.desktopPetEnabled ?? false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",
         firstRunOnboardingVersion: 1,
@@ -87,6 +89,26 @@ async function setLanguage(page, language) {
     await page.getByRole("button", { name: "English" }).click();
     await page.getByText("Jarvis Control Center").waitFor();
   }
+}
+
+async function setCategory(page, language, category) {
+  if (!category) return;
+  const label =
+    category === "appearance_pet"
+      ? language === "zh"
+        ? "外观与桌宠"
+        : "Appearance & Pet"
+      : language === "zh"
+        ? "通用"
+        : "General";
+  const visibleNavButton = page
+    .locator('[data-testid="settings-v2-category-nav"] button')
+    .filter({ hasText: label });
+  if ((await visibleNavButton.count()) > 0 && await visibleNavButton.first().isVisible()) {
+    await visibleNavButton.first().click();
+    return;
+  }
+  await page.locator(".settings-v2-narrow-category select").selectOption(category);
 }
 
 async function assertLayout(page, scenarioName) {
@@ -156,6 +178,7 @@ async function captureScenario(page, scenario) {
   }
   await page.getByTestId("settings-v2-search").fill("");
   await setLanguage(page, scenario.language);
+  await setCategory(page, scenario.language, scenario.category);
   if (scenario.search) {
     await page.getByTestId("settings-v2-search").fill(scenario.search);
     await page.getByTestId("settings-v2-search-results").waitFor();
@@ -172,6 +195,10 @@ async function captureScenario(page, scenario) {
     await page.getByTestId("settings-v2-reset-action").click();
     await page.getByTestId("settings-v2-reset-dialog").waitFor();
   }
+  if (scenario.dialog === "theme") {
+    await page.getByRole("button", { name: /Choose theme|选择主题/ }).click();
+    await page.getByTestId("settings-v2-theme-dialog").waitFor();
+  }
   const layout = await assertLayout(page, scenario.name);
   const screenshotPath = path.join(outputDirectory, `${scenario.name}.png`);
   await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -181,16 +208,22 @@ async function captureScenario(page, scenario) {
 await mkdir(outputDirectory, { recursive: true });
 
 const captured = [];
-const enabled = await launchApp({ settingsV2Enabled: true });
-try {
-  const page = await enabled.electronApp.firstWindow();
-  await openSettings(page, "settings-v2-view");
-  for (const scenario of scenarios) {
+for (const scenario of scenarios) {
+  const enabled = await launchApp({
+    settingsV2Enabled: true,
+    settings: {
+      uiTheme: scenario.theme,
+      desktopPetEnabled: scenario.desktopPetEnabled,
+    },
+  });
+  try {
+    const page = await enabled.electronApp.firstWindow();
+    await openSettings(page, "settings-v2-view");
     captured.push(await captureScenario(page, scenario));
+  } finally {
+    await enabled.electronApp.close();
+    await rm(enabled.tempUserData, { force: true, recursive: true });
   }
-} finally {
-  await enabled.electronApp.close();
-  await rm(enabled.tempUserData, { force: true, recursive: true });
 }
 
 const zoomed = await launchApp({ settingsV2Enabled: true });
@@ -203,10 +236,11 @@ try {
     return mainWindow?.webContents.getZoomFactor() ?? 1;
   });
   const zoomScenario = {
-    name: "settings-v2-general-zh-zoom200",
+    name: "settings-v2-appearance-zoom200",
     width: 780,
     height: 980,
     language: "zh",
+    category: "appearance_pet",
   };
   captured.push({
     ...(await captureScenario(page, zoomScenario)),
@@ -224,10 +258,10 @@ try {
   const page = await disabled.electronApp.firstWindow();
   await page.setViewportSize({ width: 1440, height: 940 });
   await openSettings(page, "settings-view");
-  const screenshotPath = path.join(outputDirectory, "settings-v2-gate-off-legacy.png");
+  const screenshotPath = path.join(outputDirectory, "settings-v2-gate-off-legacy-appearance.png");
   await page.screenshot({ path: screenshotPath, fullPage: true });
   captured.push({
-    name: "settings-v2-gate-off-legacy",
+    name: "settings-v2-gate-off-legacy-appearance",
     path: screenshotPath,
     layout: { legacySettingsVisible: true },
   });

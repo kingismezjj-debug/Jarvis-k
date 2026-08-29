@@ -55,7 +55,8 @@
   min-width: 0;
 }
 
-.settings-v2-content [data-testid="settings-v2-general"] {
+.settings-v2-content [data-testid="settings-v2-general"],
+.settings-v2-content [data-testid="settings-v2-appearance-pet"] {
   display: grid;
   gap: var(--jk-spacing-4);
   max-width: var(--jk-layout-content-max-width);
@@ -102,6 +103,154 @@
   flex-basis: 100%;
 }
 
+.settings-v2-theme-grid {
+  display: grid;
+  gap: var(--jk-spacing-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0 var(--jk-density-row-padding-inline) var(--jk-spacing-3);
+}
+
+.settings-v2-theme-choice {
+  background: var(--jk-color-background-elevated);
+  border: 1px solid var(--jk-color-border-subtle);
+  border-radius: var(--jk-radius-md);
+  color: var(--jk-color-text-primary);
+  cursor: pointer;
+  display: grid;
+  gap: var(--jk-spacing-2);
+  min-height: 112px;
+  padding: var(--jk-spacing-3);
+  text-align: left;
+}
+
+.settings-v2-theme-choice[data-selected="true"] {
+  border-color: var(--jk-color-accent-default);
+  box-shadow: 0 0 0 1px var(--jk-color-accent-default);
+}
+
+.settings-v2-theme-choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.settings-v2-theme-choice strong,
+.settings-v2-theme-choice span {
+  min-width: 0;
+}
+
+.settings-v2-theme-choice > span:last-child {
+  color: var(--jk-color-text-secondary);
+  font-size: var(--jk-typography-font-size-sm);
+  line-height: var(--jk-typography-line-height-normal);
+}
+
+.settings-v2-theme-swatches {
+  display: flex;
+  gap: var(--jk-spacing-2);
+}
+
+.settings-v2-theme-swatch {
+  border: 1px solid var(--jk-color-border-default);
+  border-radius: var(--jk-radius-sm);
+  height: 18px;
+  width: 28px;
+}
+
+.settings-v2-theme-preview {
+  align-items: center;
+  border-top: 1px solid var(--jk-color-border-subtle);
+  display: grid;
+  gap: var(--jk-spacing-3);
+  grid-template-columns: 132px minmax(0, 1fr);
+  padding: var(--jk-spacing-4) var(--jk-density-row-padding-inline);
+}
+
+.settings-v2-theme-preview-frame {
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(
+    135deg,
+    var(--jk-color-background-canvas),
+    var(--jk-color-background-elevated)
+  );
+  border: 1px solid var(--jk-color-border-default);
+  border-radius: var(--jk-radius-md);
+  display: grid;
+  gap: var(--jk-spacing-2);
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
+  padding: var(--jk-spacing-3);
+}
+
+.settings-v2-theme-preview-dot,
+.settings-v2-theme-preview-accent {
+  background: var(--jk-color-accent-default);
+  border-radius: var(--jk-radius-full);
+  height: 16px;
+  width: 16px;
+}
+
+.settings-v2-theme-preview-lines {
+  display: grid;
+  gap: 5px;
+}
+
+.settings-v2-theme-preview-lines span {
+  background: var(--jk-color-border-default);
+  border-radius: var(--jk-radius-full);
+  display: block;
+  height: 5px;
+}
+
+.settings-v2-theme-preview-lines span:nth-child(2) {
+  width: 72%;
+}
+
+.settings-v2-theme-preview-lines span:nth-child(3) {
+  width: 48%;
+}
+
+.settings-v2-segmented {
+  background: var(--jk-color-background-elevated);
+  border: 1px solid var(--jk-color-border-default);
+  border-radius: var(--jk-radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jk-spacing-1);
+  padding: var(--jk-spacing-1);
+}
+
+.settings-v2-segment {
+  min-height: 34px;
+}
+
+.settings-v2-skin-summary {
+  align-items: start;
+  display: grid;
+  gap: var(--jk-spacing-4);
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+  padding: var(--jk-spacing-4) var(--jk-density-row-padding-inline);
+}
+
+.settings-v2-skin-summary dl {
+  display: grid;
+  gap: var(--jk-spacing-2);
+  margin: 0;
+}
+
+.settings-v2-skin-summary div {
+  min-width: 0;
+}
+
+.settings-v2-skin-summary dt {
+  color: var(--jk-color-text-secondary);
+  font-size: var(--jk-typography-font-size-xs);
+}
+
+.settings-v2-skin-summary dd {
+  font-size: var(--jk-typography-font-size-sm);
+  margin: 0;
+}
+
 @media (max-width: 760px) {
   .settings-v2-shell {
     padding: var(--jk-spacing-4);
@@ -131,5 +280,11 @@
   .settings-v2-reset-details {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .settings-v2-theme-grid,
+  .settings-v2-theme-preview,
+  .settings-v2-skin-summary {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

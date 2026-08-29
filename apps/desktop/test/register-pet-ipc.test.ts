@@ -36,6 +36,7 @@ function desktopSettings(overrides: Record<string, unknown> = {}) {
     closeButtonBehavior: "minimize_to_tray",
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
+    uiTheme: "signal",
     desktopPetEnabled: false,
     desktopPetAlwaysOnTop: true,
     desktopPetReducedMotion: "system",

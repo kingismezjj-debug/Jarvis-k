@@ -59,6 +59,7 @@ function desktopSettings(petSettings: ReturnType<typeof createSettingsService> e
     closeButtonBehavior: "minimize_to_tray",
     closeToTrayNoticeShown: false,
     launchAtLoginEnabled: false,
+    uiTheme: "signal",
     desktopPetEnabled: petSettings.enabled,
     desktopPetAlwaysOnTop: petSettings.alwaysOnTop,
     desktopPetReducedMotion: petSettings.reducedMotion,

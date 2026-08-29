@@ -121,6 +121,7 @@ export function SettingSwitchRow({
         disabled={disabled}
         label={title}
         onCheckedChange={onCheckedChange}
+        showLabel={false}
       />
     </SettingRow>
   );

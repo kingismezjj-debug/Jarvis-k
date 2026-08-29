@@ -19,6 +19,7 @@ async function seedDesktopSettings(userDataDirectory) {
         closeButtonBehavior: "minimize_to_tray",
         closeToTrayNoticeShown: true,
         launchAtLoginEnabled: false,
+        uiTheme: "signal",
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",
@@ -93,6 +94,15 @@ async function runGateOnScenario() {
     const categoryCount = await window
       .locator('[data-testid="settings-v2-category-nav"] button')
       .count();
+    await window
+      .locator('[data-testid="settings-v2-category-nav"] button')
+      .filter({ hasText: "Appearance & Pet" })
+      .click();
+    await window.getByTestId("settings-v2-appearance-pet").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("Interface theme").waitFor({ timeout: 5_000 });
+    await window.getByText("Show Desktop Pet").waitFor({ timeout: 5_000 });
     const legacyCount = await window.getByTestId("settings-view").count();
     const skinStudioCount = await countVisibleText(window, "Pet Skin Studio");
     const developerNavCount = await window.getByTestId("nav-developer").count();

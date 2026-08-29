@@ -788,12 +788,12 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain(
       'type SkinThemeId = "signal" | "harbor" | "ember"',
     );
-    expect(appSource).toContain('THEME_STORAGE_KEY = "jarvis-k-ui-theme"');
     expect(appSource).toContain("builtInSkinThemes");
-    expect(appSource).toContain("readInitialSkinTheme");
+    expect(appSource).toContain("defaultSkinThemeId");
     expect(appSource).toContain("isSkinThemeId");
     expect(appSource).toContain("const [skinTheme, setSkinTheme]");
     expect(appSource).toContain("handleSelectSkinTheme");
+    expect(appSource).toContain("setDesktopUiTheme");
     expect(appSource).toContain("root.dataset.jarvisTheme = skinTheme");
     expect(appSource).toContain("data-skin-theme={skinTheme}");
     expect(appSource).toContain('data-testid="skin-theme-settings"');
@@ -802,6 +802,8 @@ describe("voice UI wiring", () => {
     expect(appSource).toContain('data-testid="skin-theme-safety"');
     expect(appSource).toContain("builtin_theme_schema_v1");
     expect(appSource).toContain("No executable skin code");
+    expect(appSource).not.toContain("persistSkinTheme");
+    expect(appSource).not.toContain("THEME_STORAGE_KEY");
   });
 
   it("localizes visible runtime metric labels", () => {

@@ -18,6 +18,9 @@ export const settingsV2SectionIds = [
   "interface",
   "desktop",
   "reset",
+  "appearance",
+  "desktop_pet",
+  "pet_skin",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -26,14 +29,24 @@ export const settingsV2ControlTypes = [
   "value_dialog",
   "switch",
   "danger_disabled",
+  "theme_choice",
+  "segmented",
+  "readonly_status",
+  "action",
 ] as const;
 
 export type SettingsV2ControlType = (typeof settingsV2ControlTypes)[number];
 
 export const settingsV2BindingIds = [
   "ui.language",
+  "ui.theme",
   "desktop.close_button_behavior",
   "desktop.launch_at_login",
+  "desktop.pet_enabled",
+  "desktop.pet_always_on_top",
+  "desktop.pet_reduced_motion",
+  "desktop.pet_position_reset",
+  "desktop.pet_skin_summary",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -72,7 +85,7 @@ export const settingsV2Categories: Array<{
   {
     id: "appearance_pet",
     labelKey: "settings.categories.appearance_pet",
-    migrated: false,
+    migrated: true,
   },
   {
     id: "voice_audio",
@@ -202,8 +215,159 @@ export const settingsV2GeneralDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2AppearancePetDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.appearance.theme",
+    categoryId: "appearance_pet",
+    sectionId: "appearance",
+    labelKey: "settings.appearance.theme.label",
+    descriptionKey: "settings.appearance.theme.description",
+    searchKeywordKeys: [
+      "settings.appearance.theme.label",
+      "settings.appearance.theme.description",
+      "settings.theme.signal.label",
+      "settings.theme.harbor.label",
+      "settings.theme.ember.label",
+    ],
+    controlType: "theme_choice",
+    settingBindingId: "ui.theme",
+    validationContractId: "desktop-ui-theme.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "ui.theme.current",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.appearance.theme",
+  },
+  {
+    settingId: "settings.pet.show",
+    categoryId: "appearance_pet",
+    sectionId: "desktop_pet",
+    labelKey: "settings.pet.show.label",
+    descriptionKey: "settings.pet.show.description",
+    searchKeywordKeys: [
+      "settings.pet.show.label",
+      "settings.pet.show.description",
+      "settings.pet.status.enabled",
+      "settings.pet.status.disabled",
+    ],
+    controlType: "switch",
+    settingBindingId: "desktop.pet_enabled",
+    validationContractId: "desktop-pet-enabled.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "desktop.pet.enabled.current",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.pet.show",
+  },
+  {
+    settingId: "settings.pet.keep_on_top",
+    categoryId: "appearance_pet",
+    sectionId: "desktop_pet",
+    labelKey: "settings.pet.keepOnTop.label",
+    descriptionKey: "settings.pet.keepOnTop.description",
+    searchKeywordKeys: [
+      "settings.pet.keepOnTop.label",
+      "settings.pet.keepOnTop.description",
+    ],
+    controlType: "switch",
+    settingBindingId: "desktop.pet_always_on_top",
+    validationContractId: "desktop-pet-always-on-top.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "desktop.pet.always_on_top.current",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.pet.keep_on_top",
+  },
+  {
+    settingId: "settings.pet.reduced_motion",
+    categoryId: "appearance_pet",
+    sectionId: "desktop_pet",
+    labelKey: "settings.pet.reducedMotion.label",
+    descriptionKey: "settings.pet.reducedMotion.description",
+    searchKeywordKeys: [
+      "settings.pet.reducedMotion.label",
+      "settings.pet.reducedMotion.description",
+      "settings.pet.reducedMotion.system",
+      "settings.pet.reducedMotion.on",
+      "settings.pet.reducedMotion.off",
+    ],
+    controlType: "segmented",
+    settingBindingId: "desktop.pet_reduced_motion",
+    validationContractId: "desktop-pet-reduced-motion.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "desktop.pet.reduced_motion.current",
+    dangerLevel: "none",
+    order: 40,
+    helpReferenceId: "settings.pet.reduced_motion",
+  },
+  {
+    settingId: "settings.pet.reset_position",
+    categoryId: "appearance_pet",
+    sectionId: "desktop_pet",
+    labelKey: "settings.pet.resetPosition.label",
+    descriptionKey: "settings.pet.resetPosition.description",
+    searchKeywordKeys: [
+      "settings.pet.resetPosition.label",
+      "settings.pet.resetPosition.description",
+    ],
+    controlType: "action",
+    settingBindingId: "desktop.pet_position_reset",
+    validationContractId: "desktop-pet-position-reset.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "desktop.pet.position.reset",
+    dangerLevel: "none",
+    order: 50,
+    helpReferenceId: "settings.pet.reset_position",
+  },
+  {
+    settingId: "settings.skin.current",
+    categoryId: "appearance_pet",
+    sectionId: "pet_skin",
+    labelKey: "settings.skin.current.label",
+    descriptionKey: "settings.skin.current.description",
+    searchKeywordKeys: [
+      "settings.skin.current.label",
+      "settings.skin.current.description",
+      "settings.skin.status.builtIn",
+      "settings.skin.status.local",
+      "settings.skin.empty.title",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "desktop.pet_skin_summary",
+    validationContractId: "desktop-pet-skin-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "desktop.pet.skin.safe_summary",
+    dangerLevel: "none",
+    order: 60,
+    helpReferenceId: "settings.skin.current",
+  },
+];
+
+export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
+  ...settingsV2GeneralDefinitions,
+  ...settingsV2AppearancePetDefinitions,
+];
+
 export function validateSettingsV2Registry(
-  definitions: SettingsV2Definition[] = settingsV2GeneralDefinitions,
+  definitions: SettingsV2Definition[] = settingsV2ProductDefinitions,
 ): SettingsV2RegistryValidationResult {
   const errors: string[] = [];
   const settingIds = new Set<string>();
@@ -261,7 +425,11 @@ export function validateSettingsV2Registry(
 }
 
 export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
-  return settingsV2GeneralDefinitions
-    .filter((definition) => definition.categoryId === "general")
+  return settingsV2ProductDefinitions
+    .filter(
+      (definition) =>
+        definition.categoryId === "general" ||
+        definition.categoryId === "appearance_pet",
+    )
     .sort((left, right) => left.order - right.order);
 }

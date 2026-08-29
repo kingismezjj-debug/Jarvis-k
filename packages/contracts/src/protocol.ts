@@ -529,6 +529,9 @@ export type DesktopPetReducedMotion = z.infer<
   typeof DesktopPetReducedMotionSchema
 >;
 
+export const DesktopUiThemeSchema = z.enum(["signal", "harbor", "ember"]);
+export type DesktopUiTheme = z.infer<typeof DesktopUiThemeSchema>;
+
 export const DesktopPetPositionSchema = z
   .object({
     x: z.number().int(),
@@ -543,6 +546,7 @@ export const DesktopSettingsSchema = z
     closeButtonBehavior: DesktopCloseButtonBehaviorSchema,
     closeToTrayNoticeShown: z.boolean(),
     launchAtLoginEnabled: z.boolean(),
+    uiTheme: DesktopUiThemeSchema,
     desktopPetEnabled: z.boolean(),
     desktopPetAlwaysOnTop: z.boolean(),
     desktopPetReducedMotion: DesktopPetReducedMotionSchema,
@@ -3812,6 +3816,7 @@ export interface JarvisBridge {
   getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
   getDesktopSettings(): Promise<DesktopSettings>;
   getDesktopLaunchAtLoginStatus(): Promise<DesktopLaunchAtLoginStatus>;
+  setDesktopUiTheme(theme: DesktopUiTheme): Promise<DesktopSettingsSetResult>;
   setDesktopCloseButtonBehavior(
     behavior: DesktopCloseButtonBehavior,
   ): Promise<DesktopSettingsSetResult>;

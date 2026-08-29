@@ -13,6 +13,7 @@ async function seedDesktopSettings(userDataDirectory) {
         closeButtonBehavior: "minimize_to_tray",
         closeToTrayNoticeShown: true,
         launchAtLoginEnabled: false,
+        uiTheme: "signal",
         desktopPetEnabled: false,
         desktopPetAlwaysOnTop: true,
         desktopPetReducedMotion: "system",

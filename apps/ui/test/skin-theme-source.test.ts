@@ -30,7 +30,9 @@ describe("skin theme source", () => {
     expect(appSource).toContain('id: "harbor"');
     expect(appSource).toContain('id: "ember"');
     expect(appSource).toContain("builtInSkinThemeIds");
-    expect(appSource).toContain("readInitialSkinTheme");
+    expect(appSource).toContain("defaultSkinThemeId");
+    expect(appSource).not.toContain("readInitialSkinTheme");
+    expect(appSource).not.toContain("THEME_STORAGE_KEY");
   });
 
   it("projects the selected theme through static CSS variables", () => {

@@ -45,6 +45,52 @@ export type SettingsV2CopyKey =
   | "settings.general.reset.action"
   | "settings.general.reset.details"
   | "settings.general.reset.unsupported"
+  | "settings.appearance.title"
+  | "settings.appearance.description"
+  | "settings.appearance.section.theme"
+  | "settings.appearance.section.pet"
+  | "settings.appearance.section.skin"
+  | "settings.appearance.theme.label"
+  | "settings.appearance.theme.description"
+  | "settings.appearance.theme.action"
+  | "settings.appearance.theme.dialogTitle"
+  | "settings.appearance.theme.dialogDescription"
+  | "settings.appearance.theme.previewTitle"
+  | "settings.appearance.theme.previewDescription"
+  | "settings.theme.signal.label"
+  | "settings.theme.signal.description"
+  | "settings.theme.harbor.label"
+  | "settings.theme.harbor.description"
+  | "settings.theme.ember.label"
+  | "settings.theme.ember.description"
+  | "settings.pet.show.label"
+  | "settings.pet.show.description"
+  | "settings.pet.keepOnTop.label"
+  | "settings.pet.keepOnTop.description"
+  | "settings.pet.reducedMotion.label"
+  | "settings.pet.reducedMotion.description"
+  | "settings.pet.reducedMotion.system"
+  | "settings.pet.reducedMotion.on"
+  | "settings.pet.reducedMotion.off"
+  | "settings.pet.resetPosition.label"
+  | "settings.pet.resetPosition.description"
+  | "settings.pet.resetPosition.action"
+  | "settings.pet.status.enabled"
+  | "settings.pet.status.disabled"
+  | "settings.pet.status.motionSystem"
+  | "settings.pet.status.motionReduced"
+  | "settings.pet.status.motionFull"
+  | "settings.skin.current.label"
+  | "settings.skin.current.description"
+  | "settings.skin.status.builtIn"
+  | "settings.skin.status.local"
+  | "settings.skin.status.healthy"
+  | "settings.skin.status.recovered"
+  | "settings.skin.status.notLoaded"
+  | "settings.skin.empty.title"
+  | "settings.skin.empty.description"
+  | "settings.skin.manage.description"
+  | "settings.skin.manage.action"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -84,10 +130,10 @@ export const settingsV2Copy: Record<
   en: {
     "settings.shell.title": "Jarvis Control Center",
     "settings.shell.description":
-      "General settings are available in this preview. Other categories stay on the legacy settings surface.",
-    "settings.shell.search": "Search General settings",
+      "General and Appearance & Pet settings are available in this preview. Other categories stay on the legacy settings surface.",
+    "settings.shell.search": "Search settings",
     "settings.shell.category": "Settings category",
-    "settings.shell.migratedOnly": "General preview",
+    "settings.shell.migratedOnly": "Settings preview",
     "settings.shell.notMigratedTitle": "This category has not moved yet",
     "settings.shell.notMigratedDescription":
       "Use the legacy settings page for this area until the next vertical slice migrates it.",
@@ -138,6 +184,63 @@ export const settingsV2Copy: Record<
     "settings.general.reset.action": "Restore default settings",
     "settings.general.reset.details": "Review reset boundary",
     "settings.general.reset.unsupported": "Reset is not available yet",
+    "settings.appearance.title": "Appearance & Pet",
+    "settings.appearance.description":
+      "Choose Jarvis colors, Desktop Pet visibility, motion, and the current local skin summary.",
+    "settings.appearance.section.theme": "Theme",
+    "settings.appearance.section.pet": "Desktop Pet",
+    "settings.appearance.section.skin": "Pet skin",
+    "settings.appearance.theme.label": "Interface theme",
+    "settings.appearance.theme.description":
+      "Choose the built-in Jarvis visual theme used by the desktop interface.",
+    "settings.appearance.theme.action": "Choose theme",
+    "settings.appearance.theme.dialogTitle": "Choose interface theme",
+    "settings.appearance.theme.dialogDescription":
+      "Theme changes are saved through Desktop Settings and can be changed again any time.",
+    "settings.appearance.theme.previewTitle": "Theme preview",
+    "settings.appearance.theme.previewDescription":
+      "A compact preview of text, borders, and Jarvis accent colors.",
+    "settings.theme.signal.label": "Signal",
+    "settings.theme.signal.description": "Dark control room with cyan Jarvis accents.",
+    "settings.theme.harbor.label": "Harbor",
+    "settings.theme.harbor.description": "Light workspace with calm operational contrast.",
+    "settings.theme.ember.label": "Ember",
+    "settings.theme.ember.description": "Warm dark focus mode for evening work.",
+    "settings.pet.show.label": "Show Desktop Pet",
+    "settings.pet.show.description":
+      "Show the small Jarvis companion window on your desktop.",
+    "settings.pet.keepOnTop.label": "Keep Desktop Pet on top",
+    "settings.pet.keepOnTop.description":
+      "Keep the Desktop Pet above normal windows without changing command permissions.",
+    "settings.pet.reducedMotion.label": "Desktop Pet motion",
+    "settings.pet.reducedMotion.description":
+      "Control Desktop Pet animation intensity using the existing motion setting.",
+    "settings.pet.reducedMotion.system": "Follow system",
+    "settings.pet.reducedMotion.on": "Reduced motion",
+    "settings.pet.reducedMotion.off": "Full motion",
+    "settings.pet.resetPosition.label": "Reset Desktop Pet position",
+    "settings.pet.resetPosition.description":
+      "Move the Desktop Pet back to its default safe corner.",
+    "settings.pet.resetPosition.action": "Reset position",
+    "settings.pet.status.enabled": "Visible",
+    "settings.pet.status.disabled": "Hidden",
+    "settings.pet.status.motionSystem": "Following system preference",
+    "settings.pet.status.motionReduced": "Reduced motion",
+    "settings.pet.status.motionFull": "Full motion",
+    "settings.skin.current.label": "Current Desktop Pet skin",
+    "settings.skin.current.description":
+      "View the safe summary of the active Desktop Pet skin.",
+    "settings.skin.status.builtIn": "Built-in robot",
+    "settings.skin.status.local": "Installed local skin",
+    "settings.skin.status.healthy": "Available",
+    "settings.skin.status.recovered": "Recovered to fallback",
+    "settings.skin.status.notLoaded": "Not loaded",
+    "settings.skin.empty.title": "No local skin is active",
+    "settings.skin.empty.description":
+      "Jarvis is using the built-in robot fallback.",
+    "settings.skin.manage.description":
+      "Local skin import and editing remain in the existing safe management flow.",
+    "settings.skin.manage.action": "Refresh skin status",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -145,7 +248,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Only General settings are searchable in this preview.",
+      "Search currently covers General and Appearance & Pet settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -166,10 +269,10 @@ export const settingsV2Copy: Record<
   zh: {
     "settings.shell.title": "Jarvis 控制中心",
     "settings.shell.description":
-      "当前预览只开放通用设置。其他分类仍保留在旧版设置界面中。",
-    "settings.shell.search": "搜索通用设置",
+      "当前预览开放通用和外观与桌宠设置。其他分类仍保留在旧版设置界面中。",
+    "settings.shell.search": "搜索设置",
     "settings.shell.category": "设置分类",
-    "settings.shell.migratedOnly": "通用预览",
+    "settings.shell.migratedOnly": "设置预览",
     "settings.shell.notMigratedTitle": "此分类尚未迁移",
     "settings.shell.notMigratedDescription":
       "在下一轮纵向切片迁移前，请继续使用旧版设置处理这部分内容。",
@@ -218,13 +321,66 @@ export const settingsV2Copy: Record<
     "settings.general.reset.action": "恢复默认设置",
     "settings.general.reset.details": "查看重置边界",
     "settings.general.reset.unsupported": "重置暂不可用",
+    "settings.appearance.title": "外观与桌宠",
+    "settings.appearance.description":
+      "设置 Jarvis 的界面配色、桌宠显示方式、动效和当前皮肤摘要。",
+    "settings.appearance.section.theme": "主题",
+    "settings.appearance.section.pet": "桌宠",
+    "settings.appearance.section.skin": "桌宠皮肤",
+    "settings.appearance.theme.label": "界面主题",
+    "settings.appearance.theme.description":
+      "选择桌面界面使用的 Jarvis 内置视觉主题。",
+    "settings.appearance.theme.action": "选择主题",
+    "settings.appearance.theme.dialogTitle": "选择界面主题",
+    "settings.appearance.theme.dialogDescription":
+      "主题会通过桌面设置保存，之后可以随时更改。",
+    "settings.appearance.theme.previewTitle": "主题预览",
+    "settings.appearance.theme.previewDescription":
+      "预览文字、边框和 Jarvis 强调色的组合效果。",
+    "settings.theme.signal.label": "Signal",
+    "settings.theme.signal.description": "深色控制台风格，使用青蓝色 Jarvis 强调色。",
+    "settings.theme.harbor.label": "Harbor",
+    "settings.theme.harbor.description": "浅色工作区风格，对比克制、适合日常使用。",
+    "settings.theme.ember.label": "Ember",
+    "settings.theme.ember.description": "暖色深色专注模式，适合夜间工作。",
+    "settings.pet.show.label": "显示桌宠",
+    "settings.pet.show.description": "在桌面上显示小型 Jarvis 伙伴窗口。",
+    "settings.pet.keepOnTop.label": "桌宠保持置顶",
+    "settings.pet.keepOnTop.description":
+      "让桌宠位于普通窗口上方，但不会改变命令权限。",
+    "settings.pet.reducedMotion.label": "桌宠动效",
+    "settings.pet.reducedMotion.description":
+      "使用现有动效设置控制桌宠动画强度。",
+    "settings.pet.reducedMotion.system": "跟随系统",
+    "settings.pet.reducedMotion.on": "减少动效",
+    "settings.pet.reducedMotion.off": "完整动效",
+    "settings.pet.resetPosition.label": "重置桌宠位置",
+    "settings.pet.resetPosition.description":
+      "将桌宠移动回默认的安全角落。",
+    "settings.pet.resetPosition.action": "重置位置",
+    "settings.pet.status.enabled": "已显示",
+    "settings.pet.status.disabled": "已隐藏",
+    "settings.pet.status.motionSystem": "跟随系统偏好",
+    "settings.pet.status.motionReduced": "减少动效",
+    "settings.pet.status.motionFull": "完整动效",
+    "settings.skin.current.label": "当前桌宠皮肤",
+    "settings.skin.current.description": "查看当前桌宠皮肤的安全摘要。",
+    "settings.skin.status.builtIn": "内置机器人",
+    "settings.skin.status.local": "本地已安装皮肤",
+    "settings.skin.status.healthy": "可用",
+    "settings.skin.status.recovered": "已回退到安全皮肤",
+    "settings.skin.status.notLoaded": "未加载",
+    "settings.skin.empty.title": "当前未启用本地皮肤",
+    "settings.skin.empty.description": "Jarvis 正在使用内置机器人作为安全回退。",
+    "settings.skin.manage.description": "本地皮肤导入和编辑仍保留在现有安全管理流程中。",
+    "settings.skin.manage.action": "刷新皮肤状态",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
     "settings.common.done": "完成",
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
-    "settings.search.noResultsDescription": "此预览仅搜索通用设置。",
+    "settings.search.noResultsDescription": "当前可搜索通用和外观与桌宠设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

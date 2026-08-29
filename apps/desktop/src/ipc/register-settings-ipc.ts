@@ -84,6 +84,9 @@ export function registerSettingsIpc(
       if ("launchAtLoginEnabled" in input) {
         return options.settingsService.setDesktopLaunchAtLoginEnabled(rawInput);
       }
+      if ("uiTheme" in input) {
+        return options.settingsService.setDesktopUiTheme(rawInput);
+      }
       return options.settingsService.setDesktopCloseButtonBehavior(rawInput);
     },
   );
