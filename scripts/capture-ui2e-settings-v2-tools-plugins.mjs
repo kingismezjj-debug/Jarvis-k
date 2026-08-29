@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { _electron as electron } from "playwright";
@@ -113,6 +113,36 @@ async function waitForAppReady(page) {
   });
 }
 
+async function setCaptureViewport(
+  electronApp,
+  page,
+  viewport,
+  { useActualBrowserWindowContentSize = false } = {},
+) {
+  const actualContentSize = await electronApp.evaluate(
+    ({ BrowserWindow }, size) => {
+      const windows = BrowserWindow.getAllWindows().filter(
+        (window) => !window.isDestroyed(),
+      );
+      const mainWindow =
+        windows.find((window) => window.isVisible()) ?? windows[0] ?? null;
+      mainWindow?.setContentSize(size.width, size.height);
+      return mainWindow?.getContentSize() ?? [size.width, size.height];
+    },
+    viewport,
+  );
+  const effectiveViewport = useActualBrowserWindowContentSize
+    ? { width: actualContentSize[0], height: actualContentSize[1] }
+    : viewport;
+  await page.setViewportSize(effectiveViewport);
+  await page.waitForTimeout(100);
+  return {
+    requestedViewport: viewport,
+    actualBrowserWindowContentSize: actualContentSize,
+    effectiveViewport,
+  };
+}
+
 async function openSettings(page) {
   await waitForAppReady(page);
   await page.getByTestId("general-settings").click();
@@ -131,6 +161,227 @@ async function setToolsCategory(page) {
   await page.getByTestId("settings-v2-tools-plugins").waitFor({
     timeout: 5_000,
   });
+}
+
+function getPngDimensions(buffer) {
+  if (
+    buffer.length < 24 ||
+    buffer.readUInt32BE(0) !== 0x89504e47 ||
+    buffer.readUInt32BE(4) !== 0x0d0a1a0a
+  ) {
+    throw new Error("Screenshot output is not a PNG.");
+  }
+  return {
+    pixelWidth: buffer.readUInt32BE(16),
+    pixelHeight: buffer.readUInt32BE(20),
+  };
+}
+
+async function readPngDimensionsFromFile(filePath) {
+  return getPngDimensions(await readFile(filePath));
+}
+
+async function captureVisibleBrowserWindow(electronApp, screenshotPath) {
+  const capture = await electronApp.evaluate(async ({ BrowserWindow }) => {
+    const windows = BrowserWindow.getAllWindows().filter(
+      (window) => !window.isDestroyed(),
+    );
+    const mainWindow =
+      windows.find((window) => window.isVisible()) ?? windows[0] ?? null;
+    if (!mainWindow) {
+      throw new Error("No BrowserWindow is available for capture.");
+    }
+    const image = await mainWindow.webContents.capturePage();
+    return {
+      base64: image.toPNG().toString("base64"),
+      browserWindowBounds: mainWindow.getBounds(),
+      browserWindowContentBounds: mainWindow.getContentBounds(),
+      browserWindowSize: mainWindow.getSize(),
+      browserWindowContentSize: mainWindow.getContentSize(),
+      webContentsZoomFactor: mainWindow.webContents.getZoomFactor(),
+    };
+  });
+  const buffer = Buffer.from(capture.base64, "base64");
+  await writeFile(screenshotPath, buffer);
+  return {
+    ...capture,
+    base64: undefined,
+    screenshotDimensions: getPngDimensions(buffer),
+  };
+}
+
+async function collectCaptureDiagnostics(
+  page,
+  electronApp,
+  {
+    screenshotPath,
+    screenshotDimensions,
+    screenshotUsesClip = false,
+    screenshotClip = null,
+    screenshotSource = "playwright-page",
+  },
+) {
+  const playwrightViewportSize = page.viewportSize();
+  const browserWindow = await electronApp.evaluate(({ BrowserWindow }) => {
+    const windows = BrowserWindow.getAllWindows().filter(
+      (window) => !window.isDestroyed(),
+    );
+    const mainWindow =
+      windows.find((window) => window.isVisible()) ?? windows[0] ?? null;
+    if (!mainWindow) return null;
+    return {
+      bounds: mainWindow.getBounds(),
+      contentBounds: mainWindow.getContentBounds(),
+      size: mainWindow.getSize(),
+      contentSize: mainWindow.getContentSize(),
+      webContentsZoomFactor: mainWindow.webContents.getZoomFactor(),
+    };
+  });
+  const dom = await page.evaluate(() => {
+    const rectSnapshot = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        selector,
+        display: style.display,
+        visibility: style.visibility,
+        visible:
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          rect.width > 0 &&
+          rect.height > 0,
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+    };
+    return {
+      windowInnerWidth: window.innerWidth,
+      windowInnerHeight: window.innerHeight,
+      windowOuterWidth: window.outerWidth,
+      windowOuterHeight: window.outerHeight,
+      documentElementClientWidth: document.documentElement.clientWidth,
+      documentElementClientHeight: document.documentElement.clientHeight,
+      documentElementScrollWidth: document.documentElement.scrollWidth,
+      documentElementScrollHeight: document.documentElement.scrollHeight,
+      bodyClientWidth: document.body.clientWidth,
+      bodyClientHeight: document.body.clientHeight,
+      bodyScrollWidth: document.body.scrollWidth,
+      bodyScrollHeight: document.body.scrollHeight,
+      devicePixelRatio: window.devicePixelRatio,
+      visualViewportWidth: window.visualViewport?.width ?? null,
+      visualViewportHeight: window.visualViewport?.height ?? null,
+      visualViewportScale: window.visualViewport?.scale ?? null,
+      cssMediaQueries: {
+        max900: window.matchMedia("(max-width: 900px)").matches,
+        max640: window.matchMedia("(max-width: 640px)").matches,
+        max520: window.matchMedia("(max-width: 520px)").matches,
+      },
+      appHeaderRect: rectSnapshot("header:first-of-type"),
+      viewHeaderRect: rectSnapshot('[data-testid="last-action-status"]'),
+      wideNavigationRect: rectSnapshot(".settings-v2-wide-category"),
+      compactCategorySelectorRect: rectSnapshot(".settings-v2-narrow-category"),
+      settingsMainRect: rectSnapshot(".settings-v2-content"),
+      pluginsSectionRect: rectSnapshot(
+        '[data-testid="settings-v2-tools-section-plugins"]',
+      ),
+      externalConnectionsSectionRect: rectSnapshot(
+        '[data-testid="settings-v2-tools-section-mcp"]',
+      ),
+      composerInputRect: rectSnapshot('[data-testid="command-input"]'),
+      composerSendRect: rectSnapshot('[data-testid="send-command"]'),
+    };
+  });
+  return {
+    ...dom,
+    electronWebContentsZoomFactor: browserWindow?.webContentsZoomFactor ?? null,
+    playwrightViewportSize,
+    browserWindowBounds: browserWindow?.bounds ?? null,
+    browserWindowContentBounds: browserWindow?.contentBounds ?? null,
+    browserWindowSize: browserWindow?.size ?? null,
+    browserWindowContentSize: browserWindow?.contentSize ?? null,
+    screenshot: {
+      path: screenshotPath,
+      source: screenshotSource,
+      pixelWidth: screenshotDimensions.pixelWidth,
+      pixelHeight: screenshotDimensions.pixelHeight,
+      usesClip: screenshotUsesClip,
+      clip: screenshotClip,
+      clipCoordinateSpace: screenshotUsesClip ? "css-pixels" : "none",
+    },
+  };
+}
+
+function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
+  const cssWidth =
+    diagnostics.visualViewportWidth ??
+    diagnostics.windowInnerWidth ??
+    diagnostics.documentElementClientWidth;
+  const cssHeight =
+    diagnostics.visualViewportHeight ??
+    diagnostics.windowInnerHeight ??
+    diagnostics.documentElementClientHeight;
+  const scaleX = diagnostics.screenshot.pixelWidth / cssWidth;
+  const scaleY = diagnostics.screenshot.pixelHeight / cssHeight;
+  const rectFitsScreenshot = (rect) =>
+    Boolean(
+      rect &&
+        rect.visible &&
+        rect.left * scaleX >= -2 &&
+        rect.right * scaleX <= diagnostics.screenshot.pixelWidth + 2 &&
+        rect.top * scaleY >= -2 &&
+        rect.bottom * scaleY <= diagnostics.screenshot.pixelHeight + 2,
+    );
+  const failures = [];
+  if (diagnostics.screenshot.usesClip) failures.push("screenshot_used_clip");
+  const widthMismatch =
+    diagnostics.playwrightViewportSize?.width !==
+    diagnostics.browserWindowContentSize?.[0];
+  const heightMismatch =
+    diagnostics.playwrightViewportSize?.height !==
+    diagnostics.browserWindowContentSize?.[1];
+  if (widthMismatch || heightMismatch) {
+    failures.push("browser_window_content_size_mismatch");
+  }
+  if (!diagnostics.compactCategorySelectorRect?.visible) {
+    failures.push("compact_selector_not_visible");
+  }
+  if (diagnostics.wideNavigationRect?.visible) {
+    failures.push("wide_settings_navigation_visible");
+  }
+  if (!rectFitsScreenshot(diagnostics.appHeaderRect)) {
+    failures.push("app_header_outside_screenshot");
+  }
+  if (!diagnostics.settingsMainRect?.visible) {
+    failures.push("settings_main_not_visible");
+  }
+  const rightEdgeFitsScreenshot = (rect) =>
+    Boolean(rect && rect.visible && rect.right * scaleX <= diagnostics.screenshot.pixelWidth + 2);
+  if (!rightEdgeFitsScreenshot(diagnostics.settingsMainRect)) {
+    failures.push("settings_main_right_edge_clipped");
+  }
+  if (!rightEdgeFitsScreenshot(diagnostics.composerSendRect)) {
+    failures.push("composer_send_right_edge_clipped");
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `Settings V2 visual screenshot guard failed for ${scenarioName}: ${JSON.stringify(
+        { failures, diagnostics },
+      )}`,
+    );
+  }
+  return {
+    cssWidth,
+    cssHeight,
+    scaleX,
+    scaleY,
+    failures,
+  };
 }
 
 async function assertLayout(page, scenarioName, { expectToolsVisible = true } = {}) {
@@ -277,7 +528,7 @@ async function assertThemeScope(page, expectedTheme, scenarioName) {
   return result;
 }
 
-async function assertShellLayout(page, scenarioName) {
+async function assertShellLayout(page, scenarioName, locale) {
   const result = await page.evaluate(() => {
     const viewportWidth = document.documentElement.clientWidth;
     const visibleRect = (selector) => {
@@ -329,14 +580,22 @@ async function assertShellLayout(page, scenarioName) {
       composerInputWidth: input?.width ?? 0,
       composerInputBeforeSend: Boolean(input && send && input.right <= send.left + 2),
       sendWithinViewport: Boolean(send && send.right <= viewportWidth + 1),
+      composerPlaceholder:
+        document
+          .querySelector('[data-testid="command-input"]')
+          ?.getAttribute("placeholder") ?? "",
     };
   });
+  const expectedPlaceholder =
+    locale === "zh" ? "向 Jarvis 发送消息" : "Message Jarvis";
   if (
     result.overlaps.length > 0 ||
     !result.composerVisible ||
     result.composerInputWidth < 120 ||
     !result.composerInputBeforeSend ||
-    !result.sendWithinViewport
+    !result.sendWithinViewport ||
+    result.composerPlaceholder !== expectedPlaceholder ||
+    result.composerPlaceholder.endsWith("...")
   ) {
     throw new Error(
       `Settings V2 shell layout guard failed for ${scenarioName}: ${JSON.stringify(
@@ -381,7 +640,7 @@ async function assertSearchResults(page, scenarioName, locale) {
 async function captureScenario([name, width, height, locale, theme, search]) {
   const run = await launchApp({ theme, locale });
   try {
-    await run.page.setViewportSize({ width, height });
+    await setCaptureViewport(run.electronApp, run.page, { width, height });
     await openSettings(run.page);
     await setToolsCategory(run.page);
     if (search) {
@@ -398,16 +657,18 @@ async function captureScenario([name, width, height, locale, theme, search]) {
     const layout = await assertLayout(run.page, name, {
       expectToolsVisible: !search,
     });
-    const shellLayout = await assertShellLayout(run.page, name);
+    const shellLayout = await assertShellLayout(run.page, name, locale);
     const searchResults = search && name.startsWith("tools-plugins-search")
       ? await assertSearchResults(run.page, name, locale)
       : null;
     const themeScope = await assertThemeScope(run.page, theme, name);
     const screenshotPath = path.join(outputDirectory, `${name}.png`);
     await run.page.screenshot({ path: screenshotPath, fullPage: true });
+    const screenshotDimensions = await readPngDimensionsFromFile(screenshotPath);
     return {
       name,
       path: screenshotPath,
+      screenshotDimensions,
       layout,
       shellLayout,
       searchResults,
@@ -419,7 +680,12 @@ async function captureScenario([name, width, height, locale, theme, search]) {
   }
 }
 
-async function captureSection(page, screenshotName, testId) {
+async function captureSection(
+  page,
+  screenshotName,
+  testId,
+  { electronApp = null, captureVisibleWindow = false } = {},
+) {
   const locator = page.getByTestId(testId);
   await locator.scrollIntoViewIfNeeded();
   await locator.evaluate((element) => {
@@ -452,8 +718,26 @@ async function captureSection(page, screenshotName, testId) {
     );
   }
   const screenshotPath = path.join(outputDirectory, `${screenshotName}.png`);
-  await locator.screenshot({ path: screenshotPath });
-  return { name: screenshotName, path: screenshotPath, section: testId, rect };
+  const browserWindowCapture =
+    captureVisibleWindow && electronApp
+      ? await captureVisibleBrowserWindow(electronApp, screenshotPath)
+      : null;
+  if (!browserWindowCapture) {
+    await locator.screenshot({ path: screenshotPath });
+  }
+  const screenshotDimensions =
+    browserWindowCapture?.screenshotDimensions ??
+    (await readPngDimensionsFromFile(screenshotPath));
+  return {
+    name: screenshotName,
+    path: screenshotPath,
+    section: testId,
+    rect,
+    screenshotDimensions,
+    screenshotSource: browserWindowCapture
+      ? "electron-webContents.capturePage"
+      : "playwright-locator",
+  };
 }
 
 async function captureSectionSet({
@@ -462,11 +746,14 @@ async function captureSectionSet({
   viewport,
   prefix,
   zoomFactor,
+  useActualBrowserWindowContentSize = false,
 }) {
   const run = await launchApp({ theme, locale });
   const screenshots = [];
   try {
-    await run.page.setViewportSize(viewport);
+    await setCaptureViewport(run.electronApp, run.page, viewport, {
+      useActualBrowserWindowContentSize,
+    });
     await openSettings(run.page);
     await setToolsCategory(run.page);
     if (zoomFactor) {
@@ -482,10 +769,26 @@ async function captureSectionSet({
     }
     await assertLayout(run.page, `${prefix}-top`);
     screenshots.push(
-      await captureSection(run.page, `${prefix}-plugins-section`, "settings-v2-tools-section-plugins"),
+      await captureSection(
+        run.page,
+        `${prefix}-plugins-section`,
+        "settings-v2-tools-section-plugins",
+        {
+          electronApp: run.electronApp,
+          captureVisibleWindow: Boolean(zoomFactor),
+        },
+      ),
     );
     screenshots.push(
-      await captureSection(run.page, `${prefix}-external-connections-section`, "settings-v2-tools-section-mcp"),
+      await captureSection(
+        run.page,
+        `${prefix}-external-connections-section`,
+        "settings-v2-tools-section-mcp",
+        {
+          electronApp: run.electronApp,
+          captureVisibleWindow: Boolean(zoomFactor),
+        },
+      ),
     );
     return screenshots;
   } finally {
@@ -504,7 +807,15 @@ for (const scenario of scenarios) {
 
 const zoomed = await launchApp({ theme: "harbor", locale: "en" });
 try {
-  await zoomed.page.setViewportSize({ width: 780, height: 980 });
+  const zoomViewport = await setCaptureViewport(
+    zoomed.electronApp,
+    zoomed.page,
+    {
+      width: 780,
+      height: 980,
+    },
+    { useActualBrowserWindowContentSize: true },
+  );
   await openSettings(zoomed.page);
   await setToolsCategory(zoomed.page);
   const webContentsZoomFactor = await zoomed.electronApp.evaluate(
@@ -520,12 +831,32 @@ try {
   const layout = await assertLayout(zoomed.page, name);
   const themeScope = await assertThemeScope(zoomed.page, "harbor", name);
   const screenshotPath = path.join(outputDirectory, `${name}.png`);
-  await zoomed.page.screenshot({ path: screenshotPath, fullPage: true });
-screenshots.push({
+  const browserWindowCapture = await captureVisibleBrowserWindow(
+    zoomed.electronApp,
+    screenshotPath,
+  );
+  const captureDiagnostics = await collectCaptureDiagnostics(
+    zoomed.page,
+    zoomed.electronApp,
+    {
+      screenshotPath,
+      screenshotDimensions: browserWindowCapture.screenshotDimensions,
+      screenshotSource: "electron-webContents.capturePage",
+    },
+  );
+  const visualScreenshotCoverage = assertVisualScreenshotCoverage(
+    captureDiagnostics,
+    name,
+  );
+  screenshots.push({
     name,
     path: screenshotPath,
     layout,
     themeScope,
+    browserWindowCapture,
+    captureDiagnostics,
+    zoomViewport,
+    visualScreenshotCoverage,
     webContentsZoomFactor,
     devicePixelRatio: await zoomed.page.evaluate(() => window.devicePixelRatio),
   });
@@ -565,6 +896,7 @@ screenshots.push(
     viewport: { width: 780, height: 980 },
     prefix: "harbor-tools-zoom200",
     zoomFactor: 2,
+    useActualBrowserWindowContentSize: true,
   })),
 );
 
@@ -574,7 +906,10 @@ const gateOff = await launchApp({
   settingsV2Enabled: false,
 });
 try {
-  await gateOff.page.setViewportSize({ width: 1440, height: 940 });
+  await setCaptureViewport(gateOff.electronApp, gateOff.page, {
+    width: 1440,
+    height: 940,
+  });
   await waitForAppReady(gateOff.page);
   await gateOff.page.getByTestId("general-settings").click();
   await gateOff.page.getByTestId("settings-view").waitFor({ timeout: 10_000 });
@@ -584,9 +919,11 @@ try {
   }
   const screenshotPath = path.join(outputDirectory, "gate-off-legacy-tools.png");
   await gateOff.page.screenshot({ path: screenshotPath, fullPage: true });
+  const screenshotDimensions = await readPngDimensionsFromFile(screenshotPath);
   screenshots.push({
     name: "gate-off-legacy-tools",
     path: screenshotPath,
+    screenshotDimensions,
     settingsV2Count,
     legacyVisible: true,
   });

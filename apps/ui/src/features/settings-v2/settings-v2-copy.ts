@@ -638,7 +638,7 @@ export const settingsV2Copy: Record<
       "Connection status has not been reported yet.",
     "settings.tools.mcp.notConnected": "No connection is active.",
     "settings.tools.mcp.noAutoConnect":
-      "Opening or viewing this page does not connect to external tools.",
+      "Opening this page does not connect to external tools.",
     "settings.tools.mcp.noExternalRun":
       "Connections are not available in this version.",
     "settings.tools.mcp.userControlled":
@@ -978,7 +978,7 @@ export const settingsV2Copy: Record<
     "settings.tools.mcp.available": "可用",
     "settings.tools.mcp.statusUnknown": "尚未读取连接状态。",
     "settings.tools.mcp.notConnected": "当前没有活动连接。",
-    "settings.tools.mcp.noAutoConnect": "打开或查看本页不会连接外部工具。",
+    "settings.tools.mcp.noAutoConnect": "打开此页面不会建立外部工具连接。",
     "settings.tools.mcp.noExternalRun": "当前版本暂不支持连接。",
     "settings.tools.mcp.userControlled": "连接仍由用户控制。",
     "settings.tools.safeViewing.title": "安全查看",

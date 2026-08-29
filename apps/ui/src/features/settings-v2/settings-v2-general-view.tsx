@@ -1462,15 +1462,11 @@ export function SettingsV2GeneralView({
                 <SettingsSection
                   title={tSettingsV2(locale, "settings.tools.section.mcp")}
                 >
-                  <SettingRow
-                    description={tSettingsV2(locale, "settings.tools.mcp.description")}
-                    title={tSettingsV2(locale, "settings.tools.mcp.label")}
-                    value={toolsViewModel.mcpConnections.value}
-                  />
                   <div
                     className="settings-v2-tools-status-grid"
                     data-testid="settings-v2-mcp-status"
                   >
+                    <span>{toolsViewModel.mcpConnections.value}</span>
                     {toolsViewModel.mcpConnections.details.map((detail) => (
                       <span key={detail}>{detail}</span>
                     ))}

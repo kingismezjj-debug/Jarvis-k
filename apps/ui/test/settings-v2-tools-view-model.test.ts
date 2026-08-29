@@ -144,7 +144,7 @@ describe("Settings V2 Tools & Plugins product view model", () => {
       "Not available in this version",
     );
     expect(viewModel.mcpConnections.details).toEqual([
-      "Opening or viewing this page does not connect to external tools.",
+      "Opening this page does not connect to external tools.",
     ]);
   });
 

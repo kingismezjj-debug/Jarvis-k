@@ -65,9 +65,7 @@ describe("Settings V2 i18n foundation", () => {
     expect(uiCopy.zh.connection.online).toBe("在线");
     expect(uiCopy.zh.nav.developer).toBe("开发者");
     expect(uiCopy.zh.view.developer).toBe("开发者");
-    expect(uiCopy.zh.label.commandPlaceholder).toBe(
-      "向 Jarvis 发送文本命令",
-    );
+    expect(uiCopy.zh.label.commandPlaceholder).toBe("向 Jarvis 发送消息");
     expect(uiCopy.zh.label.agentCore).toBe("Jarvis");
 
     const productShellText = [

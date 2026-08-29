@@ -190,6 +190,22 @@ function renderView(
   );
 }
 
+function countOccurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}
+
+function countHeadingOccurrences(text: string, heading: string): number {
+  return (text.match(new RegExp(`>${heading}</h2>`, "g")) ?? []).length;
+}
+
+function extractMcpSection(html: string): string {
+  const marker = 'data-testid="settings-v2-tools-section-mcp"';
+  const start = html.indexOf(marker);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = html.indexOf('data-testid="settings-v2-placeholder"', start);
+  return html.slice(start, end === -1 ? undefined : end);
+}
+
 describe("Settings V2 General view", () => {
   it("renders the real General settings values in English", () => {
     const html = renderView();
@@ -357,6 +373,16 @@ describe("Settings V2 General view", () => {
     expect(html).not.toContain("&gt;");
     expect(html).toContain("External tool connections");
     expect(html).toContain("Not available in this version");
+    const mcpSection = extractMcpSection(html);
+    expect(countHeadingOccurrences(mcpSection, "External tool connections")).toBe(
+      1,
+    );
+    expect(
+      countOccurrences(
+        mcpSection,
+        "Opening this page does not connect to external tools.",
+      ),
+    ).toBe(1);
     for (const forbidden of [
       "cn.jarvis-k.stock-analysis",
       "stock.quote",
@@ -395,6 +421,11 @@ describe("Settings V2 General view", () => {
     expect(html).not.toContain("开发示例插件");
     expect(html).not.toContain("插件管理服务");
     expect(html).toContain("外部工具连接");
+    const mcpSection = extractMcpSection(html);
+    expect(countHeadingOccurrences(mcpSection, "外部工具连接")).toBe(1);
+    expect(countOccurrences(mcpSection, "打开此页面不会建立外部工具连接。")).toBe(
+      1,
+    );
     for (const forbidden of [
       "fixture",
       "evaluation",
