@@ -27,6 +27,14 @@ const scenarios = [
     category: "voice_audio",
   },
   {
+    name: "zh-voice-audio-wide",
+    width: 1440,
+    height: 940,
+    locale: "zh",
+    theme: "harbor",
+    category: "voice_audio",
+  },
+  {
     name: "harbor-voice-audio-wide",
     width: 1440,
     height: 940,
@@ -180,8 +188,8 @@ async function setCategory(page, category) {
   await page.locator(".settings-v2-narrow-category select").selectOption(category);
 }
 
-async function assertLayout(page, scenarioName) {
-  const result = await page.evaluate(() => {
+async function assertLayout(page, scenarioName, locale) {
+  const result = await page.evaluate((activeLocale) => {
     const selectors = [
       ".settings-v2-shell",
       ".jk-setting-row",
@@ -204,14 +212,30 @@ async function assertLayout(page, scenarioName) {
         /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Voice Regression|Pilot|settingId|capabilityId)\b/.test(
           document.body.innerText,
         ),
+      zhVoiceCopyLeak:
+        activeLocale === "zh" &&
+        Boolean(document.querySelector('[data-testid="settings-v2-voice-audio"]')) &&
+        /\b(ASR|Provider|Voice|TTS|Jarvis Core)\b/.test(document.body.innerText),
+      zhUnknownLanguage:
+        activeLocale === "zh" &&
+        document.body.innerText.includes("识别语言: 未知"),
+      zhDuplicateCloudDisclaimer:
+        activeLocale === "zh"
+          ? (
+              document.body.innerText.match(/不会连接在线服务/g) ?? []
+            ).length > 1
+          : false,
       mediaCalls: window.__jarvisUi2cMediaCalls ?? 0,
     };
-  });
+  }, locale);
   if (
     result.bodyHorizontalOverflow ||
     result.clippingCandidates > 0 ||
     !result.settingsV2Visible ||
     result.forbiddenInternalText ||
+    result.zhVoiceCopyLeak ||
+    result.zhUnknownLanguage ||
+    result.zhDuplicateCloudDisclaimer ||
     result.mediaCalls !== 0
   ) {
     throw new Error(
@@ -280,7 +304,7 @@ async function captureScenario(scenario) {
       await run.page.getByRole("button", { name: /Choose theme/ }).click();
       await run.page.getByTestId("settings-v2-theme-dialog").waitFor();
     }
-    const layout = await assertLayout(run.page, scenario.name);
+    const layout = await assertLayout(run.page, scenario.name, scenario.locale);
     const themeScope = await assertThemeScope(
       run.page,
       scenario.theme,
@@ -322,7 +346,7 @@ try {
     },
   );
   const scenarioName = "harbor-voice-audio-zoom200";
-  const layout = await assertLayout(zoomed.page, scenarioName);
+  const layout = await assertLayout(zoomed.page, scenarioName, "en");
   const themeScope = await assertThemeScope(zoomed.page, "harbor", scenarioName);
   const screenshotPath = path.join(outputDirectory, `${scenarioName}.png`);
   await zoomed.page.screenshot({ path: screenshotPath, fullPage: true });

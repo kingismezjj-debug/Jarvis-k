@@ -198,9 +198,8 @@ describe("Settings V2 General view", () => {
       },
     });
     expect(html).toContain("Voice &amp; Audio");
-    expect(html).toContain("Speech recognition provider");
+    expect(html).toContain("Speech recognition service");
     expect(html).toContain("Volcengine / Credentials saved locally");
-    expect(html).toContain("Connection is not checked on this page");
     expect(html).toContain("Recognition language");
     expect(html).toContain("Chinese");
     expect(html).toContain("Push to talk");
@@ -234,11 +233,47 @@ describe("Settings V2 General view", () => {
       voiceServiceStatus: { configured: false, secureStorageAvailable: true },
     });
     expect(html).toContain("Not configured");
-    expect(html).toContain("Unavailable until Jarvis Core is ready");
+    expect(html).toContain("Available when voice input is ready");
+    expect(html).toContain("Available after service setup");
     expect(html).toContain("Not requested");
     expect(html).toContain("This page only reads local status");
+    expect(html).not.toContain("Unknown");
+    expect(html).not.toContain("Default voice");
     expect(html).not.toContain("Connected");
     expect(html).not.toContain("Ready to use");
+  });
+
+  it("renders productized zh-CN Voice & Audio copy without internal terms", () => {
+    const html = renderView({
+      initialCategoryId: "voice_audio",
+      locale: "zh",
+      ttsServiceStatus: { configured: false, secureStorageAvailable: true },
+      voiceCaptureAvailable: false,
+      voiceMode: "disabled",
+      voicePermission: "unknown",
+      voiceServiceStatus: { configured: false, secureStorageAvailable: true },
+    });
+    expect(html).toContain("语音与音频");
+    expect(html).toContain("语音识别服务");
+    expect(html).toContain("语音服务凭据在安全设置中管理。");
+    expect(html).toContain("配置服务后可用");
+    expect(html).toContain("前往语音页面，手动开始一次语音输入。");
+    expect(html).toContain("语音播报服务");
+    expect(html).toContain("当前版本暂不支持");
+    expect(html).toContain("此页面只读取本机状态，不会连接在线服务、启动麦克风或上传数据。");
+    expect(html).not.toContain("ASR");
+    expect(html).not.toContain("Provider");
+    expect(html).not.toContain("Voice");
+    expect(html).not.toContain("TTS");
+    expect(html).not.toContain("Jarvis Core");
+    expect(html).not.toContain("识别语言: 未知");
+    expect(html).not.toContain("识别语言：未知");
+    expect(html).not.toContain("默认声音");
+    expect(html).not.toContain("Developer");
+    expect(html).not.toContain("Evaluation");
+    expect(html).not.toContain("fixture");
+    expect(html).not.toContain("此页面不会检查云端连接");
+    expect((html.match(/不会连接在线服务/g) ?? []).length).toBe(1);
   });
 
   it("includes Voice & Audio in product search results with current values", () => {
@@ -251,7 +286,7 @@ describe("Settings V2 General view", () => {
         language: "en",
       },
     });
-    expect(html).toContain("Speech recognition provider");
+    expect(html).toContain("Speech recognition service");
     expect(html).toContain("Xunfei / Credentials saved locally");
   });
 

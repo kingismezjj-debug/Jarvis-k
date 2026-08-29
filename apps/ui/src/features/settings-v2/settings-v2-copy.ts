@@ -107,6 +107,7 @@ export type SettingsV2CopyKey =
   | "settings.voice.provider.language.label"
   | "settings.voice.provider.language.chinese"
   | "settings.voice.provider.language.english"
+  | "settings.voice.provider.availableAfterSetup"
   | "settings.voice.captureMode.label"
   | "settings.voice.captureMode.description"
   | "settings.voice.captureMode.disabled"
@@ -131,6 +132,7 @@ export type SettingsV2CopyKey =
   | "settings.voice.tts.secureStorageUnavailable"
   | "settings.voice.tts.voiceConfigured"
   | "settings.voice.tts.defaultVoice"
+  | "settings.voice.tts.availableAfterSetup"
   | "settings.voice.wakeWord.label"
   | "settings.voice.wakeWord.description"
   | "settings.voice.wakeWord.unavailable"
@@ -363,10 +365,10 @@ export const settingsV2Copy: Record<
     "settings.voice.section.capture": "Microphone and capture",
     "settings.voice.section.output": "Speech output",
     "settings.voice.section.wake": "Wake word",
-    "settings.voice.provider.label": "Speech recognition provider",
+    "settings.voice.provider.label": "Speech recognition service",
     "settings.voice.provider.description":
-      "Provider credentials stay in the existing secure Desktop settings window.",
-    "settings.voice.provider.action": "Open speech setup",
+      "Speech service credentials are managed in secure settings.",
+    "settings.voice.provider.action": "Configure speech recognition",
     "settings.voice.provider.configured": "Credentials saved locally",
     "settings.voice.provider.notConfigured": "Not configured",
     "settings.voice.provider.secureStorageUnavailable":
@@ -376,9 +378,10 @@ export const settingsV2Copy: Record<
     "settings.voice.provider.language.label": "Recognition language",
     "settings.voice.provider.language.chinese": "Chinese",
     "settings.voice.provider.language.english": "English",
-    "settings.voice.captureMode.label": "Capture mode",
+    "settings.voice.provider.availableAfterSetup": "Available after service setup",
+    "settings.voice.captureMode.label": "Voice input status",
     "settings.voice.captureMode.description":
-      "Shows the current Voice runtime mode without starting recording.",
+      "Shows the current voice input status without starting recording.",
     "settings.voice.captureMode.disabled": "Off",
     "settings.voice.captureMode.pushToTalk": "Push to talk",
     "settings.voice.captureMode.continuous": "Continuous listening",
@@ -391,13 +394,14 @@ export const settingsV2Copy: Record<
     "settings.voice.microphone.denied": "Blocked by Windows",
     "settings.voice.pushToTalk.label": "Push-to-talk voice input",
     "settings.voice.pushToTalk.description":
-      "Use the Voice page to manually start a voice command when Jarvis Core is online.",
+      "Go to the voice page to manually start one voice input.",
     "settings.voice.pushToTalk.available": "Available on the Voice page",
-    "settings.voice.pushToTalk.unavailable": "Unavailable until Jarvis Core is ready",
-    "settings.voice.pushToTalk.action": "Open Voice page",
-    "settings.voice.tts.label": "Speech output provider",
+    "settings.voice.pushToTalk.unavailable":
+      "Available when voice input is ready",
+    "settings.voice.pushToTalk.action": "Open voice page",
+    "settings.voice.tts.label": "Speech output service",
     "settings.voice.tts.description":
-      "Cloud speech output uses the existing secure TTS configuration.",
+      "Speech output uses the existing secure voice playback configuration.",
     "settings.voice.tts.action": "Open speech output setup",
     "settings.voice.tts.configured": "Credentials saved locally",
     "settings.voice.tts.notConfigured": "Not configured",
@@ -405,12 +409,13 @@ export const settingsV2Copy: Record<
       "Secure credential storage is unavailable",
     "settings.voice.tts.voiceConfigured": "A voice is selected",
     "settings.voice.tts.defaultVoice": "Default voice",
+    "settings.voice.tts.availableAfterSetup": "Available after service setup",
     "settings.voice.wakeWord.label": "Wake word",
     "settings.voice.wakeWord.description":
-      "Background wake word listening is not a Product capability in this version.",
+      "Wake word is read-only here and is not available in this version.",
     "settings.voice.wakeWord.unavailable": "Not supported in this version",
     "settings.voice.privacy.localOnly":
-      "This page only reads local status and does not start the microphone, ASR, or upload.",
+      "This page only reads local status and does not connect online services, start the microphone, or upload data.",
     "settings.models.title": "Models & Intelligence",
     "settings.models.description":
       "Review command understanding, online answer service readiness, local models, and the current answer method without loading models or contacting online services.",
@@ -648,8 +653,8 @@ export const settingsV2Copy: Record<
     "settings.voice.section.wake": "唤醒词",
     "settings.voice.provider.label": "语音识别服务",
     "settings.voice.provider.description":
-      "Provider 凭据仍由现有安全桌面设置窗口管理。",
-    "settings.voice.provider.action": "打开语音设置",
+      "语音服务凭据在安全设置中管理。",
+    "settings.voice.provider.action": "配置语音识别",
     "settings.voice.provider.configured": "凭据已保存在本机",
     "settings.voice.provider.notConfigured": "未配置",
     "settings.voice.provider.secureStorageUnavailable":
@@ -659,9 +664,10 @@ export const settingsV2Copy: Record<
     "settings.voice.provider.language.label": "识别语言",
     "settings.voice.provider.language.chinese": "中文",
     "settings.voice.provider.language.english": "英文",
-    "settings.voice.captureMode.label": "采集模式",
+    "settings.voice.provider.availableAfterSetup": "配置服务后可用",
+    "settings.voice.captureMode.label": "语音输入状态",
     "settings.voice.captureMode.description":
-      "只显示当前 Voice 运行模式，不会开始录音。",
+      "只显示当前语音输入状态，不会开始录音。",
     "settings.voice.captureMode.disabled": "关闭",
     "settings.voice.captureMode.pushToTalk": "按住说话",
     "settings.voice.captureMode.continuous": "连续监听",
@@ -674,25 +680,26 @@ export const settingsV2Copy: Record<
     "settings.voice.microphone.denied": "已被 Windows 阻止",
     "settings.voice.pushToTalk.label": "按住说话输入",
     "settings.voice.pushToTalk.description":
-      "Jarvis Core 在线时，可前往语音页面手动开始一次语音命令。",
+      "前往语音页面，手动开始一次语音输入。",
     "settings.voice.pushToTalk.available": "可在语音页面使用",
-    "settings.voice.pushToTalk.unavailable": "Jarvis Core 就绪后可用",
+    "settings.voice.pushToTalk.unavailable": "语音输入可用时可使用",
     "settings.voice.pushToTalk.action": "打开语音页面",
     "settings.voice.tts.label": "语音播报服务",
     "settings.voice.tts.description":
-      "云端语音播报继续使用现有安全 TTS 配置。",
+      "语音播报继续使用现有安全播报配置。",
     "settings.voice.tts.action": "打开播报设置",
     "settings.voice.tts.configured": "凭据已保存在本机",
     "settings.voice.tts.notConfigured": "未配置",
     "settings.voice.tts.secureStorageUnavailable": "安全凭据存储不可用",
     "settings.voice.tts.voiceConfigured": "已选择播报声音",
     "settings.voice.tts.defaultVoice": "默认声音",
+    "settings.voice.tts.availableAfterSetup": "配置服务后可用",
     "settings.voice.wakeWord.label": "唤醒词",
     "settings.voice.wakeWord.description":
-      "后台唤醒监听在当前版本中尚未作为正式产品能力开放。",
-    "settings.voice.wakeWord.unavailable": "当前版本不支持",
+      "唤醒词在此页面保持只读，当前版本暂不支持。",
+    "settings.voice.wakeWord.unavailable": "当前版本暂不支持",
     "settings.voice.privacy.localOnly":
-      "此页面只读取本机状态，不会启动麦克风、ASR 或上传。",
+      "此页面只读取本机状态，不会连接在线服务、启动麦克风或上传数据。",
     "settings.models.title": "模型与智能",
     "settings.models.description":
       "查看命令理解、在线回答服务、本地模型和当前回答方式。打开本页不会加载模型，也不会连接在线服务。",

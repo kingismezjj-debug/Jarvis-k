@@ -154,7 +154,10 @@ function getVoiceProviderValueLabel(
   locale: SettingsV2Locale,
   status: VoiceServiceStatus | null | undefined,
 ): string {
-  if (!status?.secureStorageAvailable) {
+  if (!status) {
+    return tSettingsV2(locale, "settings.status.unknown");
+  }
+  if (!status.secureStorageAvailable) {
     return tSettingsV2(
       locale,
       "settings.voice.provider.secureStorageUnavailable",
@@ -180,6 +183,19 @@ function getVoiceLanguageLabel(
     return tSettingsV2(locale, "settings.voice.provider.language.english");
   }
   return tSettingsV2(locale, "settings.status.unknown");
+}
+
+function getVoiceLanguageValueLabel(
+  locale: SettingsV2Locale,
+  status: VoiceServiceStatus | null | undefined,
+): string {
+  if (!status) {
+    return tSettingsV2(locale, "settings.status.unknown");
+  }
+  if (!status.configured) {
+    return tSettingsV2(locale, "settings.voice.provider.availableAfterSetup");
+  }
+  return getVoiceLanguageLabel(locale, status.language);
 }
 
 function getVoiceModeLabel(
@@ -215,13 +231,31 @@ function getTtsValueLabel(
   locale: SettingsV2Locale,
   status: TtsServiceStatus | null | undefined,
 ): string {
-  if (!status?.secureStorageAvailable) {
+  if (!status) {
+    return tSettingsV2(locale, "settings.status.unknown");
+  }
+  if (!status.secureStorageAvailable) {
     return tSettingsV2(locale, "settings.voice.tts.secureStorageUnavailable");
   }
   if (!status.configured) {
     return tSettingsV2(locale, "settings.voice.tts.notConfigured");
   }
   return `Doubao / ${tSettingsV2(locale, "settings.voice.tts.configured")}`;
+}
+
+function getTtsVoiceValueLabel(
+  locale: SettingsV2Locale,
+  status: TtsServiceStatus | null | undefined,
+): string {
+  if (!status) {
+    return tSettingsV2(locale, "settings.status.unknown");
+  }
+  if (!status.configured) {
+    return tSettingsV2(locale, "settings.voice.tts.availableAfterSetup");
+  }
+  return status.voiceId
+    ? tSettingsV2(locale, "settings.voice.tts.voiceConfigured")
+    : tSettingsV2(locale, "settings.voice.tts.defaultVoice");
 }
 
 function getThemeLabel(locale: SettingsV2Locale, themeId: SkinThemeId): string {
@@ -641,14 +675,11 @@ export function SettingsV2GeneralView({
         : tSettingsV2(locale, "settings.skin.status.recovered");
   const providerValue = getVoiceProviderValueLabel(locale, voiceServiceStatus);
   const ttsValue = getTtsValueLabel(locale, ttsServiceStatus);
-  const voiceLanguageValue = getVoiceLanguageLabel(
+  const voiceLanguageValue = getVoiceLanguageValueLabel(
     locale,
-    voiceServiceStatus?.language,
+    voiceServiceStatus,
   );
-  const ttsVoiceValue =
-    ttsServiceStatus?.configured === true && ttsServiceStatus.voiceId
-      ? tSettingsV2(locale, "settings.voice.tts.voiceConfigured")
-      : tSettingsV2(locale, "settings.voice.tts.defaultVoice");
+  const ttsVoiceValue = getTtsVoiceValueLabel(locale, ttsServiceStatus);
   const modelsViewModel = buildSettingsV2ModelsProductViewModel({
     chatAnswerProductModeStatus,
     commandRouterProductModeStatus,
@@ -1041,12 +1072,6 @@ export function SettingsV2GeneralView({
                     )}
                     : {voiceLanguageValue}
                   </span>
-                  <span>
-                    {tSettingsV2(
-                      locale,
-                      "settings.voice.provider.connectionNotChecked",
-                    )}
-                  </span>
                 </div>
               </SettingsSection>
 
@@ -1119,12 +1144,6 @@ export function SettingsV2GeneralView({
                     {ttsValue}
                   </span>
                   <span>{ttsVoiceValue}</span>
-                  <span>
-                    {tSettingsV2(
-                      locale,
-                      "settings.voice.provider.connectionNotChecked",
-                    )}
-                  </span>
                 </div>
               </SettingsSection>
 
