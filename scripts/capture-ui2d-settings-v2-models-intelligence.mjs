@@ -21,6 +21,7 @@ const scenarios = [
   ["signal-models-wide", 1440, 940, "en", "signal", "models_intelligence"],
   ["harbor-models-wide", 1440, 940, "en", "harbor", "models_intelligence"],
   ["ember-models-wide", 1440, 940, "en", "ember", "models_intelligence"],
+  ["zh-models-wide-fix", 1440, 1800, "zh", "harbor", "models_intelligence"],
   ["en-models-narrow", 390, 980, "en", "harbor", "models_intelligence"],
   ["zh-models-narrow", 390, 980, "zh", "harbor", "models_intelligence"],
   ["provider-not-configured", 1440, 940, "en", "harbor", "models_intelligence"],
@@ -154,9 +155,14 @@ async function assertLayout(page, scenarioName, { expectModelsVisible = true } =
         document.querySelector('[data-testid="settings-v2-search-results"]'),
       ),
       forbiddenInternalText:
-        /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|profileId|providerId|resourceId)\b/.test(
+        /\b(PROTOTYPE DATA|DANGER ZONE|control type|fixture|Evaluation|Cloud Acceptance|acceptance|settingId|capabilityId|profileId|providerId|resourceId|fallback)\b/.test(
           text,
-        ),
+        ) ||
+        text.includes("未配置 / 未配置") ||
+        text.includes("活动模型租约") ||
+        text.includes("本地 Provider") ||
+        text.includes("云端 Provider") ||
+        text.includes("本页不验证"),
       rawModelPath: /[A-Z]:\\|\/Users\/|node_modules|\.env/.test(text),
       mediaCalls: window.__jarvisUi2dMediaCalls ?? 0,
       fetchCalls: window.__jarvisUi2dFetchCalls ?? 0,
@@ -227,9 +233,14 @@ async function captureScenario([
       await run.page.getByTestId("settings-v2-search").fill(search);
       await run.page.getByTestId("settings-v2-search-results").waitFor();
     } else {
-      await run.page.getByText(/No model load|打开本页不会加载/).first().waitFor({
-        timeout: 5_000,
-      });
+      await run.page
+        .getByText(
+          /Opening this page does not connect online services|打开此页面不会连接在线服务/,
+        )
+        .first()
+        .waitFor({
+          timeout: 5_000,
+        });
     }
     const layout = await assertLayout(run.page, name, {
       expectModelsVisible: !search,

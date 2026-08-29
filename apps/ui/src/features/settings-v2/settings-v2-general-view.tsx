@@ -52,6 +52,7 @@ import {
   type SettingsV2CopyKey,
   type SettingsV2Locale,
 } from "./settings-v2-copy";
+import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
 import "./settings-v2.css";
 
 export type SettingsV2GeneralViewProps = {
@@ -223,91 +224,6 @@ function getTtsValueLabel(
   return `Doubao / ${tSettingsV2(locale, "settings.voice.tts.configured")}`;
 }
 
-function getCommandRouterValueLabel(
-  locale: SettingsV2Locale,
-  status: CommandRouterProductModeStatus | null | undefined,
-): string {
-  if (!status) return tSettingsV2(locale, "settings.status.unknown");
-  if (!status.enabled) {
-    return tSettingsV2(locale, "settings.models.status.localRulesOff");
-  }
-  return status.status === "control_enabled_rules_only"
-    ? tSettingsV2(locale, "settings.models.status.localRulesEnabled")
-    : tSettingsV2(locale, "settings.models.status.localRoutingUnavailable");
-}
-
-function getChatAnswerValueLabel(
-  locale: SettingsV2Locale,
-  status: ChatAnswerProductModeStatus | null | undefined,
-): string {
-  if (!status) return tSettingsV2(locale, "settings.status.unknown");
-  if (!status.secureStorageAvailable) {
-    return tSettingsV2(
-      locale,
-      "settings.models.answerProvider.secureStorageUnavailable",
-    );
-  }
-  if (!status.credentialConfigured) {
-    return tSettingsV2(locale, "settings.models.answerProvider.notConfigured");
-  }
-  return tSettingsV2(
-    locale,
-    "settings.models.answerProvider.configuredNotVerified",
-  );
-}
-
-function getProviderStatusLabel(
-  locale: SettingsV2Locale,
-  status: InferenceProviderDescriptor["status"],
-): string {
-  if (status === "available") {
-    return tSettingsV2(locale, "settings.models.status.available");
-  }
-  if (status === "degraded") {
-    return tSettingsV2(locale, "settings.models.status.degraded");
-  }
-  return tSettingsV2(locale, "settings.models.status.unconfigured");
-}
-
-function getLocalModelSummary(
-  locale: SettingsV2Locale,
-  modelInventory: ModelInventoryItem[] | undefined,
-  modelManifests: ModelManifest[] | undefined,
-): string {
-  const inventory = modelInventory ?? [];
-  const manifests = modelManifests ?? [];
-  const installed = inventory.filter((item) =>
-    item.status === "available" || item.status === "loaded",
-  ).length;
-  const loaded = inventory.filter((item) => item.status === "loaded").length;
-  const missing = Math.max(manifests.length - installed, 0);
-  return `${tSettingsV2(locale, "settings.models.status.installed")}: ${installed} / ${tSettingsV2(locale, "settings.models.status.loaded")}: ${loaded} / ${tSettingsV2(locale, "settings.models.status.missing")}: ${missing}`;
-}
-
-function getCloudLocalStatusSummary({
-  locale,
-  inferenceProviders,
-  inferenceProviderRequirements,
-  resourceDiagnostics,
-}: {
-  locale: SettingsV2Locale;
-  inferenceProviders?: InferenceProviderDescriptor[];
-  inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
-  resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
-}): string {
-  const providers = inferenceProviders ?? [];
-  const localAvailable = providers.filter(
-    (provider) =>
-      provider.execution === "local" && provider.status === "available",
-  ).length;
-  const cloudConfigured = (inferenceProviderRequirements ?? []).filter(
-    (report) =>
-      report.requirements.length > 0 &&
-      report.requirements.every((requirement) => requirement.configured),
-  ).length;
-  return `${tSettingsV2(locale, "settings.models.cloudLocalStatus.localProviders")}: ${localAvailable} / ${tSettingsV2(locale, "settings.models.cloudLocalStatus.cloudProviders")}: ${cloudConfigured} / ${tSettingsV2(locale, "settings.models.cloudLocalStatus.resourceLeases")}: ${resourceDiagnostics?.activeLeaseCount ?? 0}`;
-}
-
 function getThemeLabel(locale: SettingsV2Locale, themeId: SkinThemeId): string {
   return tSettingsV2(locale, getThemeCopyKey(themeId, "label"));
 }
@@ -411,6 +327,7 @@ function getDefinitionValue({
   inferenceProviderRequirements,
   modelInventory,
   modelManifests,
+  modelOperations,
   resourceDiagnostics,
 }: {
   definition: SettingsV2Definition;
@@ -430,8 +347,20 @@ function getDefinitionValue({
   inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
   modelInventory?: ModelInventoryItem[];
   modelManifests?: ModelManifest[];
+  modelOperations?: ModelOperationSnapshot[];
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
 }): string {
+  const modelsViewModel = buildSettingsV2ModelsProductViewModel({
+    chatAnswerProductModeStatus,
+    commandRouterProductModeStatus,
+    inferenceProviderRequirements,
+    inferenceProviders,
+    locale,
+    modelInventory,
+    modelManifests,
+    modelOperations,
+    resourceDiagnostics,
+  });
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
   }
@@ -490,24 +419,19 @@ function getDefinitionValue({
     return tSettingsV2(locale, "settings.voice.wakeWord.unavailable");
   }
   if (definition.settingBindingId === "models.fast_command_understanding") {
-    return getCommandRouterValueLabel(locale, commandRouterProductModeStatus);
+    return modelsViewModel.command.value;
   }
   if (definition.settingBindingId === "models.answer_provider") {
-    return getChatAnswerValueLabel(locale, chatAnswerProductModeStatus);
+    return modelsViewModel.answer.value;
   }
   if (definition.settingBindingId === "models.local_models") {
-    return getLocalModelSummary(locale, modelInventory, modelManifests);
+    return modelsViewModel.localModels.value;
   }
   if (definition.settingBindingId === "models.routing_policy") {
-    return tSettingsV2(locale, "settings.models.routingPolicy.safeSummary");
+    return modelsViewModel.routing.value;
   }
   if (definition.settingBindingId === "models.cloud_local_status") {
-    return getCloudLocalStatusSummary({
-      locale,
-      inferenceProviders,
-      inferenceProviderRequirements,
-      resourceDiagnostics,
-    });
+    return modelsViewModel.answer.value;
   }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
@@ -530,6 +454,7 @@ function getSearchResults({
   inferenceProviderRequirements,
   modelInventory,
   modelManifests,
+  modelOperations,
   resourceDiagnostics,
 }: {
   query: string;
@@ -549,6 +474,7 @@ function getSearchResults({
   inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
   modelInventory?: ModelInventoryItem[];
   modelManifests?: ModelManifest[];
+  modelOperations?: ModelOperationSnapshot[];
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
 }) {
   const normalizedQuery = normalizeSearchText(query);
@@ -585,6 +511,7 @@ function getSearchResults({
         inferenceProviderRequirements,
         modelInventory,
         modelManifests,
+        modelOperations,
         resourceDiagnostics,
       }),
     }));
@@ -667,6 +594,7 @@ export function SettingsV2GeneralView({
         inferenceProviderRequirements,
         modelInventory,
         modelManifests,
+        modelOperations,
         resourceDiagnostics,
       }),
     [
@@ -680,6 +608,7 @@ export function SettingsV2GeneralView({
       locale,
       modelInventory,
       modelManifests,
+      modelOperations,
       petSkinRegistry,
       resourceDiagnostics,
       searchQuery,
@@ -720,35 +649,17 @@ export function SettingsV2GeneralView({
     ttsServiceStatus?.configured === true && ttsServiceStatus.voiceId
       ? tSettingsV2(locale, "settings.voice.tts.voiceConfigured")
       : tSettingsV2(locale, "settings.voice.tts.defaultVoice");
-  const commandRouterValue = getCommandRouterValueLabel(
-    locale,
-    commandRouterProductModeStatus,
-  );
-  const chatAnswerValue = getChatAnswerValueLabel(
-    locale,
+  const modelsViewModel = buildSettingsV2ModelsProductViewModel({
     chatAnswerProductModeStatus,
-  );
-  const localModelSummary = getLocalModelSummary(
+    commandRouterProductModeStatus,
+    inferenceProviderRequirements,
+    inferenceProviders,
     locale,
     modelInventory,
     modelManifests,
-  );
-  const cloudLocalSummary = getCloudLocalStatusSummary({
-    locale,
-    inferenceProviders,
-    inferenceProviderRequirements,
+    modelOperations,
     resourceDiagnostics,
   });
-  const localProviderCount = inferenceProviders.filter(
-    (provider) => provider.execution === "local",
-  ).length;
-  const cloudProviderCount = inferenceProviders.filter(
-    (provider) => provider.execution === "cloud",
-  ).length;
-  const activeModelOperations = modelOperations.filter(
-    (operation) =>
-      operation.phase !== "completed" && operation.phase !== "failed",
-  ).length;
 
   return (
     <div
@@ -1237,14 +1148,14 @@ export function SettingsV2GeneralView({
                 title={tSettingsV2(locale, "settings.models.title")}
               />
               <InlineNotice title={tSettingsV2(locale, "settings.status.localOnly")}>
-                {tSettingsV2(locale, "settings.models.status.noNetworkOnOpen")}
+                {modelsViewModel.safeNotice}
               </InlineNotice>
 
               <SettingsSection
                 title={tSettingsV2(locale, "settings.models.section.command")}
               >
                 <SettingSwitchRow
-                  checked={commandRouterProductModeStatus?.enabled === true}
+                  checked={modelsViewModel.command.checked}
                   description={tSettingsV2(
                     locale,
                     "settings.models.fastCommand.description",
@@ -1263,10 +1174,10 @@ export function SettingsV2GeneralView({
                 >
                   <span>
                     {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
-                    {commandRouterValue}
+                    {modelsViewModel.command.value}
                   </span>
-                  <span>{tSettingsV2(locale, "settings.models.fastCommand.localRules")}</span>
-                  <span>{tSettingsV2(locale, "settings.models.routingPolicy.safeSummary")}</span>
+                  <span>{modelsViewModel.command.detail}</span>
+                  <span>{tSettingsV2(locale, "settings.models.routingPolicy.safety")}</span>
                 </div>
               </SettingsSection>
 
@@ -1274,7 +1185,7 @@ export function SettingsV2GeneralView({
                 title={tSettingsV2(locale, "settings.models.section.answer")}
               >
                 <SettingSwitchRow
-                  checked={chatAnswerProductModeStatus?.enabled === true}
+                  checked={modelsViewModel.answer.checked}
                   description={tSettingsV2(
                     locale,
                     "settings.models.answerProvider.description",
@@ -1293,14 +1204,9 @@ export function SettingsV2GeneralView({
                 >
                   <span>
                     {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
-                    {chatAnswerValue}
+                    {modelsViewModel.answer.value}
                   </span>
-                  <span>
-                    {chatAnswerProductModeStatus?.enabled
-                      ? tSettingsV2(locale, "settings.models.answerProvider.enabled")
-                      : tSettingsV2(locale, "settings.models.answerProvider.disabled")}
-                  </span>
-                  <span>{tSettingsV2(locale, "settings.models.status.notVerified")}</span>
+                  <span>{modelsViewModel.answer.detail}</span>
                 </div>
               </SettingsSection>
 
@@ -1313,21 +1219,16 @@ export function SettingsV2GeneralView({
                     "settings.models.localModels.description",
                   )}
                   title={tSettingsV2(locale, "settings.models.localModels.label")}
-                  value={localModelSummary}
+                  value={modelsViewModel.localModels.value}
                 />
                 <div
                   className="settings-v2-models-status-grid"
                   data-testid="settings-v2-local-model-status"
                 >
-                  <span>
-                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
-                    {localModelSummary}
-                  </span>
-                  <span>
-                    {activeModelOperations > 0
-                      ? `${tSettingsV2(locale, "settings.status.operationInProgress")}: ${activeModelOperations}`
-                      : tSettingsV2(locale, "settings.models.localModels.noOperations")}
-                  </span>
+                  {modelsViewModel.localModels.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                  <span>{modelsViewModel.operations.summary}</span>
                   <span className="settings-v2-models-actions">
                     <Button
                       disabled={!onRefreshModelStatus || sending}
@@ -1356,10 +1257,7 @@ export function SettingsV2GeneralView({
                     "settings.models.routingPolicy.description",
                   )}
                   title={tSettingsV2(locale, "settings.models.routingPolicy.label")}
-                  value={tSettingsV2(
-                    locale,
-                    "settings.models.routingPolicy.safeSummary",
-                  )}
+                  value={modelsViewModel.routing.value}
                 />
                 <SettingRow
                   description={tSettingsV2(
@@ -1367,29 +1265,15 @@ export function SettingsV2GeneralView({
                     "settings.models.cloudLocalStatus.description",
                   )}
                   title={tSettingsV2(locale, "settings.models.cloudLocalStatus.label")}
-                  value={cloudLocalSummary}
+                  value={modelsViewModel.answer.value}
                 />
                 <div
                   className="settings-v2-models-status-grid"
                   data-testid="settings-v2-cloud-local-status"
                 >
-                  <span>
-                    {tSettingsV2(locale, "settings.models.cloudLocalStatus.localProviders")}:{" "}
-                    {localProviderCount}
-                  </span>
-                  <span>
-                    {tSettingsV2(locale, "settings.models.cloudLocalStatus.cloudProviders")}:{" "}
-                    {cloudProviderCount}
-                  </span>
-                  <span>
-                    {inferenceProviders.length > 0
-                      ? inferenceProviders
-                          .map((provider) =>
-                            getProviderStatusLabel(locale, provider.status),
-                          )
-                          .join(" / ")
-                      : tSettingsV2(locale, "settings.status.unknown")}
-                  </span>
+                  {modelsViewModel.routing.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
                 </div>
               </SettingsSection>
             </section>

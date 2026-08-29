@@ -145,6 +145,9 @@ export type SettingsV2CopyKey =
   | "settings.models.fastCommand.description"
   | "settings.models.fastCommand.localRules"
   | "settings.models.fastCommand.action"
+  | "settings.models.fastCommand.defaultRoute"
+  | "settings.models.fastCommand.statusUnknown"
+  | "settings.models.fastCommand.statusUnavailable"
   | "settings.models.answerProvider.label"
   | "settings.models.answerProvider.description"
   | "settings.models.answerProvider.notConfigured"
@@ -152,14 +155,37 @@ export type SettingsV2CopyKey =
   | "settings.models.answerProvider.secureStorageUnavailable"
   | "settings.models.answerProvider.enabled"
   | "settings.models.answerProvider.disabled"
+  | "settings.models.answerProvider.allowedNeedsSetup"
+  | "settings.models.answerProvider.setupRequired"
+  | "settings.models.answerProvider.cannotUse"
+  | "settings.models.answerProvider.available"
+  | "settings.models.answerProvider.verified"
+  | "settings.models.answerProvider.allowedNotReady"
+  | "settings.models.answerProvider.configuredOff"
+  | "settings.models.answerProvider.savedOff"
+  | "settings.models.answerProvider.statusUnknown"
   | "settings.models.localModels.label"
   | "settings.models.localModels.description"
   | "settings.models.localModels.refresh"
   | "settings.models.localModels.openOperations"
   | "settings.models.localModels.noOperations"
+  | "settings.models.localModels.notInstalled"
+  | "settings.models.localModels.installed"
+  | "settings.models.localModels.ready"
+  | "settings.models.localModels.installedCount"
+  | "settings.models.localModels.installableCount"
+  | "settings.models.localModels.selectedCount"
+  | "settings.models.localModels.readyCount"
+  | "settings.models.localModels.unavailableCount"
+  | "settings.models.localModels.busy"
   | "settings.models.routingPolicy.label"
   | "settings.models.routingPolicy.description"
   | "settings.models.routingPolicy.safeSummary"
+  | "settings.models.routingPolicy.localRules"
+  | "settings.models.routingPolicy.safety"
+  | "settings.models.routingPolicy.localModel"
+  | "settings.models.routingPolicy.onlineService"
+  | "settings.models.routingPolicy.notConfigured"
   | "settings.models.cloudLocalStatus.label"
   | "settings.models.cloudLocalStatus.description"
   | "settings.models.cloudLocalStatus.localProviders"
@@ -168,6 +194,7 @@ export type SettingsV2CopyKey =
   | "settings.models.status.localRulesEnabled"
   | "settings.models.status.localRulesOff"
   | "settings.models.status.localRoutingUnavailable"
+  | "settings.models.status.defaultCommandRouting"
   | "settings.models.status.missing"
   | "settings.models.status.installed"
   | "settings.models.status.selected"
@@ -386,46 +413,87 @@ export const settingsV2Copy: Record<
       "This page only reads local status and does not start the microphone, ASR, or upload.",
     "settings.models.title": "Models & Intelligence",
     "settings.models.description":
-      "Review command understanding, answer provider readiness, local model inventory, and routing status without loading models or contacting cloud providers.",
+      "Review command understanding, online answer service readiness, local models, and the current answer method without loading models or contacting online services.",
     "settings.models.section.command": "Fast command understanding",
     "settings.models.section.answer": "Answer provider",
     "settings.models.section.local": "Local models",
     "settings.models.section.routing": "Routing and availability",
     "settings.models.fastCommand.label": "Fast command understanding",
     "settings.models.fastCommand.description":
-      "Use the existing local command rules for quick intent routing. Enabling this does not enable Qwen or any cloud model.",
+      "Choose whether quick commands prefer the existing local rules. This does not start any local model or online service.",
     "settings.models.fastCommand.localRules": "Local rules",
     "settings.models.fastCommand.action": "Local rules mode",
-    "settings.models.answerProvider.label": "General answer provider",
+    "settings.models.fastCommand.defaultRoute":
+      "Uses the existing default command routing.",
+    "settings.models.fastCommand.statusUnknown":
+      "Jarvis has not reported command routing status yet.",
+    "settings.models.fastCommand.statusUnavailable":
+      "Command routing is not available in the current runtime.",
+    "settings.models.answerProvider.label": "Online answer service",
     "settings.models.answerProvider.description":
-      "Controls whether the existing provider-backed answer path may be used after secure credentials and runtime gates are ready.",
+      "Choose whether Jarvis may use the existing online answer path after secure configuration and runtime gates are ready.",
     "settings.models.answerProvider.notConfigured": "Not configured",
     "settings.models.answerProvider.configuredNotVerified":
-      "Credentials saved locally, connection not checked",
+      "Configuration saved locally, not verified",
     "settings.models.answerProvider.secureStorageUnavailable":
       "Secure credential storage is unavailable",
     "settings.models.answerProvider.enabled": "Enabled",
     "settings.models.answerProvider.disabled": "Off",
-    "settings.models.localModels.label": "Local model inventory",
+    "settings.models.answerProvider.allowedNeedsSetup":
+      "Allowed, service not configured",
+    "settings.models.answerProvider.setupRequired":
+      "Configure the online answer service before it can answer.",
+    "settings.models.answerProvider.cannotUse":
+      "Jarvis cannot use saved online credentials on this device.",
+    "settings.models.answerProvider.available": "Available",
+    "settings.models.answerProvider.verified":
+      "Ready according to the current secure runtime gate.",
+    "settings.models.answerProvider.allowedNotReady":
+      "Allowed, but the service has not been verified in this session.",
+    "settings.models.answerProvider.configuredOff":
+      "Configuration saved, service off",
+    "settings.models.answerProvider.savedOff":
+      "Saved configuration is kept locally and will not be used while off.",
+    "settings.models.answerProvider.statusUnknown":
+      "Jarvis has not reported answer service status yet.",
+    "settings.models.localModels.label": "Local models",
     "settings.models.localModels.description":
-      "Shows installed, selected, loaded, and missing local model states from the existing model service.",
+      "Shows installed, selected, and ready local model states from the existing model service.",
     "settings.models.localModels.refresh": "Refresh model status",
     "settings.models.localModels.openOperations": "Open model tasks",
     "settings.models.localModels.noOperations": "No model tasks are running",
+    "settings.models.localModels.notInstalled": "No local models installed",
+    "settings.models.localModels.installed": "Local model installed",
+    "settings.models.localModels.ready": "Local model ready",
+    "settings.models.localModels.installedCount": "Installed on this device",
+    "settings.models.localModels.installableCount": "Installable models",
+    "settings.models.localModels.selectedCount": "Selected for local use",
+    "settings.models.localModels.readyCount": "Ready now",
+    "settings.models.localModels.unavailableCount": "Unavailable local models",
+    "settings.models.localModels.busy": "A local model task is active",
     "settings.models.routingPolicy.label": "Routing policy",
     "settings.models.routingPolicy.description":
-      "Shows the product-level routing summary. Internal route IDs, fallback chains, and evaluation tools stay hidden.",
+      "Shows the product-level answer method. Internal routing details and evaluation tools stay hidden.",
     "settings.models.routingPolicy.safeSummary":
-      "Local rules remain the deterministic fallback. Safety and approval checks are unchanged.",
+      "Safety and approval checks are unchanged.",
+    "settings.models.routingPolicy.localRules": "Current answer method: local rules",
+    "settings.models.routingPolicy.safety":
+      "Safety and confirmation rules stay independent.",
+    "settings.models.routingPolicy.localModel": "Current answer method: local model",
+    "settings.models.routingPolicy.onlineService":
+      "Current answer method: online service",
+    "settings.models.routingPolicy.notConfigured":
+      "Current answer method: not configured",
     "settings.models.cloudLocalStatus.label": "Cloud and local status",
     "settings.models.cloudLocalStatus.description":
-      "Separates local availability from cloud configuration. Opening this page does not verify providers or start a request.",
-    "settings.models.cloudLocalStatus.localProviders": "Local providers",
-    "settings.models.cloudLocalStatus.cloudProviders": "Cloud providers",
-    "settings.models.cloudLocalStatus.resourceLeases": "Active model leases",
+      "Separates local model readiness from online answer service configuration. Opening this page does not connect online services.",
+    "settings.models.cloudLocalStatus.localProviders": "Local services",
+    "settings.models.cloudLocalStatus.cloudProviders": "Online services",
+    "settings.models.cloudLocalStatus.resourceLeases": "Running model tasks",
     "settings.models.status.localRulesEnabled": "Local rules enabled",
     "settings.models.status.localRulesOff": "Command routing off",
     "settings.models.status.localRoutingUnavailable": "Local routing unavailable",
+    "settings.models.status.defaultCommandRouting": "Default command routing",
     "settings.models.status.missing": "Missing",
     "settings.models.status.installed": "Installed",
     "settings.models.status.selected": "Selected",
@@ -435,9 +503,9 @@ export const settingsV2Copy: Record<
     "settings.models.status.unavailable": "Unavailable",
     "settings.models.status.unconfigured": "Not configured",
     "settings.models.status.degraded": "Degraded",
-    "settings.models.status.notVerified": "Not verified here",
+    "settings.models.status.notVerified": "Not verified",
     "settings.models.status.noNetworkOnOpen":
-      "No model load, download, deletion, or cloud verification runs when this page opens.",
+      "Opening this page does not connect online services or load, download, or delete models.",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -627,47 +695,74 @@ export const settingsV2Copy: Record<
       "此页面只读取本机状态，不会启动麦克风、ASR 或上传。",
     "settings.models.title": "模型与智能",
     "settings.models.description":
-      "查看命令理解、回答服务、本地模型和路由状态。打开本页不会加载模型，也不会连接云端服务。",
+      "查看命令理解、在线回答服务、本地模型和当前回答方式。打开本页不会加载模型，也不会连接在线服务。",
     "settings.models.section.command": "快速命令理解",
     "settings.models.section.answer": "回答服务",
     "settings.models.section.local": "本地模型",
     "settings.models.section.routing": "路由与可用性",
     "settings.models.fastCommand.label": "快速命令理解",
     "settings.models.fastCommand.description":
-      "使用现有本地规则进行快速意图路由。开启此项不会启用 Qwen 或任何云端模型。",
-    "settings.models.fastCommand.localRules": "本地规则",
+      "选择快速命令是否优先使用现有本地规则。开启此项不会启动本地模型或在线服务。",
+    "settings.models.fastCommand.localRules": "当前优先使用本地规则。",
     "settings.models.fastCommand.action": "本地规则模式",
-    "settings.models.answerProvider.label": "通用回答服务",
+    "settings.models.fastCommand.defaultRoute": "使用现有默认命令路由。",
+    "settings.models.fastCommand.statusUnknown": "Jarvis 尚未报告命令路由状态。",
+    "settings.models.fastCommand.statusUnavailable": "当前运行环境暂不可使用命令路由。",
+    "settings.models.answerProvider.label": "在线回答服务",
     "settings.models.answerProvider.description":
-      "控制现有 Provider 回答路径是否可在安全凭据和运行门槛就绪后使用。",
+      "选择 Jarvis 是否可以在安全配置和运行门槛就绪后使用现有在线回答路径。",
     "settings.models.answerProvider.notConfigured": "未配置",
     "settings.models.answerProvider.configuredNotVerified":
-      "凭据已保存在本机，本页不检查连接",
+      "配置已保存在本机，尚未验证连接",
     "settings.models.answerProvider.secureStorageUnavailable":
       "安全凭据存储不可用",
     "settings.models.answerProvider.enabled": "已开启",
     "settings.models.answerProvider.disabled": "关闭",
-    "settings.models.localModels.label": "本地模型清单",
+    "settings.models.answerProvider.allowedNeedsSetup": "已允许，但尚未配置服务",
+    "settings.models.answerProvider.setupRequired": "需要先配置在线回答服务，之后才能回答。",
+    "settings.models.answerProvider.cannotUse": "当前设备无法使用已保存的在线服务凭据。",
+    "settings.models.answerProvider.available": "可用",
+    "settings.models.answerProvider.verified": "当前安全运行门槛显示可以使用。",
+    "settings.models.answerProvider.allowedNotReady":
+      "已允许，但本次会话尚未确认在线服务可用。",
+    "settings.models.answerProvider.configuredOff": "已保存配置，服务关闭",
+    "settings.models.answerProvider.savedOff": "配置保存在本机，关闭时不会被使用。",
+    "settings.models.answerProvider.statusUnknown": "Jarvis 尚未报告回答服务状态。",
+    "settings.models.localModels.label": "本地模型",
     "settings.models.localModels.description":
-      "从现有模型服务读取已安装、已选择、已加载和缺失状态。",
+      "从现有模型服务读取本机安装、已选择和当前就绪状态。",
     "settings.models.localModels.refresh": "刷新模型状态",
     "settings.models.localModels.openOperations": "查看模型任务",
     "settings.models.localModels.noOperations": "当前没有运行中的模型任务",
+    "settings.models.localModels.notInstalled": "未安装本地模型",
+    "settings.models.localModels.installed": "本地模型已安装",
+    "settings.models.localModels.ready": "本地模型已就绪",
+    "settings.models.localModels.installedCount": "本机已安装",
+    "settings.models.localModels.installableCount": "可安装模型",
+    "settings.models.localModels.selectedCount": "已选择用于本地能力",
+    "settings.models.localModels.readyCount": "当前已就绪",
+    "settings.models.localModels.unavailableCount": "暂不可用的本地模型",
+    "settings.models.localModels.busy": "有本地模型任务正在进行",
     "settings.models.routingPolicy.label": "路由策略",
     "settings.models.routingPolicy.description":
-      "显示产品级路由摘要。内部路由 ID、fallback 链和评测工具不会在此页显示。",
-    "settings.models.routingPolicy.safeSummary":
-      "本地规则仍是确定性 fallback。安全和确认规则保持不变。",
+      "显示产品级回答方式。内部路由细节和评测工具不会在此页显示。",
+    "settings.models.routingPolicy.safeSummary": "安全和确认规则保持不变。",
+    "settings.models.routingPolicy.localRules": "当前回答方式：本地规则",
+    "settings.models.routingPolicy.safety": "安全和确认规则保持独立生效。",
+    "settings.models.routingPolicy.localModel": "当前回答方式：本地模型",
+    "settings.models.routingPolicy.onlineService": "当前回答方式：在线服务",
+    "settings.models.routingPolicy.notConfigured": "当前回答方式：未配置",
     "settings.models.cloudLocalStatus.label": "云端与本地状态",
     "settings.models.cloudLocalStatus.description":
-      "区分本地可用性和云端配置。打开本页不会验证 Provider，也不会发起请求。",
-    "settings.models.cloudLocalStatus.localProviders": "本地 Provider",
-    "settings.models.cloudLocalStatus.cloudProviders": "云端 Provider",
-    "settings.models.cloudLocalStatus.resourceLeases": "活动模型租约",
+      "区分本地模型就绪状态和在线回答服务配置。打开本页不会连接在线服务。",
+    "settings.models.cloudLocalStatus.localProviders": "本地服务提供方",
+    "settings.models.cloudLocalStatus.cloudProviders": "在线服务提供方",
+    "settings.models.cloudLocalStatus.resourceLeases": "运行中的模型任务",
     "settings.models.status.localRulesEnabled": "本地规则已启用",
     "settings.models.status.localRulesOff": "命令路由关闭",
     "settings.models.status.localRoutingUnavailable": "本地路由暂不可用",
-    "settings.models.status.missing": "缺失",
+    "settings.models.status.defaultCommandRouting": "默认命令路由",
+    "settings.models.status.missing": "未安装",
     "settings.models.status.installed": "已安装",
     "settings.models.status.selected": "已选择",
     "settings.models.status.loaded": "已加载",
@@ -676,9 +771,9 @@ export const settingsV2Copy: Record<
     "settings.models.status.unavailable": "不可用",
     "settings.models.status.unconfigured": "未配置",
     "settings.models.status.degraded": "降级",
-    "settings.models.status.notVerified": "本页未验证",
+    "settings.models.status.notVerified": "尚未验证",
     "settings.models.status.noNetworkOnOpen":
-      "打开本页不会加载、下载、删除模型，也不会验证云端 Provider。",
+      "打开此页面不会连接在线服务，也不会加载、下载或删除模型。",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",

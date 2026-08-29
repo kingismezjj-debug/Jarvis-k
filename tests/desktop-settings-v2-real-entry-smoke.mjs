@@ -148,14 +148,17 @@ async function runGateOnScenario() {
     await window.getByRole("heading", { name: "Fast command understanding" }).waitFor({
       timeout: 5_000,
     });
-    await window.getByText("General answer provider").waitFor({
+    await window.getByText("Online answer service", { exact: true }).waitFor({
       timeout: 5_000,
     });
-    await window.getByText("Local model inventory", { exact: true }).waitFor({
+    await window.getByRole("heading", { name: "Local models" }).waitFor({
       timeout: 5_000,
     });
     await window
-      .getByText("No model load, download, deletion, or cloud verification")
+      .getByText(
+        "Opening this page does not connect online services or load, download, or delete models.",
+        { exact: true },
+      )
       .waitFor({
         timeout: 5_000,
       });

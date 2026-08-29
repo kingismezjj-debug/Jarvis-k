@@ -268,14 +268,14 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Models &amp; Intelligence");
     expect(html).toContain("Fast command understanding");
     expect(html).toContain("Local rules enabled");
-    expect(html).toContain("General answer provider");
-    expect(html).toContain("Credentials saved locally, connection not checked");
-    expect(html).toContain("Not verified here");
-    expect(html).toContain("Local model inventory");
-    expect(html).toContain("Installed: 1");
-    expect(html).toContain("Loaded: 0");
-    expect(html).toContain("Missing: 0");
-    expect(html).toContain("No model load, download, deletion, or cloud verification");
+    expect(html).toContain("Online answer service");
+    expect(html).toContain("Configuration saved locally, not verified");
+    expect(html).toContain("Allowed, but the service has not been verified");
+    expect(html).toContain("Local models");
+    expect(html).toContain("Installed on this device: 1");
+    expect(html).toContain("Installable models: 0");
+    expect(html).toContain("Ready now: 0");
+    expect(html).toContain("Opening this page does not connect online services");
     for (const forbidden of [
       "intent-router.qwen3-0.6b",
       "Qwen/Qwen3-0.6B",
@@ -289,10 +289,121 @@ describe("Settings V2 General view", () => {
       "credential value",
       "Cloud Acceptance",
       "fixture",
+      "fallback",
+      "Active model leases",
+      "Not configured / Not configured",
       "C:\\\\",
     ]) {
       expect(html).not.toContain(forbidden);
     }
+  });
+
+  it("does not render repeated raw unconfigured provider descriptors", () => {
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: {
+        enabled: false,
+        secureStorageAvailable: true,
+        credentialConfigured: false,
+      } as unknown as ChatAnswerProductModeStatus,
+      commandRouterProductModeStatus: commandRouterStatus,
+      inferenceProviders: [
+        {
+          capability: "intent_router",
+          provider: "provider.one",
+          status: "unconfigured",
+          execution: "cloud",
+          modelIds: [],
+          reasons: [],
+        },
+        {
+          capability: "chat",
+          provider: "provider.two",
+          status: "unconfigured",
+          execution: "cloud",
+          modelIds: [],
+          reasons: [],
+        },
+      ] as InferenceProviderDescriptor[],
+    });
+    expect(html).toContain("Online answer service");
+    expect(html).not.toContain("Not configured / Not configured");
+    expect(html).not.toContain("provider.one");
+    expect(html).not.toContain("provider.two");
+  });
+
+  it("keeps the Chinese Product page free of internal model wording", () => {
+    const html = renderView({
+      locale: "zh",
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: {
+        enabled: true,
+        secureStorageAvailable: true,
+        credentialConfigured: false,
+      } as unknown as ChatAnswerProductModeStatus,
+      commandRouterProductModeStatus: {
+        enabled: false,
+        status: "disabled",
+      } as unknown as CommandRouterProductModeStatus,
+      inferenceProviders,
+      modelInventory: [],
+      modelManifests: [modelManifest],
+    });
+    expect(html).toContain("在线回答服务");
+    expect(html).toContain("已允许，但尚未配置服务");
+    expect(html).toContain("本机已安装: 0");
+    expect(html).toContain("可安装模型: 1");
+    for (const forbidden of [
+      "fallback",
+      "活动模型租约",
+      "Provider: 0",
+      "本地 Provider",
+      "云端 Provider",
+      "本页不验证",
+      "缺失",
+      "未配置 / 未配置",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("maps local model installed, selected, ready, and installable states", () => {
+    const readyManifest = { ...modelManifest, id: "local-ready" } as ModelManifest;
+    const installableManifest = {
+      ...modelManifest,
+      id: "local-installable",
+    } as ModelManifest;
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      commandRouterProductModeStatus: commandRouterStatus,
+      inferenceProviders: [
+        {
+          capability: "intent_router",
+          provider: "local.router",
+          status: "available",
+          execution: "local",
+          modelIds: ["local-ready"],
+          reasons: [],
+        },
+      ] as InferenceProviderDescriptor[],
+      modelInventory: [
+        {
+          manifest: readyManifest,
+          status: "loaded",
+        },
+        {
+          manifest: installableManifest,
+          status: "not_downloaded",
+        },
+      ] as ModelInventoryItem[],
+      modelManifests: [readyManifest, installableManifest],
+    });
+    expect(html).toContain("Local model ready");
+    expect(html).toContain("Installed on this device: 1");
+    expect(html).toContain("Installable models: 1");
+    expect(html).toContain("Selected for local use: 1");
+    expect(html).toContain("Ready now: 1");
+    expect(html).not.toContain("Missing:");
   });
 
   it("keeps saved answer credentials separate from provider availability", () => {
@@ -306,9 +417,11 @@ describe("Settings V2 General view", () => {
       } as unknown as ChatAnswerProductModeStatus,
       commandRouterProductModeStatus: commandRouterStatus,
     });
-    expect(html).toContain("Credentials saved locally, connection not checked");
+    expect(html).toContain("Configuration saved locally, not verified");
+    expect(html).toContain("Allowed, but the service has not been verified");
     expect(html).not.toContain("Connected");
     expect(html).not.toContain("Ready to use");
+    expect(html).not.toContain("Available");
   });
 
   it("includes Models & Intelligence in product search results with current values", () => {
@@ -323,8 +436,8 @@ describe("Settings V2 General view", () => {
       modelInventory,
       modelManifests: [modelManifest],
     });
-    expect(html).toContain("Local model inventory");
-    expect(html).toContain("Installed: 1");
+    expect(html).toContain("Local models");
+    expect(html).toContain("Local model installed");
   });
 
   it("renders Appearance & Pet from real safe projections", () => {
