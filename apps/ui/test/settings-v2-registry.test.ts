@@ -6,6 +6,7 @@ import {
   settingsV2Categories,
   settingsV2GeneralDefinitions,
   settingsV2ProductDefinitions,
+  settingsV2VoiceAudioDefinitions,
   validateSettingsV2Registry,
   type SettingsV2Definition,
 } from "../src/features/settings-v2/settings-v2-registry";
@@ -18,7 +19,7 @@ const cloneDefinition = (
 });
 
 describe("Settings V2 registry", () => {
-  it("registers General and Appearance & Pet vertical slices", () => {
+  it("registers General, Appearance & Pet, and Voice & Audio vertical slices", () => {
     expect(settingsV2Categories.map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
@@ -32,10 +33,12 @@ describe("Settings V2 registry", () => {
     expect(settingsV2Categories.filter((category) => category.migrated).map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
+      "voice_audio",
     ]);
     expect(settingsV2GeneralDefinitions).toHaveLength(4);
     expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
-    expect(settingsV2ProductDefinitions).toHaveLength(10);
+    expect(settingsV2VoiceAudioDefinitions).toHaveLength(6);
+    expect(settingsV2ProductDefinitions).toHaveLength(16);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -106,7 +109,7 @@ describe("Settings V2 registry", () => {
     );
   });
 
-  it("returns deterministic General and Appearance & Pet search definitions", () => {
+  it("returns deterministic migrated product search definitions", () => {
     expect(
       getSettingsV2SearchableDefinitions().map(
         (definition) => definition.settingId,
@@ -114,14 +117,20 @@ describe("Settings V2 registry", () => {
     ).toEqual([
       "settings.general.display_language",
       "settings.appearance.theme",
+      "settings.voice.provider",
       "settings.general.close_button_behavior",
       "settings.pet.show",
+      "settings.voice.capture_mode",
       "settings.general.launch_at_login",
       "settings.pet.keep_on_top",
+      "settings.voice.microphone_permission",
       "settings.general.reset_recovery",
       "settings.pet.reduced_motion",
+      "settings.voice.push_to_talk",
       "settings.pet.reset_position",
+      "settings.voice.tts",
       "settings.skin.current",
+      "settings.voice.wake_word",
     ]);
   });
 });

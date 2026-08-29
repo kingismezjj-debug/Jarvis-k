@@ -82,6 +82,18 @@ async function runGateOnScenario() {
   });
   try {
     const window = await electronApp.firstWindow();
+    await window.addInitScript(() => {
+      window.__jarvisSettingsV2MediaCalls = 0;
+      const mediaDevices = navigator.mediaDevices;
+      if (mediaDevices?.getUserMedia) {
+        const original = mediaDevices.getUserMedia.bind(mediaDevices);
+        mediaDevices.getUserMedia = (constraints) => {
+          window.__jarvisSettingsV2MediaCalls += 1;
+          return original(constraints);
+        };
+      }
+    });
+    await window.reload();
     await window.setViewportSize({ width: 1440, height: 940 });
     const projection = await window.evaluate(() =>
       window.jarvis?.getUiSurfaceCapabilityStatus(),
@@ -104,8 +116,29 @@ async function runGateOnScenario() {
     });
     await window.getByText("Interface theme").waitFor({ timeout: 5_000 });
     await window.getByText("Show Desktop Pet").waitFor({ timeout: 5_000 });
+    await window
+      .locator('[data-testid="settings-v2-category-nav"] button')
+      .filter({ hasText: "Voice & Audio" })
+      .click();
+    await window.getByTestId("settings-v2-voice-audio").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("Speech recognition provider").waitFor({
+      timeout: 5_000,
+    });
+    await window.getByText("Not configured").first().waitFor({
+      timeout: 5_000,
+    });
+    await window.getByRole("heading", { name: "Wake word" }).waitFor({
+      timeout: 5_000,
+    });
+    const mediaCalls = await window.evaluate(
+      () => window.__jarvisSettingsV2MediaCalls ?? 0,
+    );
     const legacyCount = await window.getByTestId("settings-view").count();
     const skinStudioCount = await countVisibleText(window, "Pet Skin Studio");
+    const voiceRegressionCount = await countVisibleText(window, "Voice Regression");
+    const pilotCount = await countVisibleText(window, "Pilot");
     const developerNavCount = await window.getByTestId("nav-developer").count();
     const evaluationHiddenCount = await window
       .getByTestId("evaluation-surface-hidden")
@@ -118,8 +151,16 @@ async function runGateOnScenario() {
         `Settings V2 mounted with legacy surface present: legacy=${legacyCount} skinStudio=${skinStudioCount}`,
       );
     }
+    if (voiceRegressionCount !== 0 || pilotCount !== 0) {
+      throw new Error(
+        `Settings V2 Voice & Audio exposed evaluation text: voiceRegression=${voiceRegressionCount} pilot=${pilotCount}`,
+      );
+    }
     if (developerNavCount !== 0 || evaluationHiddenCount !== 0) {
       throw new Error("Settings V2 product entry exposed Developer/Evaluation.");
+    }
+    if (mediaCalls !== 0) {
+      throw new Error(`Settings V2 started media capture: ${mediaCalls}`);
     }
     const screenshotPath = path.join(outputDirectory, "real-settings-v2-gate-on.png");
     await window.screenshot({ path: screenshotPath, fullPage: true });
@@ -129,8 +170,11 @@ async function runGateOnScenario() {
       categoryCount,
       legacyCount,
       skinStudioCount,
+      voiceRegressionCount,
+      pilotCount,
       developerNavCount,
       evaluationHiddenCount,
+      mediaCalls,
     };
   } finally {
     await electronApp.close();

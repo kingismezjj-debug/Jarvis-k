@@ -21,6 +21,10 @@ export const settingsV2SectionIds = [
   "appearance",
   "desktop_pet",
   "pet_skin",
+  "voice_provider",
+  "voice_capture",
+  "voice_output",
+  "wake_word",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -47,6 +51,12 @@ export const settingsV2BindingIds = [
   "desktop.pet_reduced_motion",
   "desktop.pet_position_reset",
   "desktop.pet_skin_summary",
+  "voice.provider_summary",
+  "voice.capture_mode",
+  "voice.microphone_permission",
+  "voice.push_to_talk",
+  "voice.tts_summary",
+  "voice.wake_word",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -90,7 +100,7 @@ export const settingsV2Categories: Array<{
   {
     id: "voice_audio",
     labelKey: "settings.categories.voice_audio",
-    migrated: false,
+    migrated: true,
   },
   {
     id: "models_intelligence",
@@ -361,9 +371,160 @@ export const settingsV2AppearancePetDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2VoiceAudioDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.voice.provider",
+    categoryId: "voice_audio",
+    sectionId: "voice_provider",
+    labelKey: "settings.voice.provider.label",
+    descriptionKey: "settings.voice.provider.description",
+    searchKeywordKeys: [
+      "settings.voice.provider.label",
+      "settings.voice.provider.description",
+      "settings.voice.provider.notConfigured",
+      "settings.voice.provider.configured",
+      "settings.voice.provider.language.label",
+    ],
+    controlType: "action",
+    settingBindingId: "voice.provider_summary",
+    validationContractId: "voice-provider-secure-status.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "voice.provider.safe_status",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.voice.provider",
+  },
+  {
+    settingId: "settings.voice.capture_mode",
+    categoryId: "voice_audio",
+    sectionId: "voice_capture",
+    labelKey: "settings.voice.captureMode.label",
+    descriptionKey: "settings.voice.captureMode.description",
+    searchKeywordKeys: [
+      "settings.voice.captureMode.label",
+      "settings.voice.captureMode.description",
+      "settings.voice.captureMode.disabled",
+      "settings.voice.captureMode.pushToTalk",
+      "settings.voice.captureMode.continuous",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "voice.capture_mode",
+    validationContractId: "voice-capture-mode-safe-status.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "voice.capture.mode",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.voice.capture_mode",
+  },
+  {
+    settingId: "settings.voice.microphone_permission",
+    categoryId: "voice_audio",
+    sectionId: "voice_capture",
+    labelKey: "settings.voice.microphone.label",
+    descriptionKey: "settings.voice.microphone.description",
+    searchKeywordKeys: [
+      "settings.voice.microphone.label",
+      "settings.voice.microphone.description",
+      "settings.voice.microphone.unknown",
+      "settings.voice.microphone.prompt",
+      "settings.voice.microphone.granted",
+      "settings.voice.microphone.denied",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "voice.microphone_permission",
+    validationContractId: "voice-microphone-permission-safe-status.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "voice.microphone.permission",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.voice.microphone_permission",
+  },
+  {
+    settingId: "settings.voice.push_to_talk",
+    categoryId: "voice_audio",
+    sectionId: "voice_capture",
+    labelKey: "settings.voice.pushToTalk.label",
+    descriptionKey: "settings.voice.pushToTalk.description",
+    searchKeywordKeys: [
+      "settings.voice.pushToTalk.label",
+      "settings.voice.pushToTalk.description",
+      "settings.voice.pushToTalk.available",
+      "settings.voice.pushToTalk.unavailable",
+    ],
+    controlType: "action",
+    settingBindingId: "voice.push_to_talk",
+    validationContractId: "voice-push-to-talk-entry.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "voice.push_to_talk.entry",
+    dangerLevel: "none",
+    order: 40,
+    helpReferenceId: "settings.voice.push_to_talk",
+  },
+  {
+    settingId: "settings.voice.tts",
+    categoryId: "voice_audio",
+    sectionId: "voice_output",
+    labelKey: "settings.voice.tts.label",
+    descriptionKey: "settings.voice.tts.description",
+    searchKeywordKeys: [
+      "settings.voice.tts.label",
+      "settings.voice.tts.description",
+      "settings.voice.tts.configured",
+      "settings.voice.tts.notConfigured",
+    ],
+    controlType: "action",
+    settingBindingId: "voice.tts_summary",
+    validationContractId: "voice-tts-secure-status.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "voice.tts.safe_status",
+    dangerLevel: "none",
+    order: 50,
+    helpReferenceId: "settings.voice.tts",
+  },
+  {
+    settingId: "settings.voice.wake_word",
+    categoryId: "voice_audio",
+    sectionId: "wake_word",
+    labelKey: "settings.voice.wakeWord.label",
+    descriptionKey: "settings.voice.wakeWord.description",
+    searchKeywordKeys: [
+      "settings.voice.wakeWord.label",
+      "settings.voice.wakeWord.description",
+      "settings.voice.wakeWord.unavailable",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "voice.wake_word",
+    validationContractId: "voice-wake-word-unsupported.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "voice.wake_word.unsupported",
+    dangerLevel: "none",
+    order: 60,
+    helpReferenceId: "settings.voice.wake_word",
+  },
+];
+
 export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2GeneralDefinitions,
   ...settingsV2AppearancePetDefinitions,
+  ...settingsV2VoiceAudioDefinitions,
 ];
 
 export function validateSettingsV2Registry(
@@ -429,7 +590,8 @@ export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
     .filter(
       (definition) =>
         definition.categoryId === "general" ||
-        definition.categoryId === "appearance_pet",
+        definition.categoryId === "appearance_pet" ||
+        definition.categoryId === "voice_audio",
     )
     .sort((left, right) => left.order - right.order);
 }

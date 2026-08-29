@@ -99,12 +99,93 @@ describe("Settings V2 General view", () => {
       "Cloud Acceptance",
       "Qwen",
       "fixture",
+      "Voice Regression",
+      "Pilot",
       "Skin Studio",
       "PROTOTYPE DATA",
       "DANGER ZONE",
     ]) {
       expect(html).not.toContain(forbidden);
     }
+  });
+
+  it("renders Voice & Audio from existing safe voice projections", () => {
+    const html = renderView({
+      initialCategoryId: "voice_audio",
+      ttsServiceStatus: {
+        configured: true,
+        secureStorageAvailable: true,
+        provider: "doubao",
+        resourceId: "seed-tts-2.0",
+        voiceId: "zh_female_xiaohe_uranus_bigtts",
+      },
+      voiceCaptureAvailable: true,
+      voiceMode: "ptt",
+      voicePermission: "granted",
+      voiceServiceStatus: {
+        configured: true,
+        secureStorageAvailable: true,
+        provider: "volcengine",
+        language: "zh",
+        resourceId: "volc.seedasr.sauc.duration",
+      },
+    });
+    expect(html).toContain("Voice &amp; Audio");
+    expect(html).toContain("Speech recognition provider");
+    expect(html).toContain("Volcengine / Credentials saved locally");
+    expect(html).toContain("Connection is not checked on this page");
+    expect(html).toContain("Recognition language");
+    expect(html).toContain("Chinese");
+    expect(html).toContain("Push to talk");
+    expect(html).toContain("Allowed");
+    expect(html).toContain("Doubao / Credentials saved locally");
+    expect(html).toContain("A voice is selected");
+    expect(html).toContain("Not supported in this version");
+    for (const forbidden of [
+      "volc.seedasr.sauc.duration",
+      "zh_female_xiaohe_uranus_bigtts",
+      "resourceId",
+      "voiceId",
+      "transcript",
+      "Voice Regression",
+      "Pilot",
+      "fixture",
+      "credential value",
+      "C:\\\\",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps Voice & Audio honest when providers are not configured", () => {
+    const html = renderView({
+      initialCategoryId: "voice_audio",
+      ttsServiceStatus: { configured: false, secureStorageAvailable: true },
+      voiceCaptureAvailable: false,
+      voiceMode: "disabled",
+      voicePermission: "unknown",
+      voiceServiceStatus: { configured: false, secureStorageAvailable: true },
+    });
+    expect(html).toContain("Not configured");
+    expect(html).toContain("Unavailable until Jarvis Core is ready");
+    expect(html).toContain("Not requested");
+    expect(html).toContain("This page only reads local status");
+    expect(html).not.toContain("Connected");
+    expect(html).not.toContain("Ready to use");
+  });
+
+  it("includes Voice & Audio in product search results with current values", () => {
+    const html = renderView({
+      initialCategoryId: "voice_audio",
+      voiceServiceStatus: {
+        configured: true,
+        secureStorageAvailable: true,
+        provider: "xunfei",
+        language: "en",
+      },
+    });
+    expect(html).toContain("Speech recognition provider");
+    expect(html).toContain("Xunfei / Credentials saved locally");
   });
 
   it("renders Appearance & Pet from real safe projections", () => {
@@ -223,6 +304,9 @@ describe("Settings V2 General view", () => {
       "ipcRenderer",
       "safeStorage",
       "showOpenDialog",
+      "getUserMedia",
+      "MediaStream",
+      "sendVoiceAudio",
       "fetch(",
       "XMLHttpRequest",
       "JARVIS_K_",

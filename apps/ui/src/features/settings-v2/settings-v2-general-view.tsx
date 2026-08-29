@@ -5,6 +5,10 @@ import type {
   DesktopPetReducedMotion,
   DesktopSettings,
   PetSkinRegistryProjection,
+  TtsServiceStatus,
+  VoiceMode,
+  VoicePermissionState,
+  VoiceServiceStatus,
 } from "@jarvis-k/contracts";
 
 import { builtInSkinThemes } from "@/app/skin-themes";
@@ -62,6 +66,14 @@ export type SettingsV2GeneralViewProps = {
   onSetDesktopPetReducedMotion: (mode: DesktopPetReducedMotion) => void;
   onResetDesktopPetPosition: () => void;
   onOpenExistingSkinManagement?: () => void;
+  voiceServiceStatus?: VoiceServiceStatus | null;
+  ttsServiceStatus?: TtsServiceStatus | null;
+  voiceMode?: VoiceMode;
+  voicePermission?: VoicePermissionState;
+  voiceCaptureAvailable?: boolean;
+  onOpenVoicePage?: () => void;
+  onOpenVoiceSettings?: () => void;
+  onOpenTtsSettings?: () => void;
   initialCategoryId?: SettingsV2CategoryId;
 };
 
@@ -109,6 +121,86 @@ function getLaunchValueLabel(
   return settings.launchAtLoginEnabled
     ? tSettingsV2(locale, "settings.status.on")
     : tSettingsV2(locale, "settings.status.off");
+}
+
+function getProviderName(provider: VoiceServiceStatus["provider"]): string {
+  if (provider === "xunfei") return "Xunfei";
+  if (provider === "volcengine") return "Volcengine";
+  return "";
+}
+
+function getVoiceProviderValueLabel(
+  locale: SettingsV2Locale,
+  status: VoiceServiceStatus | null | undefined,
+): string {
+  if (!status?.secureStorageAvailable) {
+    return tSettingsV2(
+      locale,
+      "settings.voice.provider.secureStorageUnavailable",
+    );
+  }
+  if (!status.configured) {
+    return tSettingsV2(locale, "settings.voice.provider.notConfigured");
+  }
+  const providerName = getProviderName(status.provider);
+  return providerName
+    ? `${providerName} / ${tSettingsV2(locale, "settings.voice.provider.configured")}`
+    : tSettingsV2(locale, "settings.voice.provider.configured");
+}
+
+function getVoiceLanguageLabel(
+  locale: SettingsV2Locale,
+  language: VoiceServiceStatus["language"],
+): string {
+  if (language === "zh") {
+    return tSettingsV2(locale, "settings.voice.provider.language.chinese");
+  }
+  if (language === "en") {
+    return tSettingsV2(locale, "settings.voice.provider.language.english");
+  }
+  return tSettingsV2(locale, "settings.status.unknown");
+}
+
+function getVoiceModeLabel(
+  locale: SettingsV2Locale,
+  mode: VoiceMode | undefined,
+): string {
+  if (mode === "ptt") {
+    return tSettingsV2(locale, "settings.voice.captureMode.pushToTalk");
+  }
+  if (mode === "continuous") {
+    return tSettingsV2(locale, "settings.voice.captureMode.continuous");
+  }
+  return tSettingsV2(locale, "settings.voice.captureMode.disabled");
+}
+
+function getVoicePermissionLabel(
+  locale: SettingsV2Locale,
+  permission: VoicePermissionState | undefined,
+): string {
+  if (permission === "prompt") {
+    return tSettingsV2(locale, "settings.voice.microphone.prompt");
+  }
+  if (permission === "granted") {
+    return tSettingsV2(locale, "settings.voice.microphone.granted");
+  }
+  if (permission === "denied") {
+    return tSettingsV2(locale, "settings.voice.microphone.denied");
+  }
+  return tSettingsV2(locale, "settings.voice.microphone.unknown");
+}
+
+function getTtsValueLabel(
+  locale: SettingsV2Locale,
+  status: TtsServiceStatus | null | undefined,
+): string {
+  if (!status?.secureStorageAvailable) {
+    return tSettingsV2(locale, "settings.voice.tts.secureStorageUnavailable");
+  }
+  if (!status.configured) {
+    return tSettingsV2(locale, "settings.voice.tts.notConfigured");
+  }
+  return `Doubao / ${tSettingsV2(locale, "settings.voice.tts.configured")}`;
 }
 
 function getThemeLabel(locale: SettingsV2Locale, themeId: SkinThemeId): string {
@@ -184,6 +276,10 @@ function getSectionLabel(
     appearance: "settings.appearance.section.theme",
     desktop_pet: "settings.appearance.section.pet",
     pet_skin: "settings.appearance.section.skin",
+    voice_provider: "settings.voice.section.provider",
+    voice_capture: "settings.voice.section.capture",
+    voice_output: "settings.voice.section.output",
+    wake_word: "settings.voice.section.wake",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -195,6 +291,11 @@ function getDefinitionValue({
   locale,
   activeThemeId,
   petSkinRegistry,
+  voiceServiceStatus,
+  ttsServiceStatus,
+  voiceMode,
+  voicePermission,
+  voiceCaptureAvailable,
 }: {
   definition: SettingsV2Definition;
   desktopSettings: DesktopSettings | null;
@@ -202,6 +303,11 @@ function getDefinitionValue({
   locale: SettingsV2Locale;
   activeThemeId: SkinThemeId;
   petSkinRegistry: PetSkinRegistryProjection | null;
+  voiceServiceStatus?: VoiceServiceStatus | null;
+  ttsServiceStatus?: TtsServiceStatus | null;
+  voiceMode?: VoiceMode;
+  voicePermission?: VoicePermissionState;
+  voiceCaptureAvailable?: boolean;
 }): string {
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
@@ -240,6 +346,26 @@ function getDefinitionValue({
     if (petSkinRegistry?.activeSkin) return petSkinRegistry.activeSkin.displayName;
     return tSettingsV2(locale, "settings.skin.status.builtIn");
   }
+  if (definition.settingBindingId === "voice.provider_summary") {
+    return getVoiceProviderValueLabel(locale, voiceServiceStatus);
+  }
+  if (definition.settingBindingId === "voice.capture_mode") {
+    return getVoiceModeLabel(locale, voiceMode);
+  }
+  if (definition.settingBindingId === "voice.microphone_permission") {
+    return getVoicePermissionLabel(locale, voicePermission);
+  }
+  if (definition.settingBindingId === "voice.push_to_talk") {
+    return voiceCaptureAvailable
+      ? tSettingsV2(locale, "settings.voice.pushToTalk.available")
+      : tSettingsV2(locale, "settings.voice.pushToTalk.unavailable");
+  }
+  if (definition.settingBindingId === "voice.tts_summary") {
+    return getTtsValueLabel(locale, ttsServiceStatus);
+  }
+  if (definition.settingBindingId === "voice.wake_word") {
+    return tSettingsV2(locale, "settings.voice.wakeWord.unavailable");
+  }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
@@ -250,6 +376,11 @@ function getSearchResults({
   desktopLaunchAtLoginStatus,
   activeThemeId,
   petSkinRegistry,
+  voiceServiceStatus,
+  ttsServiceStatus,
+  voiceMode,
+  voicePermission,
+  voiceCaptureAvailable,
 }: {
   query: string;
   locale: SettingsV2Locale;
@@ -257,6 +388,11 @@ function getSearchResults({
   desktopLaunchAtLoginStatus: DesktopLaunchAtLoginStatus | null;
   activeThemeId: SkinThemeId;
   petSkinRegistry: PetSkinRegistryProjection | null;
+  voiceServiceStatus?: VoiceServiceStatus | null;
+  ttsServiceStatus?: TtsServiceStatus | null;
+  voiceMode?: VoiceMode;
+  voicePermission?: VoicePermissionState;
+  voiceCaptureAvailable?: boolean;
 }) {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
@@ -281,6 +417,11 @@ function getSearchResults({
         locale,
         activeThemeId,
         petSkinRegistry,
+        voiceServiceStatus,
+        ttsServiceStatus,
+        voiceMode,
+        voicePermission,
+        voiceCaptureAvailable,
       }),
     }));
 }
@@ -303,6 +444,14 @@ export function SettingsV2GeneralView({
   onSetDesktopPetReducedMotion,
   onResetDesktopPetPosition,
   onOpenExistingSkinManagement,
+  voiceServiceStatus,
+  ttsServiceStatus,
+  voiceMode = "disabled",
+  voicePermission = "unknown",
+  voiceCaptureAvailable = false,
+  onOpenVoicePage,
+  onOpenVoiceSettings,
+  onOpenTtsSettings,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -331,6 +480,11 @@ export function SettingsV2GeneralView({
         desktopLaunchAtLoginStatus,
         activeThemeId,
         petSkinRegistry,
+        voiceServiceStatus,
+        ttsServiceStatus,
+        voiceMode,
+        voicePermission,
+        voiceCaptureAvailable,
       }),
     [
       activeThemeId,
@@ -339,6 +493,11 @@ export function SettingsV2GeneralView({
       locale,
       petSkinRegistry,
       searchQuery,
+      ttsServiceStatus,
+      voiceCaptureAvailable,
+      voiceMode,
+      voicePermission,
+      voiceServiceStatus,
     ],
   );
 
@@ -361,6 +520,16 @@ export function SettingsV2GeneralView({
       : petSkinRegistry.registryHealthy
         ? tSettingsV2(locale, "settings.skin.status.healthy")
         : tSettingsV2(locale, "settings.skin.status.recovered");
+  const providerValue = getVoiceProviderValueLabel(locale, voiceServiceStatus);
+  const ttsValue = getTtsValueLabel(locale, ttsServiceStatus);
+  const voiceLanguageValue = getVoiceLanguageLabel(
+    locale,
+    voiceServiceStatus?.language,
+  );
+  const ttsVoiceValue =
+    ttsServiceStatus?.configured === true && ttsServiceStatus.voiceId
+      ? tSettingsV2(locale, "settings.voice.tts.voiceConfigured")
+      : tSettingsV2(locale, "settings.voice.tts.defaultVoice");
 
   return (
     <div
@@ -696,6 +865,150 @@ export function SettingsV2GeneralView({
                     {tSettingsV2(locale, "settings.skin.manage.action")}
                   </Button>
                 </div>
+              </SettingsSection>
+            </section>
+          ) : selectedCategoryId === "voice_audio" ? (
+            <section data-testid="settings-v2-voice-audio">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.voice.description")}
+                title={tSettingsV2(locale, "settings.voice.title")}
+              />
+              <InlineNotice title={tSettingsV2(locale, "settings.status.localOnly")}>
+                {tSettingsV2(locale, "settings.voice.privacy.localOnly")}
+              </InlineNotice>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.voice.section.provider")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.voice.provider.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.voice.provider.label")}
+                >
+                  <SettingValueAction
+                    actionLabel={tSettingsV2(
+                      locale,
+                      "settings.voice.provider.action",
+                    )}
+                    onAction={onOpenVoiceSettings}
+                    value={providerValue}
+                  />
+                </SettingRow>
+                <div
+                  className="settings-v2-voice-status-grid"
+                  data-testid="settings-v2-voice-provider-status"
+                >
+                  <span>
+                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
+                    {providerValue}
+                  </span>
+                  <span>
+                    {tSettingsV2(
+                      locale,
+                      "settings.voice.provider.language.label",
+                    )}
+                    : {voiceLanguageValue}
+                  </span>
+                  <span>
+                    {tSettingsV2(
+                      locale,
+                      "settings.voice.provider.connectionNotChecked",
+                    )}
+                  </span>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.voice.section.capture")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.voice.captureMode.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.voice.captureMode.label")}
+                  value={getVoiceModeLabel(locale, voiceMode)}
+                />
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.voice.microphone.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.voice.microphone.label")}
+                  value={getVoicePermissionLabel(locale, voicePermission)}
+                />
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.voice.pushToTalk.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.voice.pushToTalk.label")}
+                >
+                  <SettingValueAction
+                    actionLabel={tSettingsV2(
+                      locale,
+                      "settings.voice.pushToTalk.action",
+                    )}
+                    onAction={onOpenVoicePage}
+                    value={
+                      voiceCaptureAvailable
+                        ? tSettingsV2(
+                            locale,
+                            "settings.voice.pushToTalk.available",
+                          )
+                        : tSettingsV2(
+                            locale,
+                            "settings.voice.pushToTalk.unavailable",
+                          )
+                    }
+                  />
+                </SettingRow>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.voice.section.output")}
+              >
+                <SettingRow
+                  description={tSettingsV2(locale, "settings.voice.tts.description")}
+                  title={tSettingsV2(locale, "settings.voice.tts.label")}
+                >
+                  <SettingValueAction
+                    actionLabel={tSettingsV2(locale, "settings.voice.tts.action")}
+                    onAction={onOpenTtsSettings}
+                    value={ttsValue}
+                  />
+                </SettingRow>
+                <div
+                  className="settings-v2-voice-status-grid"
+                  data-testid="settings-v2-tts-status"
+                >
+                  <span>
+                    {tSettingsV2(locale, "settings.common.currentValue")}:{" "}
+                    {ttsValue}
+                  </span>
+                  <span>{ttsVoiceValue}</span>
+                  <span>
+                    {tSettingsV2(
+                      locale,
+                      "settings.voice.provider.connectionNotChecked",
+                    )}
+                  </span>
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.voice.section.wake")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.voice.wakeWord.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.voice.wakeWord.label")}
+                  value={tSettingsV2(locale, "settings.voice.wakeWord.unavailable")}
+                />
               </SettingsSection>
             </section>
           ) : (

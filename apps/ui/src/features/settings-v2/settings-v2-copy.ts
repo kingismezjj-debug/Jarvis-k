@@ -91,6 +91,50 @@ export type SettingsV2CopyKey =
   | "settings.skin.empty.description"
   | "settings.skin.manage.description"
   | "settings.skin.manage.action"
+  | "settings.voice.title"
+  | "settings.voice.description"
+  | "settings.voice.section.provider"
+  | "settings.voice.section.capture"
+  | "settings.voice.section.output"
+  | "settings.voice.section.wake"
+  | "settings.voice.provider.label"
+  | "settings.voice.provider.description"
+  | "settings.voice.provider.action"
+  | "settings.voice.provider.configured"
+  | "settings.voice.provider.notConfigured"
+  | "settings.voice.provider.secureStorageUnavailable"
+  | "settings.voice.provider.connectionNotChecked"
+  | "settings.voice.provider.language.label"
+  | "settings.voice.provider.language.chinese"
+  | "settings.voice.provider.language.english"
+  | "settings.voice.captureMode.label"
+  | "settings.voice.captureMode.description"
+  | "settings.voice.captureMode.disabled"
+  | "settings.voice.captureMode.pushToTalk"
+  | "settings.voice.captureMode.continuous"
+  | "settings.voice.microphone.label"
+  | "settings.voice.microphone.description"
+  | "settings.voice.microphone.unknown"
+  | "settings.voice.microphone.prompt"
+  | "settings.voice.microphone.granted"
+  | "settings.voice.microphone.denied"
+  | "settings.voice.pushToTalk.label"
+  | "settings.voice.pushToTalk.description"
+  | "settings.voice.pushToTalk.available"
+  | "settings.voice.pushToTalk.unavailable"
+  | "settings.voice.pushToTalk.action"
+  | "settings.voice.tts.label"
+  | "settings.voice.tts.description"
+  | "settings.voice.tts.action"
+  | "settings.voice.tts.configured"
+  | "settings.voice.tts.notConfigured"
+  | "settings.voice.tts.secureStorageUnavailable"
+  | "settings.voice.tts.voiceConfigured"
+  | "settings.voice.tts.defaultVoice"
+  | "settings.voice.wakeWord.label"
+  | "settings.voice.wakeWord.description"
+  | "settings.voice.wakeWord.unavailable"
+  | "settings.voice.privacy.localOnly"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -130,7 +174,7 @@ export const settingsV2Copy: Record<
   en: {
     "settings.shell.title": "Jarvis Control Center",
     "settings.shell.description":
-      "General and Appearance & Pet settings are available in this preview. Other categories stay on the legacy settings surface.",
+      "General, Appearance & Pet, and Voice & Audio settings are available in this preview. Other categories stay on the legacy settings surface.",
     "settings.shell.search": "Search settings",
     "settings.shell.category": "Settings category",
     "settings.shell.migratedOnly": "Settings preview",
@@ -241,6 +285,61 @@ export const settingsV2Copy: Record<
     "settings.skin.manage.description":
       "Local skin import and editing remain in the existing safe management flow.",
     "settings.skin.manage.action": "Refresh skin status",
+    "settings.voice.title": "Voice & Audio",
+    "settings.voice.description":
+      "Review speech recognition, microphone permission, push-to-talk, speech output, and wake word availability.",
+    "settings.voice.section.provider": "Speech recognition",
+    "settings.voice.section.capture": "Microphone and capture",
+    "settings.voice.section.output": "Speech output",
+    "settings.voice.section.wake": "Wake word",
+    "settings.voice.provider.label": "Speech recognition provider",
+    "settings.voice.provider.description":
+      "Provider credentials stay in the existing secure Desktop settings window.",
+    "settings.voice.provider.action": "Open speech setup",
+    "settings.voice.provider.configured": "Credentials saved locally",
+    "settings.voice.provider.notConfigured": "Not configured",
+    "settings.voice.provider.secureStorageUnavailable":
+      "Secure credential storage is unavailable",
+    "settings.voice.provider.connectionNotChecked":
+      "Connection is not checked on this page",
+    "settings.voice.provider.language.label": "Recognition language",
+    "settings.voice.provider.language.chinese": "Chinese",
+    "settings.voice.provider.language.english": "English",
+    "settings.voice.captureMode.label": "Capture mode",
+    "settings.voice.captureMode.description":
+      "Shows the current Voice runtime mode without starting recording.",
+    "settings.voice.captureMode.disabled": "Off",
+    "settings.voice.captureMode.pushToTalk": "Push to talk",
+    "settings.voice.captureMode.continuous": "Continuous listening",
+    "settings.voice.microphone.label": "Microphone permission",
+    "settings.voice.microphone.description":
+      "Shows Windows permission state only. Opening this page does not request access.",
+    "settings.voice.microphone.unknown": "Not requested",
+    "settings.voice.microphone.prompt": "Will ask when you start voice input",
+    "settings.voice.microphone.granted": "Allowed",
+    "settings.voice.microphone.denied": "Blocked by Windows",
+    "settings.voice.pushToTalk.label": "Push-to-talk voice input",
+    "settings.voice.pushToTalk.description":
+      "Use the Voice page to manually start a voice command when Jarvis Core is online.",
+    "settings.voice.pushToTalk.available": "Available on the Voice page",
+    "settings.voice.pushToTalk.unavailable": "Unavailable until Jarvis Core is ready",
+    "settings.voice.pushToTalk.action": "Open Voice page",
+    "settings.voice.tts.label": "Speech output provider",
+    "settings.voice.tts.description":
+      "Cloud speech output uses the existing secure TTS configuration.",
+    "settings.voice.tts.action": "Open speech output setup",
+    "settings.voice.tts.configured": "Credentials saved locally",
+    "settings.voice.tts.notConfigured": "Not configured",
+    "settings.voice.tts.secureStorageUnavailable":
+      "Secure credential storage is unavailable",
+    "settings.voice.tts.voiceConfigured": "A voice is selected",
+    "settings.voice.tts.defaultVoice": "Default voice",
+    "settings.voice.wakeWord.label": "Wake word",
+    "settings.voice.wakeWord.description":
+      "Background wake word listening is not a Product capability in this version.",
+    "settings.voice.wakeWord.unavailable": "Not supported in this version",
+    "settings.voice.privacy.localOnly":
+      "This page only reads local status and does not start the microphone, ASR, or upload.",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -248,7 +347,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Search currently covers General and Appearance & Pet settings.",
+      "Search currently covers General, Appearance & Pet, and Voice & Audio settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -269,7 +368,7 @@ export const settingsV2Copy: Record<
   zh: {
     "settings.shell.title": "Jarvis 控制中心",
     "settings.shell.description":
-      "当前预览开放通用和外观与桌宠设置。其他分类仍保留在旧版设置界面中。",
+      "当前预览开放通用、外观与桌宠、语音与音频设置。其他分类仍保留在旧版设置界面中。",
     "settings.shell.search": "搜索设置",
     "settings.shell.category": "设置分类",
     "settings.shell.migratedOnly": "设置预览",
@@ -374,13 +473,68 @@ export const settingsV2Copy: Record<
     "settings.skin.empty.description": "Jarvis 正在使用内置机器人作为安全回退。",
     "settings.skin.manage.description": "本地皮肤导入和编辑仍保留在现有安全管理流程中。",
     "settings.skin.manage.action": "刷新皮肤状态",
+    "settings.voice.title": "语音与音频",
+    "settings.voice.description":
+      "查看语音识别、麦克风权限、按住说话、语音播报和唤醒词可用状态。",
+    "settings.voice.section.provider": "语音识别",
+    "settings.voice.section.capture": "麦克风与采集",
+    "settings.voice.section.output": "语音播报",
+    "settings.voice.section.wake": "唤醒词",
+    "settings.voice.provider.label": "语音识别服务",
+    "settings.voice.provider.description":
+      "Provider 凭据仍由现有安全桌面设置窗口管理。",
+    "settings.voice.provider.action": "打开语音设置",
+    "settings.voice.provider.configured": "凭据已保存在本机",
+    "settings.voice.provider.notConfigured": "未配置",
+    "settings.voice.provider.secureStorageUnavailable":
+      "安全凭据存储不可用",
+    "settings.voice.provider.connectionNotChecked":
+      "此页面不会检查云端连接",
+    "settings.voice.provider.language.label": "识别语言",
+    "settings.voice.provider.language.chinese": "中文",
+    "settings.voice.provider.language.english": "英文",
+    "settings.voice.captureMode.label": "采集模式",
+    "settings.voice.captureMode.description":
+      "只显示当前 Voice 运行模式，不会开始录音。",
+    "settings.voice.captureMode.disabled": "关闭",
+    "settings.voice.captureMode.pushToTalk": "按住说话",
+    "settings.voice.captureMode.continuous": "连续监听",
+    "settings.voice.microphone.label": "麦克风权限",
+    "settings.voice.microphone.description":
+      "只显示 Windows 权限状态。打开此页面不会申请麦克风权限。",
+    "settings.voice.microphone.unknown": "尚未请求",
+    "settings.voice.microphone.prompt": "开始语音输入时再询问",
+    "settings.voice.microphone.granted": "已允许",
+    "settings.voice.microphone.denied": "已被 Windows 阻止",
+    "settings.voice.pushToTalk.label": "按住说话输入",
+    "settings.voice.pushToTalk.description":
+      "Jarvis Core 在线时，可前往语音页面手动开始一次语音命令。",
+    "settings.voice.pushToTalk.available": "可在语音页面使用",
+    "settings.voice.pushToTalk.unavailable": "Jarvis Core 就绪后可用",
+    "settings.voice.pushToTalk.action": "打开语音页面",
+    "settings.voice.tts.label": "语音播报服务",
+    "settings.voice.tts.description":
+      "云端语音播报继续使用现有安全 TTS 配置。",
+    "settings.voice.tts.action": "打开播报设置",
+    "settings.voice.tts.configured": "凭据已保存在本机",
+    "settings.voice.tts.notConfigured": "未配置",
+    "settings.voice.tts.secureStorageUnavailable": "安全凭据存储不可用",
+    "settings.voice.tts.voiceConfigured": "已选择播报声音",
+    "settings.voice.tts.defaultVoice": "默认声音",
+    "settings.voice.wakeWord.label": "唤醒词",
+    "settings.voice.wakeWord.description":
+      "后台唤醒监听在当前版本中尚未作为正式产品能力开放。",
+    "settings.voice.wakeWord.unavailable": "当前版本不支持",
+    "settings.voice.privacy.localOnly":
+      "此页面只读取本机状态，不会启动麦克风、ASR 或上传。",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
     "settings.common.done": "完成",
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
-    "settings.search.noResultsDescription": "当前可搜索通用和外观与桌宠设置。",
+    "settings.search.noResultsDescription":
+      "当前可搜索通用、外观与桌宠、语音与音频设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

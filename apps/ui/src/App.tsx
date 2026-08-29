@@ -2492,6 +2492,28 @@ export default function App() {
                       "Desktop settings refreshed",
                     );
                   }}
+                  onOpenTtsSettings={() => {
+                    if (textOnlyAcceptanceMode) return;
+                    void trackAction(
+                      "Open TTS settings",
+                      openTtsSettings,
+                      uiLanguage === "zh"
+                        ? "TTS 设置已打开"
+                        : "TTS settings opened",
+                    );
+                  }}
+                  onOpenVoicePage={() => {
+                    if (textOnlyAcceptanceMode) return;
+                    setActiveView("voice");
+                  }}
+                  onOpenVoiceSettings={() => {
+                    if (textOnlyAcceptanceMode) return;
+                    void trackAction(
+                      "Open voice settings",
+                      openVoiceSettings,
+                      copy.action.voiceSettingsOpened,
+                    );
+                  }}
                   onSelectLanguage={handleSelectLanguage}
                   onSetDesktopCloseButtonBehavior={(behavior) => {
                     void trackAction(
@@ -2544,6 +2566,11 @@ export default function App() {
                       "Desktop Pet motion updated",
                     );
                   }}
+                  ttsServiceStatus={ttsServiceStatus}
+                  voiceCaptureAvailable={coreOnline && !textOnlyAcceptanceMode}
+                  voiceMode={snapshot?.voice.mode ?? "disabled"}
+                  voicePermission={snapshot?.voice.permission ?? "unknown"}
+                  voiceServiceStatus={voiceServiceStatus}
                   sending={sending}
                 />
               </ScrollArea>
