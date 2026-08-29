@@ -81,6 +81,7 @@
     "smoke:desktop": "npm run build && node tests/desktop-smoke.mjs",
     "smoke:desktop:ui-interaction": "npm run build && node tests/desktop-ui-interaction-smoke.mjs",
     "smoke:desktop:ui-surface-mode": "npm run build && node tests/desktop-ui-surface-mode-smoke.mjs",
+    "smoke:desktop:settings-v2-real-entry": "npm run build && node tests/desktop-settings-v2-real-entry-smoke.mjs",
     "smoke:desktop:tray-lifecycle": "npm run build && node tests/desktop-tray-lifecycle-smoke.mjs",
     "smoke:desktop:pet": "npm run build && node tests/desktop-pet-smoke.mjs",
     "smoke:desktop:pet-skin-lifecycle": "npm run build && node tests/desktop-pet-skin-lifecycle-smoke.mjs",

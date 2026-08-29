@@ -886,6 +886,12 @@ export default function App() {
   }, [activeSkinTheme.colorScheme, skinTheme]);
 
   useEffect(() => {
+    if (activeView === "settings") {
+      void uiSurfaceMode.refreshUiSurfaceCapabilityStatus();
+    }
+  }, [activeView, uiSurfaceMode.refreshUiSurfaceCapabilityStatus]);
+
+  useEffect(() => {
     if (activeView === "plugins" && coreOnline) {
       void refreshPlugins();
       if (developerModeEnabled) {

@@ -481,6 +481,19 @@ export const UiSurfaceCapabilityStatusSchema = z
     evaluationCapabilityAvailable: z.boolean(),
     cloudProviderAcceptanceCapabilityAvailable: z.boolean().default(false),
     settingsV2CapabilityAvailable: z.boolean().default(false),
+    settingsV2EnvRequested: z.boolean().default(false),
+    settingsV2ReleaseAllowed: z.boolean().default(false),
+    settingsV2Capability: z.boolean().default(false),
+    releaseChannel: z
+      .enum(["development", "alpha", "stable", "test"])
+      .default("development"),
+    settingsSurfaceRequested: z
+      .enum(["unknown", "general_settings"])
+      .default("unknown"),
+    settingsSurfaceMounted: z.enum(["unknown", "legacy", "v2"]).default("unknown"),
+    reasonCode: z
+      .enum(["enabled", "flag_disabled", "release_channel_not_allowed"])
+      .default("flag_disabled"),
     source: z.literal("desktop-main"),
     sensitiveValuesExposed: z.literal(false),
     rendererWritable: z.literal(false),

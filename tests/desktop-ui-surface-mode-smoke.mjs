@@ -1,14 +1,38 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { _electron as electron } from "playwright";
 
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 
+async function seedDesktopSettings(userDataDirectory) {
+  await writeFile(
+    path.join(userDataDirectory, "jarvis-k-desktop-settings.json"),
+    JSON.stringify(
+      {
+        closeButtonBehavior: "minimize_to_tray",
+        closeToTrayNoticeShown: true,
+        launchAtLoginEnabled: false,
+        desktopPetEnabled: false,
+        desktopPetAlwaysOnTop: true,
+        desktopPetReducedMotion: "system",
+        firstRunOnboardingVersion: 1,
+        firstRunOnboardingState: "completed",
+        firstRunOnboardingStateChangedAt: "2026-08-28T00:00:00.000Z",
+        persistedLocally: true,
+        syncedToCloud: false
+      },
+      null,
+      2
+    )
+  );
+}
+
 async function runScenario({ evaluationEnabled }) {
   const userDataDirectory = await mkdtemp(
     path.join(os.tmpdir(), "jarvis-k-ui-surface-mode-")
   );
+  await seedDesktopSettings(userDataDirectory);
   let electronApp;
   try {
     electronApp = await electron.launch({
@@ -20,8 +44,14 @@ async function runScenario({ evaluationEnabled }) {
       env: {
         ...process.env,
         JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
+        JARVIS_K_USER_DATA_PATH: userDataDirectory,
+        JARVIS_K_LOCAL_DATA_PATH: userDataDirectory,
         JARVIS_K_MEMORY_DB_PATH: path.join(userDataDirectory, "memory.sqlite"),
         JARVIS_K_MODEL_DIR: path.join(userDataDirectory, "models"),
+        JARVIS_K_VOICE_REGRESSION_PATH: path.join(
+          userDataDirectory,
+          "voice-regression.json"
+        ),
         ...(evaluationEnabled ? { JARVIS_K_ENABLE_EVALUATION_UI: "1" } : {})
       }
     });

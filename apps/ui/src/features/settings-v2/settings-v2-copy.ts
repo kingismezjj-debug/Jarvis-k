@@ -82,7 +82,7 @@ export const settingsV2Copy: Record<
   Record<SettingsV2CopyKey, string>
 > = {
   en: {
-    "settings.shell.title": "Jarvis Settings",
+    "settings.shell.title": "Jarvis Control Center",
     "settings.shell.description":
       "General settings are available in this preview. Other categories stay on the legacy settings surface.",
     "settings.shell.search": "Search General settings",
@@ -164,7 +164,7 @@ export const settingsV2Copy: Record<
       "This action remains unavailable until a safe reset contract is implemented.",
   },
   zh: {
-    "settings.shell.title": "Jarvis 设置",
+    "settings.shell.title": "Jarvis 控制中心",
     "settings.shell.description":
       "当前预览只开放通用设置。其他分类仍保留在旧版设置界面中。",
     "settings.shell.search": "搜索通用设置",

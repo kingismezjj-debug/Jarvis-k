@@ -301,6 +301,25 @@ if (!hasSingleInstanceLock) {
       appId: storageProfile.appId,
       productName: storageProfile.productName
     });
+    const settingsV2EnvRequested = process.env.JARVIS_K_ENABLE_SETTINGS_V2 === "1";
+    const settingsV2ReleaseAllowed =
+      storageProfile.releaseChannel === "development";
+    const settingsV2CapabilityAvailable =
+      settingsV2EnvRequested && settingsV2ReleaseAllowed;
+    if (storageProfile.releaseChannel === "development") {
+      console.info("[desktop] settingsV2", {
+        requested: settingsV2EnvRequested,
+        releaseAllowed: settingsV2ReleaseAllowed,
+        capability: settingsV2CapabilityAvailable,
+        releaseChannel: storageProfile.releaseChannel,
+        mountedSurface: settingsV2CapabilityAvailable ? "v2" : "legacy",
+        reason: settingsV2CapabilityAvailable
+          ? "enabled"
+          : settingsV2EnvRequested
+            ? "release_channel_not_allowed"
+            : "flag_disabled"
+      });
+    }
     settingsService = new SettingsService({
       loadChatAnswerProviderConfiguration: async () => {
         try {
@@ -344,9 +363,10 @@ if (!hasSingleInstanceLock) {
         process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1" &&
         process.env.JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE === "1" &&
         storageProfile.releaseChannel === "development",
-      settingsV2CapabilityAvailable:
-        process.env.JARVIS_K_ENABLE_SETTINGS_V2 === "1" &&
-        storageProfile.releaseChannel === "development",
+      settingsV2CapabilityAvailable,
+      settingsV2EnvRequested,
+      settingsV2ReleaseAllowed,
+      releaseChannel: storageProfile.releaseChannel,
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
     petController = new DesktopPetController({

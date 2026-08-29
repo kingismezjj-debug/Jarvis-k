@@ -22,7 +22,10 @@ function createSettingsService(input: {
   cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
   packagedAlphaLoginItem?: boolean;
+  releaseChannel?: "development" | "alpha" | "stable" | "test";
+  settingsV2EnvRequested?: boolean;
   settingsV2CapabilityAvailable?: boolean;
+  settingsV2ReleaseAllowed?: boolean;
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
@@ -41,7 +44,10 @@ function createSettingsService(input: {
     evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
     cloudProviderAcceptanceCapabilityAvailable:
       input.cloudProviderAcceptanceCapabilityAvailable,
+    releaseChannel: input.releaseChannel,
+    settingsV2EnvRequested: input.settingsV2EnvRequested,
     settingsV2CapabilityAvailable: input.settingsV2CapabilityAvailable,
+    settingsV2ReleaseAllowed: input.settingsV2ReleaseAllowed,
     desktopSettingsPath: input.desktopSettingsPath,
   });
   return {
@@ -67,7 +73,14 @@ describe("SettingsService", () => {
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: false,
+      reasonCode: "flag_disabled",
+      releaseChannel: "development",
+      settingsSurfaceMounted: "legacy",
+      settingsSurfaceRequested: "general_settings",
+      settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
@@ -204,7 +217,14 @@ describe("SettingsService", () => {
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: true,
+      reasonCode: "flag_disabled",
+      releaseChannel: "development",
+      settingsSurfaceMounted: "legacy",
+      settingsSurfaceRequested: "general_settings",
+      settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
@@ -219,7 +239,14 @@ describe("SettingsService", () => {
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: true,
       evaluationCapabilityAvailable: true,
+      reasonCode: "flag_disabled",
+      releaseChannel: "development",
+      settingsSurfaceMounted: "legacy",
+      settingsSurfaceRequested: "general_settings",
+      settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
@@ -229,14 +256,41 @@ describe("SettingsService", () => {
   it("exposes Settings V2 only as a read-only safe projection", () => {
     const { service } = createSettingsService({
       settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: true,
+      settingsV2ReleaseAllowed: true,
     });
     expect(service.getUiSurfaceCapabilityStatus()).toEqual({
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: false,
+      reasonCode: "enabled",
+      releaseChannel: "development",
+      settingsSurfaceMounted: "v2",
+      settingsSurfaceRequested: "general_settings",
+      settingsV2Capability: true,
       settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: true,
+      settingsV2ReleaseAllowed: true,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
+    });
+  });
+
+  it("reports Settings V2 flag requests blocked outside development", () => {
+    const { service } = createSettingsService({
+      releaseChannel: "alpha",
+      settingsV2CapabilityAvailable: false,
+      settingsV2EnvRequested: true,
+      settingsV2ReleaseAllowed: false,
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
+      reasonCode: "release_channel_not_allowed",
+      releaseChannel: "alpha",
+      settingsSurfaceMounted: "legacy",
+      settingsV2Capability: false,
+      settingsV2CapabilityAvailable: false,
+      settingsV2EnvRequested: true,
+      settingsV2ReleaseAllowed: false,
     });
   });
 

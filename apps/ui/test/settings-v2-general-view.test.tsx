@@ -59,7 +59,7 @@ function renderView(
 describe("Settings V2 General view", () => {
   it("renders the real General settings values in English", () => {
     const html = renderView();
-    expect(html).toContain("Jarvis Settings");
+    expect(html).toContain("Jarvis Control Center");
     expect(html).toContain("Display language");
     expect(html).toContain("English");
     expect(html).toContain("When closing the main window");
@@ -71,7 +71,7 @@ describe("Settings V2 General view", () => {
 
   it("renders productized zh-CN General copy", () => {
     const html = renderView({ locale: "zh" });
-    expect(html).toContain("Jarvis 设置");
+    expect(html).toContain("Jarvis 控制中心");
     expect(html).toContain("界面语言");
     expect(html).toContain("中文（简体）");
     expect(html).toContain("关闭主窗口时");

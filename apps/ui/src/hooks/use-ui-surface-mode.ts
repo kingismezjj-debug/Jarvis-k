@@ -18,6 +18,20 @@ export function useUiSurfaceMode() {
   const [capabilityStatus, setCapabilityStatus] =
     useState<UiSurfaceCapabilityStatus | null>(null);
 
+  const refreshUiSurfaceCapabilityStatus = useCallback(async () => {
+    const bridge = window.jarvis;
+    if (!bridge?.getUiSurfaceCapabilityStatus) {
+      setCapabilityStatus(null);
+      return;
+    }
+    try {
+      const status = await bridge.getUiSurfaceCapabilityStatus();
+      setCapabilityStatus(status);
+    } catch {
+      setCapabilityStatus(null);
+    }
+  }, []);
+
   useEffect(() => {
     let disposed = false;
     const bridge = window.jarvis;
@@ -55,12 +69,15 @@ export function useUiSurfaceMode() {
   return useMemo(
     () => ({
       ...projectUiSurfaceMode({ developerModeEnabled, capabilityStatus }),
+      capabilityStatus,
+      refreshUiSurfaceCapabilityStatus,
       resetUiSurfaceMode,
       setDeveloperModeEnabled,
     }),
     [
       capabilityStatus,
       developerModeEnabled,
+      refreshUiSurfaceCapabilityStatus,
       resetUiSurfaceMode,
       setDeveloperModeEnabled,
     ],

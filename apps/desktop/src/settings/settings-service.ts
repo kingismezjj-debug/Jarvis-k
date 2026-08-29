@@ -38,6 +38,9 @@ export interface SettingsServiceOptions {
   evaluationCapabilityAvailable?: boolean;
   cloudProviderAcceptanceCapabilityAvailable?: boolean;
   settingsV2CapabilityAvailable?: boolean;
+  settingsV2EnvRequested?: boolean;
+  settingsV2ReleaseAllowed?: boolean;
+  releaseChannel?: "development" | "alpha" | "stable" | "test";
   desktopSettingsPath?: string;
 }
 
@@ -59,6 +62,20 @@ export class SettingsService {
         this.options.cloudProviderAcceptanceCapabilityAvailable === true,
       settingsV2CapabilityAvailable:
         this.options.settingsV2CapabilityAvailable === true,
+      settingsV2EnvRequested: this.options.settingsV2EnvRequested === true,
+      settingsV2ReleaseAllowed:
+        this.options.settingsV2ReleaseAllowed === true,
+      settingsV2Capability: this.options.settingsV2CapabilityAvailable === true,
+      releaseChannel: this.options.releaseChannel ?? "development",
+      settingsSurfaceRequested: "general_settings",
+      settingsSurfaceMounted:
+        this.options.settingsV2CapabilityAvailable === true ? "v2" : "legacy",
+      reasonCode:
+        this.options.settingsV2CapabilityAvailable === true
+          ? "enabled"
+          : this.options.settingsV2EnvRequested === true
+            ? "release_channel_not_allowed"
+            : "flag_disabled",
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,

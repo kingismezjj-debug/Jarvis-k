@@ -77,15 +77,15 @@ async function openSettings(page, testId) {
 
 async function setLanguage(page, language) {
   const html = await page.locator("body").innerText();
-  const isZh = html.includes("Jarvis 设置");
+  const isZh = html.includes("Jarvis 控制中心");
   if ((language === "zh") === isZh) return;
   await page.getByRole("button", { name: /Choose display language|选择界面语言/ }).click();
   if (language === "zh") {
     await page.getByRole("button", { name: "Chinese (Simplified)" }).click();
-    await page.getByText("Jarvis 设置").waitFor();
+    await page.getByText("Jarvis 控制中心").waitFor();
   } else {
     await page.getByRole("button", { name: "English" }).click();
-    await page.getByText("Jarvis Settings").waitFor();
+    await page.getByText("Jarvis Control Center").waitFor();
   }
 }
 
