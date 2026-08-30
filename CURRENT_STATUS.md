@@ -165,7 +165,7 @@ P3:
 
 ## Next Stage
 
-Phase UI-3B status: Settings V2 is default-on only for development builds, with `JARVIS_K_ENABLE_SETTINGS_V2=0` as the explicit rollback path; packaged Alpha remains default-off and Legacy Settings remains available.
+Phase UI-3B status: Settings V2 is default-on only for development builds, with `JARVIS_K_ENABLE_SETTINGS_V2=0` as the explicit rollback path; packaged Alpha remains default-off and Legacy Settings remains available. UI-3B evidence captured the development default, explicit zero, explicit one, invalid flag, and packaged Alpha explicit-one rollback scenarios.
 
 Recommended next implementation order:
 
