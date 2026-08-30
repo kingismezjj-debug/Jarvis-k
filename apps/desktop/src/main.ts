@@ -33,6 +33,7 @@ import { DesktopTrayController } from "./tray/desktop-tray-controller";
 import { DesktopLifecycleController } from "./lifecycle/desktop-lifecycle-controller";
 import { registerSettingsIpc } from "./ipc/register-settings-ipc";
 import { SettingsService } from "./settings/settings-service";
+import { resolveSettingsV2Gate } from "./settings/settings-v2-gate";
 import { registerSecureStoreIpc } from "./ipc/register-secure-store-ipc";
 import { SecureStoreService } from "./secure-store/secure-store-service";
 import { VoiceController } from "./voice/voice-controller";
@@ -301,23 +302,20 @@ if (!hasSingleInstanceLock) {
       appId: storageProfile.appId,
       productName: storageProfile.productName
     });
-    const settingsV2EnvRequested = process.env.JARVIS_K_ENABLE_SETTINGS_V2 === "1";
-    const settingsV2ReleaseAllowed =
-      storageProfile.releaseChannel === "development";
-    const settingsV2CapabilityAvailable =
-      settingsV2EnvRequested && settingsV2ReleaseAllowed;
+    const settingsV2Gate = resolveSettingsV2Gate({
+      envValue: process.env.JARVIS_K_ENABLE_SETTINGS_V2,
+      releaseChannel: storageProfile.releaseChannel
+    });
     if (storageProfile.releaseChannel === "development") {
       console.info("[desktop] settingsV2", {
-        requested: settingsV2EnvRequested,
-        releaseAllowed: settingsV2ReleaseAllowed,
-        capability: settingsV2CapabilityAvailable,
+        requested: settingsV2Gate.settingsV2EnvRequested,
+        releaseAllowed: settingsV2Gate.settingsV2ReleaseAllowed,
+        capability: settingsV2Gate.settingsV2CapabilityAvailable,
         releaseChannel: storageProfile.releaseChannel,
-        mountedSurface: settingsV2CapabilityAvailable ? "v2" : "legacy",
-        reason: settingsV2CapabilityAvailable
-          ? "enabled"
-          : settingsV2EnvRequested
-            ? "release_channel_not_allowed"
-            : "flag_disabled"
+        mountedSurface: settingsV2Gate.settingsV2CapabilityAvailable
+          ? "v2"
+          : "legacy",
+        reason: settingsV2Gate.reasonCode
       });
     }
     settingsService = new SettingsService({
@@ -363,9 +361,11 @@ if (!hasSingleInstanceLock) {
         process.env.JARVIS_K_ENABLE_CLOUD_PROVIDER_ACCEPTANCE_UI === "1" &&
         process.env.JARVIS_K_ENABLE_DEEPSEEK_REAL_ACCEPTANCE === "1" &&
         storageProfile.releaseChannel === "development",
-      settingsV2CapabilityAvailable,
-      settingsV2EnvRequested,
-      settingsV2ReleaseAllowed,
+      settingsV2CapabilityAvailable:
+        settingsV2Gate.settingsV2CapabilityAvailable,
+      settingsV2EnvRequested: settingsV2Gate.settingsV2EnvRequested,
+      settingsV2ReleaseAllowed: settingsV2Gate.settingsV2ReleaseAllowed,
+      settingsV2ReasonCode: settingsV2Gate.reasonCode,
       releaseChannel: storageProfile.releaseChannel,
       productName: storageProfile.productName,
       productVersion: app.getVersion(),

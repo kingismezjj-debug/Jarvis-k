@@ -491,7 +491,13 @@ export const UiSurfaceCapabilityStatusSchema = z
       .default("unknown"),
     settingsSurfaceMounted: z.enum(["unknown", "legacy", "v2"]).default("unknown"),
     reasonCode: z
-      .enum(["enabled", "flag_disabled", "release_channel_not_allowed"])
+      .enum([
+        "enabled",
+        "development_default_enabled",
+        "flag_disabled",
+        "invalid_flag",
+        "release_channel_not_allowed",
+      ])
       .default("flag_disabled"),
     source: z.literal("desktop-main"),
     sensitiveValuesExposed: z.literal(false),

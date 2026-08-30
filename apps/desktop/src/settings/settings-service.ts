@@ -43,6 +43,7 @@ export interface SettingsServiceOptions {
   settingsV2CapabilityAvailable?: boolean;
   settingsV2EnvRequested?: boolean;
   settingsV2ReleaseAllowed?: boolean;
+  settingsV2ReasonCode?: UiSurfaceCapabilityStatus["reasonCode"];
   releaseChannel?: "development" | "alpha" | "stable" | "test";
   productName?: string;
   productVersion?: string;
@@ -60,6 +61,13 @@ export class SettingsService {
   }
 
   public getUiSurfaceCapabilityStatus(): UiSurfaceCapabilityStatus {
+    const fallbackReasonCode =
+      this.options.settingsV2CapabilityAvailable === true
+        ? "enabled"
+        : this.options.settingsV2EnvRequested === true
+          ? "release_channel_not_allowed"
+          : "flag_disabled";
+
     return {
       evaluationCapabilityAvailable:
         this.options.evaluationCapabilityAvailable === true,
@@ -74,12 +82,7 @@ export class SettingsService {
       settingsSurfaceRequested: "general_settings",
       settingsSurfaceMounted:
         this.options.settingsV2CapabilityAvailable === true ? "v2" : "legacy",
-      reasonCode:
-        this.options.settingsV2CapabilityAvailable === true
-          ? "enabled"
-          : this.options.settingsV2EnvRequested === true
-            ? "release_channel_not_allowed"
-            : "flag_disabled",
+      reasonCode: this.options.settingsV2ReasonCode ?? fallbackReasonCode,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,

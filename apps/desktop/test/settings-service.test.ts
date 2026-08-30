@@ -27,6 +27,9 @@ function createSettingsService(input: {
   settingsV2EnvRequested?: boolean;
   settingsV2CapabilityAvailable?: boolean;
   settingsV2ReleaseAllowed?: boolean;
+  settingsV2ReasonCode?: ReturnType<
+    SettingsService["getUiSurfaceCapabilityStatus"]
+  >["reasonCode"];
   productName?: string;
   productVersion?: string;
 } = {}) {
@@ -51,6 +54,7 @@ function createSettingsService(input: {
     settingsV2EnvRequested: input.settingsV2EnvRequested,
     settingsV2CapabilityAvailable: input.settingsV2CapabilityAvailable,
     settingsV2ReleaseAllowed: input.settingsV2ReleaseAllowed,
+    settingsV2ReasonCode: input.settingsV2ReasonCode,
     productName: input.productName,
     productVersion: input.productVersion,
     desktopSettingsPath: input.desktopSettingsPath,
@@ -500,6 +504,24 @@ describe("SettingsService", () => {
       settingsV2ReleaseAllowed: false,
     });
     expect("releaseChannel" in service.getUiSurfaceCapabilityStatus()).toBe(false);
+  });
+
+  it("reports Settings V2 development default-on separately from env requests", () => {
+    const { service } = createSettingsService({
+      releaseChannel: "development",
+      settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: true,
+      settingsV2ReasonCode: "development_default_enabled",
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
+      reasonCode: "development_default_enabled",
+      settingsSurfaceMounted: "v2",
+      settingsV2Capability: true,
+      settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: true,
+    });
   });
 
   it("persists launch at login as a local user-controlled setting", async () => {

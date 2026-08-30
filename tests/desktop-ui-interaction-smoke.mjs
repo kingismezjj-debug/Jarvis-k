@@ -81,14 +81,32 @@ try {
   );
 
   await window.getByTestId("general-settings").click();
-  await window.getByTestId("settings-view").waitFor({ timeout: 5_000 });
+  await window.getByTestId("settings-v2-view").waitFor({ timeout: 5_000 });
+  await window.getByText("Jarvis Control Center").waitFor({ timeout: 5_000 });
+  await window.getByTestId("settings-v2-general").waitFor({ timeout: 5_000 });
   const settingsStatus = await expectActionStatus(
     window,
     "Settings view active"
   );
-  await window.getByTestId("settings-open-voice-settings").waitFor({
+  const legacySettingsCount = await window.getByTestId("settings-view").count();
+  if (legacySettingsCount !== 0) {
+    throw new Error("Development default-on mounted Legacy Settings.");
+  }
+  await window
+    .getByRole("button", { name: "Choose display language" })
+    .waitFor({
+      timeout: 5_000
+    });
+  await window
+    .locator('[data-testid="settings-v2-category-nav"] button')
+    .filter({ hasText: "Voice & Audio" })
+    .click();
+  await window.getByTestId("settings-v2-voice-audio").waitFor({
     timeout: 5_000
   });
+  await window
+    .getByText("Speech recognition service", { exact: true })
+    .waitFor({ timeout: 5_000 });
   const productSettingsInspectorCount = await expectAbsent(
     window,
     "settings-toggle-inspector"
@@ -98,7 +116,15 @@ try {
     "settings-probe-core"
   );
 
-  await window.getByTestId("language-zh").click();
+  await window
+    .locator('[data-testid="settings-v2-category-nav"] button')
+    .filter({ hasText: "General" })
+    .click();
+  await window.getByRole("button", { name: "Choose display language" }).click();
+  await window
+    .getByTestId("settings-v2-language-dialog")
+    .getByRole("button", { name: "Chinese (Simplified)" })
+    .click();
   await window.getByTestId("jarvis-app").evaluate((node) => {
     if (node.getAttribute("data-ui-language") !== "zh") {
       throw new Error("UI language did not switch to Chinese.");
@@ -108,14 +134,18 @@ try {
     .getByTestId("last-action-status")
     .innerText();
 
-  await window.getByTestId("language-en").click();
+  await window.getByRole("button", { name: "选择界面语言" }).click();
+  await window
+    .getByTestId("settings-v2-language-dialog")
+    .getByRole("button", { name: "English" })
+    .click();
   await window.getByTestId("jarvis-app").evaluate((node) => {
     if (node.getAttribute("data-ui-language") !== "en") {
       throw new Error("UI language did not switch to English.");
     }
   });
   const enSettingsTitle = await window
-    .getByRole("heading", { name: "Settings" })
+    .getByText("Jarvis Control Center", { exact: true })
     .innerText();
 
   await window.getByTestId("nav-voice").click();

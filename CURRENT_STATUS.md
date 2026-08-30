@@ -60,6 +60,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase UI-2F Settings V2 Memory & Privacy slice is implemented behind the same development-only gate: it shows a conservative Product summary from trusted memory status, links to the existing Memory Center for saved information management, keeps storage/sync copy product-safe, and page load does not list/delete/recall/probe/import/export memory or start model, network, microphone, tool, plugin, MCP, browser, app, file-search, or executor actions.
 - Phase UI-2G Settings V2 Notifications slice is implemented behind the same development-only gate: it provides a minimal read-only Product summary for safe viewing, limited current notification features, in-app status messages, one-time tray reminder behavior, and notification privacy without requesting Windows permission, sending notifications, playing sound, starting TTS, or adding new notification dispatch bindings.
 - Phase UI-2G-Fix Notifications Product projection is repaired: safe viewing and notification privacy are now explanatory rows without pseudo status values, search omits current-value text for those rows, and legitimate limited/in-app/tray status values remain intact.
+- Phase UI-3B Settings V2 development rollout is implemented: development builds mount Settings V2 by default, `JARVIS_K_ENABLE_SETTINGS_V2=0` remains a trusted Legacy rollback, packaged Alpha/Stable/Test keep Legacy by default, and Legacy is retained.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -164,7 +165,7 @@ P3:
 
 ## Next Stage
 
-Phase UI-2H-Fix status: About & Updates now shows only safe viewing, trusted product name/version from Desktop Main, and read-only Alpha update availability behind the existing development-only Settings V2 gate; default Settings V2 remains off.
+Phase UI-3B status: Settings V2 is default-on only for development builds, with `JARVIS_K_ENABLE_SETTINGS_V2=0` as the explicit rollback path; packaged Alpha remains default-off and Legacy Settings remains available.
 
 Recommended next implementation order:
 

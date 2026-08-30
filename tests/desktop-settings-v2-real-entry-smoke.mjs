@@ -36,30 +36,34 @@ async function seedDesktopSettings(userDataDirectory) {
   );
 }
 
-async function launchDesktop({ settingsV2Enabled }) {
+async function launchDesktop({ settingsV2EnvValue }) {
   const userDataDirectory = await mkdtemp(
     path.join(os.tmpdir(), "jarvis-k-settings-v2-real-entry-"),
   );
   await seedDesktopSettings(userDataDirectory);
+  const env = {
+    ...process.env,
+    JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
+    JARVIS_K_USER_DATA_PATH: userDataDirectory,
+    JARVIS_K_LOCAL_DATA_PATH: userDataDirectory,
+    JARVIS_K_MEMORY_DB_PATH: path.join(userDataDirectory, "memory.sqlite"),
+    JARVIS_K_MODEL_DIR: path.join(userDataDirectory, "models"),
+    JARVIS_K_VOICE_REGRESSION_PATH: path.join(
+      userDataDirectory,
+      "voice-regression.json",
+    ),
+  };
+  delete env.JARVIS_K_ENABLE_SETTINGS_V2;
+  if (settingsV2EnvValue !== undefined) {
+    env.JARVIS_K_ENABLE_SETTINGS_V2 = settingsV2EnvValue;
+  }
   const electronApp = await electron.launch({
     args: [
       `--user-data-dir=${userDataDirectory}`,
       "apps/desktop/dist/main.js",
     ],
     cwd: rootDirectory,
-    env: {
-      ...process.env,
-      JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
-      JARVIS_K_ENABLE_SETTINGS_V2: settingsV2Enabled ? "1" : "0",
-      JARVIS_K_USER_DATA_PATH: userDataDirectory,
-      JARVIS_K_LOCAL_DATA_PATH: userDataDirectory,
-      JARVIS_K_MEMORY_DB_PATH: path.join(userDataDirectory, "memory.sqlite"),
-      JARVIS_K_MODEL_DIR: path.join(userDataDirectory, "models"),
-      JARVIS_K_VOICE_REGRESSION_PATH: path.join(
-        userDataDirectory,
-        "voice-regression.json",
-      ),
-    },
+    env,
   });
   return { electronApp, userDataDirectory };
 }
@@ -78,7 +82,7 @@ async function countVisibleText(window, text) {
 
 async function runGateOnScenario() {
   const { electronApp, userDataDirectory } = await launchDesktop({
-    settingsV2Enabled: true,
+    settingsV2EnvValue: undefined,
   });
   try {
     const window = await electronApp.firstWindow();
@@ -259,7 +263,18 @@ async function runGateOnScenario() {
     if (fetchCalls !== 0) {
       throw new Error(`Settings V2 made renderer network requests: ${fetchCalls}`);
     }
-    const screenshotPath = path.join(outputDirectory, "real-settings-v2-gate-on.png");
+    if (projection.reasonCode !== "development_default_enabled") {
+      throw new Error(
+        `Settings V2 default-on reason mismatch: ${projection.reasonCode}`,
+      );
+    }
+    if (projection.settingsV2EnvRequested !== false) {
+      throw new Error("Settings V2 default-on was reported as an env request.");
+    }
+    const screenshotPath = path.join(
+      outputDirectory,
+      "real-settings-v2-development-default-on.png",
+    );
     await window.screenshot({ path: screenshotPath, fullPage: true });
     return {
       projection,
@@ -282,7 +297,7 @@ async function runGateOnScenario() {
 
 async function runGateOffScenario() {
   const { electronApp, userDataDirectory } = await launchDesktop({
-    settingsV2Enabled: false,
+    settingsV2EnvValue: "0",
   });
   try {
     const window = await electronApp.firstWindow();
@@ -296,9 +311,17 @@ async function runGateOffScenario() {
     if (settingsV2Count !== 0) {
       throw new Error("Settings V2 mounted while gate was disabled.");
     }
+    if (projection.reasonCode !== "flag_disabled") {
+      throw new Error(
+        `Settings V2 explicit-off reason mismatch: ${projection.reasonCode}`,
+      );
+    }
+    if (projection.settingsV2ReleaseAllowed !== true) {
+      throw new Error("Settings V2 explicit-off did not run in development.");
+    }
     const screenshotPath = path.join(
       outputDirectory,
-      "real-settings-legacy-gate-off.png",
+      "real-settings-legacy-explicit-off.png",
     );
     await window.screenshot({ path: screenshotPath, fullPage: true });
     return {

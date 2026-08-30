@@ -128,6 +128,7 @@ try {
     cwd: rootDirectory,
     env: {
       ...process.env,
+      JARVIS_K_ENABLE_SETTINGS_V2: "0",
       JARVIS_K_MEMORY_DB_PATH: path.join(
         smokeUserDataDirectory,
         "memory.sqlite"

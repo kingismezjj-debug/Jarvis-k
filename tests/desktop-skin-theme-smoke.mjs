@@ -29,6 +29,7 @@ async function launchApp() {
     cwd: rootDirectory,
     env: {
       ...process.env,
+      JARVIS_K_ENABLE_SETTINGS_V2: "0",
       JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
       JARVIS_K_MEMORY_DB_PATH: memoryDatabasePath,
       JARVIS_K_MODEL_DIR: path.join(smokeUserDataDirectory, "models"),
