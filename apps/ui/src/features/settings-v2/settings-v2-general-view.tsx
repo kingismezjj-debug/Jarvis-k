@@ -57,6 +57,7 @@ import {
 import { formatSettingsV2MigrationSummary } from "./settings-v2-migration-summary";
 import { buildSettingsV2MemoryPrivacyProductViewModel } from "./settings-v2-memory-view-model";
 import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
+import { buildSettingsV2NotificationsProductViewModel } from "./settings-v2-notifications-view-model";
 import { buildSettingsV2ToolsPluginsProductViewModel } from "./settings-v2-tools-view-model";
 import "./settings-v2.css";
 
@@ -357,6 +358,11 @@ function getSectionLabel(
     memory_personal: "settings.memory.section.personal",
     memory_saved: "settings.memory.section.saved",
     memory_storage: "settings.memory.section.storage",
+    notifications_safe_viewing: "settings.notifications.section.safeViewing",
+    notifications_current: "settings.notifications.section.current",
+    notifications_in_app: "settings.notifications.section.inApp",
+    notifications_tray: "settings.notifications.section.tray",
+    notifications_privacy: "settings.notifications.section.privacy",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -425,6 +431,8 @@ function getDefinitionValue({
     locale,
     memoryAlphaStatus,
   });
+  const notificationsViewModel =
+    buildSettingsV2NotificationsProductViewModel({ locale });
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
   }
@@ -523,6 +531,21 @@ function getDefinitionValue({
   }
   if (definition.settingBindingId === "memory.storage_sync") {
     return memoryViewModel.storageSync.value;
+  }
+  if (definition.settingBindingId === "notifications.safe_viewing") {
+    return notificationsViewModel.safeViewing.value;
+  }
+  if (definition.settingBindingId === "notifications.current_features") {
+    return notificationsViewModel.currentFeatures.value;
+  }
+  if (definition.settingBindingId === "notifications.in_app_status") {
+    return notificationsViewModel.inAppStatus.value;
+  }
+  if (definition.settingBindingId === "notifications.tray_reminder") {
+    return notificationsViewModel.trayReminder.value;
+  }
+  if (definition.settingBindingId === "notifications.privacy") {
+    return notificationsViewModel.privacy.value;
   }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
@@ -772,6 +795,8 @@ export function SettingsV2GeneralView({
     locale,
     memoryAlphaStatus,
   });
+  const notificationsViewModel =
+    buildSettingsV2NotificationsProductViewModel({ locale });
 
   return (
     <div
@@ -1591,6 +1616,120 @@ export function SettingsV2GeneralView({
                   ))}
                 </div>
               </SettingsSection>
+            </section>
+          ) : selectedCategoryId === "notifications" ? (
+            <section data-testid="settings-v2-notifications">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.notifications.description")}
+                title={tSettingsV2(locale, "settings.notifications.title")}
+              />
+
+              <div data-testid="settings-v2-notifications-section-safe-viewing">
+                <SettingsSection
+                  title={tSettingsV2(
+                    locale,
+                    "settings.notifications.section.safeViewing",
+                  )}
+                >
+                  <SettingRow
+                    description={tSettingsV2(
+                      locale,
+                      "settings.notifications.safeViewing.description",
+                    )}
+                    title={tSettingsV2(
+                      locale,
+                      "settings.notifications.safeViewing.label",
+                    )}
+                    value={notificationsViewModel.safeViewing.value}
+                  />
+                </SettingsSection>
+              </div>
+
+              <div data-testid="settings-v2-notifications-section-current">
+                <SettingsSection
+                  title={tSettingsV2(
+                    locale,
+                    "settings.notifications.section.current",
+                  )}
+                >
+                  <SettingRow
+                    description={tSettingsV2(
+                      locale,
+                      "settings.notifications.currentFeatures.description",
+                    )}
+                    title={tSettingsV2(
+                      locale,
+                      "settings.notifications.currentFeatures.label",
+                    )}
+                    value={notificationsViewModel.currentFeatures.value}
+                  />
+                  <div
+                    className="settings-v2-notifications-status-grid"
+                    data-testid="settings-v2-notifications-current-status"
+                  >
+                    {notificationsViewModel.currentFeatures.details.map((detail) => (
+                      <span key={detail}>{detail}</span>
+                    ))}
+                  </div>
+                </SettingsSection>
+              </div>
+
+              <div data-testid="settings-v2-notifications-section-in-app">
+                <SettingsSection
+                  title={tSettingsV2(
+                    locale,
+                    "settings.notifications.section.inApp",
+                  )}
+                >
+                  <SettingRow
+                    description={tSettingsV2(
+                      locale,
+                      "settings.notifications.inAppStatus.description",
+                    )}
+                    title={tSettingsV2(
+                      locale,
+                      "settings.notifications.inAppStatus.label",
+                    )}
+                    value={notificationsViewModel.inAppStatus.value}
+                  />
+                </SettingsSection>
+              </div>
+
+              <div data-testid="settings-v2-notifications-section-tray">
+                <SettingsSection
+                  title={tSettingsV2(locale, "settings.notifications.section.tray")}
+                >
+                  <SettingRow
+                    description={tSettingsV2(
+                      locale,
+                      "settings.notifications.trayReminder.description",
+                    )}
+                    title={tSettingsV2(
+                      locale,
+                      "settings.notifications.trayReminder.label",
+                    )}
+                    value={notificationsViewModel.trayReminder.value}
+                  />
+                </SettingsSection>
+              </div>
+
+              <div data-testid="settings-v2-notifications-section-privacy">
+                <SettingsSection
+                  title={tSettingsV2(locale, "settings.notifications.section.privacy")}
+                >
+                  <SettingRow
+                    description={tSettingsV2(
+                      locale,
+                      "settings.notifications.privacy.description",
+                    )}
+                    title={tSettingsV2(
+                      locale,
+                      "settings.notifications.privacy.label",
+                    )}
+                    value={notificationsViewModel.privacy.value}
+                  />
+                </SettingsSection>
+              </div>
             </section>
           ) : (
             <section

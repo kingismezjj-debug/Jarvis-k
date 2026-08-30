@@ -650,6 +650,149 @@ describe("Settings V2 General view", () => {
     expect(personalResult?.value).toBe("Available");
   });
 
+  it("renders Notifications as a minimal read-only Product summary", () => {
+    const html = renderView({ initialCategoryId: "notifications" });
+
+    expect(html).toContain("Notifications");
+    expect(html).toContain("Safe viewing");
+    expect(html).toContain("No action on open");
+    expect(html).toContain("Current notification features");
+    expect(html).toContain("Limited");
+    expect(html).toContain("In-app status messages");
+    expect(html).toContain("Available while Jarvis is open");
+    expect(html).toContain("Tray reminder");
+    expect(html).toContain("May appear once");
+    expect(html).toContain("Notification privacy");
+    expect(html).toContain("Short summaries only");
+    for (const forbidden of [
+      "Request permission",
+      "Test notification",
+      "Open Windows Settings",
+      "Do Not Disturb",
+      "Focus Assist",
+      "Notification API",
+      "permission state",
+      "dispatch",
+      "toast payload",
+      "renderer event",
+      "task lifecycle",
+      "IPC",
+      "channel",
+      "fixture",
+      "event bus",
+      "capability probe",
+      "AppUserModelID",
+      "closeToTrayNoticeShown",
+      "Notification.isSupported",
+      "source of truth",
+      "projection",
+      "runtime binding",
+      "C:\\\\",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("renders productized zh-CN Notifications copy without internal terms", () => {
+    const html = renderView({ initialCategoryId: "notifications", locale: "zh" });
+
+    expect(html).toContain("通知");
+    expect(html).toContain("安全查看");
+    expect(html).toContain("打开页面不会执行操作");
+    expect(html).toContain("当前通知功能");
+    expect(html).toContain("功能有限");
+    expect(html).toContain("应用内状态提示");
+    expect(html).toContain("Jarvis 打开时可用");
+    expect(html).toContain("托盘提醒");
+    expect(html).toContain("可能显示一次");
+    expect(html).toContain("通知隐私");
+    expect(html).toContain("仅显示简短摘要");
+    for (const forbidden of [
+      "Notification API",
+      "permission state",
+      "dispatch",
+      "toast payload",
+      "renderer event",
+      "task lifecycle",
+      "IPC",
+      "channel",
+      "fixture",
+      "event bus",
+      "capability probe",
+      "AppUserModelID",
+      "closeToTrayNoticeShown",
+      "Notification.isSupported",
+      "source of truth",
+      "projection",
+      "runtime binding",
+      "通知接口",
+      "权限状态字段",
+      "分发器",
+      "消息载荷",
+      "渲染进程事件",
+      "事件总线",
+      "能力探针",
+      "内部状态来源",
+      "状态投影",
+      "运行时绑定",
+      "托盘提醒已显示标记",
+      "测试通知",
+      "请求权限",
+      "勿扰模式",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("includes Notifications in product search results with safe current values", () => {
+    const results = getSettingsV2SearchResultsForProduct({
+      query: "notification",
+      locale: "en",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+    });
+    const titles = results.map(({ definition }) =>
+      definition.settingBindingId,
+    );
+
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    expect(
+      results.every(
+        ({ definition }) => definition.categoryId === "notifications",
+      ),
+    ).toBe(true);
+    expect(titles).toContain("notifications.current_features");
+    expect(
+      results.find(
+        ({ definition }) =>
+          definition.settingBindingId === "notifications.current_features",
+      )?.value,
+    ).toBe("Limited");
+  });
+
+  it("keeps Chinese notification search scoped to Notifications only", () => {
+    const results = getSettingsV2SearchResultsForProduct({
+      query: "通知",
+      locale: "zh",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+    });
+
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    expect(
+      results.every(
+        ({ definition }) => definition.categoryId === "notifications",
+      ),
+    ).toBe(true);
+    expect(
+      results.map(({ definition }) => definition.settingBindingId),
+    ).toContain("notifications.current_features");
+  });
+
   it("renders Models & Intelligence from existing safe model projections", () => {
     const html = renderView({
       initialCategoryId: "models_intelligence",
@@ -969,6 +1112,7 @@ describe("Settings V2 General view", () => {
       "settings-v2-migration-summary.ts",
       "settings-v2-memory-view-model.ts",
       "settings-v2-tools-view-model.ts",
+      "settings-v2-notifications-view-model.ts",
     ]
       .map((file) => readFileSync(path.join(featureDirectory, file), "utf8"))
       .join("\n");

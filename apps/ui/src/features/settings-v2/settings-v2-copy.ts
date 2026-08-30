@@ -292,6 +292,36 @@ export type SettingsV2CopyKey =
   | "settings.memory.storage.localValue"
   | "settings.memory.storage.localData"
   | "settings.memory.storage.cloudSyncOff"
+  | "settings.notifications.title"
+  | "settings.notifications.description"
+  | "settings.notifications.section.safeViewing"
+  | "settings.notifications.section.current"
+  | "settings.notifications.section.inApp"
+  | "settings.notifications.section.tray"
+  | "settings.notifications.section.privacy"
+  | "settings.notifications.safeViewing.label"
+  | "settings.notifications.safeViewing.description"
+  | "settings.notifications.safeViewing.safe"
+  | "settings.notifications.currentFeatures.label"
+  | "settings.notifications.currentFeatures.description"
+  | "settings.notifications.currentFeatures.limited"
+  | "settings.notifications.currentFeatures.noFullWindowsSettings"
+  | "settings.notifications.inAppStatus.label"
+  | "settings.notifications.inAppStatus.description"
+  | "settings.notifications.inAppStatus.available"
+  | "settings.notifications.trayReminder.label"
+  | "settings.notifications.trayReminder.description"
+  | "settings.notifications.trayReminder.mayAppearOnce"
+  | "settings.notifications.privacy.label"
+  | "settings.notifications.privacy.description"
+  | "settings.notifications.privacy.summary"
+  | "settings.notifications.keywords.notifications"
+  | "settings.notifications.keywords.inApp"
+  | "settings.notifications.keywords.status"
+  | "settings.notifications.keywords.tray"
+  | "settings.notifications.keywords.windows"
+  | "settings.notifications.keywords.privacy"
+  | "settings.notifications.keywords.sensitive"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -718,6 +748,44 @@ export const settingsV2Copy: Record<
     "settings.memory.storage.localData":
       "Saved information is stored in this app's local data.",
     "settings.memory.storage.cloudSyncOff": "Cloud sync is not currently enabled.",
+    "settings.notifications.title": "Notifications",
+    "settings.notifications.description":
+      "Review the notification behavior Jarvis currently supports. Opening this page does not send notifications or request Windows permission.",
+    "settings.notifications.section.safeViewing": "Safe viewing",
+    "settings.notifications.section.current": "Current notification features",
+    "settings.notifications.section.inApp": "In-app status messages",
+    "settings.notifications.section.tray": "Tray reminder",
+    "settings.notifications.section.privacy": "Privacy",
+    "settings.notifications.safeViewing.label": "Safe viewing",
+    "settings.notifications.safeViewing.description":
+      "Opening this page does not send a notification, request Windows permission, play a sound, or start voice playback.",
+    "settings.notifications.safeViewing.safe": "No action on open",
+    "settings.notifications.currentFeatures.label": "Current notification features",
+    "settings.notifications.currentFeatures.description":
+      "Full Windows notification settings are not available in this version.",
+    "settings.notifications.currentFeatures.limited": "Limited",
+    "settings.notifications.currentFeatures.noFullWindowsSettings":
+      "Jarvis does not provide full Windows notification settings yet.",
+    "settings.notifications.inAppStatus.label": "In-app status messages",
+    "settings.notifications.inAppStatus.description":
+      "Jarvis can show action status and result messages inside the app.",
+    "settings.notifications.inAppStatus.available":
+      "Available while Jarvis is open",
+    "settings.notifications.trayReminder.label": "Tray reminder",
+    "settings.notifications.trayReminder.description":
+      "Jarvis may show a short one-time reminder when the window closes and the app continues running in the system tray.",
+    "settings.notifications.trayReminder.mayAppearOnce": "May appear once",
+    "settings.notifications.privacy.label": "Notification privacy",
+    "settings.notifications.privacy.description":
+      "Notifications should not display full conversations, file paths, or other sensitive content.",
+    "settings.notifications.privacy.summary": "Short summaries only",
+    "settings.notifications.keywords.notifications": "notifications",
+    "settings.notifications.keywords.inApp": "in-app messages",
+    "settings.notifications.keywords.status": "status messages",
+    "settings.notifications.keywords.tray": "tray reminder",
+    "settings.notifications.keywords.windows": "Windows notifications",
+    "settings.notifications.keywords.privacy": "privacy",
+    "settings.notifications.keywords.sensitive": "sensitive content",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -725,7 +793,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, and Memory & Privacy settings.",
+      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, Memory & Privacy, and Notifications settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -1095,6 +1163,43 @@ export const settingsV2Copy: Record<
     "settings.memory.storage.localValue": "存放在这台设备上",
     "settings.memory.storage.localData": "已保存的信息存放在本机应用数据中。",
     "settings.memory.storage.cloudSyncOff": "当前未启用云端同步。",
+    "settings.notifications.title": "通知",
+    "settings.notifications.description":
+      "查看 Jarvis 当前支持的通知行为。打开此页面不会发送通知，也不会请求 Windows 通知权限。",
+    "settings.notifications.section.safeViewing": "安全查看",
+    "settings.notifications.section.current": "当前通知功能",
+    "settings.notifications.section.inApp": "应用内状态提示",
+    "settings.notifications.section.tray": "托盘提醒",
+    "settings.notifications.section.privacy": "隐私",
+    "settings.notifications.safeViewing.label": "安全查看",
+    "settings.notifications.safeViewing.description":
+      "打开此页面不会发送通知、请求 Windows 权限、播放声音或启动语音播报。",
+    "settings.notifications.safeViewing.safe": "打开页面不会执行操作",
+    "settings.notifications.currentFeatures.label": "当前通知功能",
+    "settings.notifications.currentFeatures.description":
+      "当前版本尚未提供完整的 Windows 通知设置。",
+    "settings.notifications.currentFeatures.limited": "功能有限",
+    "settings.notifications.currentFeatures.noFullWindowsSettings":
+      "Jarvis 尚未提供完整的 Windows 通知设置。",
+    "settings.notifications.inAppStatus.label": "应用内状态提示",
+    "settings.notifications.inAppStatus.description":
+      "Jarvis 可以在应用内显示操作状态和结果提示。",
+    "settings.notifications.inAppStatus.available": "Jarvis 打开时可用",
+    "settings.notifications.trayReminder.label": "托盘提醒",
+    "settings.notifications.trayReminder.description":
+      "关闭窗口并让 Jarvis 在系统托盘中继续运行时，可能会显示一次简短提醒。",
+    "settings.notifications.trayReminder.mayAppearOnce": "可能显示一次",
+    "settings.notifications.privacy.label": "通知隐私",
+    "settings.notifications.privacy.description":
+      "通知不应显示完整对话、文件路径或其他敏感正文。",
+    "settings.notifications.privacy.summary": "仅显示简短摘要",
+    "settings.notifications.keywords.notifications": "通知",
+    "settings.notifications.keywords.inApp": "应用内提示",
+    "settings.notifications.keywords.status": "状态提示",
+    "settings.notifications.keywords.tray": "托盘提醒",
+    "settings.notifications.keywords.windows": "Windows 通知",
+    "settings.notifications.keywords.privacy": "隐私",
+    "settings.notifications.keywords.sensitive": "敏感内容",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
@@ -1102,7 +1207,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
     "settings.search.noResultsDescription":
-      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件、记忆与隐私设置。",
+      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件、记忆与隐私、通知设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

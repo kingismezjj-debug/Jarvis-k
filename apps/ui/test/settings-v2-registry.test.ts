@@ -7,6 +7,7 @@ import {
   settingsV2GeneralDefinitions,
   settingsV2MemoryPrivacyDefinitions,
   settingsV2ModelsIntelligenceDefinitions,
+  settingsV2NotificationsDefinitions,
   settingsV2ProductDefinitions,
   settingsV2ToolsPluginsDefinitions,
   settingsV2VoiceAudioDefinitions,
@@ -28,7 +29,7 @@ const cloneDefinition = (
 });
 
 describe("Settings V2 registry", () => {
-  it("registers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, and Memory & Privacy vertical slices", () => {
+  it("registers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, Memory & Privacy, and Notifications vertical slices", () => {
     expect(settingsV2Categories.map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
@@ -46,6 +47,7 @@ describe("Settings V2 registry", () => {
       "models_intelligence",
       "tools_plugins",
       "memory_privacy",
+      "notifications",
     ]);
     expect(settingsV2GeneralDefinitions).toHaveLength(4);
     expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
@@ -53,7 +55,8 @@ describe("Settings V2 registry", () => {
     expect(settingsV2ModelsIntelligenceDefinitions).toHaveLength(5);
     expect(settingsV2ToolsPluginsDefinitions).toHaveLength(6);
     expect(settingsV2MemoryPrivacyDefinitions).toHaveLength(3);
-    expect(settingsV2ProductDefinitions).toHaveLength(30);
+    expect(settingsV2NotificationsDefinitions).toHaveLength(5);
+    expect(settingsV2ProductDefinitions).toHaveLength(35);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -136,27 +139,32 @@ describe("Settings V2 registry", () => {
       "settings.models.fast_command_understanding",
       "settings.tools.automation_safeguards",
       "settings.memory.personal_memory",
+      "settings.notifications.safe_viewing",
       "settings.general.close_button_behavior",
       "settings.pet.show",
       "settings.voice.capture_mode",
       "settings.models.answer_provider",
       "settings.tools.approved_apps",
       "settings.memory.saved_information",
+      "settings.notifications.current_features",
       "settings.general.launch_at_login",
       "settings.pet.keep_on_top",
       "settings.voice.microphone_permission",
       "settings.models.local_models",
       "settings.tools.safe_websites",
       "settings.memory.storage_sync",
+      "settings.notifications.in_app_status",
       "settings.general.reset_recovery",
       "settings.pet.reduced_motion",
       "settings.voice.push_to_talk",
       "settings.models.routing_policy",
       "settings.tools.file_search",
+      "settings.notifications.tray_reminder",
       "settings.pet.reset_position",
       "settings.voice.tts",
       "settings.models.cloud_local_status",
       "settings.tools.plugins",
+      "settings.notifications.privacy",
       "settings.skin.current",
       "settings.voice.wake_word",
       "settings.tools.mcp_connections",
@@ -263,6 +271,87 @@ describe("Settings V2 registry", () => {
     );
   });
 
+  it("keeps notification search focused on Notifications state and safety", () => {
+    const searchableDefinitions = getSettingsV2SearchableDefinitions();
+    const notificationMatches = searchableDefinitions.filter((definition) => {
+      const text = [
+        tSettingsV2("en", definition.labelKey),
+        tSettingsV2("en", definition.descriptionKey),
+        ...definition.searchKeywordKeys.map((key) => tSettingsV2("en", key)),
+      ]
+        .join(" ")
+        .toLocaleLowerCase();
+      return text.includes("notification");
+    });
+    const zhNotificationMatches = searchableDefinitions.filter((definition) => {
+      const text = [
+        tSettingsV2("zh", definition.labelKey),
+        tSettingsV2("zh", definition.descriptionKey),
+        ...definition.searchKeywordKeys.map((key) => tSettingsV2("zh", key)),
+      ].join(" ");
+      return text.includes("通知");
+    });
+
+    expect(notificationMatches.length).toBeGreaterThanOrEqual(2);
+    expect(
+      notificationMatches.every(
+        (definition) => definition.categoryId === "notifications",
+      ),
+    ).toBe(true);
+    expect(zhNotificationMatches.length).toBeGreaterThanOrEqual(2);
+    expect(
+      zhNotificationMatches.every(
+        (definition) => definition.categoryId === "notifications",
+      ),
+    ).toBe(true);
+
+    for (const definition of [
+      ...notificationMatches,
+      ...zhNotificationMatches,
+    ]) {
+      for (const locale of ["en", "zh"] as const) {
+        const text = [
+          tSettingsV2(locale, definition.labelKey),
+          tSettingsV2(locale, definition.descriptionKey),
+          ...definition.searchKeywordKeys.map((key) => tSettingsV2(locale, key)),
+        ].join(" ");
+        for (const term of [
+          "Notification API",
+          "permission state",
+          "dispatch",
+          "toast payload",
+          "renderer event",
+          "task lifecycle",
+          "IPC",
+          "channel",
+          "fixture",
+          "debounce",
+          "event bus",
+          "capability probe",
+          "AppUserModelID",
+          "closeToTrayNoticeShown",
+          "Notification.isSupported",
+          "source of truth",
+          "projection",
+          "runtime binding",
+          "通知接口",
+          "权限状态字段",
+          "分发器",
+          "消息载荷",
+          "渲染进程事件",
+          "事件总线",
+          "能力探针",
+          "内部状态来源",
+          "状态投影",
+          "运行时绑定",
+          "托盘提醒已显示标记",
+        ]) {
+          expect(text).not.toContain(term);
+        }
+      }
+    }
+  });
+
   it("formats the Settings V2 migration summary from the registry", () => {
     const migratedIds = getSettingsV2MigratedCategoryIds();
     const legacyIds = getSettingsV2LegacyCategoryIds();
@@ -276,11 +365,9 @@ describe("Settings V2 registry", () => {
       "models_intelligence",
       "tools_plugins",
       "memory_privacy",
-    ]);
-    expect(legacyIds).toEqual([
       "notifications",
-      "about_updates",
     ]);
+    expect(legacyIds).toEqual(["about_updates"]);
 
     for (const category of settingsV2Categories) {
       const enLabel = tSettingsV2("en", category.labelKey);

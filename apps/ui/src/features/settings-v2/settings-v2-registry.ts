@@ -38,6 +38,11 @@ export const settingsV2SectionIds = [
   "memory_personal",
   "memory_saved",
   "memory_storage",
+  "notifications_safe_viewing",
+  "notifications_current",
+  "notifications_in_app",
+  "notifications_tray",
+  "notifications_privacy",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -84,6 +89,11 @@ export const settingsV2BindingIds = [
   "memory.personal_memory",
   "memory.saved_information",
   "memory.storage_sync",
+  "notifications.safe_viewing",
+  "notifications.current_features",
+  "notifications.in_app_status",
+  "notifications.tray_reminder",
+  "notifications.privacy",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -147,7 +157,7 @@ export const settingsV2Categories: Array<{
   {
     id: "notifications",
     labelKey: "settings.categories.notifications",
-    migrated: false,
+    migrated: true,
   },
   {
     id: "about_updates",
@@ -890,6 +900,132 @@ export const settingsV2MemoryPrivacyDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2NotificationsDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.notifications.safe_viewing",
+    categoryId: "notifications",
+    sectionId: "notifications_safe_viewing",
+    labelKey: "settings.notifications.safeViewing.label",
+    descriptionKey: "settings.notifications.safeViewing.description",
+    searchKeywordKeys: [
+      "settings.notifications.safeViewing.label",
+      "settings.notifications.safeViewing.description",
+      "settings.notifications.keywords.notifications",
+      "settings.notifications.keywords.windows",
+      "settings.notifications.keywords.privacy",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "notifications.safe_viewing",
+    validationContractId: "notifications-safe-viewing-product-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "notifications.safe_viewing.static_summary",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.notifications.safe_viewing",
+  },
+  {
+    settingId: "settings.notifications.current_features",
+    categoryId: "notifications",
+    sectionId: "notifications_current",
+    labelKey: "settings.notifications.currentFeatures.label",
+    descriptionKey: "settings.notifications.currentFeatures.description",
+    searchKeywordKeys: [
+      "settings.notifications.currentFeatures.label",
+      "settings.notifications.currentFeatures.description",
+      "settings.notifications.currentFeatures.limited",
+      "settings.notifications.keywords.notifications",
+      "settings.notifications.keywords.windows",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "notifications.current_features",
+    validationContractId: "notifications-current-features-product-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "notifications.current_features.static_summary",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.notifications.current_features",
+  },
+  {
+    settingId: "settings.notifications.in_app_status",
+    categoryId: "notifications",
+    sectionId: "notifications_in_app",
+    labelKey: "settings.notifications.inAppStatus.label",
+    descriptionKey: "settings.notifications.inAppStatus.description",
+    searchKeywordKeys: [
+      "settings.notifications.inAppStatus.label",
+      "settings.notifications.inAppStatus.description",
+      "settings.notifications.inAppStatus.available",
+      "settings.notifications.keywords.inApp",
+      "settings.notifications.keywords.status",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "notifications.in_app_status",
+    validationContractId: "notifications-in-app-status-product-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "notifications.in_app_status.static_summary",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.notifications.in_app_status",
+  },
+  {
+    settingId: "settings.notifications.tray_reminder",
+    categoryId: "notifications",
+    sectionId: "notifications_tray",
+    labelKey: "settings.notifications.trayReminder.label",
+    descriptionKey: "settings.notifications.trayReminder.description",
+    searchKeywordKeys: [
+      "settings.notifications.trayReminder.label",
+      "settings.notifications.trayReminder.description",
+      "settings.notifications.trayReminder.mayAppearOnce",
+      "settings.notifications.keywords.tray",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "notifications.tray_reminder",
+    validationContractId: "notifications-tray-reminder-product-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "notifications.tray_reminder.existing_behavior_summary",
+    dangerLevel: "none",
+    order: 40,
+    helpReferenceId: "settings.notifications.tray_reminder",
+  },
+  {
+    settingId: "settings.notifications.privacy",
+    categoryId: "notifications",
+    sectionId: "notifications_privacy",
+    labelKey: "settings.notifications.privacy.label",
+    descriptionKey: "settings.notifications.privacy.description",
+    searchKeywordKeys: [
+      "settings.notifications.privacy.label",
+      "settings.notifications.privacy.description",
+      "settings.notifications.keywords.privacy",
+      "settings.notifications.keywords.sensitive",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "notifications.privacy",
+    validationContractId: "notifications-privacy-boundary-product-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "notifications.privacy.static_boundary_summary",
+    dangerLevel: "none",
+    order: 50,
+    helpReferenceId: "settings.notifications.privacy",
+  },
+];
+
 export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2GeneralDefinitions,
   ...settingsV2AppearancePetDefinitions,
@@ -897,6 +1033,7 @@ export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2ModelsIntelligenceDefinitions,
   ...settingsV2ToolsPluginsDefinitions,
   ...settingsV2MemoryPrivacyDefinitions,
+  ...settingsV2NotificationsDefinitions,
 ];
 
 export function validateSettingsV2Registry(
@@ -966,7 +1103,8 @@ export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
         definition.categoryId === "voice_audio" ||
         definition.categoryId === "models_intelligence" ||
         definition.categoryId === "tools_plugins" ||
-        definition.categoryId === "memory_privacy",
+        definition.categoryId === "memory_privacy" ||
+        definition.categoryId === "notifications",
     )
     .sort((left, right) => left.order - right.order);
 }
