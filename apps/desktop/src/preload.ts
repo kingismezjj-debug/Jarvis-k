@@ -58,6 +58,7 @@ import {
   IPC_TTS_SETTINGS_STATUS_CHANNEL,
   IPC_TTS_SYNTHESIZE_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
+  IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL,
   IPC_VOICE_SETTINGS_OPEN_CHANNEL,
   IPC_VOICE_SETTINGS_STATUS_CHANNEL,
   IPC_VOICE_AUDIO_CHANNEL,
@@ -72,6 +73,7 @@ import {
   TtsServiceStatusSchema,
   TtsSynthesisResultSchema,
   UiSurfaceCapabilityStatusSchema,
+  UiSurfaceHealthReportSchema,
   VoiceServiceStatusSchema,
   VoiceAudioFrame,
   VoiceAudioFrameSchema,
@@ -390,6 +392,13 @@ const bridge: JarvisBridge = {
   getUiSurfaceCapabilityStatus: async () =>
     UiSurfaceCapabilityStatusSchema.parse(
       await ipcRenderer.invoke(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)
+    ),
+  reportUiSurfaceHealth: async (report) =>
+    UiSurfaceCapabilityStatusSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL,
+        UiSurfaceHealthReportSchema.parse(report)
+      )
     ),
   getVoiceServiceStatus: async () =>
     VoiceServiceStatusSchema.parse(

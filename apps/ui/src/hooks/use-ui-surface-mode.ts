@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { UiSurfaceCapabilityStatus } from "@jarvis-k/contracts";
+import type {
+  UiSurfaceCapabilityStatus,
+  UiSurfaceHealthReport,
+} from "@jarvis-k/contracts";
 
 import {
   persistDeveloperMode,
@@ -31,6 +34,25 @@ export function useUiSurfaceMode() {
       setCapabilityStatus(null);
     }
   }, []);
+
+  const reportUiSurfaceHealth = useCallback(
+    async (report: UiSurfaceHealthReport) => {
+      const bridge = window.jarvis;
+      if (!bridge?.reportUiSurfaceHealth) {
+        setCapabilityStatus(null);
+        return null;
+      }
+      try {
+        const status = await bridge.reportUiSurfaceHealth(report);
+        setCapabilityStatus(status);
+        return status;
+      } catch {
+        setCapabilityStatus(null);
+        return null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     let disposed = false;
@@ -71,6 +93,7 @@ export function useUiSurfaceMode() {
       ...projectUiSurfaceMode({ developerModeEnabled, capabilityStatus }),
       capabilityStatus,
       refreshUiSurfaceCapabilityStatus,
+      reportUiSurfaceHealth,
       resetUiSurfaceMode,
       setDeveloperModeEnabled,
     }),
@@ -78,6 +101,7 @@ export function useUiSurfaceMode() {
       capabilityStatus,
       developerModeEnabled,
       refreshUiSurfaceCapabilityStatus,
+      reportUiSurfaceHealth,
       resetUiSurfaceMode,
       setDeveloperModeEnabled,
     ],

@@ -36,6 +36,8 @@ export function projectUiSurfaceMode(input: {
     cloudProviderAcceptanceCapabilityAvailable?: unknown;
     evaluationCapabilityAvailable?: unknown;
     settingsV2CapabilityAvailable?: unknown;
+    settingsSurfaceMounted?: unknown;
+    settingsV2SessionFallbackActive?: unknown;
     source?: unknown;
     sensitiveValuesExposed?: unknown;
     rendererWritable?: unknown;
@@ -57,7 +59,9 @@ export function projectUiSurfaceMode(input: {
     evaluationSurfaceEnabled && cloudProviderAcceptanceCapabilityAvailable;
   const settingsV2CapabilityAvailable =
     trustedMainProjection &&
-    input.capabilityStatus?.settingsV2CapabilityAvailable === true;
+    input.capabilityStatus?.settingsV2CapabilityAvailable === true &&
+    input.capabilityStatus.settingsSurfaceMounted === "v2" &&
+    input.capabilityStatus.settingsV2SessionFallbackActive !== true;
   return {
     developerModeEnabled: input.developerModeEnabled,
     effectiveSurface: evaluationSurfaceEnabled

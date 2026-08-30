@@ -148,6 +148,8 @@ export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
   "jarvis-k:qwen-runtime-control-set";
 export const IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL =
   "jarvis-k:ui-surface-capability-status";
+export const IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL =
+  "jarvis-k:ui-surface-health-report";
 
 export const TaskStateSchema = z.enum([
   "queued",
@@ -490,6 +492,10 @@ export const UiSurfaceCapabilityStatusSchema = z
       .enum(["unknown", "general_settings"])
       .default("unknown"),
     settingsSurfaceMounted: z.enum(["unknown", "legacy", "v2"]).default("unknown"),
+    settingsSurfaceHealth: z
+      .enum(["not_started", "mounting", "ready", "failed"])
+      .default("not_started"),
+    settingsV2SessionFallbackActive: z.boolean().default(false),
     reasonCode: z
       .enum([
         "enabled",
@@ -497,6 +503,7 @@ export const UiSurfaceCapabilityStatusSchema = z
         "flag_disabled",
         "invalid_flag",
         "release_channel_not_allowed",
+        "settings_v2_session_fallback",
       ])
       .default("flag_disabled"),
     source: z.literal("desktop-main"),
@@ -506,6 +513,25 @@ export const UiSurfaceCapabilityStatusSchema = z
   .strict();
 export type UiSurfaceCapabilityStatus = z.infer<
   typeof UiSurfaceCapabilityStatusSchema
+>;
+
+export const UiSurfaceHealthReportSchema = z
+  .object({
+    surface: z.literal("settings_v2"),
+    state: z.enum(["mounting", "ready", "failed", "unmounted"]),
+    reasonCode: z.enum([
+      "settings_v2_mounting",
+      "settings_v2_ready",
+      "settings_v2_renderer_failure",
+      "settings_v2_unmounted",
+    ]),
+    source: z.literal("renderer"),
+    sensitiveValuesExposed: z.literal(false),
+    rendererWritable: z.literal(false),
+  })
+  .strict();
+export type UiSurfaceHealthReport = z.infer<
+  typeof UiSurfaceHealthReportSchema
 >;
 
 export const ProductAboutInfoSchema = z
@@ -3842,6 +3868,9 @@ export interface JarvisBridge {
     enabled: boolean,
   ): Promise<ChatAnswerProductModeSetResult>;
   getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
+  reportUiSurfaceHealth(
+    report: UiSurfaceHealthReport,
+  ): Promise<UiSurfaceCapabilityStatus>;
   getDesktopSettings(): Promise<DesktopSettings>;
   getDesktopLaunchAtLoginStatus(): Promise<DesktopLaunchAtLoginStatus>;
   getProductAboutInfo(): Promise<ProductAboutInfo>;

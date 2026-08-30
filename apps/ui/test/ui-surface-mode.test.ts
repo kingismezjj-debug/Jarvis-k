@@ -119,6 +119,8 @@ describe("ui surface mode", () => {
         capabilityStatus: {
           evaluationCapabilityAvailable: false,
           settingsV2CapabilityAvailable: true,
+          settingsSurfaceMounted: "v2",
+          settingsV2SessionFallbackActive: false,
           source: "desktop-main",
           sensitiveValuesExposed: false,
           rendererWritable: false,
@@ -136,6 +138,8 @@ describe("ui surface mode", () => {
         capabilityStatus: {
           evaluationCapabilityAvailable: true,
           settingsV2CapabilityAvailable: true,
+          settingsSurfaceMounted: "v2",
+          settingsV2SessionFallbackActive: false,
           source: "renderer",
           sensitiveValuesExposed: false,
           rendererWritable: false,
@@ -143,6 +147,26 @@ describe("ui surface mode", () => {
       }),
     ).toMatchObject({
       evaluationSurfaceEnabled: false,
+      settingsV2SurfaceEnabled: false,
+    });
+  });
+
+  it("keeps Settings V2 disabled when Main reports a session fallback", () => {
+    expect(
+      projectUiSurfaceMode({
+        developerModeEnabled: false,
+        capabilityStatus: {
+          evaluationCapabilityAvailable: false,
+          settingsV2CapabilityAvailable: false,
+          settingsSurfaceMounted: "legacy",
+          settingsV2SessionFallbackActive: true,
+          source: "desktop-main",
+          sensitiveValuesExposed: false,
+          rendererWritable: false,
+        },
+      }),
+    ).toMatchObject({
+      settingsV2CapabilityAvailable: false,
       settingsV2SurfaceEnabled: false,
     });
   });

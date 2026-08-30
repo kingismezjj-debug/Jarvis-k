@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { RefreshCw, X } from "lucide-react";
 import type {
   EventEnvelope,
@@ -88,6 +95,7 @@ import { ModelGovernanceSettingsPanel } from "@/features/settings/model-governan
 import { SettingsGeneralPanel } from "@/features/settings/settings-general-panel";
 import { VoiceSettingsPanel } from "@/features/settings/voice-settings-panel";
 import { SettingsV2GeneralView } from "@/features/settings-v2/settings-v2-general-view";
+import { SettingsV2SurfaceHost } from "@/features/settings-v2/settings-v2-surface-boundary";
 import { TaskTimeline } from "@/features/tasks/task-timeline";
 import { VoiceControlPanel } from "@/features/voice/voice-control-panel";
 import { VoiceRegressionPanel } from "@/features/voice/voice-regression-panel";
@@ -261,6 +269,26 @@ export default function App() {
       uiSurfaceMode.cloudProviderAcceptanceSurfaceEnabled,
     evaluationSurfaceEnabled: uiSurfaceMode.evaluationSurfaceEnabled,
   });
+  const reportSettingsV2SurfaceHealth = useCallback(
+    (
+      state: "mounting" | "ready" | "failed" | "unmounted",
+      reasonCode:
+        | "settings_v2_mounting"
+        | "settings_v2_ready"
+        | "settings_v2_renderer_failure"
+        | "settings_v2_unmounted",
+    ) => {
+      void uiSurfaceMode.reportUiSurfaceHealth({
+        surface: "settings_v2",
+        state,
+        reasonCode,
+        source: "renderer",
+        sensitiveValuesExposed: false,
+        rendererWritable: false,
+      });
+    },
+    [uiSurfaceMode.reportUiSurfaceHealth],
+  );
   const [draft, setDraft] = useState("");
   const [memorySnapshotDraft, setMemorySnapshotDraft] = useState("");
   const [memoryAlphaProbeDraft, setMemoryAlphaProbeDraft] = useState("");
@@ -2519,14 +2547,17 @@ export default function App() {
           ) : activeView === "settings" ? (
             uiSurfaceMode.settingsV2SurfaceEnabled ? (
               <ScrollArea className="min-h-0 flex-1">
-                <SettingsV2GeneralView
-                  activeThemeId={skinTheme}
-                  desktopLaunchAtLoginStatus={desktopLaunchAtLoginStatus}
-                  desktopSettings={desktopSettings}
-                  error={error}
-                  locale={uiLanguage}
-                  petSkinRegistry={petSkinRegistry}
-                  productAboutInfo={productAboutInfo}
+                <SettingsV2SurfaceHost
+                  reportHealth={reportSettingsV2SurfaceHealth}
+                >
+                  <SettingsV2GeneralView
+                    activeThemeId={skinTheme}
+                    desktopLaunchAtLoginStatus={desktopLaunchAtLoginStatus}
+                    desktopSettings={desktopSettings}
+                    error={error}
+                    locale={uiLanguage}
+                    petSkinRegistry={petSkinRegistry}
+                    productAboutInfo={productAboutInfo}
                   onOpenExistingSkinManagement={() => {
                     void trackAction(
                       "Refresh local skin management",
@@ -2668,8 +2699,9 @@ export default function App() {
                   voiceMode={snapshot?.voice.mode ?? "disabled"}
                   voicePermission={snapshot?.voice.permission ?? "unknown"}
                   voiceServiceStatus={voiceServiceStatus}
-                  sending={sending}
-                />
+                    sending={sending}
+                  />
+                </SettingsV2SurfaceHost>
               </ScrollArea>
             ) : (
             <ScrollArea className="min-h-0 flex-1">

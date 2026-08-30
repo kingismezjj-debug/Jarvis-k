@@ -9,6 +9,7 @@ import {
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_PRODUCT_ABOUT_INFO_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
+  IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL,
 } from "@jarvis-k/contracts";
 import { registerSettingsIpc } from "../src/ipc/register-settings-ipc";
 import { SettingsService } from "../src/settings/settings-service";
@@ -30,6 +31,7 @@ function createSettingsService(input: {
   settingsV2ReasonCode?: ReturnType<
     SettingsService["getUiSurfaceCapabilityStatus"]
   >["reasonCode"];
+  settingsV2MountTimeoutMs?: number;
   productName?: string;
   productVersion?: string;
 } = {}) {
@@ -55,6 +57,7 @@ function createSettingsService(input: {
     settingsV2CapabilityAvailable: input.settingsV2CapabilityAvailable,
     settingsV2ReleaseAllowed: input.settingsV2ReleaseAllowed,
     settingsV2ReasonCode: input.settingsV2ReasonCode,
+    settingsV2MountTimeoutMs: input.settingsV2MountTimeoutMs,
     productName: input.productName,
     productVersion: input.productVersion,
     desktopSettingsPath: input.desktopSettingsPath,
@@ -84,10 +87,12 @@ describe("SettingsService", () => {
       evaluationCapabilityAvailable: false,
       reasonCode: "flag_disabled",
       settingsSurfaceMounted: "legacy",
+      settingsSurfaceHealth: "not_started",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
       settingsV2EnvRequested: false,
+      settingsV2SessionFallbackActive: false,
       settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -394,10 +399,12 @@ describe("SettingsService", () => {
       evaluationCapabilityAvailable: true,
       reasonCode: "flag_disabled",
       settingsSurfaceMounted: "legacy",
+      settingsSurfaceHealth: "not_started",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
       settingsV2EnvRequested: false,
+      settingsV2SessionFallbackActive: false,
       settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -415,10 +422,12 @@ describe("SettingsService", () => {
       evaluationCapabilityAvailable: true,
       reasonCode: "flag_disabled",
       settingsSurfaceMounted: "legacy",
+      settingsSurfaceHealth: "not_started",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
       settingsV2EnvRequested: false,
+      settingsV2SessionFallbackActive: false,
       settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -437,10 +446,12 @@ describe("SettingsService", () => {
       evaluationCapabilityAvailable: false,
       reasonCode: "enabled",
       settingsSurfaceMounted: "v2",
+      settingsSurfaceHealth: "not_started",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: true,
       settingsV2CapabilityAvailable: true,
       settingsV2EnvRequested: true,
+      settingsV2SessionFallbackActive: false,
       settingsV2ReleaseAllowed: true,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -522,6 +533,99 @@ describe("SettingsService", () => {
       settingsV2EnvRequested: false,
       settingsV2ReleaseAllowed: true,
     });
+  });
+
+  it("falls back to Legacy for the current session after a Settings V2 renderer failure", () => {
+    const { service } = createSettingsService({
+      releaseChannel: "development",
+      settingsV2CapabilityAvailable: true,
+      settingsV2ReleaseAllowed: true,
+      settingsV2ReasonCode: "development_default_enabled",
+    });
+
+    expect(
+      service.reportUiSurfaceHealth({
+        surface: "settings_v2",
+        state: "mounting",
+        reasonCode: "settings_v2_mounting",
+        source: "renderer",
+        sensitiveValuesExposed: false,
+        rendererWritable: false,
+      }),
+    ).toMatchObject({
+      settingsSurfaceMounted: "v2",
+      settingsSurfaceHealth: "mounting",
+      settingsV2CapabilityAvailable: true,
+      settingsV2SessionFallbackActive: false,
+    });
+
+    expect(
+      service.reportUiSurfaceHealth({
+        surface: "settings_v2",
+        state: "failed",
+        reasonCode: "settings_v2_renderer_failure",
+        source: "renderer",
+        sensitiveValuesExposed: false,
+        rendererWritable: false,
+      }),
+    ).toMatchObject({
+      reasonCode: "settings_v2_session_fallback",
+      settingsSurfaceMounted: "legacy",
+      settingsSurfaceHealth: "failed",
+      settingsV2Capability: false,
+      settingsV2CapabilityAvailable: false,
+      settingsV2SessionFallbackActive: true,
+    });
+
+    expect(
+      service.reportUiSurfaceHealth({
+        surface: "settings_v2",
+        state: "ready",
+        reasonCode: "settings_v2_ready",
+        source: "renderer",
+        sensitiveValuesExposed: false,
+        rendererWritable: false,
+      }),
+    ).toMatchObject({
+      reasonCode: "settings_v2_session_fallback",
+      settingsSurfaceMounted: "legacy",
+      settingsSurfaceHealth: "failed",
+      settingsV2SessionFallbackActive: true,
+    });
+  });
+
+  it("falls back to Legacy when Settings V2 does not report ready before timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const { service } = createSettingsService({
+        releaseChannel: "development",
+        settingsV2CapabilityAvailable: true,
+        settingsV2ReleaseAllowed: true,
+        settingsV2MountTimeoutMs: 100,
+      });
+      service.reportUiSurfaceHealth({
+        surface: "settings_v2",
+        state: "mounting",
+        reasonCode: "settings_v2_mounting",
+        source: "renderer",
+        sensitiveValuesExposed: false,
+        rendererWritable: false,
+      });
+      expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
+        settingsSurfaceMounted: "v2",
+        settingsSurfaceHealth: "mounting",
+      });
+      vi.advanceTimersByTime(100);
+      expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
+        reasonCode: "settings_v2_session_fallback",
+        settingsSurfaceMounted: "legacy",
+        settingsSurfaceHealth: "failed",
+        settingsV2SessionFallbackActive: true,
+      });
+      service.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("persists launch at login as a local user-controlled setting", async () => {
@@ -680,8 +784,9 @@ describe("registerSettingsIpc", () => {
       settingsService: service,
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(10);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(11);
     expect(handlers.has(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)).toBe(true);
+    expect(handlers.has(IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL)).toBe(true);
     expect(handlers.has(IPC_PRODUCT_ABOUT_INFO_CHANNEL)).toBe(true);
     unregister();
     expect(handlers.size).toBe(0);
@@ -703,8 +808,8 @@ describe("registerSettingsIpc", () => {
       getMainWindow: () => null,
       settingsService: service,
     });
-    expect(ipcMain.handle).toHaveBeenCalledTimes(20);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(20);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(22);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(22);
   });
 
   it("rejects settings updates from non-main-window senders", async () => {
@@ -732,6 +837,9 @@ describe("registerSettingsIpc", () => {
     const launchAtLoginHandler = handlers.get(
       IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
     );
+    const uiSurfaceHealthHandler = handlers.get(
+      IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL,
+    );
     await expect(
       Promise.resolve(
         commandRouterHandler?.({ sender: { id: 8 } }, { enabled: true }),
@@ -758,6 +866,63 @@ describe("registerSettingsIpc", () => {
         ),
       ),
     ).resolves.toMatchObject({ ok: false });
+    expect(
+      uiSurfaceHealthHandler?.(
+        { sender: { id: 8 } },
+        {
+          surface: "settings_v2",
+          state: "failed",
+          reasonCode: "settings_v2_renderer_failure",
+          source: "renderer",
+          sensitiveValuesExposed: false,
+          rendererWritable: false,
+        },
+      ),
+    ).toMatchObject({
+      settingsSurfaceMounted: "legacy",
+      settingsV2SessionFallbackActive: false,
+    });
+  });
+
+  it("accepts Settings V2 health reports only from the main window", () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const ipcMain = {
+      handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
+        handlers.set(channel, handler);
+      }),
+      removeHandler: vi.fn(),
+    };
+    const { service } = createSettingsService({
+      releaseChannel: "development",
+      settingsV2CapabilityAvailable: true,
+      settingsV2ReleaseAllowed: true,
+    });
+    registerSettingsIpc({
+      ipcMain,
+      getMainWindow: () => ({ webContents: { id: 7 } }) as never,
+      settingsService: service,
+    });
+
+    const uiSurfaceHealthHandler = handlers.get(
+      IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL,
+    );
+    expect(
+      uiSurfaceHealthHandler?.(
+        { sender: { id: 7 } },
+        {
+          surface: "settings_v2",
+          state: "failed",
+          reasonCode: "settings_v2_renderer_failure",
+          source: "renderer",
+          sensitiveValuesExposed: false,
+          rendererWritable: false,
+        },
+      ),
+    ).toMatchObject({
+      reasonCode: "settings_v2_session_fallback",
+      settingsSurfaceMounted: "legacy",
+      settingsV2SessionFallbackActive: true,
+    });
   });
 });
 
