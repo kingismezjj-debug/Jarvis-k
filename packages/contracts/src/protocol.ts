@@ -92,6 +92,8 @@ export const IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL =
   "jarvis-k:desktop-launch-at-login-status";
 export const IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL =
   "jarvis-k:desktop-launch-at-login-set";
+export const IPC_PRODUCT_ABOUT_INFO_CHANNEL =
+  "jarvis-k:product-about-info";
 export const IPC_DESKTOP_UI_ACTION_CHANNEL = "jarvis-k:desktop-ui-action";
 export const IPC_DESKTOP_PET_STATE_CHANNEL = "jarvis-k:desktop-pet-state";
 export const IPC_DESKTOP_PET_SETTINGS_CHANNEL =
@@ -502,6 +504,36 @@ export const UiSurfaceCapabilityStatusSchema = z
 export type UiSurfaceCapabilityStatus = z.infer<
   typeof UiSurfaceCapabilityStatusSchema
 >;
+
+export const ProductAboutReleaseChannelSchema = z.enum([
+  "development",
+  "alpha",
+  "stable",
+  "test",
+]);
+export type ProductAboutReleaseChannel = z.infer<
+  typeof ProductAboutReleaseChannelSchema
+>;
+
+export const ProductAboutInfoSchema = z
+  .object({
+    productName: z.string().min(1).max(120),
+    version: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/)
+      .max(64),
+    releaseChannel: ProductAboutReleaseChannelSchema,
+    inAppUpdatesSupported: z.literal(false),
+    updateCheckAvailable: z.literal(false),
+    externalLinksAvailable: z.literal(false),
+    diagnosticsExportAvailable: z.literal(false),
+    networkRequestRequired: z.literal(false),
+    source: z.literal("desktop-main"),
+    sensitiveValuesExposed: z.literal(false),
+    rendererWritable: z.literal(false),
+  })
+  .strict();
+export type ProductAboutInfo = z.infer<typeof ProductAboutInfoSchema>;
 
 export const DesktopCloseButtonBehaviorSchema = z.enum([
   "minimize_to_tray",
@@ -3817,6 +3849,7 @@ export interface JarvisBridge {
   getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
   getDesktopSettings(): Promise<DesktopSettings>;
   getDesktopLaunchAtLoginStatus(): Promise<DesktopLaunchAtLoginStatus>;
+  getProductAboutInfo(): Promise<ProductAboutInfo>;
   setDesktopUiTheme(theme: DesktopUiTheme): Promise<DesktopSettingsSetResult>;
   migrateLegacyDesktopUiTheme(
     theme: DesktopUiTheme,

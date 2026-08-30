@@ -76,6 +76,7 @@
     "settings-v2:tools-plugins:capture": "node scripts/capture-ui2e-settings-v2-tools-plugins.mjs",
     "settings-v2:memory-privacy:capture": "npm run build:ui && node scripts/capture-ui2f-settings-v2-memory-privacy.mjs",
     "settings-v2:notifications:capture": "npm run build:ui && node scripts/capture-ui2g-settings-v2-notifications.mjs",
+    "settings-v2:about-updates:capture": "npm run build:contracts && npm run build:desktop && npm run build:ui && node scripts/capture-ui2h-settings-v2-about-updates.mjs",
     "gallery:ui-foundation:capture": "node scripts/capture-ui1-component-gallery.mjs",
     "plugin:validate:examples": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/plugins/stock-analysis examples/plugins/ecommerce-product-comparison",
     "plugin:validate:local-template": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/local-plugins/hello-readonly",

@@ -7,6 +7,7 @@ import {
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
+  IPC_PRODUCT_ABOUT_INFO_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
 } from "@jarvis-k/contracts";
 import { registerSettingsIpc } from "../src/ipc/register-settings-ipc";
@@ -26,6 +27,8 @@ function createSettingsService(input: {
   settingsV2EnvRequested?: boolean;
   settingsV2CapabilityAvailable?: boolean;
   settingsV2ReleaseAllowed?: boolean;
+  productName?: string;
+  productVersion?: string;
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
@@ -48,6 +51,8 @@ function createSettingsService(input: {
     settingsV2EnvRequested: input.settingsV2EnvRequested,
     settingsV2CapabilityAvailable: input.settingsV2CapabilityAvailable,
     settingsV2ReleaseAllowed: input.settingsV2ReleaseAllowed,
+    productName: input.productName,
+    productVersion: input.productVersion,
     desktopSettingsPath: input.desktopSettingsPath,
   });
   return {
@@ -443,6 +448,32 @@ describe("SettingsService", () => {
     });
   });
 
+  it("exposes product About info as a Main-owned safe projection", () => {
+    const { service } = createSettingsService({
+      productName: "Jarvis-K Alpha",
+      productVersion: "0.1.0-alpha.4",
+      releaseChannel: "alpha",
+    });
+
+    const aboutInfo = service.getProductAboutInfo();
+    expect(aboutInfo).toEqual({
+      productName: "Jarvis-K Alpha",
+      version: "0.1.0-alpha.4",
+      releaseChannel: "alpha",
+      inAppUpdatesSupported: false,
+      updateCheckAvailable: false,
+      externalLinksAvailable: false,
+      diagnosticsExportAvailable: false,
+      networkRequestRequired: false,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    });
+    expect(JSON.stringify(aboutInfo)).not.toMatch(
+      /appId|AppUserModelID|C:\\|credential|Authorization|Bearer|commit|gitSha/i,
+    );
+  });
+
   it("reports Settings V2 flag requests blocked outside development", () => {
     const { service } = createSettingsService({
       releaseChannel: "alpha",
@@ -617,8 +648,9 @@ describe("registerSettingsIpc", () => {
       settingsService: service,
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(9);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(10);
     expect(handlers.has(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)).toBe(true);
+    expect(handlers.has(IPC_PRODUCT_ABOUT_INFO_CHANNEL)).toBe(true);
     unregister();
     expect(handlers.size).toBe(0);
   });
@@ -639,8 +671,8 @@ describe("registerSettingsIpc", () => {
       getMainWindow: () => null,
       settingsService: service,
     });
-    expect(ipcMain.handle).toHaveBeenCalledTimes(18);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(18);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(20);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(20);
   });
 
   it("rejects settings updates from non-main-window senders", async () => {

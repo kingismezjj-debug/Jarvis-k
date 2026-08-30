@@ -77,7 +77,8 @@
 .settings-v2-content [data-testid="settings-v2-models-intelligence"],
 .settings-v2-content [data-testid="settings-v2-tools-plugins"],
 .settings-v2-content [data-testid="settings-v2-memory-privacy"],
-.settings-v2-content [data-testid="settings-v2-notifications"] {
+.settings-v2-content [data-testid="settings-v2-notifications"],
+.settings-v2-content [data-testid="settings-v2-about-updates"] {
   display: grid;
   gap: var(--jk-spacing-4);
   max-width: var(--jk-layout-content-max-width);
@@ -276,7 +277,8 @@
 .settings-v2-models-status-grid,
 .settings-v2-tools-status-grid,
 .settings-v2-memory-status-grid,
-.settings-v2-notifications-status-grid {
+.settings-v2-notifications-status-grid,
+.settings-v2-about-status-grid {
   border-top: 1px solid var(--jk-color-border-subtle);
   color: var(--jk-color-text-secondary);
   display: grid;
@@ -290,7 +292,8 @@
 .settings-v2-models-status-grid span,
 .settings-v2-tools-status-grid span,
 .settings-v2-memory-status-grid span,
-.settings-v2-notifications-status-grid span {
+.settings-v2-notifications-status-grid span,
+.settings-v2-about-status-grid span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -336,7 +339,8 @@
   .settings-v2-content [data-testid="settings-v2-models-intelligence"],
   .settings-v2-content [data-testid="settings-v2-tools-plugins"],
   .settings-v2-content [data-testid="settings-v2-memory-privacy"],
-  .settings-v2-content [data-testid="settings-v2-notifications"] {
+  .settings-v2-content [data-testid="settings-v2-notifications"],
+  .settings-v2-content [data-testid="settings-v2-about-updates"] {
     max-width: 100%;
   }
 
@@ -354,7 +358,8 @@
   .settings-v2-models-status-grid,
   .settings-v2-tools-status-grid,
   .settings-v2-memory-status-grid,
-  .settings-v2-notifications-status-grid {
+  .settings-v2-notifications-status-grid,
+  .settings-v2-about-status-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

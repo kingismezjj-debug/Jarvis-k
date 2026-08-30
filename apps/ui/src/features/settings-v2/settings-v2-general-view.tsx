@@ -14,6 +14,7 @@ import type {
   ModelOperationSnapshot,
   PetSkinRegistryProjection,
   PluginManagementStatusResult,
+  ProductAboutInfo,
   ResourceSchedulerDiagnostics,
   TtsServiceStatus,
   VoiceMode,
@@ -54,6 +55,7 @@ import {
   type SettingsV2CopyKey,
   type SettingsV2Locale,
 } from "./settings-v2-copy";
+import { buildSettingsV2AboutUpdatesProductViewModel } from "./settings-v2-about-view-model";
 import { formatSettingsV2MigrationSummary } from "./settings-v2-migration-summary";
 import { buildSettingsV2MemoryPrivacyProductViewModel } from "./settings-v2-memory-view-model";
 import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
@@ -105,6 +107,7 @@ export type SettingsV2GeneralViewProps = {
   onOpenPluginManagement?: () => void;
   memoryAlphaStatus?: MemoryAlphaStatus | null;
   onOpenMemoryCenter?: () => void;
+  productAboutInfo?: ProductAboutInfo | null;
   initialCategoryId?: SettingsV2CategoryId;
 };
 
@@ -363,6 +366,10 @@ function getSectionLabel(
     notifications_in_app: "settings.notifications.section.inApp",
     notifications_tray: "settings.notifications.section.tray",
     notifications_privacy: "settings.notifications.section.privacy",
+    about_product: "settings.about.section.product",
+    about_updates: "settings.about.section.updates",
+    about_status: "settings.about.section.status",
+    about_legal: "settings.about.section.legal",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -389,6 +396,7 @@ function getDefinitionValue({
   resourceDiagnostics,
   pluginManagementStatus,
   memoryAlphaStatus,
+  productAboutInfo,
 }: {
   definition: SettingsV2Definition;
   desktopSettings: DesktopSettings | null;
@@ -411,6 +419,7 @@ function getDefinitionValue({
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
   pluginManagementStatus?: PluginManagementStatusResult | null;
   memoryAlphaStatus?: MemoryAlphaStatus | null;
+  productAboutInfo?: ProductAboutInfo | null;
 }): string | undefined {
   const modelsViewModel = buildSettingsV2ModelsProductViewModel({
     chatAnswerProductModeStatus,
@@ -433,6 +442,10 @@ function getDefinitionValue({
   });
   const notificationsViewModel =
     buildSettingsV2NotificationsProductViewModel({ locale });
+  const aboutViewModel = buildSettingsV2AboutUpdatesProductViewModel({
+    locale,
+    productAboutInfo,
+  });
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
   }
@@ -547,6 +560,24 @@ function getDefinitionValue({
   if (definition.settingBindingId === "notifications.privacy") {
     return notificationsViewModel.privacy.value;
   }
+  if (definition.settingBindingId === "about.product_identity") {
+    return aboutViewModel.productIdentity.value;
+  }
+  if (definition.settingBindingId === "about.release_channel") {
+    return aboutViewModel.releaseChannel.value;
+  }
+  if (definition.settingBindingId === "about.updates") {
+    return aboutViewModel.updates.value;
+  }
+  if (definition.settingBindingId === "about.system_status") {
+    return aboutViewModel.systemStatus.value;
+  }
+  if (definition.settingBindingId === "about.legal") {
+    return aboutViewModel.legal.value;
+  }
+  if (definition.settingBindingId === "about.safe_viewing") {
+    return aboutViewModel.safeViewing.value;
+  }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
@@ -572,6 +603,7 @@ export function getSettingsV2SearchResultsForProduct({
   resourceDiagnostics,
   pluginManagementStatus,
   memoryAlphaStatus,
+  productAboutInfo,
 }: {
   query: string;
   locale: SettingsV2Locale;
@@ -594,6 +626,7 @@ export function getSettingsV2SearchResultsForProduct({
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
   pluginManagementStatus?: PluginManagementStatusResult | null;
   memoryAlphaStatus?: MemoryAlphaStatus | null;
+  productAboutInfo?: ProductAboutInfo | null;
 }) {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
@@ -636,6 +669,7 @@ export function getSettingsV2SearchResultsForProduct({
               resourceDiagnostics,
               pluginManagementStatus,
               memoryAlphaStatus,
+              productAboutInfo,
             }),
     }));
 }
@@ -681,6 +715,7 @@ export function SettingsV2GeneralView({
   pluginManagementStatus,
   memoryAlphaStatus,
   onOpenMemoryCenter,
+  productAboutInfo,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -724,6 +759,7 @@ export function SettingsV2GeneralView({
         resourceDiagnostics,
         pluginManagementStatus,
         memoryAlphaStatus,
+        productAboutInfo,
       }),
     [
       activeThemeId,
@@ -739,6 +775,7 @@ export function SettingsV2GeneralView({
       modelOperations,
       petSkinRegistry,
       pluginManagementStatus,
+      productAboutInfo,
       resourceDiagnostics,
       searchQuery,
       ttsServiceStatus,
@@ -797,6 +834,10 @@ export function SettingsV2GeneralView({
   });
   const notificationsViewModel =
     buildSettingsV2NotificationsProductViewModel({ locale });
+  const aboutViewModel = buildSettingsV2AboutUpdatesProductViewModel({
+    locale,
+    productAboutInfo,
+  });
 
   return (
     <div
@@ -1730,6 +1771,103 @@ export function SettingsV2GeneralView({
                   />
                 </SettingsSection>
               </div>
+            </section>
+          ) : selectedCategoryId === "about_updates" ? (
+            <section data-testid="settings-v2-about-updates">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.about.description")}
+                title={tSettingsV2(locale, "settings.about.title")}
+              />
+              <InlineNotice title={tSettingsV2(locale, "settings.about.safeViewing.label")}>
+                {aboutViewModel.safeViewing.details[0]}
+              </InlineNotice>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.about.section.product")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.about.productIdentity.description",
+                  )}
+                  title={tSettingsV2(
+                    locale,
+                    "settings.about.productIdentity.label",
+                  )}
+                  value={aboutViewModel.productIdentity.value}
+                />
+                <div
+                  className="settings-v2-about-status-grid"
+                  data-testid="settings-v2-about-product-status"
+                >
+                  {aboutViewModel.productIdentity.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.about.releaseChannel.description",
+                  )}
+                  title={tSettingsV2(
+                    locale,
+                    "settings.about.releaseChannel.label",
+                  )}
+                  value={aboutViewModel.releaseChannel.value}
+                />
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.about.section.updates")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.about.updates.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.about.updates.label")}
+                  value={aboutViewModel.updates.value}
+                />
+                <div
+                  className="settings-v2-about-status-grid"
+                  data-testid="settings-v2-about-updates-status"
+                >
+                  {aboutViewModel.updates.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.about.section.status")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.about.systemStatus.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.about.systemStatus.label")}
+                  value={aboutViewModel.systemStatus.value}
+                />
+                <div
+                  className="settings-v2-about-status-grid"
+                  data-testid="settings-v2-about-system-status"
+                >
+                  {aboutViewModel.systemStatus.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.about.section.legal")}
+              >
+                <SettingRow
+                  description={tSettingsV2(locale, "settings.about.legal.description")}
+                  title={tSettingsV2(locale, "settings.about.legal.label")}
+                  value={aboutViewModel.legal.value}
+                />
+              </SettingsSection>
             </section>
           ) : (
             <section

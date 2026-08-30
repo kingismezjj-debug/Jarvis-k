@@ -187,6 +187,7 @@ export default function App() {
     openVoiceSettings,
     localPluginManifestDeveloperStatus,
     pluginManagementStatus,
+    productAboutInfo,
     probeMemoryAlphaRecall,
     probeCore,
     refreshCapabilities,
@@ -2525,6 +2526,7 @@ export default function App() {
                   error={error}
                   locale={uiLanguage}
                   petSkinRegistry={petSkinRegistry}
+                  productAboutInfo={productAboutInfo}
                   onOpenExistingSkinManagement={() => {
                     void trackAction(
                       "Refresh local skin management",

@@ -43,6 +43,10 @@ export const settingsV2SectionIds = [
   "notifications_in_app",
   "notifications_tray",
   "notifications_privacy",
+  "about_product",
+  "about_updates",
+  "about_status",
+  "about_legal",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -94,6 +98,12 @@ export const settingsV2BindingIds = [
   "notifications.in_app_status",
   "notifications.tray_reminder",
   "notifications.privacy",
+  "about.product_identity",
+  "about.release_channel",
+  "about.updates",
+  "about.system_status",
+  "about.legal",
+  "about.safe_viewing",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -162,7 +172,7 @@ export const settingsV2Categories: Array<{
   {
     id: "about_updates",
     labelKey: "settings.categories.about_updates",
-    migrated: false,
+    migrated: true,
   },
 ];
 
@@ -1026,6 +1036,152 @@ export const settingsV2NotificationsDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2AboutUpdatesDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.about.product_identity",
+    categoryId: "about_updates",
+    sectionId: "about_product",
+    labelKey: "settings.about.productIdentity.label",
+    descriptionKey: "settings.about.productIdentity.description",
+    searchKeywordKeys: [
+      "settings.about.productIdentity.label",
+      "settings.about.productIdentity.description",
+      "settings.about.keywords.version",
+      "settings.about.keywords.about",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "about.product_identity",
+    validationContractId: "product-about-info.safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "about.product_identity.safe_summary",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.about.product_identity",
+  },
+  {
+    settingId: "settings.about.release_channel",
+    categoryId: "about_updates",
+    sectionId: "about_product",
+    labelKey: "settings.about.releaseChannel.label",
+    descriptionKey: "settings.about.releaseChannel.description",
+    searchKeywordKeys: [
+      "settings.about.releaseChannel.label",
+      "settings.about.releaseChannel.description",
+      "settings.about.releaseChannel.alpha",
+      "settings.about.releaseChannel.development",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "about.release_channel",
+    validationContractId: "product-release-channel.safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "about.release_channel.safe_summary",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.about.release_channel",
+  },
+  {
+    settingId: "settings.about.updates",
+    categoryId: "about_updates",
+    sectionId: "about_updates",
+    labelKey: "settings.about.updates.label",
+    descriptionKey: "settings.about.updates.description",
+    searchKeywordKeys: [
+      "settings.about.updates.label",
+      "settings.about.updates.description",
+      "settings.about.updates.notAvailable",
+      "settings.about.keywords.update",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "about.updates",
+    validationContractId: "product-updates.safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "about.updates.safe_summary",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.about.updates",
+  },
+  {
+    settingId: "settings.about.system_status",
+    categoryId: "about_updates",
+    sectionId: "about_status",
+    labelKey: "settings.about.systemStatus.label",
+    descriptionKey: "settings.about.systemStatus.description",
+    searchKeywordKeys: [
+      "settings.about.systemStatus.label",
+      "settings.about.systemStatus.description",
+      "settings.about.systemStatus.basicOnly",
+      "settings.about.keywords.status",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "about.system_status",
+    validationContractId: "product-system-status.safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "about.system_status.safe_summary",
+    dangerLevel: "none",
+    order: 40,
+    helpReferenceId: "settings.about.system_status",
+  },
+  {
+    settingId: "settings.about.legal",
+    categoryId: "about_updates",
+    sectionId: "about_legal",
+    labelKey: "settings.about.legal.label",
+    descriptionKey: "settings.about.legal.description",
+    searchKeywordKeys: [
+      "settings.about.legal.label",
+      "settings.about.legal.description",
+      "settings.about.legal.notBundled",
+      "settings.about.keywords.legal",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "about.legal",
+    validationContractId: "product-legal-notices.safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "about.legal.safe_summary",
+    dangerLevel: "none",
+    order: 50,
+    helpReferenceId: "settings.about.legal",
+  },
+  {
+    settingId: "settings.about.safe_viewing",
+    categoryId: "about_updates",
+    sectionId: "about_status",
+    labelKey: "settings.about.safeViewing.label",
+    descriptionKey: "settings.about.safeViewing.description",
+    searchKeywordKeys: [
+      "settings.about.safeViewing.label",
+      "settings.about.safeViewing.description",
+      "settings.about.keywords.privacy",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "about.safe_viewing",
+    validationContractId: "product-about-safe-viewing.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "about.safe_viewing.static_summary",
+    dangerLevel: "none",
+    order: 60,
+    helpReferenceId: "settings.about.safe_viewing",
+  },
+];
+
 export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2GeneralDefinitions,
   ...settingsV2AppearancePetDefinitions,
@@ -1034,6 +1190,7 @@ export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2ToolsPluginsDefinitions,
   ...settingsV2MemoryPrivacyDefinitions,
   ...settingsV2NotificationsDefinitions,
+  ...settingsV2AboutUpdatesDefinitions,
 ];
 
 export function validateSettingsV2Registry(
@@ -1104,7 +1261,8 @@ export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
         definition.categoryId === "models_intelligence" ||
         definition.categoryId === "tools_plugins" ||
         definition.categoryId === "memory_privacy" ||
-        definition.categoryId === "notifications",
+        definition.categoryId === "notifications" ||
+        definition.categoryId === "about_updates",
     )
     .sort((left, right) => left.order - right.order);
 }

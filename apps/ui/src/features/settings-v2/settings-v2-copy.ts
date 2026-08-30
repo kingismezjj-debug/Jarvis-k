@@ -320,6 +320,40 @@ export type SettingsV2CopyKey =
   | "settings.notifications.keywords.windows"
   | "settings.notifications.keywords.privacy"
   | "settings.notifications.keywords.sensitive"
+  | "settings.about.title"
+  | "settings.about.description"
+  | "settings.about.section.product"
+  | "settings.about.section.updates"
+  | "settings.about.section.status"
+  | "settings.about.section.legal"
+  | "settings.about.productIdentity.label"
+  | "settings.about.productIdentity.description"
+  | "settings.about.productIdentity.version"
+  | "settings.about.releaseChannel.label"
+  | "settings.about.releaseChannel.description"
+  | "settings.about.releaseChannel.development"
+  | "settings.about.releaseChannel.alpha"
+  | "settings.about.releaseChannel.stable"
+  | "settings.about.releaseChannel.test"
+  | "settings.about.updates.label"
+  | "settings.about.updates.description"
+  | "settings.about.updates.notAvailable"
+  | "settings.about.updates.manualInstall"
+  | "settings.about.systemStatus.label"
+  | "settings.about.systemStatus.description"
+  | "settings.about.systemStatus.basicOnly"
+  | "settings.about.systemStatus.developerDiagnostics"
+  | "settings.about.legal.label"
+  | "settings.about.legal.description"
+  | "settings.about.legal.notBundled"
+  | "settings.about.safeViewing.label"
+  | "settings.about.safeViewing.description"
+  | "settings.about.keywords.about"
+  | "settings.about.keywords.update"
+  | "settings.about.keywords.version"
+  | "settings.about.keywords.status"
+  | "settings.about.keywords.legal"
+  | "settings.about.keywords.privacy"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -782,6 +816,49 @@ export const settingsV2Copy: Record<
     "settings.notifications.keywords.windows": "Windows notifications",
     "settings.notifications.keywords.privacy": "privacy",
     "settings.notifications.keywords.sensitive": "sensitive content",
+    "settings.about.title": "About & Updates",
+    "settings.about.description":
+      "Review the Jarvis-K Alpha version, release channel, update availability, and safe system summary.",
+    "settings.about.section.product": "Product information",
+    "settings.about.section.updates": "Updates",
+    "settings.about.section.status": "System status",
+    "settings.about.section.legal": "Legal information",
+    "settings.about.productIdentity.label": "Application",
+    "settings.about.productIdentity.description":
+      "Shows the trusted product name and installed version.",
+    "settings.about.productIdentity.version": "Version",
+    "settings.about.releaseChannel.label": "Release channel",
+    "settings.about.releaseChannel.description":
+      "Shows which release channel this app was built for.",
+    "settings.about.releaseChannel.development": "Development",
+    "settings.about.releaseChannel.alpha": "Alpha",
+    "settings.about.releaseChannel.stable": "Stable",
+    "settings.about.releaseChannel.test": "Test",
+    "settings.about.updates.label": "In-app updates",
+    "settings.about.updates.description":
+      "This Alpha does not support in-app updates.",
+    "settings.about.updates.notAvailable": "Not available in this Alpha",
+    "settings.about.updates.manualInstall":
+      "Install updates only from a trusted release candidate.",
+    "settings.about.systemStatus.label": "System status",
+    "settings.about.systemStatus.description":
+      "Shows only the safe summary ordinary users need.",
+    "settings.about.systemStatus.basicOnly": "Basic status summary",
+    "settings.about.systemStatus.developerDiagnostics":
+      "Detailed diagnostics are hidden from ordinary settings.",
+    "settings.about.legal.label": "Legal notices",
+    "settings.about.legal.description":
+      "Formal legal notices and third-party notices are not bundled in this Alpha.",
+    "settings.about.legal.notBundled": "Not bundled in this Alpha",
+    "settings.about.safeViewing.label": "Safe viewing",
+    "settings.about.safeViewing.description":
+      "Opening this page does not check for updates, open links, export logs, write to the clipboard, restart Jarvis, or send network requests.",
+    "settings.about.keywords.about": "about",
+    "settings.about.keywords.update": "updates",
+    "settings.about.keywords.version": "version",
+    "settings.about.keywords.status": "system status",
+    "settings.about.keywords.legal": "legal notices",
+    "settings.about.keywords.privacy": "privacy",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -789,7 +866,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, Memory & Privacy, and Notifications settings.",
+      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, Memory & Privacy, Notifications, and About & Updates settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -1194,6 +1271,48 @@ export const settingsV2Copy: Record<
     "settings.notifications.keywords.windows": "Windows 通知",
     "settings.notifications.keywords.privacy": "隐私",
     "settings.notifications.keywords.sensitive": "敏感内容",
+    "settings.about.title": "关于与更新",
+    "settings.about.description":
+      "查看 Jarvis-K Alpha 的版本、发布渠道、更新状态和安全状态摘要。",
+    "settings.about.section.product": "产品信息",
+    "settings.about.section.updates": "更新",
+    "settings.about.section.status": "系统状态",
+    "settings.about.section.legal": "法律信息",
+    "settings.about.productIdentity.label": "应用",
+    "settings.about.productIdentity.description":
+      "显示可信的产品名称和已安装版本。",
+    "settings.about.productIdentity.version": "版本",
+    "settings.about.releaseChannel.label": "发布渠道",
+    "settings.about.releaseChannel.description":
+      "显示当前应用面向的发布渠道。",
+    "settings.about.releaseChannel.development": "开发版",
+    "settings.about.releaseChannel.alpha": "Alpha",
+    "settings.about.releaseChannel.stable": "正式版",
+    "settings.about.releaseChannel.test": "测试版",
+    "settings.about.updates.label": "应用内更新",
+    "settings.about.updates.description": "当前 Alpha 不支持应用内更新。",
+    "settings.about.updates.notAvailable": "当前 Alpha 暂不可用",
+    "settings.about.updates.manualInstall":
+      "仅从可信的发布候选安装更新。",
+    "settings.about.systemStatus.label": "系统状态",
+    "settings.about.systemStatus.description":
+      "这里只显示普通用户需要的安全摘要。",
+    "settings.about.systemStatus.basicOnly": "基础状态摘要",
+    "settings.about.systemStatus.developerDiagnostics":
+      "完整诊断信息不会显示在普通设置中。",
+    "settings.about.legal.label": "法律说明",
+    "settings.about.legal.description":
+      "正式法律说明和第三方声明尚未打包进当前 Alpha。",
+    "settings.about.legal.notBundled": "当前 Alpha 尚未包含",
+    "settings.about.safeViewing.label": "安全查看",
+    "settings.about.safeViewing.description":
+      "打开此页面不会检查更新、打开链接、导出日志、写入剪贴板、重启 Jarvis 或发送网络请求。",
+    "settings.about.keywords.about": "关于",
+    "settings.about.keywords.update": "更新",
+    "settings.about.keywords.version": "版本",
+    "settings.about.keywords.status": "系统状态",
+    "settings.about.keywords.legal": "法律说明",
+    "settings.about.keywords.privacy": "隐私",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
@@ -1201,7 +1320,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
     "settings.search.noResultsDescription":
-      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件、记忆与隐私、通知设置。",
+      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件、记忆与隐私、通知、关于与更新设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

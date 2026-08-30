@@ -1,0 +1,1448 @@
+[
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\signal-about-wide.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "signal-about-wide",
+      "locale": "en",
+      "theme": "signal",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 7.875,
+          "width": 240,
+          "height": 1133.40625,
+          "top": 7.875,
+          "right": 406,
+          "bottom": 1141.28125,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 549.953125,
+        "y": 23.875,
+        "width": 680.078125,
+        "height": 27.5,
+        "top": 23.875,
+        "right": 1230.03125,
+        "bottom": 51.375,
+        "left": 549.953125,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 431,
+        "y": 670.59375,
+        "width": 918,
+        "height": 64,
+        "top": 670.59375,
+        "right": 1349,
+        "bottom": 734.59375,
+        "left": 431,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 430,
+        "y": 970.4375,
+        "width": 920,
+        "height": 138.84375,
+        "top": 970.4375,
+        "right": 1350,
+        "bottom": 1109.28125,
+        "left": 430,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\harbor-about-wide.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "harbor-about-wide",
+      "locale": "en",
+      "theme": "harbor",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 7.875,
+          "width": 240,
+          "height": 1133.40625,
+          "top": 7.875,
+          "right": 406,
+          "bottom": 1141.28125,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 549.953125,
+        "y": 23.875,
+        "width": 680.078125,
+        "height": 27.5,
+        "top": 23.875,
+        "right": 1230.03125,
+        "bottom": 51.375,
+        "left": 549.953125,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 431,
+        "y": 670.59375,
+        "width": 918,
+        "height": 64,
+        "top": 670.59375,
+        "right": 1349,
+        "bottom": 734.59375,
+        "left": 431,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 430,
+        "y": 970.4375,
+        "width": 920,
+        "height": 138.84375,
+        "top": 970.4375,
+        "right": 1350,
+        "bottom": 1109.28125,
+        "left": 430,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\ember-about-wide.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "ember-about-wide",
+      "locale": "en",
+      "theme": "ember",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 7.875,
+          "width": 240,
+          "height": 1133.40625,
+          "top": 7.875,
+          "right": 406,
+          "bottom": 1141.28125,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 549.953125,
+        "y": 23.875,
+        "width": 680.078125,
+        "height": 27.5,
+        "top": 23.875,
+        "right": 1230.03125,
+        "bottom": 51.375,
+        "left": 549.953125,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 431,
+        "y": 670.59375,
+        "width": 918,
+        "height": 64,
+        "top": 670.59375,
+        "right": 1349,
+        "bottom": 734.59375,
+        "left": 431,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 430,
+        "y": 970.4375,
+        "width": 920,
+        "height": 138.84375,
+        "top": 970.4375,
+        "right": 1350,
+        "bottom": 1109.28125,
+        "left": 430,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\zh-about-wide.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "zh-about-wide",
+      "locale": "zh",
+      "theme": "harbor",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 7.875,
+          "width": 240,
+          "height": 1070.40625,
+          "top": 7.875,
+          "right": 406,
+          "bottom": 1078.28125,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 652.3125,
+        "y": 23.875,
+        "width": 475.375,
+        "height": 27.5,
+        "top": 23.875,
+        "right": 1127.6875,
+        "bottom": 51.375,
+        "left": 652.3125,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 431,
+        "y": 646.59375,
+        "width": 918,
+        "height": 44.5,
+        "top": 646.59375,
+        "right": 1349,
+        "bottom": 691.09375,
+        "left": 431,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 430,
+        "y": 907.4375,
+        "width": 920,
+        "height": 138.84375,
+        "top": 907.4375,
+        "right": 1350,
+        "bottom": 1046.28125,
+        "left": 430,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\en-about-narrow.png",
+      "dimensions": {
+        "width": 390,
+        "height": 980
+      }
+    },
+    "diagnostics": {
+      "name": "en-about-narrow",
+      "locale": "en",
+      "theme": "harbor",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 390,
+          "height": 980
+        },
+        "actualBrowserWindowContentSize": [
+          904,
+          980
+        ]
+      },
+      "innerWidth": 390,
+      "innerHeight": 980,
+      "outerWidth": 920,
+      "outerHeight": 1019,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 390,
+        "height": 980,
+        "scale": 1
+      },
+      "documentClientWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "block",
+        "rect": {
+          "x": 80,
+          "y": 102.625,
+          "width": 298,
+          "height": 70,
+          "top": 102.625,
+          "right": 378,
+          "bottom": 172.625,
+          "left": 80,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 80,
+        "y": 204.625,
+        "width": 298,
+        "height": 27.5,
+        "top": 204.625,
+        "right": 378,
+        "bottom": 232.125,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 81,
+        "y": 1103.40625,
+        "width": 296,
+        "height": 64,
+        "top": 1103.40625,
+        "right": 377,
+        "bottom": 1167.40625,
+        "left": 81,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 80,
+        "y": 1462.09375,
+        "width": 298,
+        "height": 197.6875,
+        "top": 1462.09375,
+        "right": 378,
+        "bottom": 1659.78125,
+        "left": 80,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\zh-about-narrow.png",
+      "dimensions": {
+        "width": 390,
+        "height": 980
+      }
+    },
+    "diagnostics": {
+      "name": "zh-about-narrow",
+      "locale": "zh",
+      "theme": "harbor",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 390,
+          "height": 980
+        },
+        "actualBrowserWindowContentSize": [
+          904,
+          980
+        ]
+      },
+      "innerWidth": 390,
+      "innerHeight": 980,
+      "outerWidth": 920,
+      "outerHeight": 1019,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 390,
+        "height": 980,
+        "scale": 1
+      },
+      "documentClientWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "block",
+        "rect": {
+          "x": 80,
+          "y": 103.25,
+          "width": 298,
+          "height": 70,
+          "top": 103.25,
+          "right": 378,
+          "bottom": 173.25,
+          "left": 80,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 80,
+        "y": 205.25,
+        "width": 298,
+        "height": 27.5,
+        "top": 205.25,
+        "right": 378,
+        "bottom": 232.75,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 81,
+        "y": 1019.15625,
+        "width": 296,
+        "height": 44.5,
+        "top": 1019.15625,
+        "right": 377,
+        "bottom": 1063.65625,
+        "left": 81,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 80,
+        "y": 1320,
+        "width": 298,
+        "height": 197.6875,
+        "top": 1320,
+        "right": 378,
+        "bottom": 1517.6875,
+        "left": 80,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\about-search-en.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "about-search-en",
+      "locale": "en",
+      "theme": "harbor",
+      "query": "about",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "searchState": {
+        "query": "about",
+        "resultText": "1 resultsAbout & Updates / Product informationApplicationShows the trusted product name and installed version.Current value: Jarvis-K",
+        "sideEffects": {
+          "updateCheckCalls": 0,
+          "externalOpenCalls": 0,
+          "diagnosticsExportCalls": 0,
+          "clipboardWriteCalls": 0,
+          "appRestartCalls": 0,
+          "fetchCalls": 0,
+          "realNetworkRequestSent": 0,
+          "mediaCalls": 0,
+          "notificationShowCalls": 0,
+          "windowsExecutorInvoked": 0,
+          "modelCallStarted": 0,
+          "pluginInvocationStarted": 0
+        }
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 478.875,
+          "width": 240,
+          "height": 348,
+          "top": 478.875,
+          "right": 406,
+          "bottom": 826.875,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": null,
+      "updateCard": null,
+      "legalCard": null,
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\about-search-zh.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "about-search-zh",
+      "locale": "zh",
+      "theme": "harbor",
+      "query": "关于",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "searchState": {
+        "query": "关于",
+        "resultText": "1 条结果关于与更新 / 产品信息应用显示可信的产品名称和已安装版本。当前值: Jarvis-K",
+        "sideEffects": {
+          "updateCheckCalls": 0,
+          "externalOpenCalls": 0,
+          "diagnosticsExportCalls": 0,
+          "clipboardWriteCalls": 0,
+          "appRestartCalls": 0,
+          "fetchCalls": 0,
+          "realNetworkRequestSent": 0,
+          "mediaCalls": 0,
+          "notificationShowCalls": 0,
+          "windowsExecutorInvoked": 0,
+          "modelCallStarted": 0,
+          "pluginInvocationStarted": 0
+        }
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 478.875,
+          "width": 240,
+          "height": 348,
+          "top": 478.875,
+          "right": 406,
+          "bottom": 826.875,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": null,
+      "updateCard": null,
+      "legalCard": null,
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\updates-search-en.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "updates-search-en",
+      "locale": "en",
+      "theme": "harbor",
+      "query": "updates",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "searchState": {
+        "query": "updates",
+        "resultText": "2 resultsAbout & Updates / UpdatesIn-app updatesThis Alpha does not support in-app updates.Current value: Not available in this AlphaAbout & Updates / System statusSafe viewingOpening this page does not check for updates, open links, export logs, write to the clipboard, restart Jarvis, or send network requests.",
+        "sideEffects": {
+          "updateCheckCalls": 0,
+          "externalOpenCalls": 0,
+          "diagnosticsExportCalls": 0,
+          "clipboardWriteCalls": 0,
+          "appRestartCalls": 0,
+          "fetchCalls": 0,
+          "realNetworkRequestSent": 0,
+          "mediaCalls": 0,
+          "notificationShowCalls": 0,
+          "windowsExecutorInvoked": 0,
+          "modelCallStarted": 0,
+          "pluginInvocationStarted": 0
+        }
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 478.875,
+          "width": 240,
+          "height": 348,
+          "top": 478.875,
+          "right": 406,
+          "bottom": 826.875,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": null,
+      "updateCard": null,
+      "legalCard": null,
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\about-search-empty.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "about-search-empty",
+      "locale": "en",
+      "theme": "harbor",
+      "query": "zz-about-empty",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "searchState": {
+        "query": "zz-about-empty",
+        "resultText": "0 resultsNo matching settingsSearch currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, Memory & Privacy, Notifications, and About & Updates settings.",
+        "sideEffects": {
+          "updateCheckCalls": 0,
+          "externalOpenCalls": 0,
+          "diagnosticsExportCalls": 0,
+          "clipboardWriteCalls": 0,
+          "appRestartCalls": 0,
+          "fetchCalls": 0,
+          "realNetworkRequestSent": 0,
+          "mediaCalls": 0,
+          "notificationShowCalls": 0,
+          "windowsExecutorInvoked": 0,
+          "modelCallStarted": 0,
+          "pluginInvocationStarted": 0
+        }
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 478.875,
+          "width": 240,
+          "height": 348,
+          "top": 478.875,
+          "right": 406,
+          "bottom": 826.875,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": null,
+      "updateCard": null,
+      "legalCard": null,
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\harbor-about-zoom200-top.png",
+      "dimensions": {
+        "width": 904,
+        "height": 980
+      }
+    },
+    "diagnostics": {
+      "name": "harbor-about-zoom200-top",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 904,
+          "height": 980
+        },
+        "actualBrowserWindowContentSize": [
+          904,
+          980
+        ]
+      },
+      "zoomFactor": 2,
+      "innerWidth": 452,
+      "innerHeight": 490,
+      "outerWidth": 920,
+      "outerHeight": 1019,
+      "devicePixelRatio": 2,
+      "visualViewport": {
+        "width": 452,
+        "height": 490,
+        "scale": 1
+      },
+      "documentClientWidth": 452,
+      "documentScrollWidth": 452,
+      "bodyClientWidth": 452,
+      "bodyScrollWidth": 452,
+      "scrollX": 0,
+      "scrollY": 130,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "block",
+        "rect": {
+          "x": 80,
+          "y": 102.9765625,
+          "width": 360,
+          "height": 70.5,
+          "top": 102.9765625,
+          "right": 440,
+          "bottom": 173.4765625,
+          "left": 80,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 80,
+        "y": 205.4765625,
+        "width": 360,
+        "height": 27.5,
+        "top": 205.4765625,
+        "right": 440,
+        "bottom": 232.9765625,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 81,
+        "y": 1043.3984375,
+        "width": 358,
+        "height": 44.5,
+        "top": 1043.3984375,
+        "right": 439,
+        "bottom": 1087.8984375,
+        "left": 81,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 80,
+        "y": 1344.2421875,
+        "width": 360,
+        "height": 197.6875,
+        "top": 1344.2421875,
+        "right": 440,
+        "bottom": 1541.9296875,
+        "left": 80,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\harbor-about-zoom200-bottom.png",
+      "dimensions": {
+        "width": 904,
+        "height": 980
+      }
+    },
+    "diagnostics": {
+      "name": "harbor-about-zoom200-bottom",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 904,
+          "height": 980
+        },
+        "actualBrowserWindowContentSize": [
+          904,
+          980
+        ]
+      },
+      "zoomFactor": 2,
+      "innerWidth": 452,
+      "innerHeight": 490,
+      "outerWidth": 920,
+      "outerHeight": 1019,
+      "devicePixelRatio": 2,
+      "visualViewport": {
+        "width": 452,
+        "height": 490,
+        "scale": 1
+      },
+      "documentClientWidth": 452,
+      "documentScrollWidth": 452,
+      "bodyClientWidth": 452,
+      "bodyScrollWidth": 452,
+      "scrollX": 0,
+      "scrollY": 130,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "block",
+        "rect": {
+          "x": 80,
+          "y": -908.5234375,
+          "width": 360,
+          "height": 70.5,
+          "top": -908.5234375,
+          "right": 440,
+          "bottom": -838.0234375,
+          "left": 80,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 80,
+        "y": -806.0234375,
+        "width": 360,
+        "height": 27.5,
+        "top": -806.0234375,
+        "right": 440,
+        "bottom": -778.5234375,
+        "left": 80,
+        "intersectsViewport": false,
+        "horizontallyWithinViewport": true
+      },
+      "updateCard": {
+        "x": 81,
+        "y": 31.8984375,
+        "width": 358,
+        "height": 44.5,
+        "top": 31.8984375,
+        "right": 439,
+        "bottom": 76.3984375,
+        "left": 81,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "legalCard": {
+        "x": 80,
+        "y": 332.7421875,
+        "width": 360,
+        "height": 197.6875,
+        "top": 332.7421875,
+        "right": 440,
+        "bottom": 530.4296875,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\gate-off-legacy-about.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "gate-off-legacy-about",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "state": {
+        "settingsV2Mounted": false,
+        "legacyText": "\n    JKJARVIS-KPHASE 1 / SUPERVISED RUNTIMEPROTOCOL V1ONLINESettingsSystem status: ready / Memory: offSettings view activeLOCAL CONTRACTSettingsSettings view active[data-radix-scroll-area-viewport]{scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;}[data-radix-scroll-area-viewport]::-webkit-scrollbar{display:none}LanguageCurrent UI language中文ENThemeCurrent skin theme: HarborSignalDark control-room baselineHarborLight operations workspaceEmberWarm focus consoleTheme Schemabuiltin_theme_schema_v1Local persistenceDesktop Settings ServiceDefault recoverysignalNo executable skin codeyesGeneralLOCALCORE HEALTHreadyRUNTIME MODEstandardTRANSPORTIPCINSPECTORhiddenSEQUENCE0003Cloud TTSNot configuredLocal result playbackDisabledClose button behaviorMinimize to system trayQuit Jarvis-KPersistencelocal onlyLaunch at loginStart Jarvis-K Alpha when you sign in to Windows.RequestedOFFWindows registrationOFFAvailabilitypackaged alpha onlyStatusLOGIN_ITEM_UNSUPPORTED_RELEASE_CHANNELRetryDesktop PetShow Desktop PetLocal floating assistant; no microphone, executor, plugins, or memory access.Keep Pet on topMotion: systemMotion: onMotion: offReset Pet PositionPersistencelocal onlyDeveloper ModeProduct mode hides diagnostics and evaluation tools.Evaluation capabilityoffCommand Routerdefault offProviderintent-router.deterministic.rulesModeproduction rulesRuntimedisabledDirect actiondisabledQwen runtimedisabledChat fallbackpreservedQwen Fast RouterdisabledProviderintent-router.qwen3-0.6bBindingno runtime status onlyProduct routingoffConversation routedisabledRoute selectablenot selectablePersistent opt-indisabledSession scopelimitedRuntime accessnot accessedArtifact accessnot accessedCache changenoneActivationdisabledRollbacknot neededActivation policyqwen-product-routing.activation.default-off.v1product route offsafe rollbackpolicy reviewedreadiness passedno-runtime bindingcore fallbacksafety gatesrules activeexplicit enablementartifact digestlifecycle readinessgeneration portselection policyfallback preservedRetained Qwen session controlblocked / unavailable / stoppedSessionqwen-retained-product-session-2026-08-10Route sourceintent-router.deterministic.rulesFallbackintent-router.deterministic.rulesRoute limit3Route count0Helper starts0Gen probes0ShutdownverifiedBrowser/URLblockedVS CodeblockedStartStopRollbackdefault offexplicit opt-indeterministic fallbackNotepad/Calculator onlyDeterministic router controlDefault off; existing Chat Answer and BrainCommand behavior is preserved.Production-safe deterministic rules surface: Qwen is status-only with no runtime, helper, artifact, cache, or provider call, and no browser execution. Approved local app launches remain Notepad/Calculator only after confirmation.Chat Answerdefault offProviderchat-answer.openai-compatible.deepseekProfiledeepseek.v4-flash.compact_json_object_256CredentialmissingRuntimecredential missingSecure storeavailableFallbackpreservedProvider-backed answer controlDefault off; typed answers continue through the existing safe path.Controlled surface: default off; one approved provider call only after explicit enablement and credential readiness; no planner, no Memory vector retrieval, and no direct action behavior.VoiceunknownVoice ServiceNot configuredRecognition Language中文MIC CAPTUREidleVOICE ENGINEidleVOICE MODEdisabledMIC PERMISSIONunknownVOICE FRAMES0Voice SettingsTTS SettingsMemory AlphaALPHA STATEdisabledTRACKED0/5ROLLBACKnot_startedREASONmemory alpha opt in missing\n  \n\n",
+        "sideEffects": {
+          "updateCheckCalls": 0,
+          "externalOpenCalls": 0,
+          "diagnosticsExportCalls": 0,
+          "clipboardWriteCalls": 0,
+          "appRestartCalls": 0,
+          "fetchCalls": 0,
+          "realNetworkRequestSent": 0,
+          "mediaCalls": 0,
+          "notificationShowCalls": 0,
+          "windowsExecutorInvoked": 0,
+          "modelCallStarted": 0,
+          "pluginInvocationStarted": 0
+        }
+      }
+    }
+  }
+]

@@ -164,6 +164,8 @@ P3:
 
 ## Next Stage
 
+Phase UI-2H status: Settings V2 About & Updates is implemented as a read-only Product slice behind the existing development-only Settings V2 gate; default Settings V2 remains off.
+
 Recommended next implementation order:
 
 Phase 4B-3 Skin Contract requirement:

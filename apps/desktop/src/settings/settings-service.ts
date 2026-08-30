@@ -8,6 +8,7 @@ import {
   DesktopPetReducedMotionSchema,
   DesktopSettingsSchema,
   DesktopUiThemeSchema,
+  ProductAboutInfoSchema,
 } from "@jarvis-k/contracts";
 import type {
   DesktopCloseButtonBehavior,
@@ -17,6 +18,7 @@ import type {
   DesktopSettingsSetResult,
   DesktopPetSettings,
   DesktopPetPosition,
+  ProductAboutInfo,
   UiSurfaceCapabilityStatus,
 } from "@jarvis-k/contracts";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -42,6 +44,8 @@ export interface SettingsServiceOptions {
   settingsV2EnvRequested?: boolean;
   settingsV2ReleaseAllowed?: boolean;
   releaseChannel?: "development" | "alpha" | "stable" | "test";
+  productName?: string;
+  productVersion?: string;
   desktopSettingsPath?: string;
 }
 
@@ -93,6 +97,30 @@ export class SettingsService {
     ) ?? createUnavailableLaunchAtLoginStatus(
       this.desktopSettings.launchAtLoginEnabled,
     );
+  }
+
+  public getProductAboutInfo(): ProductAboutInfo {
+    return ProductAboutInfoSchema.parse({
+      productName:
+        typeof this.options.productName === "string" &&
+        this.options.productName.trim().length > 0
+          ? this.options.productName.trim()
+          : "Jarvis-K",
+      version:
+        typeof this.options.productVersion === "string" &&
+        this.options.productVersion.trim().length > 0
+          ? this.options.productVersion.trim()
+          : "0.0.0",
+      releaseChannel: this.options.releaseChannel ?? "development",
+      inAppUpdatesSupported: false,
+      updateCheckAvailable: false,
+      externalLinksAvailable: false,
+      diagnosticsExportAvailable: false,
+      networkRequestRequired: false,
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    });
   }
 
   public setDesktopCloseButtonBehavior(

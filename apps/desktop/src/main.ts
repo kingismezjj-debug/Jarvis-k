@@ -367,6 +367,8 @@ if (!hasSingleInstanceLock) {
       settingsV2EnvRequested,
       settingsV2ReleaseAllowed,
       releaseChannel: storageProfile.releaseChannel,
+      productName: storageProfile.productName,
+      productVersion: app.getVersion(),
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
     petController = new DesktopPetController({

@@ -38,6 +38,7 @@ import {
   IPC_DESKTOP_SETTINGS_SET_CHANNEL,
   IPC_DESKTOP_SETTINGS_STATUS_CHANNEL,
   IPC_DESKTOP_UI_ACTION_CHANNEL,
+  IPC_PRODUCT_ABOUT_INFO_CHANNEL,
   IPC_EVENT_CHANNEL,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_DELETE_CHANNEL,
   IPC_GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_SAVE_CHANNEL,
@@ -87,6 +88,7 @@ import {
   PetSkinStudioOpenExportFolderRequestSchema,
   PetSkinStudioResultSchema,
   PetSkinStudioSelectAssetRequestSchema,
+  ProductAboutInfoSchema,
   GlmAdvancedBrainAcceptanceCommandResultSchema,
   GlmAdvancedBrainAcceptanceConsentRequestSchema,
   GlmAdvancedBrainAcceptanceDiagnosticReportSchema,
@@ -164,6 +166,10 @@ const bridge: JarvisBridge = {
   getDesktopLaunchAtLoginStatus: async () =>
     DesktopLaunchAtLoginStatusSchema.parse(
       await ipcRenderer.invoke(IPC_DESKTOP_LAUNCH_AT_LOGIN_STATUS_CHANNEL)
+    ),
+  getProductAboutInfo: async () =>
+    ProductAboutInfoSchema.parse(
+      await ipcRenderer.invoke(IPC_PRODUCT_ABOUT_INFO_CHANNEL)
     ),
   setDesktopUiTheme: async (theme: DesktopUiTheme) =>
     DesktopSettingsSetResultSchema.parse(

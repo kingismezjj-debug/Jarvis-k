@@ -13,6 +13,7 @@ import type {
   ModelInventoryItem,
   ModelManifest,
   PluginManagementStatusResult,
+  ProductAboutInfo,
   ResourceSchedulerDiagnostics,
 } from "@jarvis-k/contracts";
 
@@ -180,6 +181,20 @@ const pluginManagementStatus = {
   },
 } as unknown as PluginManagementStatusResult;
 
+const productAboutInfo: ProductAboutInfo = {
+  productName: "Jarvis-K Alpha",
+  version: "0.1.0-alpha.4",
+  releaseChannel: "alpha",
+  inAppUpdatesSupported: false,
+  updateCheckAvailable: false,
+  externalLinksAvailable: false,
+  diagnosticsExportAvailable: false,
+  networkRequestRequired: false,
+  source: "desktop-main",
+  sensitiveValuesExposed: false,
+  rendererWritable: false,
+};
+
 function renderView(
   props: Partial<React.ComponentProps<typeof SettingsV2GeneralView>> = {},
 ): string {
@@ -199,6 +214,7 @@ function renderView(
       onSetDesktopPetReducedMotion={vi.fn()}
       onResetDesktopPetPosition={vi.fn()}
       petSkinRegistry={null}
+      productAboutInfo={productAboutInfo}
       sending={false}
       {...props}
     />,
@@ -227,7 +243,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Jarvis Control Center");
     expect(html).toContain("Available in this preview");
     expect(html).toContain("Tools &amp; Plugins");
-    expect(html).toContain("Still in legacy settings");
+    expect(html).toContain("All ordinary settings categories have moved");
     expect(html).toContain("Memory &amp; Privacy");
     expect(html).toContain("Display language");
     expect(html).toContain("English");
@@ -243,7 +259,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Jarvis 控制中心");
     expect(html).toContain("当前预览已开放");
     expect(html).toContain("工具与插件");
-    expect(html).toContain("仍使用旧版设置");
+    expect(html).toContain("所有普通设置分类均已迁移");
     expect(html).toContain("界面语言");
     expect(html).toContain("中文（简体）");
     expect(html).toContain("关闭主窗口时");
@@ -835,6 +851,67 @@ describe("Settings V2 General view", () => {
     ).toBeUndefined();
   });
 
+  it("renders About & Updates from Desktop Main product information only", () => {
+    const html = renderView({ initialCategoryId: "about_updates" });
+    expect(html).toContain("About &amp; Updates");
+    expect(html).toContain("Jarvis-K Alpha");
+    expect(html).toContain("Version: 0.1.0-alpha.4");
+    expect(html).toContain("Release channel");
+    expect(html).toContain("Alpha");
+    expect(html).toContain("In-app updates");
+    expect(html).toContain("Not available in this Alpha");
+    expect(html).toContain("Basic status summary");
+    expect(html).toContain("Detailed diagnostics are hidden from ordinary settings.");
+    expect(html).toContain("Not bundled in this Alpha");
+    expect(html).toContain("Opening this page does not check for updates");
+    for (const forbidden of [
+      "Check for updates",
+      "autoUpdater",
+      "electron-updater",
+      "openExternal",
+      "AppUserModelID",
+      "Git SHA",
+      "commit hash",
+      "protocol handler",
+      "diagnostics export",
+      "C:\\",
+      "credential",
+      "Authorization",
+      "Bearer",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("includes About & Updates in product search without exposing action values", () => {
+    const results = getSettingsV2SearchResultsForProduct({
+      query: "update",
+      locale: "en",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+      productAboutInfo,
+    });
+
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    expect(
+      results.every(
+        ({ definition }) => definition.categoryId === "about_updates",
+      ),
+    ).toBe(true);
+    expect(
+      results.find(
+        ({ definition }) => definition.settingBindingId === "about.updates",
+      )?.value,
+    ).toBe("Not available in this Alpha");
+    expect(
+      results.find(
+        ({ definition }) => definition.settingBindingId === "about.safe_viewing",
+      )?.value,
+    ).toBeUndefined();
+  });
+
   it("renders Models & Intelligence from existing safe model projections", () => {
     const html = renderView({
       initialCategoryId: "models_intelligence",
@@ -1155,6 +1232,7 @@ describe("Settings V2 General view", () => {
       "settings-v2-memory-view-model.ts",
       "settings-v2-tools-view-model.ts",
       "settings-v2-notifications-view-model.ts",
+      "settings-v2-about-view-model.ts",
     ]
       .map((file) => readFileSync(path.join(featureDirectory, file), "utf8"))
       .join("\n");

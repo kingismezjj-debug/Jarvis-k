@@ -31,6 +31,7 @@ import {
   type MemoryAlphaStatus,
   type LocalPluginManifestDeveloperStatusResult,
   type PluginManagementStatusResult,
+  type ProductAboutInfo,
   type QwenRuntimeControlStatus,
   type TtsServiceStatus,
   type UserControlledMemoryRecord,
@@ -105,6 +106,8 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     useState<DesktopSettings | null>(null);
   const [desktopLaunchAtLoginStatus, setDesktopLaunchAtLoginStatus] =
     useState<DesktopLaunchAtLoginStatus | null>(null);
+  const [productAboutInfo, setProductAboutInfo] =
+    useState<ProductAboutInfo | null>(null);
   const [
     glmAdvancedBrainAcceptanceStatus,
     setGlmAdvancedBrainAcceptanceStatus,
@@ -392,6 +395,21 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       return true;
     } catch {
       setError("Desktop settings are unavailable.");
+      return false;
+    }
+  }, []);
+
+  const refreshProductAboutInfo = useCallback(async () => {
+    if (!window.jarvis?.getProductAboutInfo) {
+      setProductAboutInfo(null);
+      return false;
+    }
+    try {
+      setProductAboutInfo(await window.jarvis.getProductAboutInfo());
+      return true;
+    } catch {
+      setProductAboutInfo(null);
+      setError("Product information is unavailable.");
       return false;
     }
   }, []);
@@ -1079,6 +1097,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       setVoiceServiceStatus(null);
       setTtsServiceStatus(null);
       void refreshDesktopSettings();
+      void refreshProductAboutInfo();
       void refreshChatAnswerProductModeStatus();
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
@@ -1103,6 +1122,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       void refreshVoiceServiceStatus();
       void refreshTtsServiceStatus();
       void refreshDesktopSettings();
+      void refreshProductAboutInfo();
       void refreshChatAnswerProductModeStatus();
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
@@ -1125,6 +1145,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     void refreshVoiceServiceStatus();
     void refreshTtsServiceStatus();
     void refreshDesktopSettings();
+    void refreshProductAboutInfo();
     void refreshChatAnswerProductModeStatus();
     void refreshCommandRouterProductModeStatus();
     void refreshPlugins();
@@ -1153,6 +1174,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     refreshCloudProviderAcceptancePreflightProjection,
     refreshCloudProviderAcceptanceStatus,
     refreshDesktopSettings,
+    refreshProductAboutInfo,
     evaluationSurfaceEnabled,
     refreshPlugins,
     refreshQwenRuntimeControlStatus,
@@ -1183,6 +1205,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     error,
     desktopSettings,
     desktopLaunchAtLoginStatus,
+    productAboutInfo,
     createConversation,
     disableMemoryAlpha,
     events,
@@ -1214,6 +1237,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     refreshCloudProviderAcceptanceStatus,
     refreshGlmAdvancedBrainAcceptanceStatus,
     refreshDesktopSettings,
+    refreshProductAboutInfo,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshLocalPluginManifestDeveloperStatus,
