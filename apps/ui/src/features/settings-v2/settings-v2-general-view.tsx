@@ -8,6 +8,7 @@ import type {
   DesktopSettings,
   InferenceProviderConfigurationReport,
   InferenceProviderDescriptor,
+  MemoryAlphaStatus,
   ModelInventoryItem,
   ModelManifest,
   ModelOperationSnapshot,
@@ -54,6 +55,7 @@ import {
   type SettingsV2Locale,
 } from "./settings-v2-copy";
 import { formatSettingsV2MigrationSummary } from "./settings-v2-migration-summary";
+import { buildSettingsV2MemoryPrivacyProductViewModel } from "./settings-v2-memory-view-model";
 import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
 import { buildSettingsV2ToolsPluginsProductViewModel } from "./settings-v2-tools-view-model";
 import "./settings-v2.css";
@@ -100,6 +102,8 @@ export type SettingsV2GeneralViewProps = {
   onSetChatAnswerProductModeEnabled?: (enabled: boolean) => void;
   pluginManagementStatus?: PluginManagementStatusResult | null;
   onOpenPluginManagement?: () => void;
+  memoryAlphaStatus?: MemoryAlphaStatus | null;
+  onOpenMemoryCenter?: () => void;
   initialCategoryId?: SettingsV2CategoryId;
 };
 
@@ -350,6 +354,9 @@ function getSectionLabel(
     tools_files: "settings.tools.section.files",
     tools_plugins: "settings.tools.section.plugins",
     tools_mcp: "settings.tools.section.mcp",
+    memory_personal: "settings.memory.section.personal",
+    memory_saved: "settings.memory.section.saved",
+    memory_storage: "settings.memory.section.storage",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -375,6 +382,7 @@ function getDefinitionValue({
   modelOperations,
   resourceDiagnostics,
   pluginManagementStatus,
+  memoryAlphaStatus,
 }: {
   definition: SettingsV2Definition;
   desktopSettings: DesktopSettings | null;
@@ -396,6 +404,7 @@ function getDefinitionValue({
   modelOperations?: ModelOperationSnapshot[];
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
   pluginManagementStatus?: PluginManagementStatusResult | null;
+  memoryAlphaStatus?: MemoryAlphaStatus | null;
 }): string {
   const modelsViewModel = buildSettingsV2ModelsProductViewModel({
     chatAnswerProductModeStatus,
@@ -411,6 +420,10 @@ function getDefinitionValue({
   const toolsViewModel = buildSettingsV2ToolsPluginsProductViewModel({
     locale,
     pluginManagementStatus,
+  });
+  const memoryViewModel = buildSettingsV2MemoryPrivacyProductViewModel({
+    locale,
+    memoryAlphaStatus,
   });
   if (definition.settingBindingId === "ui.language") {
     return getLanguageLabel(locale, locale);
@@ -502,6 +515,15 @@ function getDefinitionValue({
   if (definition.settingBindingId === "tools.mcp_connections") {
     return toolsViewModel.mcpConnections.value;
   }
+  if (definition.settingBindingId === "memory.personal_memory") {
+    return memoryViewModel.personalMemory.value;
+  }
+  if (definition.settingBindingId === "memory.saved_information") {
+    return memoryViewModel.savedInformation.value;
+  }
+  if (definition.settingBindingId === "memory.storage_sync") {
+    return memoryViewModel.storageSync.value;
+  }
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
@@ -526,6 +548,7 @@ function getSearchResults({
   modelOperations,
   resourceDiagnostics,
   pluginManagementStatus,
+  memoryAlphaStatus,
 }: {
   query: string;
   locale: SettingsV2Locale;
@@ -547,6 +570,7 @@ function getSearchResults({
   modelOperations?: ModelOperationSnapshot[];
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
   pluginManagementStatus?: PluginManagementStatusResult | null;
+  memoryAlphaStatus?: MemoryAlphaStatus | null;
 }) {
   const normalizedQuery = normalizeSearchText(query);
   if (normalizedQuery.length === 0) return [];
@@ -585,6 +609,7 @@ function getSearchResults({
         modelOperations,
         resourceDiagnostics,
         pluginManagementStatus,
+        memoryAlphaStatus,
       }),
     }));
 }
@@ -628,6 +653,8 @@ export function SettingsV2GeneralView({
   onSetCommandRouterProductModeEnabled,
   onSetChatAnswerProductModeEnabled,
   pluginManagementStatus,
+  memoryAlphaStatus,
+  onOpenMemoryCenter,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -670,6 +697,7 @@ export function SettingsV2GeneralView({
         modelOperations,
         resourceDiagnostics,
         pluginManagementStatus,
+        memoryAlphaStatus,
       }),
     [
       activeThemeId,
@@ -692,6 +720,7 @@ export function SettingsV2GeneralView({
       voiceMode,
       voicePermission,
       voiceServiceStatus,
+      memoryAlphaStatus,
     ],
   );
 
@@ -735,6 +764,10 @@ export function SettingsV2GeneralView({
   const toolsViewModel = buildSettingsV2ToolsPluginsProductViewModel({
     locale,
     pluginManagementStatus,
+  });
+  const memoryViewModel = buildSettingsV2MemoryPrivacyProductViewModel({
+    locale,
+    memoryAlphaStatus,
   });
 
   return (
@@ -1473,6 +1506,84 @@ export function SettingsV2GeneralView({
                   </div>
                 </SettingsSection>
               </div>
+            </section>
+          ) : selectedCategoryId === "memory_privacy" ? (
+            <section data-testid="settings-v2-memory-privacy">
+              <SettingsPageHeader
+                description={tSettingsV2(locale, "settings.memory.description")}
+                title={tSettingsV2(locale, "settings.memory.title")}
+              />
+              <InlineNotice title={tSettingsV2(locale, "settings.memory.safeViewing.title")}>
+                {memoryViewModel.safeNotice}
+              </InlineNotice>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.memory.section.personal")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.memory.personalMemory.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.memory.personalMemory.label")}
+                  value={memoryViewModel.personalMemory.value}
+                />
+                <div
+                  className="settings-v2-memory-status-grid"
+                  data-testid="settings-v2-memory-personal-status"
+                >
+                  {memoryViewModel.personalMemory.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.memory.section.saved")}
+              >
+                <SettingRow
+                  description={tSettingsV2(
+                    locale,
+                    "settings.memory.savedInformation.description",
+                  )}
+                  title={tSettingsV2(locale, "settings.memory.savedInformation.label")}
+                >
+                  <SettingValueAction
+                    actionLabel={tSettingsV2(
+                      locale,
+                      "settings.memory.savedInformation.action",
+                    )}
+                    onAction={onOpenMemoryCenter}
+                    value={memoryViewModel.savedInformation.value}
+                  />
+                </SettingRow>
+                <div
+                  className="settings-v2-memory-status-grid"
+                  data-testid="settings-v2-memory-saved-status"
+                >
+                  {memoryViewModel.savedInformation.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title={tSettingsV2(locale, "settings.memory.section.storage")}
+              >
+                <SettingRow
+                  description={tSettingsV2(locale, "settings.memory.storage.description")}
+                  title={tSettingsV2(locale, "settings.memory.storage.label")}
+                  value={memoryViewModel.storageSync.value}
+                />
+                <div
+                  className="settings-v2-memory-status-grid"
+                  data-testid="settings-v2-memory-storage-status"
+                >
+                  {memoryViewModel.storageSync.details.map((detail) => (
+                    <span key={detail}>{detail}</span>
+                  ))}
+                </div>
+              </SettingsSection>
             </section>
           ) : (
             <section

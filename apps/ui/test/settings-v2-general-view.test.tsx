@@ -9,6 +9,7 @@ import type {
   DesktopLaunchAtLoginStatus,
   DesktopSettings,
   InferenceProviderDescriptor,
+  MemoryAlphaStatus,
   ModelInventoryItem,
   ModelManifest,
   PluginManagementStatusResult,
@@ -107,6 +108,17 @@ const resourceDiagnostics = {
   activeLeaseCount: 0,
   exclusiveGpuLeaseActive: false,
 } as ResourceSchedulerDiagnostics;
+
+const memoryAlphaStatus = {
+  state: "disabled",
+  enabled: false,
+  retentionScope: "new_accepted_user_messages",
+  maxMessageCount: 5,
+  trackedMessageCount: 0,
+  rollbackStatus: "not_started",
+  rollbackDeletedCount: 0,
+  reasonCodes: [],
+} as MemoryAlphaStatus;
 
 const pluginManagementStatus = {
   plugins: [
@@ -478,6 +490,111 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Xunfei / Credentials saved locally");
   });
 
+  it("renders Memory & Privacy as a safe Product summary with a Memory Center entry", () => {
+    const html = renderView({
+      initialCategoryId: "memory_privacy",
+      memoryAlphaStatus,
+    });
+
+    expect(html).toContain("Memory &amp; Privacy");
+    expect(html).toContain(
+      "Opening this page does not read full conversation content",
+    );
+    expect(html).toContain("Personal memory features");
+    expect(html).toContain("Not currently enabled");
+    expect(html).toContain("Manage saved information");
+    expect(html).toContain("Existing Memory Center");
+    expect(html).toContain("Saved shortcuts");
+    expect(html).toContain("Saved voice corrections");
+    expect(html).toContain("Saved response preferences");
+    expect(html).toContain("Stored on this device");
+    expect(html).toContain("Cloud sync is not currently enabled.");
+    for (const forbidden of [
+      "Memory Alpha",
+      "memory-recall",
+      "route alias",
+      "voice alias",
+      "vector store",
+      "embedding",
+      "provider runtime",
+      "RAW_HIDDEN",
+      "PROVIDER_NEUTRAL",
+      "retention mutation",
+      "raw snapshot",
+      "fixture",
+      "schema",
+      "IPC",
+      "boundary metrics",
+      "SQLite",
+      "C:\\\\",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("renders productized zh-CN Memory & Privacy copy without internal terms", () => {
+    const html = renderView({
+      initialCategoryId: "memory_privacy",
+      locale: "zh",
+      memoryAlphaStatus,
+    });
+
+    expect(html).toContain("记忆与隐私");
+    expect(html).toContain("个性化记忆功能");
+    expect(html).toContain("当前未启用");
+    expect(html).toContain("管理已保存的信息");
+    expect(html).toContain("已保存的快捷方式");
+    expect(html).toContain("已保存的语音修正");
+    expect(html).toContain("已保存的回答偏好");
+    expect(html).toContain("已保存的信息存放在本机应用数据中。");
+    expect(html).toContain("当前未启用云端同步。");
+    expect(html).toContain(
+      "打开本页不会读取完整对话内容、调用模型、连接在线服务或启动麦克风。",
+    );
+    for (const forbidden of [
+      "Memory Alpha",
+      "memory-recall",
+      "route alias",
+      "voice alias",
+      "vector",
+      "embedding",
+      "provider",
+      "SQLite",
+      "schema",
+      "IPC",
+      "boundary",
+      "fixture",
+      "记忆阿尔法",
+      "召回服务",
+      "路由别名",
+      "向量库",
+      "嵌入服务",
+      "原始快照",
+      "内部边界",
+      "运行时绑定",
+      "测试夹具",
+      "数据库路径",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("includes Memory & Privacy in product search results with safe current values", () => {
+    const html = renderView({
+      initialCategoryId: "memory_privacy",
+      memoryAlphaStatus: {
+        ...memoryAlphaStatus,
+        state: "active",
+        enabled: true,
+      },
+    });
+
+    expect(html).toContain("Personal memory features");
+    expect(html).toContain("Available");
+    expect(html).toContain("Saved information");
+    expect(html).not.toContain("Full conversation content");
+  });
+
   it("renders Models & Intelligence from existing safe model projections", () => {
     const html = renderView({
       initialCategoryId: "models_intelligence",
@@ -795,6 +912,7 @@ describe("Settings V2 General view", () => {
       "settings-v2-registry.ts",
       "settings-v2-copy.ts",
       "settings-v2-migration-summary.ts",
+      "settings-v2-memory-view-model.ts",
       "settings-v2-tools-view-model.ts",
     ]
       .map((file) => readFileSync(path.join(featureDirectory, file), "utf8"))

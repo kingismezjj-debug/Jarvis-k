@@ -5,6 +5,7 @@ import {
   settingsV2AppearancePetDefinitions,
   settingsV2Categories,
   settingsV2GeneralDefinitions,
+  settingsV2MemoryPrivacyDefinitions,
   settingsV2ModelsIntelligenceDefinitions,
   settingsV2ProductDefinitions,
   settingsV2ToolsPluginsDefinitions,
@@ -27,7 +28,7 @@ const cloneDefinition = (
 });
 
 describe("Settings V2 registry", () => {
-  it("registers General, Appearance & Pet, Voice & Audio, Models & Intelligence, and Tools & Plugins vertical slices", () => {
+  it("registers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, and Memory & Privacy vertical slices", () => {
     expect(settingsV2Categories.map((category) => category.id)).toEqual([
       "general",
       "appearance_pet",
@@ -44,13 +45,15 @@ describe("Settings V2 registry", () => {
       "voice_audio",
       "models_intelligence",
       "tools_plugins",
+      "memory_privacy",
     ]);
     expect(settingsV2GeneralDefinitions).toHaveLength(4);
     expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
     expect(settingsV2VoiceAudioDefinitions).toHaveLength(6);
     expect(settingsV2ModelsIntelligenceDefinitions).toHaveLength(5);
     expect(settingsV2ToolsPluginsDefinitions).toHaveLength(6);
-    expect(settingsV2ProductDefinitions).toHaveLength(27);
+    expect(settingsV2MemoryPrivacyDefinitions).toHaveLength(3);
+    expect(settingsV2ProductDefinitions).toHaveLength(30);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -132,16 +135,19 @@ describe("Settings V2 registry", () => {
       "settings.voice.provider",
       "settings.models.fast_command_understanding",
       "settings.tools.automation_safeguards",
+      "settings.memory.personal_memory",
       "settings.general.close_button_behavior",
       "settings.pet.show",
       "settings.voice.capture_mode",
       "settings.models.answer_provider",
       "settings.tools.approved_apps",
+      "settings.memory.saved_information",
       "settings.general.launch_at_login",
       "settings.pet.keep_on_top",
       "settings.voice.microphone_permission",
       "settings.models.local_models",
       "settings.tools.safe_websites",
+      "settings.memory.storage_sync",
       "settings.general.reset_recovery",
       "settings.pet.reduced_motion",
       "settings.voice.push_to_talk",
@@ -167,6 +173,14 @@ describe("Settings V2 registry", () => {
       "fixture",
       "evaluation",
       "raw descriptor",
+      "memory-recall",
+      "route alias",
+      "voice alias",
+      "vector store",
+      "embedding",
+      "provider runtime",
+      "raw snapshot",
+      "boundary metrics",
     ];
     const forbiddenChinese = [
       "本切片",
@@ -239,9 +253,9 @@ describe("Settings V2 registry", () => {
       "voice_audio",
       "models_intelligence",
       "tools_plugins",
+      "memory_privacy",
     ]);
     expect(legacyIds).toEqual([
-      "memory_privacy",
       "notifications",
       "about_updates",
     ]);

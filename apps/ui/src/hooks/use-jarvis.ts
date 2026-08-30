@@ -1083,7 +1083,6 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
       void refreshQwenRuntimeControlStatus();
-      void refreshUserControlledMemories();
       void refreshUserRouteAliases();
       if (evaluationSurfaceEnabled) {
         void refreshVoiceRegressionCollectionStatus();
@@ -1108,7 +1107,6 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
       void refreshQwenRuntimeControlStatus();
-      void refreshUserControlledMemories();
       void refreshUserRouteAliases();
       if (evaluationSurfaceEnabled) {
         void refreshVoiceRegressionCollectionStatus();
@@ -1131,7 +1129,6 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     void refreshCommandRouterProductModeStatus();
     void refreshPlugins();
     void refreshQwenRuntimeControlStatus();
-    void refreshUserControlledMemories();
     void refreshUserRouteAliases();
     if (evaluationSurfaceEnabled) {
       void refreshVoiceRegressionCollectionStatus();
@@ -1160,7 +1157,6 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     refreshPlugins,
     refreshQwenRuntimeControlStatus,
     refreshTtsServiceStatus,
-    refreshUserControlledMemories,
     refreshUserRouteAliases,
     refreshVoiceCommandAliases,
     refreshVoiceRegressionCollectionStatus,

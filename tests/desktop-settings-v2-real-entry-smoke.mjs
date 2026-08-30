@@ -192,6 +192,37 @@ async function runGateOnScenario() {
       .waitFor({
         timeout: 5_000,
       });
+    await window
+      .locator('[data-testid="settings-v2-category-nav"] button')
+      .filter({ hasText: "Memory & Privacy" })
+      .click();
+    await window.getByTestId("settings-v2-memory-privacy").waitFor({
+      timeout: 5_000,
+    });
+    const memorySection = window.getByTestId("settings-v2-memory-privacy");
+    await memorySection.getByText("Personal memory features").waitFor({
+      timeout: 5_000,
+    });
+    await memorySection
+      .locator(".jk-setting-title")
+      .filter({ hasText: "Manage saved information" })
+      .waitFor({
+        timeout: 5_000,
+      });
+    await memorySection
+      .locator(".jk-value-action")
+      .filter({ hasText: "Existing Memory Center" })
+      .waitFor({
+        timeout: 5_000,
+      });
+    await memorySection
+      .getByText(
+        "Opening this page does not read full conversation content, call a model, connect to online services, or start the microphone.",
+        { exact: true },
+      )
+      .waitFor({
+        timeout: 5_000,
+      });
     const mediaCalls = await window.evaluate(
       () => window.__jarvisSettingsV2MediaCalls ?? 0,
     );

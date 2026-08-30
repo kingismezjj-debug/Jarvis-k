@@ -2656,6 +2656,10 @@ export default function App() {
                   onOpenPluginManagement={() => {
                     setActiveView("plugins");
                   }}
+                  memoryAlphaStatus={memoryAlphaStatus}
+                  onOpenMemoryCenter={() => {
+                    setActiveView("memory");
+                  }}
                   resourceDiagnostics={resourceDiagnostics}
                   ttsServiceStatus={ttsServiceStatus}
                   voiceCaptureAvailable={coreOnline && !textOnlyAcceptanceMode}

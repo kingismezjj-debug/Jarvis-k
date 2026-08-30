@@ -35,6 +35,9 @@ export const settingsV2SectionIds = [
   "tools_files",
   "tools_plugins",
   "tools_mcp",
+  "memory_personal",
+  "memory_saved",
+  "memory_storage",
 ] as const;
 
 export type SettingsV2SectionId = (typeof settingsV2SectionIds)[number];
@@ -78,6 +81,9 @@ export const settingsV2BindingIds = [
   "tools.file_search",
   "tools.plugins",
   "tools.mcp_connections",
+  "memory.personal_memory",
+  "memory.saved_information",
+  "memory.storage_sync",
 ] as const;
 
 export type SettingsV2BindingId = (typeof settingsV2BindingIds)[number];
@@ -136,7 +142,7 @@ export const settingsV2Categories: Array<{
   {
     id: "memory_privacy",
     labelKey: "settings.categories.memory_privacy",
-    migrated: false,
+    migrated: true,
   },
   {
     id: "notifications",
@@ -807,12 +813,89 @@ export const settingsV2ToolsPluginsDefinitions: SettingsV2Definition[] = [
   },
 ];
 
+export const settingsV2MemoryPrivacyDefinitions: SettingsV2Definition[] = [
+  {
+    settingId: "settings.memory.personal_memory",
+    categoryId: "memory_privacy",
+    sectionId: "memory_personal",
+    labelKey: "settings.memory.personalMemory.label",
+    descriptionKey: "settings.memory.personalMemory.description",
+    searchKeywordKeys: [
+      "settings.memory.personalMemory.label",
+      "settings.memory.personalMemory.description",
+      "settings.memory.personalMemory.available",
+      "settings.memory.personalMemory.notEnabled",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "memory.personal_memory",
+    validationContractId: "memory-personal-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "memory.personal.safe_summary",
+    dangerLevel: "none",
+    order: 10,
+    helpReferenceId: "settings.memory.personal_memory",
+  },
+  {
+    settingId: "settings.memory.saved_information",
+    categoryId: "memory_privacy",
+    sectionId: "memory_saved",
+    labelKey: "settings.memory.savedInformation.label",
+    descriptionKey: "settings.memory.savedInformation.description",
+    searchKeywordKeys: [
+      "settings.memory.savedInformation.label",
+      "settings.memory.savedInformation.description",
+      "settings.memory.savedInformation.shortcuts",
+      "settings.memory.savedInformation.voiceCorrections",
+      "settings.memory.savedInformation.responsePreferences",
+    ],
+    controlType: "action",
+    settingBindingId: "memory.saved_information",
+    validationContractId: "memory-center-safe-entry.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "memory.saved_information.safe_entry",
+    dangerLevel: "none",
+    order: 20,
+    helpReferenceId: "settings.memory.saved_information",
+  },
+  {
+    settingId: "settings.memory.storage_sync",
+    categoryId: "memory_privacy",
+    sectionId: "memory_storage",
+    labelKey: "settings.memory.storage.label",
+    descriptionKey: "settings.memory.storage.description",
+    searchKeywordKeys: [
+      "settings.memory.storage.label",
+      "settings.memory.storage.description",
+      "settings.memory.storage.localData",
+      "settings.memory.storage.cloudSyncOff",
+    ],
+    controlType: "readonly_status",
+    settingBindingId: "memory.storage_sync",
+    validationContractId: "memory-storage-sync-safe-summary.v1",
+    capabilityGate: "development_settings_v2",
+    visibility: "product",
+    sensitive: false,
+    restartRequired: false,
+    statusProjectionId: "memory.storage_sync.safe_summary",
+    dangerLevel: "none",
+    order: 30,
+    helpReferenceId: "settings.memory.storage_sync",
+  },
+];
+
 export const settingsV2ProductDefinitions: SettingsV2Definition[] = [
   ...settingsV2GeneralDefinitions,
   ...settingsV2AppearancePetDefinitions,
   ...settingsV2VoiceAudioDefinitions,
   ...settingsV2ModelsIntelligenceDefinitions,
   ...settingsV2ToolsPluginsDefinitions,
+  ...settingsV2MemoryPrivacyDefinitions,
 ];
 
 export function validateSettingsV2Registry(
@@ -881,7 +964,8 @@ export function getSettingsV2SearchableDefinitions(): SettingsV2Definition[] {
         definition.categoryId === "appearance_pet" ||
         definition.categoryId === "voice_audio" ||
         definition.categoryId === "models_intelligence" ||
-        definition.categoryId === "tools_plugins",
+        definition.categoryId === "tools_plugins" ||
+        definition.categoryId === "memory_privacy",
     )
     .sort((left, right) => left.order - right.order);
 }

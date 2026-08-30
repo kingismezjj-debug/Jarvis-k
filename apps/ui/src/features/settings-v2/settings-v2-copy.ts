@@ -263,6 +263,35 @@ export type SettingsV2CopyKey =
   | "settings.tools.mcp.userControlled"
   | "settings.tools.safeViewing.title"
   | "settings.tools.status.noExecutionOnOpen"
+  | "settings.memory.title"
+  | "settings.memory.description"
+  | "settings.memory.section.personal"
+  | "settings.memory.section.saved"
+  | "settings.memory.section.storage"
+  | "settings.memory.safeViewing.title"
+  | "settings.memory.safeViewing.notice"
+  | "settings.memory.personalMemory.label"
+  | "settings.memory.personalMemory.description"
+  | "settings.memory.personalMemory.available"
+  | "settings.memory.personalMemory.notEnabled"
+  | "settings.memory.personalMemory.unavailable"
+  | "settings.memory.personalMemory.statusUnavailable"
+  | "settings.memory.personalMemory.disabledDetail"
+  | "settings.memory.personalMemory.newMessagesOnly"
+  | "settings.memory.personalMemory.noRecallOnOpen"
+  | "settings.memory.savedInformation.label"
+  | "settings.memory.savedInformation.description"
+  | "settings.memory.savedInformation.manageValue"
+  | "settings.memory.savedInformation.action"
+  | "settings.memory.savedInformation.shortcuts"
+  | "settings.memory.savedInformation.voiceCorrections"
+  | "settings.memory.savedInformation.responsePreferences"
+  | "settings.memory.savedInformation.deleteInMemoryCenter"
+  | "settings.memory.storage.label"
+  | "settings.memory.storage.description"
+  | "settings.memory.storage.localValue"
+  | "settings.memory.storage.localData"
+  | "settings.memory.storage.cloudSyncOff"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -646,6 +675,49 @@ export const settingsV2Copy: Record<
     "settings.tools.safeViewing.title": "Safe viewing",
     "settings.tools.status.noExecutionOnOpen":
       "Opening or viewing this page does not run tools, launch apps, open websites, search files, invoke plugins, or connect external tools. Some plugins and external tools may use non-local connections only after separate setup and confirmation.",
+    "settings.memory.title": "Memory & Privacy",
+    "settings.memory.description":
+      "Review what Jarvis can remember, where saved information stays, and how to manage existing saved information.",
+    "settings.memory.section.personal": "Personal memory",
+    "settings.memory.section.saved": "Saved information",
+    "settings.memory.section.storage": "Storage and sync",
+    "settings.memory.safeViewing.title": "Safe viewing",
+    "settings.memory.safeViewing.notice":
+      "Opening this page does not read full conversation content, call a model, connect to online services, or start the microphone.",
+    "settings.memory.personalMemory.label": "Personal memory features",
+    "settings.memory.personalMemory.description":
+      "Shows whether the existing personal memory feature is available from the trusted runtime status.",
+    "settings.memory.personalMemory.available": "Available",
+    "settings.memory.personalMemory.notEnabled": "Not currently enabled",
+    "settings.memory.personalMemory.unavailable":
+      "Personal memory status is unavailable",
+    "settings.memory.personalMemory.statusUnavailable":
+      "Jarvis cannot confirm personal memory status right now.",
+    "settings.memory.personalMemory.disabledDetail":
+      "Jarvis is not adding new personal memory through this feature.",
+    "settings.memory.personalMemory.newMessagesOnly":
+      "When available, it is limited to newly accepted user messages.",
+    "settings.memory.personalMemory.noRecallOnOpen":
+      "Opening this page does not search saved information.",
+    "settings.memory.savedInformation.label": "Manage saved information",
+    "settings.memory.savedInformation.description":
+      "Open the existing Memory Center to view or delete saved information.",
+    "settings.memory.savedInformation.manageValue": "Existing Memory Center",
+    "settings.memory.savedInformation.action": "Manage saved information",
+    "settings.memory.savedInformation.shortcuts": "Saved shortcuts",
+    "settings.memory.savedInformation.voiceCorrections":
+      "Saved voice corrections",
+    "settings.memory.savedInformation.responsePreferences":
+      "Saved response preferences",
+    "settings.memory.savedInformation.deleteInMemoryCenter":
+      "View and deletion controls stay in Memory Center.",
+    "settings.memory.storage.label": "Local storage and cloud sync",
+    "settings.memory.storage.description":
+      "Shows where saved information is kept without exposing device paths.",
+    "settings.memory.storage.localValue": "Stored on this device",
+    "settings.memory.storage.localData":
+      "Saved information is stored in this app's local data.",
+    "settings.memory.storage.cloudSyncOff": "Cloud sync is not currently enabled.",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -653,7 +725,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "results",
     "settings.search.noResultsTitle": "No matching settings",
     "settings.search.noResultsDescription":
-      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, and Tools & Plugins settings.",
+      "Search currently covers General, Appearance & Pet, Voice & Audio, Models & Intelligence, Tools & Plugins, and Memory & Privacy settings.",
     "settings.status.on": "On",
     "settings.status.off": "Off",
     "settings.status.unknown": "Unknown",
@@ -984,6 +1056,45 @@ export const settingsV2Copy: Record<
     "settings.tools.safeViewing.title": "安全查看",
     "settings.tools.status.noExecutionOnOpen":
       "打开或查看本页不会运行工具、启动应用、打开网站、搜索文件、调用插件或连接外部工具。部分插件和外部工具可能在单独设置和确认后使用非本机连接。",
+    "settings.memory.title": "记忆与隐私",
+    "settings.memory.description":
+      "查看 Jarvis 是否会记住信息、已保存的信息放在哪里，以及如何管理现有保存内容。",
+    "settings.memory.section.personal": "个性化记忆",
+    "settings.memory.section.saved": "已保存的信息",
+    "settings.memory.section.storage": "存储与同步",
+    "settings.memory.safeViewing.title": "安全查看",
+    "settings.memory.safeViewing.notice":
+      "打开本页不会读取完整对话内容、调用模型、连接在线服务或启动麦克风。",
+    "settings.memory.personalMemory.label": "个性化记忆功能",
+    "settings.memory.personalMemory.description":
+      "根据可信运行状态显示现有个性化记忆功能是否可用。",
+    "settings.memory.personalMemory.available": "可用",
+    "settings.memory.personalMemory.notEnabled": "当前未启用",
+    "settings.memory.personalMemory.unavailable": "状态暂不可用",
+    "settings.memory.personalMemory.statusUnavailable":
+      "Jarvis 现在无法确认个性化记忆状态。",
+    "settings.memory.personalMemory.disabledDetail":
+      "Jarvis 当前不会通过此功能新增个性化记忆。",
+    "settings.memory.personalMemory.newMessagesOnly":
+      "功能可用时，仅限新确认的用户消息。",
+    "settings.memory.personalMemory.noRecallOnOpen":
+      "打开本页不会搜索已保存的信息。",
+    "settings.memory.savedInformation.label": "管理已保存的信息",
+    "settings.memory.savedInformation.description":
+      "打开现有记忆中心，查看或删除已经保存的信息。",
+    "settings.memory.savedInformation.manageValue": "现有记忆中心",
+    "settings.memory.savedInformation.action": "管理已保存的信息",
+    "settings.memory.savedInformation.shortcuts": "已保存的快捷方式",
+    "settings.memory.savedInformation.voiceCorrections": "已保存的语音修正",
+    "settings.memory.savedInformation.responsePreferences": "已保存的回答偏好",
+    "settings.memory.savedInformation.deleteInMemoryCenter":
+      "查看和删除仍在记忆中心完成。",
+    "settings.memory.storage.label": "本机保存与云端同步",
+    "settings.memory.storage.description":
+      "说明已保存信息的保存边界，不显示设备路径。",
+    "settings.memory.storage.localValue": "存放在这台设备上",
+    "settings.memory.storage.localData": "已保存的信息存放在本机应用数据中。",
+    "settings.memory.storage.cloudSyncOff": "当前未启用云端同步。",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",
@@ -991,7 +1102,7 @@ export const settingsV2Copy: Record<
     "settings.search.results": "条结果",
     "settings.search.noResultsTitle": "没有匹配的设置",
     "settings.search.noResultsDescription":
-      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件设置。",
+      "当前可搜索通用、外观与桌宠、语音与音频、模型与智能、工具与插件、记忆与隐私设置。",
     "settings.status.on": "开启",
     "settings.status.off": "关闭",
     "settings.status.unknown": "未知",

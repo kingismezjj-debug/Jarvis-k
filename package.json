@@ -74,6 +74,7 @@
     "settings-v2:voice-audio:capture": "node scripts/capture-ui2c-settings-v2-voice-audio.mjs",
     "settings-v2:models-intelligence:capture": "node scripts/capture-ui2d-settings-v2-models-intelligence.mjs",
     "settings-v2:tools-plugins:capture": "node scripts/capture-ui2e-settings-v2-tools-plugins.mjs",
+    "settings-v2:memory-privacy:capture": "npm run build:ui && node scripts/capture-ui2f-settings-v2-memory-privacy.mjs",
     "gallery:ui-foundation:capture": "node scripts/capture-ui1-component-gallery.mjs",
     "plugin:validate:examples": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/plugins/stock-analysis examples/plugins/ecommerce-product-comparison",
     "plugin:validate:local-template": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/local-plugins/hello-readonly",

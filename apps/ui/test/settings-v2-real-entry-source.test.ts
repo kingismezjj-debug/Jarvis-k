@@ -32,6 +32,43 @@ describe("Settings V2 real entry source boundaries", () => {
     expect(appSource).not.toContain("runFixtureIntentProbe={");
   });
 
+  it("passes only safe Memory & Privacy projections into Settings V2", () => {
+    const appSource = readUiSource("apps/ui/src/App.tsx");
+    const settingsV2Start = appSource.indexOf("<SettingsV2GeneralView");
+    const settingsV2End = appSource.indexOf("\n                />", settingsV2Start);
+    expect(settingsV2Start).toBeGreaterThanOrEqual(0);
+    expect(settingsV2End).toBeGreaterThan(settingsV2Start);
+    const settingsV2Props = appSource.slice(settingsV2Start, settingsV2End);
+
+    expect(settingsV2Props).toContain("memoryAlphaStatus={memoryAlphaStatus}");
+    expect(settingsV2Props).toContain('setActiveView("memory")');
+    for (const forbidden of [
+      "refreshUserControlledMemories={",
+      "deleteUserControlledMemory={",
+      "probeMemoryAlphaRecall={",
+      "exportMemorySnapshot={",
+      "importMemorySnapshot={",
+      "disableMemoryAlpha={",
+    ]) {
+      expect(settingsV2Props).not.toContain(forbidden);
+    }
+  });
+
+  it("does not globally list saved memories before the Memory Center is opened", () => {
+    const hookSource = readUiSource("apps/ui/src/hooks/use-jarvis.ts");
+    const refreshEffectStart = hookSource.indexOf(
+      "  const snapshotReady = snapshot !== null;",
+    );
+    const returnStart = hookSource.indexOf("  return {", refreshEffectStart);
+    const refreshEffectSource = hookSource.slice(refreshEffectStart, returnStart);
+
+    expect(refreshEffectSource).not.toContain("refreshUserControlledMemories();");
+    expect(hookSource).toContain("refreshUserControlledMemories,");
+    const appSource = readUiSource("apps/ui/src/App.tsx");
+    expect(appSource).toContain('if (activeView === "memory" && coreOnline)');
+    expect(appSource).toContain("void refreshUserControlledMemories();");
+  });
+
   it("keeps the Settings V2 gate read-only in the Renderer hook", () => {
     const hookSource = readUiSource("apps/ui/src/hooks/use-ui-surface-mode.ts");
     expect(hookSource).toContain("getUiSurfaceCapabilityStatus");
