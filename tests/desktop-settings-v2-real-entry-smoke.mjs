@@ -211,7 +211,7 @@ async function runGateOnScenario() {
       });
     await memorySection
       .locator(".jk-value-action")
-      .filter({ hasText: "Existing Memory Center" })
+      .filter({ hasText: "Manage" })
       .waitFor({
         timeout: 5_000,
       });

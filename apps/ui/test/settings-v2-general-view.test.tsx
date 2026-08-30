@@ -16,7 +16,10 @@ import type {
   ResourceSchedulerDiagnostics,
 } from "@jarvis-k/contracts";
 
-import { SettingsV2GeneralView } from "../src/features/settings-v2/settings-v2-general-view";
+import {
+  SettingsV2GeneralView,
+  getSettingsV2SearchResultsForProduct,
+} from "../src/features/settings-v2/settings-v2-general-view";
 
 const desktopSettings: DesktopSettings = {
   closeButtonBehavior: "minimize_to_tray",
@@ -501,9 +504,12 @@ describe("Settings V2 General view", () => {
       "Opening this page does not read full conversation content",
     );
     expect(html).toContain("Personal memory features");
+    expect(html).toContain(
+      "Jarvis can use saved information to provide a more personalized experience.",
+    );
     expect(html).toContain("Not currently enabled");
     expect(html).toContain("Manage saved information");
-    expect(html).toContain("Existing Memory Center");
+    expect(html).toContain("Manage");
     expect(html).toContain("Saved shortcuts");
     expect(html).toContain("Saved voice corrections");
     expect(html).toContain("Saved response preferences");
@@ -526,6 +532,12 @@ describe("Settings V2 General view", () => {
       "IPC",
       "boundary metrics",
       "SQLite",
+      "runtime status",
+      "trusted runtime",
+      "snapshot",
+      "projection",
+      "source of truth",
+      "existing feature binding",
       "C:\\\\",
     ]) {
       expect(html).not.toContain(forbidden);
@@ -593,6 +605,39 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Available");
     expect(html).toContain("Saved information");
     expect(html).not.toContain("Full conversation content");
+  });
+
+  it("does not render a current value for Memory navigation search results", () => {
+    const results = getSettingsV2SearchResultsForProduct({
+      query: "saved information",
+      locale: "en",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+      memoryAlphaStatus,
+    });
+    const manageResult = results.find(
+      ({ definition }) => definition.settingBindingId === "memory.saved_information",
+    );
+    const personalResult = getSettingsV2SearchResultsForProduct({
+      query: "personal memory",
+      locale: "en",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+      memoryAlphaStatus: {
+        ...memoryAlphaStatus,
+        state: "active",
+        enabled: true,
+      },
+    }).find(
+      ({ definition }) => definition.settingBindingId === "memory.personal_memory",
+    );
+
+    expect(manageResult?.value).toBeUndefined();
+    expect(personalResult?.value).toBe("Available");
   });
 
   it("renders Models & Intelligence from existing safe model projections", () => {

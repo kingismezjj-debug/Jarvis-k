@@ -527,7 +527,7 @@ function getDefinitionValue({
   return tSettingsV2(locale, "settings.general.reset.unsupported");
 }
 
-function getSearchResults({
+export function getSettingsV2SearchResultsForProduct({
   query,
   locale,
   desktopSettings,
@@ -588,29 +588,32 @@ function getSearchResults({
     .filter(({ searchableText }) => searchableText.includes(normalizedQuery))
     .map(({ definition }) => ({
       definition,
-      value: getDefinitionValue({
-        definition,
-        desktopSettings,
-        desktopLaunchAtLoginStatus,
-        locale,
-        activeThemeId,
-        petSkinRegistry,
-        voiceServiceStatus,
-        ttsServiceStatus,
-        voiceMode,
-        voicePermission,
-        voiceCaptureAvailable,
-        commandRouterProductModeStatus,
-        chatAnswerProductModeStatus,
-        inferenceProviders,
-        inferenceProviderRequirements,
-        modelInventory,
-        modelManifests,
-        modelOperations,
-        resourceDiagnostics,
-        pluginManagementStatus,
-        memoryAlphaStatus,
-      }),
+      value:
+        definition.controlType === "action"
+          ? undefined
+          : getDefinitionValue({
+              definition,
+              desktopSettings,
+              desktopLaunchAtLoginStatus,
+              locale,
+              activeThemeId,
+              petSkinRegistry,
+              voiceServiceStatus,
+              ttsServiceStatus,
+              voiceMode,
+              voicePermission,
+              voiceCaptureAvailable,
+              commandRouterProductModeStatus,
+              chatAnswerProductModeStatus,
+              inferenceProviders,
+              inferenceProviderRequirements,
+              modelInventory,
+              modelManifests,
+              modelOperations,
+              resourceDiagnostics,
+              pluginManagementStatus,
+              memoryAlphaStatus,
+            }),
     }));
 }
 
@@ -676,7 +679,7 @@ export function SettingsV2GeneralView({
 
   const searchResults = React.useMemo(
     () =>
-      getSearchResults({
+      getSettingsV2SearchResultsForProduct({
         query: searchQuery,
         locale,
         desktopSettings,
@@ -834,7 +837,11 @@ export function SettingsV2GeneralView({
                       description={tSettingsV2(locale, definition.descriptionKey)}
                       key={definition.settingId}
                       title={tSettingsV2(locale, definition.labelKey)}
-                      value={`${tSettingsV2(locale, "settings.common.currentValue")}: ${value}`}
+                      value={
+                        value
+                          ? `${tSettingsV2(locale, "settings.common.currentValue")}: ${value}`
+                          : undefined
+                      }
                     />
                   ))
                 ) : (

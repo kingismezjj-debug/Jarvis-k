@@ -686,7 +686,7 @@ export const settingsV2Copy: Record<
       "Opening this page does not read full conversation content, call a model, connect to online services, or start the microphone.",
     "settings.memory.personalMemory.label": "Personal memory features",
     "settings.memory.personalMemory.description":
-      "Shows whether the existing personal memory feature is available from the trusted runtime status.",
+      "Jarvis can use saved information to provide a more personalized experience.",
     "settings.memory.personalMemory.available": "Available",
     "settings.memory.personalMemory.notEnabled": "Not currently enabled",
     "settings.memory.personalMemory.unavailable":
@@ -701,8 +701,8 @@ export const settingsV2Copy: Record<
       "Opening this page does not search saved information.",
     "settings.memory.savedInformation.label": "Manage saved information",
     "settings.memory.savedInformation.description":
-      "Open the existing Memory Center to view or delete saved information.",
-    "settings.memory.savedInformation.manageValue": "Existing Memory Center",
+      "View or delete information saved by Jarvis.",
+    "settings.memory.savedInformation.manageValue": "Manage",
     "settings.memory.savedInformation.action": "Manage saved information",
     "settings.memory.savedInformation.shortcuts": "Saved shortcuts",
     "settings.memory.savedInformation.voiceCorrections":
@@ -1067,7 +1067,7 @@ export const settingsV2Copy: Record<
       "打开本页不会读取完整对话内容、调用模型、连接在线服务或启动麦克风。",
     "settings.memory.personalMemory.label": "个性化记忆功能",
     "settings.memory.personalMemory.description":
-      "根据可信运行状态显示现有个性化记忆功能是否可用。",
+      "Jarvis 可以使用已保存的信息，为你提供更符合习惯的体验。",
     "settings.memory.personalMemory.available": "可用",
     "settings.memory.personalMemory.notEnabled": "当前未启用",
     "settings.memory.personalMemory.unavailable": "状态暂不可用",
@@ -1081,8 +1081,8 @@ export const settingsV2Copy: Record<
       "打开本页不会搜索已保存的信息。",
     "settings.memory.savedInformation.label": "管理已保存的信息",
     "settings.memory.savedInformation.description":
-      "打开现有记忆中心，查看或删除已经保存的信息。",
-    "settings.memory.savedInformation.manageValue": "现有记忆中心",
+      "查看或删除 Jarvis 已保存的信息。",
+    "settings.memory.savedInformation.manageValue": "管理",
     "settings.memory.savedInformation.action": "管理已保存的信息",
     "settings.memory.savedInformation.shortcuts": "已保存的快捷方式",
     "settings.memory.savedInformation.voiceCorrections": "已保存的语音修正",

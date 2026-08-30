@@ -15,7 +15,7 @@ const baseMemoryAlphaStatus: MemoryAlphaStatus = {
 };
 
 describe("Settings V2 Memory & Privacy product view model", () => {
-  it("maps active personal memory only from trusted active enabled status", () => {
+  it("maps active personal memory only from active enabled status", () => {
     const viewModel = buildSettingsV2MemoryPrivacyProductViewModel({
       locale: "en",
       memoryAlphaStatus: {
@@ -81,7 +81,7 @@ describe("Settings V2 Memory & Privacy product view model", () => {
       ...viewModel.storageSync.details,
     ].join("\n");
 
-    expect(text).toContain("Existing Memory Center");
+    expect(text).toContain("Manage");
     expect(text).toContain("Saved shortcuts");
     expect(text).toContain("Saved voice corrections");
     expect(text).toContain("Saved response preferences");
@@ -97,6 +97,12 @@ describe("Settings V2 Memory & Privacy product view model", () => {
       "schema",
       "IPC",
       "fixture",
+      "runtime status",
+      "trusted runtime",
+      "snapshot",
+      "projection",
+      "source of truth",
+      "existing feature binding",
       "C:\\",
     ]) {
       expect(text).not.toContain(forbidden);

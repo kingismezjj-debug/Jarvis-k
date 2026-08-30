@@ -209,14 +209,14 @@ export function SettingsSearchResult({
   breadcrumb: string;
   title: string;
   description: string;
-  value: string;
+  value?: string;
 }) {
   return (
     <article className="jk-search-result">
       <span className="jk-muted">{breadcrumb}</span>
       <h3>{title}</h3>
       <p>{description}</p>
-      <strong>{value}</strong>
+      {value ? <strong>{value}</strong> : null}
     </article>
   );
 }
