@@ -137,7 +137,7 @@ const searchScenarios = [
     height: 940,
     locale: "zh",
     theme: "harbor",
-    search: "Jarvis",
+    search: "记忆",
   },
   {
     name: "memory-search-empty",
@@ -408,12 +408,13 @@ async function scrollMemoryView(page, view) {
       return;
     }
 
+    const searchRow = document.querySelector(".settings-v2-search-row");
     const compactSelector = document.querySelector(".settings-v2-narrow-category");
     const heading = document.querySelector(
       '[data-testid="settings-v2-memory-privacy"] h1',
     );
     if (compactSelector && heading && getComputedStyle(compactSelector).display !== "none") {
-      alignElementTop(compactSelector, 24);
+      alignElementTop(searchRow ?? compactSelector, 16);
       return;
     }
     alignElementTop(heading, 24);
@@ -557,6 +558,14 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
           rect.bottom > 0 &&
           rect.top < visualHeight,
       );
+    const fullyInsideViewport = (rect) =>
+      Boolean(
+        rect &&
+          rect.left >= 0 &&
+          rect.top >= 0 &&
+          rect.right <= visualWidth &&
+          rect.bottom <= visualHeight,
+      );
     const horizontallyInside = (rect) =>
       Boolean(rect && rect.left >= -1 && rect.right <= visualWidth + 1);
     const scrollContainers = Array.from(document.querySelectorAll("*"))
@@ -602,6 +611,9 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
     ];
     const wideNavRect = rectFor(".settings-v2-wide-category");
     const compactSelectorRect = rectFor(".settings-v2-narrow-category");
+    const compactCategoryLabelRect = rectFor(
+      ".settings-v2-narrow-category .jk-setting-title",
+    );
     const headingRect = rectFor('[data-testid="settings-v2-memory-privacy"] h1');
     const personalRect = rectFor('[data-testid="settings-v2-memory-personal-status"]');
     const savedRect = rectFor('[data-testid="settings-v2-memory-saved-status"]');
@@ -609,7 +621,6 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
     const composerInputRect = rectFor('[data-testid="command-input"]');
     const sendButtonRect = rectFor('[data-testid="send-command"]');
     return {
-      text,
       bodyHorizontalOverflow: document.body.scrollWidth > window.innerWidth + 1,
       memoryVisible: Boolean(
         document.querySelector('[data-testid="settings-v2-memory-privacy"]'),
@@ -624,7 +635,11 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
             : "Jarvis can use saved information",
         ) &&
         text.includes(activeLocale === "zh" ? "管理已保存的信息" : "Manage saved information") &&
-        text.includes(activeLocale === "zh" ? "当前未启用云端同步。" : "Cloud sync is not currently enabled."),
+        text.includes(
+          activeLocale === "zh"
+            ? "已保存的信息保存在这台设备上"
+            : "Saved information stays on this device",
+        ),
       manageValueReady: text.includes(activeLocale === "zh" ? "管理" : "Manage"),
       forbiddenInternalText: forbiddenInternal.some((term) => text.includes(term)),
       sideEffects: window.__jarvisUi2fSideEffects,
@@ -652,6 +667,7 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
       rects: {
         wideNav: wideNavRect,
         compactSelector: compactSelectorRect,
+        compactCategoryLabel: compactCategoryLabelRect,
         heading: headingRect,
         personalStatus: personalRect,
         savedStatus: savedRect,
@@ -661,6 +677,11 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
       },
       intersections: {
         compactSelector: intersects(compactSelectorRect),
+        compactSelectorFullyInside: fullyInsideViewport(compactSelectorRect),
+        compactCategoryLabel: intersects(compactCategoryLabelRect),
+        compactCategoryLabelFullyInside: fullyInsideViewport(
+          compactCategoryLabelRect,
+        ),
         heading: intersects(headingRect),
         personalStatus: intersects(personalRect),
         savedStatus: intersects(savedRect),
@@ -701,7 +722,13 @@ async function collectMemoryDiagnostics(page, scenario, screenshotPath) {
     throw new Error(`${scenario.name} did not show the compact selector.`);
   }
   if (scenario.view === "top") {
-    if (!result.intersections.compactSelector || !result.intersections.heading) {
+    if (
+      !result.intersections.compactSelector ||
+      !result.intersections.compactSelectorFullyInside ||
+      !result.intersections.compactCategoryLabel ||
+      !result.intersections.compactCategoryLabelFullyInside ||
+      !result.intersections.heading
+    ) {
       throw new Error(
         `${scenario.name} top evidence is missing key content: ${JSON.stringify(result)}`,
       );
@@ -770,7 +797,48 @@ async function assertSearchLayout(page, scenario, screenshotPath) {
     const resultText = document.querySelector(
       '[data-testid="settings-v2-search-results"]',
     )?.textContent ?? "";
+    const searchInput = document.querySelector('[data-testid="settings-v2-search"]');
+    const articles = Array.from(document.querySelectorAll(".jk-search-result")).map(
+      (article) => {
+        const breadcrumb = article.querySelector(".jk-muted")?.textContent?.trim() ?? "";
+        const title = article.querySelector("h3")?.textContent?.trim() ?? "";
+        const description = article.querySelector("p")?.textContent?.trim() ?? "";
+        const valueText = article.querySelector("strong")?.textContent?.trim();
+        return {
+          breadcrumb,
+          categoryId:
+            breadcrumb.split("/")[0]?.trim() ===
+            (activeLocale === "zh" ? "记忆与隐私" : "Memory & Privacy")
+              ? "memory-privacy"
+              : "other",
+          description,
+          title,
+          valueText,
+        };
+      },
+    );
+    const actionTitle =
+      activeLocale === "zh" ? "管理已保存的信息" : "Manage saved information";
+    const personalMemoryTitle =
+      activeLocale === "zh" ? "个性化记忆功能" : "Personal memory features";
+    const actionResult = articles.find((article) => article.title === actionTitle);
+    const personalMemoryResult = articles.find(
+      (article) => article.title === personalMemoryTitle,
+    );
+    const safeForbiddenTerms = [
+      "Memory Alpha",
+      "runtime",
+      "projection",
+      "route alias",
+      "voice alias",
+      "SQLite",
+      "embedding",
+      "状态投影",
+      "内部状态来源",
+      "可信运行状态",
+    ];
     return {
+      actualQuery: searchInput instanceof HTMLInputElement ? searchInput.value : "",
       resultList,
       noResult,
       memoryResult:
@@ -796,10 +864,40 @@ async function assertSearchLayout(page, scenario, screenshotPath) {
       ) || text.includes("可信运行状态") || text.includes("状态投影"),
       bodyHorizontalOverflow: document.body.scrollWidth > window.innerWidth + 1,
       sideEffects: window.__jarvisUi2fSideEffects,
+      searchResults: articles,
+      safeMemoryResult:
+        articles.length > 0 &&
+        articles.every((article) => article.categoryId === "memory-privacy") &&
+        Boolean(actionResult),
+      safeActionHasCurrentValue: Boolean(actionResult?.valueText),
+      safeActionResultValue: actionResult?.valueText,
+      safeStateHasCurrentValue: Boolean(personalMemoryResult?.valueText),
+      safeForbiddenInternalText: safeForbiddenTerms.some((term) =>
+        resultText.includes(term),
+      ),
     };
   }, scenario.locale);
   const screenshot = await readPngSize(screenshotPath);
   result.screenshot = screenshot;
+  result.memoryResult = result.safeMemoryResult;
+  result.actionHasCurrentValue = result.safeActionHasCurrentValue;
+  result.actionResultValue = result.safeActionResultValue;
+  result.stateHasCurrentValue = result.safeStateHasCurrentValue;
+  result.forbiddenInternalText =
+    result.forbiddenInternalText || result.safeForbiddenInternalText;
+  delete result.safeMemoryResult;
+  delete result.safeActionHasCurrentValue;
+  delete result.safeActionResultValue;
+  delete result.safeStateHasCurrentValue;
+  delete result.safeForbiddenInternalText;
+  if (result.actualQuery !== scenario.search) {
+    throw new Error(
+      `${scenario.name} search query mismatch: ${JSON.stringify({
+        actualQuery: result.actualQuery,
+        expectedQuery: scenario.search,
+      })}`,
+    );
+  }
   if (scenario.search.includes("zz-no-match")) {
     if (!result.noResult) {
       throw new Error(`${scenario.name} did not show the empty search state.`);

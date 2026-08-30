@@ -241,6 +241,28 @@ describe("Settings V2 registry", () => {
     ]);
   });
 
+  it("keeps Chinese memory search focused on Memory & Privacy actions and state", () => {
+    const searchableDefinitions = getSettingsV2SearchableDefinitions();
+    const zhMemoryMatches = searchableDefinitions.filter((definition) => {
+      const text = [
+        tSettingsV2("zh", definition.labelKey),
+        tSettingsV2("zh", definition.descriptionKey),
+        ...definition.searchKeywordKeys.map((key) => tSettingsV2("zh", key)),
+      ].join(" ");
+      return text.includes("记忆");
+    });
+
+    expect(zhMemoryMatches.length).toBeGreaterThanOrEqual(2);
+    expect(
+      zhMemoryMatches.every(
+        (definition) => definition.categoryId === "memory_privacy",
+      ),
+    ).toBe(true);
+    expect(zhMemoryMatches.map((definition) => definition.settingId)).toContain(
+      "settings.memory.saved_information",
+    );
+  });
+
   it("formats the Settings V2 migration summary from the registry", () => {
     const migratedIds = getSettingsV2MigratedCategoryIds();
     const legacyIds = getSettingsV2LegacyCategoryIds();

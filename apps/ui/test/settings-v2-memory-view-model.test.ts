@@ -82,10 +82,15 @@ describe("Settings V2 Memory & Privacy product view model", () => {
     ].join("\n");
 
     expect(text).toContain("Manage");
+    expect(text).toContain("Use Memory Center to view or delete saved information.");
     expect(text).toContain("Saved shortcuts");
     expect(text).toContain("Saved voice corrections");
     expect(text).toContain("Saved response preferences");
     expect(text).toContain("Cloud sync is not currently enabled.");
+    expect(text).not.toContain("View and deletion controls stay in Memory Center.");
+    expect(text).not.toContain(
+      "Shows where saved information is kept without exposing device paths.",
+    );
     for (const forbidden of [
       "memory-recall",
       "route alias",

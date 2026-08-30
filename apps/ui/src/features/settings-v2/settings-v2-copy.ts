@@ -710,10 +710,10 @@ export const settingsV2Copy: Record<
     "settings.memory.savedInformation.responsePreferences":
       "Saved response preferences",
     "settings.memory.savedInformation.deleteInMemoryCenter":
-      "View and deletion controls stay in Memory Center.",
+      "Use Memory Center to view or delete saved information.",
     "settings.memory.storage.label": "Local storage and cloud sync",
     "settings.memory.storage.description":
-      "Shows where saved information is kept without exposing device paths.",
+      "Saved information stays on this device unless a connected feature says otherwise.",
     "settings.memory.storage.localValue": "Stored on this device",
     "settings.memory.storage.localData":
       "Saved information is stored in this app's local data.",
@@ -1088,10 +1088,10 @@ export const settingsV2Copy: Record<
     "settings.memory.savedInformation.voiceCorrections": "已保存的语音修正",
     "settings.memory.savedInformation.responsePreferences": "已保存的回答偏好",
     "settings.memory.savedInformation.deleteInMemoryCenter":
-      "查看和删除仍在记忆中心完成。",
+      "你可以前往记忆中心查看或删除已保存的信息。",
     "settings.memory.storage.label": "本机保存与云端同步",
     "settings.memory.storage.description":
-      "说明已保存信息的保存边界，不显示设备路径。",
+      "已保存的信息保存在这台设备上；如有功能需要联网，会另行说明。",
     "settings.memory.storage.localValue": "存放在这台设备上",
     "settings.memory.storage.localData": "已保存的信息存放在本机应用数据中。",
     "settings.memory.storage.cloudSyncOff": "当前未启用云端同步。",

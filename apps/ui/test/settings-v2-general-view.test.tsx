@@ -510,11 +510,21 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Not currently enabled");
     expect(html).toContain("Manage saved information");
     expect(html).toContain("Manage");
+    expect(html).toContain("Use Memory Center to view or delete saved information.");
     expect(html).toContain("Saved shortcuts");
     expect(html).toContain("Saved voice corrections");
     expect(html).toContain("Saved response preferences");
     expect(html).toContain("Stored on this device");
+    expect(html).toContain(
+      "Saved information stays on this device unless a connected feature says otherwise.",
+    );
     expect(html).toContain("Cloud sync is not currently enabled.");
+    expect(html).not.toContain(
+      "View and deletion controls stay in Memory Center.",
+    );
+    expect(html).not.toContain(
+      "Shows where saved information is kept without exposing device paths.",
+    );
     for (const forbidden of [
       "Memory Alpha",
       "memory-recall",

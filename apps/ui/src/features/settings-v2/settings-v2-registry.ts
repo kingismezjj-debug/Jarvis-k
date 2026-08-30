@@ -850,6 +850,7 @@ export const settingsV2MemoryPrivacyDefinitions: SettingsV2Definition[] = [
       "settings.memory.savedInformation.shortcuts",
       "settings.memory.savedInformation.voiceCorrections",
       "settings.memory.savedInformation.responsePreferences",
+      "settings.memory.savedInformation.deleteInMemoryCenter",
     ],
     controlType: "action",
     settingBindingId: "memory.saved_information",
