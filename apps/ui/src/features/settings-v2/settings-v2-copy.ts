@@ -324,36 +324,18 @@ export type SettingsV2CopyKey =
   | "settings.about.description"
   | "settings.about.section.product"
   | "settings.about.section.updates"
-  | "settings.about.section.status"
-  | "settings.about.section.legal"
-  | "settings.about.productIdentity.label"
-  | "settings.about.productIdentity.description"
-  | "settings.about.productIdentity.version"
-  | "settings.about.releaseChannel.label"
-  | "settings.about.releaseChannel.description"
-  | "settings.about.releaseChannel.development"
-  | "settings.about.releaseChannel.alpha"
-  | "settings.about.releaseChannel.stable"
-  | "settings.about.releaseChannel.test"
+  | "settings.about.productName.label"
+  | "settings.about.productName.description"
+  | "settings.about.version.label"
+  | "settings.about.version.description"
   | "settings.about.updates.label"
   | "settings.about.updates.description"
   | "settings.about.updates.notAvailable"
-  | "settings.about.updates.manualInstall"
-  | "settings.about.systemStatus.label"
-  | "settings.about.systemStatus.description"
-  | "settings.about.systemStatus.basicOnly"
-  | "settings.about.systemStatus.developerDiagnostics"
-  | "settings.about.legal.label"
-  | "settings.about.legal.description"
-  | "settings.about.legal.notBundled"
   | "settings.about.safeViewing.label"
   | "settings.about.safeViewing.description"
   | "settings.about.keywords.about"
   | "settings.about.keywords.update"
   | "settings.about.keywords.version"
-  | "settings.about.keywords.status"
-  | "settings.about.keywords.legal"
-  | "settings.about.keywords.privacy"
   | "settings.common.currentValue"
   | "settings.common.close"
   | "settings.common.cancel"
@@ -443,10 +425,10 @@ export const settingsV2Copy: Record<
     "settings.general.reset.description":
       "Restore user-facing settings after a confirmation step.",
     "settings.general.reset.impact":
-      "This feature will be available in a later version. It will not delete personal data or saved secure settings.",
+      "This feature will be available later. It will not delete personal data or saved secure settings.",
     "settings.general.reset.action": "Restore default settings",
     "settings.general.reset.details": "Review reset and recovery",
-    "settings.general.reset.unsupported": "Available in a later version",
+    "settings.general.reset.unsupported": "Coming later",
     "settings.appearance.title": "Appearance & Pet",
     "settings.appearance.description":
       "Choose Jarvis colors, Desktop Pet visibility, motion, and the current local skin summary.",
@@ -558,8 +540,8 @@ export const settingsV2Copy: Record<
     "settings.voice.tts.availableAfterSetup": "Available after service setup",
     "settings.voice.wakeWord.label": "Wake word",
     "settings.voice.wakeWord.description":
-      "Wake word is read-only here and is not available in this version.",
-    "settings.voice.wakeWord.unavailable": "Not supported in this version",
+      "Wake word is read-only here and is not currently available.",
+    "settings.voice.wakeWord.unavailable": "Not supported yet",
     "settings.voice.privacy.localOnly":
       "This page only reads local status and does not connect online services, start the microphone, or upload data.",
     "settings.models.title": "Models & Intelligence",
@@ -723,7 +705,7 @@ export const settingsV2Copy: Record<
     "settings.tools.mcp.label": "External tool connections",
     "settings.tools.mcp.description":
       "Opening this page does not connect to external tools.",
-    "settings.tools.mcp.unavailable": "Not available in this version",
+    "settings.tools.mcp.unavailable": "Not available yet",
     "settings.tools.mcp.available": "Available",
     "settings.tools.mcp.statusUnknown":
       "Connection status has not been reported yet.",
@@ -731,7 +713,7 @@ export const settingsV2Copy: Record<
     "settings.tools.mcp.noAutoConnect":
       "Opening this page does not connect to external tools.",
     "settings.tools.mcp.noExternalRun":
-      "Connections are not available in this version.",
+      "Connections are not available yet.",
     "settings.tools.mcp.userControlled":
       "Connections remain user controlled.",
     "settings.tools.safeViewing.title": "Safe viewing",
@@ -793,7 +775,7 @@ export const settingsV2Copy: Record<
       "Opening this page does not send a notification, request Windows permission, play a sound, or start voice playback.",
     "settings.notifications.currentFeatures.label": "Current notification features",
     "settings.notifications.currentFeatures.description":
-      "Full Windows notification settings are not available in this version.",
+      "Full Windows notification settings are not available yet.",
     "settings.notifications.currentFeatures.limited": "Limited",
     "settings.notifications.currentFeatures.noFullWindowsSettings":
       "Jarvis does not provide full Windows notification settings yet.",
@@ -818,47 +800,24 @@ export const settingsV2Copy: Record<
     "settings.notifications.keywords.sensitive": "sensitive content",
     "settings.about.title": "About & Updates",
     "settings.about.description":
-      "Review the Jarvis-K Alpha version, release channel, update availability, and safe system summary.",
+      "Review the installed Jarvis-K version and the update options currently available.",
     "settings.about.section.product": "Product information",
     "settings.about.section.updates": "Updates",
-    "settings.about.section.status": "System status",
-    "settings.about.section.legal": "Legal information",
-    "settings.about.productIdentity.label": "Application",
-    "settings.about.productIdentity.description":
-      "Shows the trusted product name and installed version.",
-    "settings.about.productIdentity.version": "Version",
-    "settings.about.releaseChannel.label": "Release channel",
-    "settings.about.releaseChannel.description":
-      "Shows which release channel this app was built for.",
-    "settings.about.releaseChannel.development": "Development",
-    "settings.about.releaseChannel.alpha": "Alpha",
-    "settings.about.releaseChannel.stable": "Stable",
-    "settings.about.releaseChannel.test": "Test",
+    "settings.about.productName.label": "Product name",
+    "settings.about.productName.description": "Shows the trusted product name.",
+    "settings.about.version.label": "Version",
+    "settings.about.version.description":
+      "Shows the installed Jarvis-K application version.",
     "settings.about.updates.label": "In-app updates",
     "settings.about.updates.description":
       "This Alpha does not support in-app updates.",
     "settings.about.updates.notAvailable": "Not available in this Alpha",
-    "settings.about.updates.manualInstall":
-      "Install updates only from a trusted release candidate.",
-    "settings.about.systemStatus.label": "System status",
-    "settings.about.systemStatus.description":
-      "Shows only the safe summary ordinary users need.",
-    "settings.about.systemStatus.basicOnly": "Basic status summary",
-    "settings.about.systemStatus.developerDiagnostics":
-      "Detailed diagnostics are hidden from ordinary settings.",
-    "settings.about.legal.label": "Legal notices",
-    "settings.about.legal.description":
-      "Formal legal notices and third-party notices are not bundled in this Alpha.",
-    "settings.about.legal.notBundled": "Not bundled in this Alpha",
     "settings.about.safeViewing.label": "Safe viewing",
     "settings.about.safeViewing.description":
-      "Opening this page does not check for updates, open links, export logs, write to the clipboard, restart Jarvis, or send network requests.",
+      "Opening this page does not check for updates, access the network, open external links, export logs, write to the clipboard, or restart Jarvis.",
     "settings.about.keywords.about": "about",
     "settings.about.keywords.update": "updates",
     "settings.about.keywords.version": "version",
-    "settings.about.keywords.status": "system status",
-    "settings.about.keywords.legal": "legal notices",
-    "settings.about.keywords.privacy": "privacy",
     "settings.common.currentValue": "Current value",
     "settings.common.close": "Close",
     "settings.common.cancel": "Cancel",
@@ -914,7 +873,7 @@ export const settingsV2Copy: Record<
     "settings.general.displayLanguage.action": "选择界面语言",
     "settings.general.displayLanguage.dialogTitle": "选择界面语言",
     "settings.general.displayLanguage.dialogDescription":
-      "此设置会立即更新 Settings V2，并沿用现有应用语言偏好。",
+      "此设置会立即应用到 Settings V2，并沿用现有应用语言偏好。",
     "settings.general.displayLanguage.english": "English",
     "settings.general.displayLanguage.chinese": "中文（简体）",
     "settings.general.closeBehavior.label": "关闭主窗口时",
@@ -930,15 +889,15 @@ export const settingsV2Copy: Record<
     "settings.general.launchAtLogin.description":
       "Windows 登录后启动 Jarvis-K Alpha。",
     "settings.general.launchAtLogin.unavailable":
-      "仅在打包后的 Alpha 或 Stable 版本中可用。",
+      "仅在打包后的 Alpha 或 Stable 应用中可用。",
     "settings.general.launchAtLogin.retry": "重试",
     "settings.general.reset.label": "恢复默认设置",
     "settings.general.reset.description": "确认后恢复面向用户的设置。",
     "settings.general.reset.impact":
-      "此功能将在后续版本提供。它不会删除个人数据或已保存的安全设置。",
+      "此功能将在后续提供。它不会删除个人数据或已保存的安全设置。",
     "settings.general.reset.action": "恢复默认设置",
     "settings.general.reset.details": "查看重置与恢复",
-    "settings.general.reset.unsupported": "后续版本提供",
+    "settings.general.reset.unsupported": "后续提供",
     "settings.appearance.title": "外观与桌宠",
     "settings.appearance.description":
       "设置 Jarvis 的界面配色、桌宠显示方式、动效和当前皮肤摘要。",
@@ -1044,8 +1003,8 @@ export const settingsV2Copy: Record<
     "settings.voice.tts.availableAfterSetup": "配置服务后可用",
     "settings.voice.wakeWord.label": "唤醒词",
     "settings.voice.wakeWord.description":
-      "唤醒词在此页面保持只读，当前版本暂不支持。",
-    "settings.voice.wakeWord.unavailable": "当前版本暂不支持",
+      "唤醒词在此页面保持只读，当前暂不支持。",
+    "settings.voice.wakeWord.unavailable": "当前暂不支持",
     "settings.voice.privacy.localOnly":
       "此页面只读取本机状态，不会连接在线服务、启动麦克风或上传数据。",
     "settings.models.title": "模型与智能",
@@ -1187,12 +1146,12 @@ export const settingsV2Copy: Record<
     "settings.tools.mcp.label": "外部工具连接",
     "settings.tools.mcp.description":
       "打开本页不会连接外部工具。",
-    "settings.tools.mcp.unavailable": "当前版本暂不可用",
+    "settings.tools.mcp.unavailable": "当前暂不可用",
     "settings.tools.mcp.available": "可用",
     "settings.tools.mcp.statusUnknown": "尚未读取连接状态。",
     "settings.tools.mcp.notConnected": "当前没有活动连接。",
     "settings.tools.mcp.noAutoConnect": "打开此页面不会建立外部工具连接。",
-    "settings.tools.mcp.noExternalRun": "当前版本暂不支持连接。",
+    "settings.tools.mcp.noExternalRun": "当前暂不支持连接。",
     "settings.tools.mcp.userControlled": "连接仍由用户控制。",
     "settings.tools.safeViewing.title": "安全查看",
     "settings.tools.status.noExecutionOnOpen":
@@ -1249,7 +1208,7 @@ export const settingsV2Copy: Record<
       "打开此页面不会发送通知、请求 Windows 权限、播放声音或启动语音播报。",
     "settings.notifications.currentFeatures.label": "当前通知功能",
     "settings.notifications.currentFeatures.description":
-      "当前版本尚未提供完整的 Windows 通知设置。",
+      "当前尚未提供完整的 Windows 通知设置。",
     "settings.notifications.currentFeatures.limited": "功能有限",
     "settings.notifications.currentFeatures.noFullWindowsSettings":
       "Jarvis 尚未提供完整的 Windows 通知设置。",
@@ -1273,46 +1232,23 @@ export const settingsV2Copy: Record<
     "settings.notifications.keywords.sensitive": "敏感内容",
     "settings.about.title": "关于与更新",
     "settings.about.description":
-      "查看 Jarvis-K Alpha 的版本、发布渠道、更新状态和安全状态摘要。",
+      "查看当前安装的 Jarvis-K 版本和本版本可用的更新方式。",
     "settings.about.section.product": "产品信息",
     "settings.about.section.updates": "更新",
-    "settings.about.section.status": "系统状态",
-    "settings.about.section.legal": "法律信息",
-    "settings.about.productIdentity.label": "应用",
-    "settings.about.productIdentity.description":
-      "显示可信的产品名称和已安装版本。",
-    "settings.about.productIdentity.version": "版本",
-    "settings.about.releaseChannel.label": "发布渠道",
-    "settings.about.releaseChannel.description":
-      "显示当前应用面向的发布渠道。",
-    "settings.about.releaseChannel.development": "开发版",
-    "settings.about.releaseChannel.alpha": "Alpha",
-    "settings.about.releaseChannel.stable": "正式版",
-    "settings.about.releaseChannel.test": "测试版",
+    "settings.about.productName.label": "产品名称",
+    "settings.about.productName.description": "显示可信的产品名称。",
+    "settings.about.version.label": "版本",
+    "settings.about.version.description":
+      "显示当前安装的 Jarvis-K 应用版本。",
     "settings.about.updates.label": "应用内更新",
     "settings.about.updates.description": "当前 Alpha 不支持应用内更新。",
     "settings.about.updates.notAvailable": "当前 Alpha 暂不可用",
-    "settings.about.updates.manualInstall":
-      "仅从可信的发布候选安装更新。",
-    "settings.about.systemStatus.label": "系统状态",
-    "settings.about.systemStatus.description":
-      "这里只显示普通用户需要的安全摘要。",
-    "settings.about.systemStatus.basicOnly": "基础状态摘要",
-    "settings.about.systemStatus.developerDiagnostics":
-      "完整诊断信息不会显示在普通设置中。",
-    "settings.about.legal.label": "法律说明",
-    "settings.about.legal.description":
-      "正式法律说明和第三方声明尚未打包进当前 Alpha。",
-    "settings.about.legal.notBundled": "当前 Alpha 尚未包含",
     "settings.about.safeViewing.label": "安全查看",
     "settings.about.safeViewing.description":
-      "打开此页面不会检查更新、打开链接、导出日志、写入剪贴板、重启 Jarvis 或发送网络请求。",
+      "打开此页面不会检查更新、访问网络、打开外部链接、导出日志、写入剪贴板或重启 Jarvis。",
     "settings.about.keywords.about": "关于",
     "settings.about.keywords.update": "更新",
     "settings.about.keywords.version": "版本",
-    "settings.about.keywords.status": "系统状态",
-    "settings.about.keywords.legal": "法律说明",
-    "settings.about.keywords.privacy": "隐私",
     "settings.common.currentValue": "当前值",
     "settings.common.close": "关闭",
     "settings.common.cancel": "取消",

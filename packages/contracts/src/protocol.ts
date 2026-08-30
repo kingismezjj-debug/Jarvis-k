@@ -486,9 +486,6 @@ export const UiSurfaceCapabilityStatusSchema = z
     settingsV2EnvRequested: z.boolean().default(false),
     settingsV2ReleaseAllowed: z.boolean().default(false),
     settingsV2Capability: z.boolean().default(false),
-    releaseChannel: z
-      .enum(["development", "alpha", "stable", "test"])
-      .default("development"),
     settingsSurfaceRequested: z
       .enum(["unknown", "general_settings"])
       .default("unknown"),
@@ -505,24 +502,16 @@ export type UiSurfaceCapabilityStatus = z.infer<
   typeof UiSurfaceCapabilityStatusSchema
 >;
 
-export const ProductAboutReleaseChannelSchema = z.enum([
-  "development",
-  "alpha",
-  "stable",
-  "test",
-]);
-export type ProductAboutReleaseChannel = z.infer<
-  typeof ProductAboutReleaseChannelSchema
->;
-
 export const ProductAboutInfoSchema = z
   .object({
     productName: z.string().min(1).max(120),
-    version: z
-      .string()
-      .regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/)
-      .max(64),
-    releaseChannel: ProductAboutReleaseChannelSchema,
+    version: z.union([
+      z
+        .string()
+        .regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/)
+        .max(64),
+      z.literal("unknown"),
+    ]),
     inAppUpdatesSupported: z.literal(false),
     updateCheckAvailable: z.literal(false),
     externalLinksAvailable: z.literal(false),

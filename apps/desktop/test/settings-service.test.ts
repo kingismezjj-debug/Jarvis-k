@@ -79,7 +79,6 @@ describe("SettingsService", () => {
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: false,
       reasonCode: "flag_disabled",
-      releaseChannel: "development",
       settingsSurfaceMounted: "legacy",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: false,
@@ -390,7 +389,6 @@ describe("SettingsService", () => {
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: true,
       reasonCode: "flag_disabled",
-      releaseChannel: "development",
       settingsSurfaceMounted: "legacy",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: false,
@@ -412,7 +410,6 @@ describe("SettingsService", () => {
       cloudProviderAcceptanceCapabilityAvailable: true,
       evaluationCapabilityAvailable: true,
       reasonCode: "flag_disabled",
-      releaseChannel: "development",
       settingsSurfaceMounted: "legacy",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: false,
@@ -435,7 +432,6 @@ describe("SettingsService", () => {
       cloudProviderAcceptanceCapabilityAvailable: false,
       evaluationCapabilityAvailable: false,
       reasonCode: "enabled",
-      releaseChannel: "development",
       settingsSurfaceMounted: "v2",
       settingsSurfaceRequested: "general_settings",
       settingsV2Capability: true,
@@ -459,7 +455,6 @@ describe("SettingsService", () => {
     expect(aboutInfo).toEqual({
       productName: "Jarvis-K Alpha",
       version: "0.1.0-alpha.4",
-      releaseChannel: "alpha",
       inAppUpdatesSupported: false,
       updateCheckAvailable: false,
       externalLinksAvailable: false,
@@ -469,9 +464,24 @@ describe("SettingsService", () => {
       sensitiveValuesExposed: false,
       rendererWritable: false,
     });
+    expect("releaseChannel" in aboutInfo).toBe(false);
+    expect(aboutInfo.version).not.toBe("39.8.5");
     expect(JSON.stringify(aboutInfo)).not.toMatch(
-      /appId|AppUserModelID|C:\\|credential|Authorization|Bearer|commit|gitSha/i,
+      /appId|AppUserModelID|releaseChannel|C:\\|credential|Authorization|Bearer|commit|gitSha/i,
     );
+  });
+
+  it("fails closed when Product About version is unavailable", () => {
+    const { service } = createSettingsService({
+      productName: "Jarvis-K Alpha",
+      productVersion: "",
+      releaseChannel: "alpha",
+    });
+
+    const aboutInfo = service.getProductAboutInfo();
+    expect(aboutInfo.version).toBe("unknown");
+    expect(JSON.stringify(aboutInfo)).not.toContain("39.8.5");
+    expect("releaseChannel" in aboutInfo).toBe(false);
   });
 
   it("reports Settings V2 flag requests blocked outside development", () => {
@@ -483,13 +493,13 @@ describe("SettingsService", () => {
     });
     expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
       reasonCode: "release_channel_not_allowed",
-      releaseChannel: "alpha",
       settingsSurfaceMounted: "legacy",
       settingsV2Capability: false,
       settingsV2CapabilityAvailable: false,
       settingsV2EnvRequested: true,
       settingsV2ReleaseAllowed: false,
     });
+    expect("releaseChannel" in service.getUiSurfaceCapabilityStatus()).toBe(false);
   });
 
   it("persists launch at login as a local user-controlled setting", async () => {

@@ -164,7 +164,7 @@ P3:
 
 ## Next Stage
 
-Phase UI-2H status: Settings V2 About & Updates is implemented as a read-only Product slice behind the existing development-only Settings V2 gate; default Settings V2 remains off.
+Phase UI-2H-Fix status: About & Updates now shows only safe viewing, trusted product name/version from Desktop Main, and read-only Alpha update availability behind the existing development-only Settings V2 gate; default Settings V2 remains off.
 
 Recommended next implementation order:
 

@@ -118,6 +118,25 @@ try {
     timeout: 20_000,
   });
 
+  const productAboutInfo = await window.evaluate(async () => {
+    if (!window.jarvis) throw new Error("Desktop bridge unavailable.");
+    return window.jarvis.getProductAboutInfo();
+  });
+  const electronRuntimeVersion = await electronApp.evaluate(
+    () => process.versions.electron,
+  );
+  if (productAboutInfo.version !== "0.1.0-alpha.4") {
+    throw new Error(
+      `Packaged ProductAboutInfo returned ${productAboutInfo.version}, expected app version 0.1.0-alpha.4.`,
+    );
+  }
+  if (productAboutInfo.version === electronRuntimeVersion) {
+    throw new Error("ProductAboutInfo version resolved to Electron runtime version.");
+  }
+  if ("releaseChannel" in productAboutInfo) {
+    throw new Error("ProductAboutInfo leaked releaseChannel.");
+  }
+
   const initialSettings = await window.evaluate(async () => {
     if (!window.jarvis) throw new Error("Desktop bridge unavailable.");
     return window.jarvis.getDesktopSettings();
@@ -226,6 +245,14 @@ try {
         coreHostReady: true,
         trayReady: true,
         onboarding: "completed",
+        productAboutInfo: {
+          productName: productAboutInfo.productName,
+          version: productAboutInfo.version,
+          source: productAboutInfo.source,
+          rendererWritable: productAboutInfo.rendererWritable,
+          sensitiveValuesExposed: productAboutInfo.sensitiveValuesExposed,
+        },
+        electronRuntimeVersion,
         closeToTrayWindowCount: hiddenState.windowCount,
         coreStableAcrossRestore: true,
         coreHostAfterQuit: 0,

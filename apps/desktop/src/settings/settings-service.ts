@@ -71,7 +71,6 @@ export class SettingsService {
       settingsV2ReleaseAllowed:
         this.options.settingsV2ReleaseAllowed === true,
       settingsV2Capability: this.options.settingsV2CapabilityAvailable === true,
-      releaseChannel: this.options.releaseChannel ?? "development",
       settingsSurfaceRequested: "general_settings",
       settingsSurfaceMounted:
         this.options.settingsV2CapabilityAvailable === true ? "v2" : "legacy",
@@ -100,18 +99,23 @@ export class SettingsService {
   }
 
   public getProductAboutInfo(): ProductAboutInfo {
+    const productVersion =
+      typeof this.options.productVersion === "string"
+        ? this.options.productVersion.trim()
+        : "";
+    const safeProductVersion =
+      /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(
+        productVersion,
+      )
+        ? productVersion
+        : "unknown";
     return ProductAboutInfoSchema.parse({
       productName:
         typeof this.options.productName === "string" &&
         this.options.productName.trim().length > 0
           ? this.options.productName.trim()
           : "Jarvis-K",
-      version:
-        typeof this.options.productVersion === "string" &&
-        this.options.productVersion.trim().length > 0
-          ? this.options.productVersion.trim()
-          : "0.0.0",
-      releaseChannel: this.options.releaseChannel ?? "development",
+      version: safeProductVersion,
       inAppUpdatesSupported: false,
       updateCheckAvailable: false,
       externalLinksAvailable: false,

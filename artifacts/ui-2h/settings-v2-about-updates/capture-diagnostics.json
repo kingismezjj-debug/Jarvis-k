@@ -42,12 +42,12 @@
         "display": "block",
         "rect": {
           "x": 166,
-          "y": 7.875,
+          "y": 176.875,
           "width": 240,
-          "height": 1133.40625,
-          "top": 7.875,
+          "height": 651.21875,
+          "top": 176.875,
           "right": 406,
-          "bottom": 1141.28125,
+          "bottom": 828.09375,
           "left": 166,
           "intersectsViewport": true,
           "horizontallyWithinViewport": true
@@ -69,42 +69,54 @@
         }
       },
       "heading": {
-        "x": 549.953125,
-        "y": 23.875,
-        "width": 680.078125,
+        "x": 610.953125,
+        "y": 192.875,
+        "width": 558.09375,
         "height": 27.5,
-        "top": 23.875,
-        "right": 1230.03125,
-        "bottom": 51.375,
-        "left": 549.953125,
+        "top": 192.875,
+        "right": 1169.046875,
+        "bottom": 220.375,
+        "left": 610.953125,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 431,
-        "y": 670.59375,
-        "width": 918,
-        "height": 64,
-        "top": 670.59375,
-        "right": 1349,
-        "bottom": 734.59375,
-        "left": 431,
-        "intersectsViewport": true,
-        "horizontallyWithinViewport": true
-      },
-      "legalCard": {
+      "productSection": {
         "x": 430,
-        "y": 970.4375,
+        "y": 421.5625,
+        "width": 920,
+        "height": 219.6875,
+        "top": 421.5625,
+        "right": 1350,
+        "bottom": 641.25,
+        "left": 430,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updatesSection": {
+        "x": 430,
+        "y": 657.25,
         "width": 920,
         "height": 138.84375,
-        "top": 970.4375,
+        "top": 657.25,
         "right": 1350,
-        "bottom": 1109.28125,
+        "bottom": 796.09375,
         "left": 430,
-        "intersectsViewport": false,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -164,12 +176,12 @@
         "display": "block",
         "rect": {
           "x": 166,
-          "y": 7.875,
+          "y": 176.875,
           "width": 240,
-          "height": 1133.40625,
-          "top": 7.875,
+          "height": 651.21875,
+          "top": 176.875,
           "right": 406,
-          "bottom": 1141.28125,
+          "bottom": 828.09375,
           "left": 166,
           "intersectsViewport": true,
           "horizontallyWithinViewport": true
@@ -191,42 +203,54 @@
         }
       },
       "heading": {
-        "x": 549.953125,
-        "y": 23.875,
-        "width": 680.078125,
+        "x": 610.953125,
+        "y": 192.875,
+        "width": 558.09375,
         "height": 27.5,
-        "top": 23.875,
-        "right": 1230.03125,
-        "bottom": 51.375,
-        "left": 549.953125,
+        "top": 192.875,
+        "right": 1169.046875,
+        "bottom": 220.375,
+        "left": 610.953125,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 431,
-        "y": 670.59375,
-        "width": 918,
-        "height": 64,
-        "top": 670.59375,
-        "right": 1349,
-        "bottom": 734.59375,
-        "left": 431,
-        "intersectsViewport": true,
-        "horizontallyWithinViewport": true
-      },
-      "legalCard": {
+      "productSection": {
         "x": 430,
-        "y": 970.4375,
+        "y": 421.5625,
+        "width": 920,
+        "height": 219.6875,
+        "top": 421.5625,
+        "right": 1350,
+        "bottom": 641.25,
+        "left": 430,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updatesSection": {
+        "x": 430,
+        "y": 657.25,
         "width": 920,
         "height": 138.84375,
-        "top": 970.4375,
+        "top": 657.25,
         "right": 1350,
-        "bottom": 1109.28125,
+        "bottom": 796.09375,
         "left": 430,
-        "intersectsViewport": false,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -286,12 +310,12 @@
         "display": "block",
         "rect": {
           "x": 166,
-          "y": 7.875,
+          "y": 176.875,
           "width": 240,
-          "height": 1133.40625,
-          "top": 7.875,
+          "height": 651.21875,
+          "top": 176.875,
           "right": 406,
-          "bottom": 1141.28125,
+          "bottom": 828.09375,
           "left": 166,
           "intersectsViewport": true,
           "horizontallyWithinViewport": true
@@ -313,42 +337,54 @@
         }
       },
       "heading": {
-        "x": 549.953125,
-        "y": 23.875,
-        "width": 680.078125,
+        "x": 610.953125,
+        "y": 192.875,
+        "width": 558.09375,
         "height": 27.5,
-        "top": 23.875,
-        "right": 1230.03125,
-        "bottom": 51.375,
-        "left": 549.953125,
+        "top": 192.875,
+        "right": 1169.046875,
+        "bottom": 220.375,
+        "left": 610.953125,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 431,
-        "y": 670.59375,
-        "width": 918,
-        "height": 64,
-        "top": 670.59375,
-        "right": 1349,
-        "bottom": 734.59375,
-        "left": 431,
-        "intersectsViewport": true,
-        "horizontallyWithinViewport": true
-      },
-      "legalCard": {
+      "productSection": {
         "x": 430,
-        "y": 970.4375,
+        "y": 421.5625,
+        "width": 920,
+        "height": 219.6875,
+        "top": 421.5625,
+        "right": 1350,
+        "bottom": 641.25,
+        "left": 430,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updatesSection": {
+        "x": 430,
+        "y": 657.25,
         "width": 920,
         "height": 138.84375,
-        "top": 970.4375,
+        "top": 657.25,
         "right": 1350,
-        "bottom": 1109.28125,
+        "bottom": 796.09375,
         "left": 430,
-        "intersectsViewport": false,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -408,12 +444,12 @@
         "display": "block",
         "rect": {
           "x": 166,
-          "y": 7.875,
+          "y": 200.875,
           "width": 240,
-          "height": 1070.40625,
-          "top": 7.875,
+          "height": 627.21875,
+          "top": 200.875,
           "right": 406,
-          "bottom": 1078.28125,
+          "bottom": 828.09375,
           "left": 166,
           "intersectsViewport": true,
           "horizontallyWithinViewport": true
@@ -435,42 +471,54 @@
         }
       },
       "heading": {
-        "x": 652.3125,
-        "y": 23.875,
-        "width": 475.375,
+        "x": 690.90625,
+        "y": 216.875,
+        "width": 398.1875,
         "height": 27.5,
-        "top": 23.875,
-        "right": 1127.6875,
-        "bottom": 51.375,
-        "left": 652.3125,
+        "top": 216.875,
+        "right": 1089.09375,
+        "bottom": 244.375,
+        "left": 690.90625,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 431,
-        "y": 646.59375,
-        "width": 918,
-        "height": 44.5,
-        "top": 646.59375,
-        "right": 1349,
-        "bottom": 691.09375,
-        "left": 431,
-        "intersectsViewport": true,
-        "horizontallyWithinViewport": true
-      },
-      "legalCard": {
+      "productSection": {
         "x": 430,
-        "y": 907.4375,
+        "y": 421.5625,
+        "width": 920,
+        "height": 219.6875,
+        "top": 421.5625,
+        "right": 1350,
+        "bottom": 641.25,
+        "left": 430,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updatesSection": {
+        "x": 430,
+        "y": 657.25,
         "width": 920,
         "height": 138.84375,
-        "top": 907.4375,
+        "top": 657.25,
         "right": 1350,
-        "bottom": 1046.28125,
+        "bottom": 796.09375,
         "left": 430,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -489,14 +537,14 @@
   },
   {
     "screenshot": {
-      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\en-about-narrow.png",
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\en-about-narrow-top.png",
       "dimensions": {
         "width": 390,
         "height": 980
       }
     },
     "diagnostics": {
-      "name": "en-about-narrow",
+      "name": "en-about-narrow-top",
       "locale": "en",
       "theme": "harbor",
       "viewportInfo": {
@@ -568,31 +616,43 @@
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 81,
-        "y": 1103.40625,
-        "width": 296,
-        "height": 64,
-        "top": 1103.40625,
-        "right": 377,
-        "bottom": 1167.40625,
-        "left": 81,
-        "intersectsViewport": false,
+      "productSection": {
+        "x": 80,
+        "y": 504.5,
+        "width": 298,
+        "height": 318.53125,
+        "top": 504.5,
+        "right": 378,
+        "bottom": 823.03125,
+        "left": 80,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "legalCard": {
+      "updatesSection": {
         "x": 80,
-        "y": 1462.09375,
+        "y": 839.03125,
         "width": 298,
-        "height": 197.6875,
-        "top": 1462.09375,
+        "height": 178.84375,
+        "top": 839.03125,
         "right": 378,
-        "bottom": 1659.78125,
+        "bottom": 1017.875,
         "left": 80,
-        "intersectsViewport": false,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -611,14 +671,148 @@
   },
   {
     "screenshot": {
-      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\zh-about-narrow.png",
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\en-about-narrow-bottom.png",
       "dimensions": {
         "width": 390,
         "height": 980
       }
     },
     "diagnostics": {
-      "name": "zh-about-narrow",
+      "name": "en-about-narrow-bottom",
+      "locale": "en",
+      "theme": "harbor",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 390,
+          "height": 980
+        },
+        "actualBrowserWindowContentSize": [
+          904,
+          980
+        ]
+      },
+      "innerWidth": 390,
+      "innerHeight": 980,
+      "outerWidth": 920,
+      "outerHeight": 1019,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 390,
+        "height": 980,
+        "scale": 1
+      },
+      "documentClientWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "block",
+        "rect": {
+          "x": 80,
+          "y": -55.375,
+          "width": 298,
+          "height": 70,
+          "top": -55.375,
+          "right": 378,
+          "bottom": 14.625,
+          "left": 80,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 80,
+        "y": 46.625,
+        "width": 298,
+        "height": 27.5,
+        "top": 46.625,
+        "right": 378,
+        "bottom": 74.125,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "productSection": {
+        "x": 80,
+        "y": 346.5,
+        "width": 298,
+        "height": 318.53125,
+        "top": 346.5,
+        "right": 378,
+        "bottom": 665.03125,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updatesSection": {
+        "x": 80,
+        "y": 681.03125,
+        "width": 298,
+        "height": 178.84375,
+        "top": 681.03125,
+        "right": 378,
+        "bottom": 859.875,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\zh-about-narrow-top.png",
+      "dimensions": {
+        "width": 390,
+        "height": 980
+      }
+    },
+    "diagnostics": {
+      "name": "zh-about-narrow-top",
       "locale": "zh",
       "theme": "harbor",
       "viewportInfo": {
@@ -690,31 +884,177 @@
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 81,
-        "y": 1019.15625,
-        "width": 296,
-        "height": 44.5,
-        "top": 1019.15625,
-        "right": 377,
-        "bottom": 1063.65625,
-        "left": 81,
-        "intersectsViewport": false,
+      "productSection": {
+        "x": 80,
+        "y": 481.125,
+        "width": 298,
+        "height": 299.6875,
+        "top": 481.125,
+        "right": 378,
+        "bottom": 780.8125,
+        "left": 80,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "legalCard": {
+      "updatesSection": {
         "x": 80,
-        "y": 1320,
+        "y": 796.8125,
         "width": 298,
-        "height": 197.6875,
-        "top": 1320,
+        "height": 178.84375,
+        "top": 796.8125,
         "right": 378,
-        "bottom": 1517.6875,
+        "bottom": 975.65625,
         "left": 80,
-        "intersectsViewport": false,
+        "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\zh-about-narrow-bottom.png",
+      "dimensions": {
+        "width": 390,
+        "height": 980
+      }
+    },
+    "diagnostics": {
+      "name": "zh-about-narrow-bottom",
+      "locale": "zh",
+      "theme": "harbor",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 390,
+          "height": 980
+        },
+        "actualBrowserWindowContentSize": [
+          904,
+          980
+        ]
+      },
+      "innerWidth": 390,
+      "innerHeight": 980,
+      "outerWidth": 920,
+      "outerHeight": 1019,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 390,
+        "height": 980,
+        "scale": 1
+      },
+      "documentClientWidth": 390,
+      "documentScrollWidth": 390,
+      "bodyClientWidth": 390,
+      "bodyScrollWidth": 390,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "block",
+        "rect": {
+          "x": 80,
+          "y": -12.75,
+          "width": 298,
+          "height": 70,
+          "top": -12.75,
+          "right": 378,
+          "bottom": 57.25,
+          "left": 80,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": {
+        "x": 80,
+        "y": 89.25,
+        "width": 298,
+        "height": 27.5,
+        "top": 89.25,
+        "right": 378,
+        "bottom": 116.75,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "productSection": {
+        "x": 80,
+        "y": 365.125,
+        "width": 298,
+        "height": 299.6875,
+        "top": 365.125,
+        "right": 378,
+        "bottom": 664.8125,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "updatesSection": {
+        "x": 80,
+        "y": 680.8125,
+        "width": 298,
+        "height": 178.84375,
+        "top": 680.8125,
+        "right": 378,
+        "bottom": 859.65625,
+        "left": 80,
+        "intersectsViewport": true,
+        "horizontallyWithinViewport": true
+      },
+      "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -756,7 +1096,7 @@
       },
       "searchState": {
         "query": "about",
-        "resultText": "1 resultsAbout & Updates / Product informationApplicationShows the trusted product name and installed version.Current value: Jarvis-K",
+        "resultText": "3 resultsAbout & Updates / Product informationProduct nameShows the trusted product name.Current value: Jarvis-KAbout & Updates / Product informationVersionShows the installed Jarvis-K application version.Current value: 0.1.0-alpha.4About & Updates / UpdatesSafe viewingOpening this page does not check for updates, access the network, open external links, export logs, write to the clipboard, or restart Jarvis.",
         "sideEffects": {
           "updateCheckCalls": 0,
           "externalOpenCalls": 0,
@@ -795,10 +1135,10 @@
           "x": 166,
           "y": 478.875,
           "width": 240,
-          "height": 348,
+          "height": 487.75,
           "top": 478.875,
           "right": 406,
-          "bottom": 826.875,
+          "bottom": 966.625,
           "left": 166,
           "intersectsViewport": true,
           "horizontallyWithinViewport": true
@@ -820,9 +1160,21 @@
         }
       },
       "heading": null,
-      "updateCard": null,
-      "legalCard": null,
+      "productSection": null,
+      "updatesSection": null,
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -864,7 +1216,127 @@
       },
       "searchState": {
         "query": "关于",
-        "resultText": "1 条结果关于与更新 / 产品信息应用显示可信的产品名称和已安装版本。当前值: Jarvis-K",
+        "resultText": "3 条结果关于与更新 / 产品信息产品名称显示可信的产品名称。当前值: Jarvis-K关于与更新 / 产品信息版本显示当前安装的 Jarvis-K 应用版本。当前值: 0.1.0-alpha.4关于与更新 / 更新安全查看打开此页面不会检查更新、访问网络、打开外部链接、导出日志、写入剪贴板或重启 Jarvis。",
+        "sideEffects": {
+          "updateCheckCalls": 0,
+          "externalOpenCalls": 0,
+          "diagnosticsExportCalls": 0,
+          "clipboardWriteCalls": 0,
+          "appRestartCalls": 0,
+          "fetchCalls": 0,
+          "realNetworkRequestSent": 0,
+          "mediaCalls": 0,
+          "notificationShowCalls": 0,
+          "windowsExecutorInvoked": 0,
+          "modelCallStarted": 0,
+          "pluginInvocationStarted": 0
+        }
+      },
+      "innerWidth": 1440,
+      "innerHeight": 940,
+      "outerWidth": 1456,
+      "outerHeight": 979,
+      "devicePixelRatio": 1,
+      "visualViewport": {
+        "width": 1440,
+        "height": 940,
+        "scale": 1
+      },
+      "documentClientWidth": 1440,
+      "documentScrollWidth": 1440,
+      "bodyClientWidth": 1440,
+      "bodyScrollWidth": 1440,
+      "scrollX": 0,
+      "scrollY": 0,
+      "settingsScrollTop": null,
+      "wideNav": {
+        "display": "block",
+        "rect": {
+          "x": 166,
+          "y": 478.875,
+          "width": 240,
+          "height": 464.5625,
+          "top": 478.875,
+          "right": 406,
+          "bottom": 943.4375,
+          "left": 166,
+          "intersectsViewport": true,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "compactSelector": {
+        "display": "none",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0,
+          "intersectsViewport": false,
+          "horizontallyWithinViewport": true
+        }
+      },
+      "heading": null,
+      "productSection": null,
+      "updatesSection": null,
+      "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
+      "sideEffects": {
+        "updateCheckCalls": 0,
+        "externalOpenCalls": 0,
+        "diagnosticsExportCalls": 0,
+        "clipboardWriteCalls": 0,
+        "appRestartCalls": 0,
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "windowsExecutorInvoked": 0,
+        "modelCallStarted": 0,
+        "pluginInvocationStarted": 0
+      }
+    }
+  },
+  {
+    "screenshot": {
+      "filePath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-2h\\settings-v2-about-updates\\version-search-en.png",
+      "dimensions": {
+        "width": 1440,
+        "height": 940
+      }
+    },
+    "diagnostics": {
+      "name": "version-search-en",
+      "locale": "en",
+      "theme": "harbor",
+      "query": "version",
+      "viewportInfo": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualBrowserWindowContentSize": [
+          1440,
+          940
+        ]
+      },
+      "searchState": {
+        "query": "version",
+        "resultText": "1 resultsAbout & Updates / Product informationVersionShows the installed Jarvis-K application version.Current value: 0.1.0-alpha.4",
         "sideEffects": {
           "updateCheckCalls": 0,
           "externalOpenCalls": 0,
@@ -928,9 +1400,21 @@
         }
       },
       "heading": null,
-      "updateCard": null,
-      "legalCard": null,
+      "productSection": null,
+      "updatesSection": null,
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -972,7 +1456,7 @@
       },
       "searchState": {
         "query": "updates",
-        "resultText": "2 resultsAbout & Updates / UpdatesIn-app updatesThis Alpha does not support in-app updates.Current value: Not available in this AlphaAbout & Updates / System statusSafe viewingOpening this page does not check for updates, open links, export logs, write to the clipboard, restart Jarvis, or send network requests.",
+        "resultText": "2 resultsAbout & Updates / UpdatesIn-app updatesThis Alpha does not support in-app updates.Current value: Not available in this AlphaAbout & Updates / UpdatesSafe viewingOpening this page does not check for updates, access the network, open external links, export logs, write to the clipboard, or restart Jarvis.",
         "sideEffects": {
           "updateCheckCalls": 0,
           "externalOpenCalls": 0,
@@ -1036,9 +1520,21 @@
         }
       },
       "heading": null,
-      "updateCard": null,
-      "legalCard": null,
+      "productSection": null,
+      "updatesSection": null,
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -1144,9 +1640,21 @@
         }
       },
       "heading": null,
-      "updateCard": null,
-      "legalCard": null,
+      "productSection": null,
+      "updatesSection": null,
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -1243,31 +1751,43 @@
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 81,
-        "y": 1043.3984375,
-        "width": 358,
-        "height": 44.5,
-        "top": 1043.3984375,
-        "right": 439,
-        "bottom": 1087.8984375,
-        "left": 81,
+      "productSection": {
+        "x": 80,
+        "y": 505.3671875,
+        "width": 360,
+        "height": 299.6875,
+        "top": 505.3671875,
+        "right": 440,
+        "bottom": 805.0546875,
+        "left": 80,
         "intersectsViewport": false,
         "horizontallyWithinViewport": true
       },
-      "legalCard": {
+      "updatesSection": {
         "x": 80,
-        "y": 1344.2421875,
+        "y": 821.0546875,
         "width": 360,
-        "height": 197.6875,
-        "top": 1344.2421875,
+        "height": 178.84375,
+        "top": 821.0546875,
         "right": 440,
-        "bottom": 1541.9296875,
+        "bottom": 999.8984375,
         "left": 80,
         "intersectsViewport": false,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,
@@ -1341,12 +1861,12 @@
         "display": "block",
         "rect": {
           "x": 80,
-          "y": -908.5234375,
+          "y": -527.0234375,
           "width": 360,
           "height": 70.5,
-          "top": -908.5234375,
+          "top": -527.0234375,
           "right": 440,
-          "bottom": -838.0234375,
+          "bottom": -456.5234375,
           "left": 80,
           "intersectsViewport": false,
           "horizontallyWithinViewport": true
@@ -1354,41 +1874,53 @@
       },
       "heading": {
         "x": 80,
-        "y": -806.0234375,
+        "y": -424.5234375,
         "width": 360,
         "height": 27.5,
-        "top": -806.0234375,
+        "top": -424.5234375,
         "right": 440,
-        "bottom": -778.5234375,
+        "bottom": -397.0234375,
         "left": 80,
         "intersectsViewport": false,
         "horizontallyWithinViewport": true
       },
-      "updateCard": {
-        "x": 81,
-        "y": 31.8984375,
-        "width": 358,
-        "height": 44.5,
-        "top": 31.8984375,
-        "right": 439,
-        "bottom": 76.3984375,
-        "left": 81,
+      "productSection": {
+        "x": 80,
+        "y": -124.6328125,
+        "width": 360,
+        "height": 299.6875,
+        "top": -124.6328125,
+        "right": 440,
+        "bottom": 175.0546875,
+        "left": 80,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
-      "legalCard": {
+      "updatesSection": {
         "x": 80,
-        "y": 332.7421875,
+        "y": 191.0546875,
         "width": 360,
-        "height": 197.6875,
-        "top": 332.7421875,
+        "height": 178.84375,
+        "top": 191.0546875,
         "right": 440,
-        "bottom": 530.4296875,
+        "bottom": 369.8984375,
         "left": 80,
         "intersectsViewport": true,
         "horizontallyWithinViewport": true
       },
       "composer": null,
+      "productAboutInfo": {
+        "productName": "Jarvis-K",
+        "version": "0.1.0-alpha.4",
+        "inAppUpdatesSupported": false,
+        "updateCheckAvailable": false,
+        "externalLinksAvailable": false,
+        "diagnosticsExportAvailable": false,
+        "networkRequestRequired": false,
+        "source": "desktop-main",
+        "sensitiveValuesExposed": false,
+        "rendererWritable": false
+      },
       "sideEffects": {
         "updateCheckCalls": 0,
         "externalOpenCalls": 0,

@@ -82,7 +82,7 @@
     "plugin:validate:local-template": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/local-plugins/hello-readonly",
     "ci": "npm run typecheck && npm test && npm run check:boundaries && npm run check:sensitive-artifacts && npm run build",
     "verify": "npm run typecheck && npm test && npm run check:boundaries && npm run check:sensitive-artifacts && npm run build",
-    "start": "electron apps/desktop/dist/main.js",
+    "start": "electron .",
     "dev": "npm run build && npm run start",
     "smoke:desktop": "npm run build && node tests/desktop-smoke.mjs",
     "smoke:desktop:ui-interaction": "npm run build && node tests/desktop-ui-interaction-smoke.mjs",

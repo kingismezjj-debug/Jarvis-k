@@ -58,8 +58,8 @@ describe("Settings V2 registry", () => {
     expect(settingsV2ToolsPluginsDefinitions).toHaveLength(6);
     expect(settingsV2MemoryPrivacyDefinitions).toHaveLength(3);
     expect(settingsV2NotificationsDefinitions).toHaveLength(5);
-    expect(settingsV2AboutUpdatesDefinitions).toHaveLength(6);
-    expect(settingsV2ProductDefinitions).toHaveLength(41);
+    expect(settingsV2AboutUpdatesDefinitions).toHaveLength(4);
+    expect(settingsV2ProductDefinitions).toHaveLength(39);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
@@ -143,7 +143,7 @@ describe("Settings V2 registry", () => {
       "settings.tools.automation_safeguards",
       "settings.memory.personal_memory",
       "settings.notifications.safe_viewing",
-      "settings.about.product_identity",
+      "settings.about.product_name",
       "settings.general.close_button_behavior",
       "settings.pet.show",
       "settings.voice.capture_mode",
@@ -151,7 +151,7 @@ describe("Settings V2 registry", () => {
       "settings.tools.approved_apps",
       "settings.memory.saved_information",
       "settings.notifications.current_features",
-      "settings.about.release_channel",
+      "settings.about.version",
       "settings.general.launch_at_login",
       "settings.pet.keep_on_top",
       "settings.voice.microphone_permission",
@@ -166,17 +166,15 @@ describe("Settings V2 registry", () => {
       "settings.models.routing_policy",
       "settings.tools.file_search",
       "settings.notifications.tray_reminder",
-      "settings.about.system_status",
+      "settings.about.safe_viewing",
       "settings.pet.reset_position",
       "settings.voice.tts",
       "settings.models.cloud_local_status",
       "settings.tools.plugins",
       "settings.notifications.privacy",
-      "settings.about.legal",
       "settings.skin.current",
       "settings.voice.wake_word",
       "settings.tools.mcp_connections",
-      "settings.about.safe_viewing",
     ]);
   });
 
@@ -363,27 +361,16 @@ describe("Settings V2 registry", () => {
 
   it("keeps About search focused on safe product information", () => {
     const searchableDefinitions = getSettingsV2SearchableDefinitions();
-    const aboutMatches = searchableDefinitions.filter((definition) => {
-      const text = [
-        tSettingsV2("en", definition.labelKey),
-        tSettingsV2("en", definition.descriptionKey),
-        ...definition.searchKeywordKeys.map((key) => tSettingsV2("en", key)),
-      ]
-        .join(" ")
-        .toLocaleLowerCase();
-      return (
-        text.includes("in-app updates") ||
-        text.includes("installed version") ||
-        text.includes("release channel")
-      );
-    });
+    const aboutMatches = searchableDefinitions.filter(
+      (definition) => definition.categoryId === "about_updates",
+    );
 
-    expect(aboutMatches.length).toBeGreaterThanOrEqual(2);
-    expect(
-      aboutMatches.every(
-        (definition) => definition.categoryId === "about_updates",
-      ),
-    ).toBe(true);
+    expect(aboutMatches.map((definition) => definition.settingId)).toEqual([
+      "settings.about.product_name",
+      "settings.about.version",
+      "settings.about.updates",
+      "settings.about.safe_viewing",
+    ]);
 
     for (const definition of aboutMatches) {
       const text = [
@@ -392,6 +379,17 @@ describe("Settings V2 registry", () => {
         ...definition.searchKeywordKeys.map((key) => tSettingsV2("en", key)),
       ].join(" ");
       for (const term of [
+        "Release channel",
+        "Development",
+        "System status",
+        "Basic status summary",
+        "Legal information",
+        "Legal notices",
+        "Privacy",
+        "Terms",
+        "License",
+        "Notices",
+        "Install updates only from a trusted release candidate",
         "autoUpdater",
         "electron-updater",
         "openExternal",

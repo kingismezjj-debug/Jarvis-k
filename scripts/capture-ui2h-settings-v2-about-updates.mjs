@@ -31,13 +31,16 @@ const pageScenarios = [
   ["harbor-about-wide", 1440, 940, "en", "harbor", "top"],
   ["ember-about-wide", 1440, 940, "en", "ember", "top"],
   ["zh-about-wide", 1440, 940, "zh", "harbor", "top"],
-  ["en-about-narrow", 390, 980, "en", "harbor", "top"],
-  ["zh-about-narrow", 390, 980, "zh", "harbor", "top"],
+  ["en-about-narrow-top", 390, 980, "en", "harbor", "top"],
+  ["en-about-narrow-bottom", 390, 980, "en", "harbor", "bottom"],
+  ["zh-about-narrow-top", 390, 980, "zh", "harbor", "top"],
+  ["zh-about-narrow-bottom", 390, 980, "zh", "harbor", "bottom"],
 ];
 
 const searchScenarios = [
   ["about-search-en", 1440, 940, "en", "harbor", "about"],
   ["about-search-zh", 1440, 940, "zh", "harbor", "关于"],
+  ["version-search-en", 1440, 940, "en", "harbor", "version"],
   ["updates-search-en", 1440, 940, "en", "harbor", "updates"],
   ["about-search-empty", 1440, 940, "en", "harbor", "zz-about-empty"],
 ];
@@ -74,7 +77,7 @@ async function launchApp({ theme, locale, settingsV2Enabled = true }) {
   );
   await seedDesktopSettings(tempUserData, { theme });
   const electronApp = await electron.launch({
-    args: [`--user-data-dir=${tempUserData}`, "apps/desktop/dist/main.js"],
+    args: [`--user-data-dir=${tempUserData}`, rootDirectory],
     cwd: rootDirectory,
     env: {
       ...process.env,
@@ -247,7 +250,7 @@ async function scrollAboutView(page, view) {
 
     if (targetView === "bottom") {
       alignElementTop(
-        document.querySelector('[data-testid="settings-v2-about-updates-status"]'),
+        document.querySelector('[data-testid="settings-v2-about-updates"] section:last-child'),
         32,
       );
       return;
@@ -292,12 +295,23 @@ function getPngDimensions(buffer) {
 async function saveScreenshot(page, name) {
   const filePath = path.join(outputDirectory, `${name}.png`);
   const buffer = await page.screenshot({ fullPage: false, type: "png" });
-  await writeFile(filePath, buffer);
+  let lastError = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await writeFile(filePath, buffer);
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+  if (lastError) throw lastError;
   return { filePath, dimensions: getPngDimensions(buffer) };
 }
 
 async function collectDiagnostics(page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const rectFor = (selector) => {
       const element = document.querySelector(selector);
       if (!element) return null;
@@ -362,9 +376,10 @@ async function collectDiagnostics(page) {
         rect: rectFor(".settings-v2-narrow-category"),
       },
       heading: rectFor('[data-testid="settings-v2-about-updates"] h1'),
-      updateCard: rectFor('[data-testid="settings-v2-about-updates-status"]'),
-      legalCard: rectFor('[data-testid="settings-v2-about-updates"] section:last-child'),
+      productSection: rectFor('[data-testid="settings-v2-about-updates"] section:first-of-type'),
+      updatesSection: rectFor('[data-testid="settings-v2-about-updates"] section:last-child'),
       composer: rectFor(".composer, [data-testid='command-composer']"),
+      productAboutInfo: await window.jarvis?.getProductAboutInfo?.(),
       sideEffects: window.__jarvisUi2hSideEffects,
     };
   });
@@ -420,8 +435,38 @@ async function captureSearchScenario([name, width, height, locale, theme, query]
       if (!searchState.resultText.includes(locale === "zh" ? "关于与更新" : "About & Updates")) {
         throw new Error(`${name}: expected_about_search_result`);
       }
+      for (const crossCategory of locale === "zh"
+        ? ["通用 /", "外观与桌宠 /", "语音与音频 /", "模型与智能 /", "工具与插件 /", "记忆与隐私 /", "通知 /"]
+        : ["General /", "Appearance & Pet /", "Voice & Audio /", "Models & Intelligence /", "Tools & Plugins /", "Memory & Privacy /", "Notifications /"]) {
+        if (searchState.resultText.includes(crossCategory)) {
+          throw new Error(`${name}: cross_category_search_result:${crossCategory}`);
+        }
+      }
     }
     for (const forbidden of [
+      "Release channel",
+      "Development",
+      "System status",
+      "Basic status summary",
+      "safe system summary",
+      "Diagnostics",
+      "Legal information",
+      "Legal notices",
+      "Terms",
+      "License",
+      "Notices",
+      "Install updates only from a trusted release candidate",
+      "发布渠道",
+      "开发版",
+      "系统状态",
+      "基础状态摘要",
+      "诊断",
+      "法律信息",
+      "法律说明",
+      "条款",
+      "许可证",
+      "声明",
+      "仅从可信的发布候选安装更新",
       "autoUpdater",
       "electron-updater",
       "openExternal",

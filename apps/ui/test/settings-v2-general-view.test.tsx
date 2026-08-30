@@ -184,7 +184,6 @@ const pluginManagementStatus = {
 const productAboutInfo: ProductAboutInfo = {
   productName: "Jarvis-K Alpha",
   version: "0.1.0-alpha.4",
-  releaseChannel: "alpha",
   inAppUpdatesSupported: false,
   updateCheckAvailable: false,
   externalLinksAvailable: false,
@@ -251,7 +250,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Minimize to system tray");
     expect(html).toContain("Launch after Windows sign-in");
     expect(html).toContain("Not supported");
-    expect(html).toContain("Available in a later version");
+    expect(html).toContain("Coming later");
   });
 
   it("renders productized zh-CN General copy", () => {
@@ -265,7 +264,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("关闭主窗口时");
     expect(html).toContain("最小化到系统托盘");
     expect(html).toContain("登录后自动启动");
-    expect(html).toContain("后续版本提供");
+    expect(html).toContain("后续提供");
     expect(html).not.toMatch(/[锟闁垾]/);
   });
 
@@ -318,7 +317,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Allowed");
     expect(html).toContain("Doubao / Credentials saved locally");
     expect(html).toContain("A voice is selected");
-    expect(html).toContain("Not supported in this version");
+    expect(html).toContain("Not supported yet");
     for (const forbidden of [
       "volc.seedasr.sauc.duration",
       "zh_female_xiaohe_uranus_bigtts",
@@ -371,7 +370,7 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("配置服务后可用");
     expect(html).toContain("前往语音页面，手动开始一次语音输入。");
     expect(html).toContain("语音播报服务");
-    expect(html).toContain("当前版本暂不支持");
+    expect(html).toContain("当前暂不支持");
     expect(html).toContain("此页面只读取本机状态，不会连接在线服务、启动麦克风或上传数据。");
     expect(html).not.toContain("ASR");
     expect(html).not.toContain("Provider");
@@ -403,7 +402,7 @@ describe("Settings V2 General view", () => {
     expect(html).not.toContain("Developer example plugins");
     expect(html).not.toContain("&gt;");
     expect(html).toContain("External tool connections");
-    expect(html).toContain("Not available in this version");
+    expect(html).toContain("Not available yet");
     const mcpSection = extractMcpSection(html);
     expect(countHeadingOccurrences(mcpSection, "External tool connections")).toBe(
       1,
@@ -854,17 +853,28 @@ describe("Settings V2 General view", () => {
   it("renders About & Updates from Desktop Main product information only", () => {
     const html = renderView({ initialCategoryId: "about_updates" });
     expect(html).toContain("About &amp; Updates");
+    expect(html).toContain(
+      "Review the installed Jarvis-K version and the update options currently available.",
+    );
     expect(html).toContain("Jarvis-K Alpha");
-    expect(html).toContain("Version: 0.1.0-alpha.4");
-    expect(html).toContain("Release channel");
-    expect(html).toContain("Alpha");
+    expect(html).toContain("0.1.0-alpha.4");
+    expect(html).not.toContain("39.8.5");
     expect(html).toContain("In-app updates");
     expect(html).toContain("Not available in this Alpha");
-    expect(html).toContain("Basic status summary");
-    expect(html).toContain("Detailed diagnostics are hidden from ordinary settings.");
-    expect(html).toContain("Not bundled in this Alpha");
     expect(html).toContain("Opening this page does not check for updates");
     for (const forbidden of [
+      "Release channel",
+      "Development",
+      "System status",
+      "Basic status summary",
+      "safe system summary",
+      "Detailed diagnostics",
+      "Legal information",
+      "Legal notices",
+      "Terms",
+      "License",
+      "Notices",
+      "Install updates only from a trusted release candidate",
       "Check for updates",
       "autoUpdater",
       "electron-updater",
@@ -910,6 +920,60 @@ describe("Settings V2 General view", () => {
         ({ definition }) => definition.settingBindingId === "about.safe_viewing",
       )?.value,
     ).toBeUndefined();
+    expect(
+      results.some(
+        ({ definition }) => definition.settingBindingId === "about.release_channel",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps About search version bound to the application version instead of Electron", () => {
+    const results = getSettingsV2SearchResultsForProduct({
+      query: "version",
+      locale: "en",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+      productAboutInfo: {
+        ...productAboutInfo,
+        version: "0.1.0-alpha.4",
+      },
+    });
+
+    const versionResult = results.find(
+      ({ definition }) => definition.settingBindingId === "about.version",
+    );
+    expect(versionResult?.value).toBe("0.1.0-alpha.4");
+    expect(results.map(({ value }) => value).join(" ")).not.toContain("39.8.5");
+  });
+
+  it("keeps localized About search terms scoped to About & Updates", () => {
+    for (const { query, expectedBinding } of [
+      { query: "版本", expectedBinding: "about.version" },
+      { query: "更新", expectedBinding: "about.updates" },
+    ] as const) {
+      const results = getSettingsV2SearchResultsForProduct({
+        query,
+        locale: "zh",
+        desktopSettings,
+        desktopLaunchAtLoginStatus: launchStatus,
+        activeThemeId: "harbor",
+        petSkinRegistry: null,
+        productAboutInfo,
+      });
+      expect(results.length).toBeGreaterThan(0);
+      expect(
+        results.every(
+          ({ definition }) => definition.categoryId === "about_updates",
+        ),
+      ).toBe(true);
+      expect(
+        results.some(
+          ({ definition }) => definition.settingBindingId === expectedBinding,
+        ),
+      ).toBe(true);
+    }
   });
 
   it("renders Models & Intelligence from existing safe model projections", () => {

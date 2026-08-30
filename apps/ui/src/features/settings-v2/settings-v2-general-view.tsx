@@ -368,8 +368,6 @@ function getSectionLabel(
     notifications_privacy: "settings.notifications.section.privacy",
     about_product: "settings.about.section.product",
     about_updates: "settings.about.section.updates",
-    about_status: "settings.about.section.status",
-    about_legal: "settings.about.section.legal",
   };
   return tSettingsV2(locale, sectionKeys[sectionId]);
 }
@@ -560,20 +558,14 @@ function getDefinitionValue({
   if (definition.settingBindingId === "notifications.privacy") {
     return notificationsViewModel.privacy.value;
   }
-  if (definition.settingBindingId === "about.product_identity") {
-    return aboutViewModel.productIdentity.value;
+  if (definition.settingBindingId === "about.product_name") {
+    return aboutViewModel.productName.value;
   }
-  if (definition.settingBindingId === "about.release_channel") {
-    return aboutViewModel.releaseChannel.value;
+  if (definition.settingBindingId === "about.version") {
+    return aboutViewModel.version.value;
   }
   if (definition.settingBindingId === "about.updates") {
     return aboutViewModel.updates.value;
-  }
-  if (definition.settingBindingId === "about.system_status") {
-    return aboutViewModel.systemStatus.value;
-  }
-  if (definition.settingBindingId === "about.legal") {
-    return aboutViewModel.legal.value;
   }
   if (definition.settingBindingId === "about.safe_viewing") {
     return aboutViewModel.safeViewing.value;
@@ -1788,32 +1780,24 @@ export function SettingsV2GeneralView({
                 <SettingRow
                   description={tSettingsV2(
                     locale,
-                    "settings.about.productIdentity.description",
+                    "settings.about.productName.description",
                   )}
                   title={tSettingsV2(
                     locale,
-                    "settings.about.productIdentity.label",
+                    "settings.about.productName.label",
                   )}
-                  value={aboutViewModel.productIdentity.value}
+                  value={aboutViewModel.productName.value}
                 />
-                <div
-                  className="settings-v2-about-status-grid"
-                  data-testid="settings-v2-about-product-status"
-                >
-                  {aboutViewModel.productIdentity.details.map((detail) => (
-                    <span key={detail}>{detail}</span>
-                  ))}
-                </div>
                 <SettingRow
                   description={tSettingsV2(
                     locale,
-                    "settings.about.releaseChannel.description",
+                    "settings.about.version.description",
                   )}
                   title={tSettingsV2(
                     locale,
-                    "settings.about.releaseChannel.label",
+                    "settings.about.version.label",
                   )}
-                  value={aboutViewModel.releaseChannel.value}
+                  value={aboutViewModel.version.value}
                 />
               </SettingsSection>
 
@@ -1827,45 +1811,6 @@ export function SettingsV2GeneralView({
                   )}
                   title={tSettingsV2(locale, "settings.about.updates.label")}
                   value={aboutViewModel.updates.value}
-                />
-                <div
-                  className="settings-v2-about-status-grid"
-                  data-testid="settings-v2-about-updates-status"
-                >
-                  {aboutViewModel.updates.details.map((detail) => (
-                    <span key={detail}>{detail}</span>
-                  ))}
-                </div>
-              </SettingsSection>
-
-              <SettingsSection
-                title={tSettingsV2(locale, "settings.about.section.status")}
-              >
-                <SettingRow
-                  description={tSettingsV2(
-                    locale,
-                    "settings.about.systemStatus.description",
-                  )}
-                  title={tSettingsV2(locale, "settings.about.systemStatus.label")}
-                  value={aboutViewModel.systemStatus.value}
-                />
-                <div
-                  className="settings-v2-about-status-grid"
-                  data-testid="settings-v2-about-system-status"
-                >
-                  {aboutViewModel.systemStatus.details.map((detail) => (
-                    <span key={detail}>{detail}</span>
-                  ))}
-                </div>
-              </SettingsSection>
-
-              <SettingsSection
-                title={tSettingsV2(locale, "settings.about.section.legal")}
-              >
-                <SettingRow
-                  description={tSettingsV2(locale, "settings.about.legal.description")}
-                  title={tSettingsV2(locale, "settings.about.legal.label")}
-                  value={aboutViewModel.legal.value}
                 />
               </SettingsSection>
             </section>
