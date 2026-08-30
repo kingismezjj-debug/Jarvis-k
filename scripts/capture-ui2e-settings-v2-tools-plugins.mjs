@@ -1,7 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { _electron as electron } from "playwright";
+
+const execFileAsync = promisify(execFile);
 
 const rootDirectory = path.resolve(import.meta.dirname, "..");
 const outputDirectory = path.join(
@@ -210,12 +214,84 @@ async function captureVisibleBrowserWindow(electronApp, screenshotPath) {
   };
 }
 
+function escapePowerShellSingleQuoted(value) {
+  return String(value).replaceAll("'", "''");
+}
+
+async function captureVisibleOperatingSystemWindow(electronApp, screenshotPath) {
+  const capture = await electronApp.evaluate(
+    async ({ BrowserWindow, screen }) => {
+      const windows = BrowserWindow.getAllWindows().filter(
+        (window) => !window.isDestroyed(),
+      );
+      const mainWindow =
+        windows.find((window) => window.isVisible()) ?? windows[0] ?? null;
+      if (!mainWindow) {
+        throw new Error("No BrowserWindow is available for OS surface capture.");
+      }
+      mainWindow.show();
+      mainWindow.focus();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const contentBounds = mainWindow.getContentBounds();
+      const display = screen.getDisplayMatching(contentBounds);
+      mainWindow.setAlwaysOnTop(true, "screen-saver");
+      mainWindow.setPosition(display.workArea.x, display.workArea.y);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const updatedContentBounds = mainWindow.getContentBounds();
+      const scaleFactor = display.scaleFactor || 1;
+      const screenCaptureBounds = {
+        x: Math.round(updatedContentBounds.x * scaleFactor),
+        y: Math.round(updatedContentBounds.y * scaleFactor),
+        width: Math.round(updatedContentBounds.width * scaleFactor),
+        height: Math.round(updatedContentBounds.height * scaleFactor),
+      };
+      return {
+        browserWindowBounds: mainWindow.getBounds(),
+        browserWindowContentBounds: updatedContentBounds,
+        browserWindowSize: mainWindow.getSize(),
+        browserWindowContentSize: mainWindow.getContentSize(),
+        displayScaleFactor: scaleFactor,
+        screenCaptureBounds,
+        webContentsZoomFactor: mainWindow.webContents.getZoomFactor(),
+      };
+    },
+  );
+  const outputPath = escapePowerShellSingleQuoted(screenshotPath);
+  const bounds = capture.screenCaptureBounds;
+  const script = `
+Add-Type -AssemblyName System.Drawing
+$bitmap = New-Object System.Drawing.Bitmap(${bounds.width}, ${bounds.height})
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+try {
+  $graphics.CopyFromScreen(${bounds.x}, ${bounds.y}, 0, 0, $bitmap.Size)
+  $bitmap.Save('${outputPath}', [System.Drawing.Imaging.ImageFormat]::Png)
+} finally {
+  $graphics.Dispose()
+  $bitmap.Dispose()
+}
+`;
+  await execFileAsync(
+    "powershell.exe",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+    {
+      maxBuffer: 1024 * 1024,
+      timeout: 10_000,
+      windowsHide: true,
+    },
+  );
+  return {
+    ...capture,
+    screenshotDimensions: await readPngDimensionsFromFile(screenshotPath),
+  };
+}
+
 async function collectCaptureDiagnostics(
   page,
   electronApp,
   {
     screenshotPath,
     screenshotDimensions,
+    screenCaptureBounds = null,
     screenshotUsesClip = false,
     screenshotClip = null,
     screenshotSource = "playwright-page",
@@ -286,9 +362,11 @@ async function collectCaptureDiagnostics(
       viewHeaderRect: rectSnapshot('[data-testid="last-action-status"]'),
       wideNavigationRect: rectSnapshot(".settings-v2-wide-category"),
       compactCategorySelectorRect: rectSnapshot(".settings-v2-narrow-category"),
-      toolsHeadingRect: rectSnapshot('[data-testid="settings-v2-tools-plugins"] h2'),
-      firstToolsSectionRect: rectSnapshot(
-        '[data-testid="settings-v2-tools-plugins"] .jk-section',
+      toolsHeadingRect: rectSnapshot(
+        '[data-testid="settings-v2-tools-plugins"] .jk-settings-page-header h1',
+      ),
+      firstToolsCardRect: rectSnapshot(
+        '[data-testid="settings-v2-tools-plugins"] .jk-inline-notice',
       ),
       settingsMainRect: rectSnapshot(".settings-v2-content"),
       pluginsSectionRect: rectSnapshot(
@@ -299,8 +377,20 @@ async function collectCaptureDiagnostics(
       ),
       composerInputRect: rectSnapshot('[data-testid="command-input"]'),
       composerSendRect: rectSnapshot('[data-testid="send-command"]'),
+      settingsScrollViewportRect: rectSnapshot(
+        '[data-slot="scroll-area-viewport"]:has([data-testid="settings-view"])',
+      ),
       scrollX: Math.round(window.scrollX),
       scrollY: Math.round(window.scrollY),
+      settingsScrollTop: (() => {
+        const settingsView = document.querySelector('[data-testid="settings-view"]');
+        let viewport = settingsView?.parentElement ?? null;
+        while (viewport && viewport !== document.body) {
+          if (viewport.scrollHeight > viewport.clientHeight + 1) break;
+          viewport = viewport.parentElement;
+        }
+        return viewport ? Math.round(viewport.scrollTop) : null;
+      })(),
     };
   });
   return {
@@ -316,6 +406,7 @@ async function collectCaptureDiagnostics(
       source: screenshotSource,
       pixelWidth: screenshotDimensions.pixelWidth,
       pixelHeight: screenshotDimensions.pixelHeight,
+      screenCaptureBounds,
       usesClip: screenshotUsesClip,
       clip: screenshotClip,
       clipCoordinateSpace: screenshotUsesClip ? "css-pixels" : "none",
@@ -323,7 +414,19 @@ async function collectCaptureDiagnostics(
   };
 }
 
-function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
+function assertVisualScreenshotCoverage(
+  diagnostics,
+  scenarioName,
+  {
+    requireAppHeader = true,
+    requireCompactCategorySelector = true,
+    requireToolsHeading = true,
+    requireFirstToolsSection = true,
+    requirePluginsSection = false,
+    requireExternalConnectionsSection = false,
+    requireComposer = true,
+  } = {},
+) {
   const cssWidth =
     diagnostics.visualViewportWidth ??
     diagnostics.windowInnerWidth ??
@@ -367,34 +470,49 @@ function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
   if (diagnostics.wideNavigationRect?.visible) {
     failures.push("wide_settings_navigation_visible");
   }
-  if (!rectIntersectsViewport(diagnostics.appHeaderRect)) {
+  if (requireAppHeader && !rectIntersectsViewport(diagnostics.appHeaderRect)) {
     failures.push("app_header_outside_screenshot");
   }
-  if (!rectIntersectsViewport(diagnostics.compactCategorySelectorRect)) {
+  if (
+    requireCompactCategorySelector &&
+    !rectIntersectsViewport(diagnostics.compactCategorySelectorRect)
+  ) {
     failures.push("compact_selector_outside_current_viewport");
   }
-  if (!rectIntersectsViewport(diagnostics.toolsHeadingRect)) {
+  if (requireToolsHeading && !rectIntersectsViewport(diagnostics.toolsHeadingRect)) {
     failures.push("tools_heading_outside_current_viewport");
   }
-  if (!rectIntersectsViewport(diagnostics.firstToolsSectionRect)) {
+  if (requireFirstToolsSection && !rectIntersectsViewport(diagnostics.firstToolsCardRect)) {
     failures.push("first_tools_card_outside_current_viewport");
+  }
+  if (
+    requirePluginsSection &&
+    !rectIntersectsViewport(diagnostics.pluginsSectionRect)
+  ) {
+    failures.push("plugins_card_outside_current_viewport");
+  }
+  if (
+    requireExternalConnectionsSection &&
+    !rectIntersectsViewport(diagnostics.externalConnectionsSectionRect)
+  ) {
+    failures.push("external_connections_card_outside_current_viewport");
   }
   if (!rectIntersectsViewport(diagnostics.settingsMainRect)) {
     failures.push("settings_main_not_in_current_viewport");
   }
-  if (!rectIntersectsViewport(diagnostics.composerInputRect)) {
+  if (requireComposer && !rectIntersectsViewport(diagnostics.composerInputRect)) {
     failures.push("composer_input_outside_current_viewport");
   }
-  if (!rectIntersectsViewport(diagnostics.composerSendRect)) {
+  if (requireComposer && !rectIntersectsViewport(diagnostics.composerSendRect)) {
     failures.push("composer_send_outside_current_viewport");
   }
-  if (!rectHorizontallyFitsViewport(diagnostics.firstToolsSectionRect)) {
+  if (!rectHorizontallyFitsViewport(diagnostics.firstToolsCardRect)) {
     failures.push("first_tools_card_horizontal_clipping");
   }
   if (!rectHorizontallyFitsViewport(diagnostics.settingsMainRect)) {
     failures.push("settings_main_horizontal_clipping");
   }
-  if (!rectHorizontallyFitsViewport(diagnostics.composerSendRect)) {
+  if (requireComposer && !rectHorizontallyFitsViewport(diagnostics.composerSendRect)) {
     failures.push("composer_send_right_edge_clipped");
   }
   if (failures.length > 0) {
@@ -417,8 +535,10 @@ function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
         diagnostics.compactCategorySelectorRect,
       ),
       toolsHeading: rectIntersectsViewport(diagnostics.toolsHeadingRect),
-      firstToolsSection: rectIntersectsViewport(
-        diagnostics.firstToolsSectionRect,
+      firstToolsCard: rectIntersectsViewport(diagnostics.firstToolsCardRect),
+      pluginsSection: rectIntersectsViewport(diagnostics.pluginsSectionRect),
+      externalConnectionsSection: rectIntersectsViewport(
+        diagnostics.externalConnectionsSectionRect,
       ),
       settingsMain: rectIntersectsViewport(diagnostics.settingsMainRect),
       composerInput: rectIntersectsViewport(diagnostics.composerInputRect),
@@ -428,20 +548,55 @@ function assertVisualScreenshotCoverage(diagnostics, scenarioName) {
   };
 }
 
-async function scrollToZoomMainEvidence(page) {
-  return await page.evaluate(() => {
-    const compactSelector = document.querySelector(".settings-v2-narrow-category");
-    const target = compactSelector ?? document.querySelector(".settings-v2-content");
-    if (!target) {
-      throw new Error("Settings V2 compact selector is unavailable for zoom capture.");
+async function scrollSettingsViewportForZoomEvidence(page, targetName) {
+  const position = await page.evaluate((target) => {
+    const targetSelector =
+      target === "external"
+        ? '[data-testid="settings-v2-tools-section-mcp"]'
+        : target === "bottom"
+        ? '[data-testid="settings-v2-tools-section-plugins"]'
+        : '[data-testid="settings-v2-tools-plugins"] .jk-settings-page-header h1';
+    const targetElement = document.querySelector(targetSelector);
+    if (!targetElement) {
+      throw new Error(`Zoom capture target is unavailable: ${targetSelector}`);
     }
-    const absoluteTop = target.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ left: 0, top: Math.max(0, absoluteTop - 16), behavior: "instant" });
+    targetElement.scrollIntoView({
+      block: target === "external" ? "center" : target === "bottom" ? "start" : "end",
+      inline: "nearest",
+      behavior: "instant",
+    });
+    let viewport = targetElement.parentElement;
+    while (viewport && viewport !== document.body) {
+      if (viewport.scrollTop > 0 || viewport.scrollHeight > viewport.clientHeight + 1) {
+        break;
+      }
+      viewport = viewport.parentElement;
+    }
     return {
+      target,
+      targetSelector,
       scrollX: Math.round(window.scrollX),
       scrollY: Math.round(window.scrollY),
+      settingsScrollTop: viewport ? Math.round(viewport.scrollTop) : null,
     };
-  });
+  }, targetName);
+  await page.waitForTimeout(150);
+  return {
+    ...position,
+    ...(await page.evaluate(() => {
+      const settingsView = document.querySelector('[data-testid="settings-view"]');
+      let viewport = settingsView?.parentElement ?? null;
+      while (viewport && viewport !== document.body) {
+        if (viewport.scrollHeight > viewport.clientHeight + 1) break;
+        viewport = viewport.parentElement;
+      }
+      return {
+        scrollX: Math.round(window.scrollX),
+        scrollY: Math.round(window.scrollY),
+        settingsScrollTop: viewport ? Math.round(viewport.scrollTop) : null,
+      };
+    })),
+  };
 }
 
 async function assertLayout(page, scenarioName, { expectToolsVisible = true } = {}) {
@@ -872,7 +1027,7 @@ try {
     zoomed.page,
     {
       width: 780,
-      height: 2600,
+      height: 980,
     },
     { useActualBrowserWindowContentSize: true },
   );
@@ -887,41 +1042,82 @@ try {
       return mainWindow?.webContents.getZoomFactor() ?? 1;
     },
   );
-  const name = "harbor-tools-plugins-zoom200";
-  const layout = await assertLayout(zoomed.page, name);
-  const themeScope = await assertThemeScope(zoomed.page, "harbor", name);
-  const zoomScrollPosition = await scrollToZoomMainEvidence(zoomed.page);
-  const screenshotPath = path.join(outputDirectory, `${name}.png`);
-  const browserWindowCapture = await captureVisibleBrowserWindow(
-    zoomed.electronApp,
-    screenshotPath,
-  );
-  const captureDiagnostics = await collectCaptureDiagnostics(
+  const zoomLayout = await assertLayout(zoomed.page, "harbor-tools-plugins-zoom200");
+  const zoomThemeScope = await assertThemeScope(
     zoomed.page,
-    zoomed.electronApp,
+    "harbor",
+    "harbor-tools-plugins-zoom200",
+  );
+  const zoomScreenshots = [
+      {
+        name: "harbor-tools-plugins-zoom200-top",
+        scrollTarget: "top",
+        coverage: {
+          requireCompactCategorySelector: true,
+          requireToolsHeading: true,
+          requireFirstToolsSection: false,
+          requireComposer: false,
+        },
+      },
     {
-      screenshotPath,
-      screenshotDimensions: browserWindowCapture.screenshotDimensions,
-      screenshotSource: "electron-webContents.capturePage",
+      name: "harbor-tools-plugins-zoom200-bottom",
+      scrollTarget: "external",
+      coverage: {
+        requireCompactCategorySelector: false,
+        requireToolsHeading: false,
+        requireFirstToolsSection: false,
+        requirePluginsSection: true,
+        requireExternalConnectionsSection: true,
+        requireAppHeader: false,
+        requireComposer: true,
+      },
     },
-  );
-  const visualScreenshotCoverage = assertVisualScreenshotCoverage(
-    captureDiagnostics,
-    name,
-  );
-  screenshots.push({
-    name,
-    path: screenshotPath,
-    layout,
-    themeScope,
-    browserWindowCapture,
-    captureDiagnostics,
-    zoomViewport,
-    zoomScrollPosition,
-    visualScreenshotCoverage,
-    webContentsZoomFactor,
-    devicePixelRatio: await zoomed.page.evaluate(() => window.devicePixelRatio),
-  });
+  ];
+  for (const zoomScreenshot of zoomScreenshots) {
+    const zoomScrollPosition = await scrollSettingsViewportForZoomEvidence(
+      zoomed.page,
+      zoomScreenshot.scrollTarget,
+    );
+    const screenshotPath = path.join(outputDirectory, `${zoomScreenshot.name}.png`);
+    const browserWindowCapture = await captureVisibleOperatingSystemWindow(
+      zoomed.electronApp,
+      screenshotPath,
+    );
+    const captureDiagnostics = await collectCaptureDiagnostics(
+      zoomed.page,
+      zoomed.electronApp,
+      {
+        screenshotPath,
+        screenshotDimensions: browserWindowCapture.screenshotDimensions,
+        screenCaptureBounds: browserWindowCapture.screenCaptureBounds,
+        screenshotSource: "windows-screen-copyfromscreen",
+      },
+    );
+    const visualScreenshotCoverage = assertVisualScreenshotCoverage(
+      captureDiagnostics,
+      zoomScreenshot.name,
+      zoomScreenshot.coverage,
+    );
+    screenshots.push({
+      name: zoomScreenshot.name,
+      path: screenshotPath,
+      layout: zoomLayout,
+      themeScope: zoomThemeScope,
+      browserWindowCapture,
+      captureDiagnostics,
+      zoomViewport,
+      zoomScrollPosition,
+      visualScreenshotCoverage,
+      webContentsZoomFactor,
+      devicePixelRatio: await zoomed.page.evaluate(() => window.devicePixelRatio),
+    });
+    if (zoomScreenshot.scrollTarget === "top") {
+      await copyFile(
+        screenshotPath,
+        path.join(outputDirectory, "harbor-tools-plugins-zoom200.png"),
+      );
+    }
+  }
 } finally {
   await zoomed.electronApp.close();
   await rm(zoomed.tempUserData, { force: true, recursive: true });
