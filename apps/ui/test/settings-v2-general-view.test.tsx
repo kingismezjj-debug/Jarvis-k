@@ -655,7 +655,9 @@ describe("Settings V2 General view", () => {
 
     expect(html).toContain("Notifications");
     expect(html).toContain("Safe viewing");
-    expect(html).toContain("No action on open");
+    expect(html).toContain(
+      "Opening this page does not send a notification, request Windows permission, play a sound, or start voice playback.",
+    );
     expect(html).toContain("Current notification features");
     expect(html).toContain("Limited");
     expect(html).toContain("In-app status messages");
@@ -663,8 +665,12 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Tray reminder");
     expect(html).toContain("May appear once");
     expect(html).toContain("Notification privacy");
-    expect(html).toContain("Short summaries only");
+    expect(html).toContain(
+      "Notifications should avoid full conversations, file paths, and other sensitive content.",
+    );
     for (const forbidden of [
+      "No action on open",
+      "Short summaries only",
       "Request permission",
       "Test notification",
       "Open Windows Settings",
@@ -698,7 +704,9 @@ describe("Settings V2 General view", () => {
 
     expect(html).toContain("通知");
     expect(html).toContain("安全查看");
-    expect(html).toContain("打开页面不会执行操作");
+    expect(html).toContain(
+      "打开此页面不会发送通知、请求 Windows 权限、播放声音或启动语音播报。",
+    );
     expect(html).toContain("当前通知功能");
     expect(html).toContain("功能有限");
     expect(html).toContain("应用内状态提示");
@@ -706,8 +714,10 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("托盘提醒");
     expect(html).toContain("可能显示一次");
     expect(html).toContain("通知隐私");
-    expect(html).toContain("仅显示简短摘要");
+    expect(html).toContain("通知应避免显示完整对话、文件路径和其他敏感内容。");
     for (const forbidden of [
+      "打开页面不会执行操作",
+      "仅显示简短摘要",
       "Notification API",
       "permission state",
       "dispatch",
@@ -764,12 +774,26 @@ describe("Settings V2 General view", () => {
       ),
     ).toBe(true);
     expect(titles).toContain("notifications.current_features");
+    expect(titles).toContain("notifications.safe_viewing");
+    expect(titles).toContain("notifications.privacy");
+    expect(
+      results.find(
+        ({ definition }) =>
+          definition.settingBindingId === "notifications.safe_viewing",
+      )?.value,
+    ).toBeUndefined();
     expect(
       results.find(
         ({ definition }) =>
           definition.settingBindingId === "notifications.current_features",
       )?.value,
     ).toBe("Limited");
+    expect(
+      results.find(
+        ({ definition }) =>
+          definition.settingBindingId === "notifications.privacy",
+      )?.value,
+    ).toBeUndefined();
   });
 
   it("keeps Chinese notification search scoped to Notifications only", () => {
@@ -791,6 +815,24 @@ describe("Settings V2 General view", () => {
     expect(
       results.map(({ definition }) => definition.settingBindingId),
     ).toContain("notifications.current_features");
+    expect(
+      results.find(
+        ({ definition }) =>
+          definition.settingBindingId === "notifications.safe_viewing",
+      )?.value,
+    ).toBeUndefined();
+    expect(
+      results.find(
+        ({ definition }) =>
+          definition.settingBindingId === "notifications.current_features",
+      )?.value,
+    ).toBe("功能有限");
+    expect(
+      results.find(
+        ({ definition }) =>
+          definition.settingBindingId === "notifications.privacy",
+      )?.value,
+    ).toBeUndefined();
   });
 
   it("renders Models & Intelligence from existing safe model projections", () => {

@@ -5,7 +5,7 @@ import {
 
 export type SettingsV2NotificationsProductViewModel = {
   safeViewing: {
-    value: string;
+    value?: string;
     details: string[];
   };
   currentFeatures: {
@@ -21,7 +21,7 @@ export type SettingsV2NotificationsProductViewModel = {
     details: string[];
   };
   privacy: {
-    value: string;
+    value?: string;
     details: string[];
   };
 };
@@ -33,7 +33,6 @@ export function buildSettingsV2NotificationsProductViewModel({
 }): SettingsV2NotificationsProductViewModel {
   return {
     safeViewing: {
-      value: tSettingsV2(locale, "settings.notifications.safeViewing.safe"),
       details: [
         tSettingsV2(locale, "settings.notifications.safeViewing.description"),
       ],
@@ -69,7 +68,6 @@ export function buildSettingsV2NotificationsProductViewModel({
       ],
     },
     privacy: {
-      value: tSettingsV2(locale, "settings.notifications.privacy.summary"),
       details: [
         tSettingsV2(locale, "settings.notifications.privacy.description"),
       ],

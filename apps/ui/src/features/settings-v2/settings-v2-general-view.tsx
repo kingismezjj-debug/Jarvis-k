@@ -411,7 +411,7 @@ function getDefinitionValue({
   resourceDiagnostics?: ResourceSchedulerDiagnostics | null;
   pluginManagementStatus?: PluginManagementStatusResult | null;
   memoryAlphaStatus?: MemoryAlphaStatus | null;
-}): string {
+}): string | undefined {
   const modelsViewModel = buildSettingsV2ModelsProductViewModel({
     chatAnswerProductModeStatus,
     commandRouterProductModeStatus,

@@ -301,7 +301,6 @@ export type SettingsV2CopyKey =
   | "settings.notifications.section.privacy"
   | "settings.notifications.safeViewing.label"
   | "settings.notifications.safeViewing.description"
-  | "settings.notifications.safeViewing.safe"
   | "settings.notifications.currentFeatures.label"
   | "settings.notifications.currentFeatures.description"
   | "settings.notifications.currentFeatures.limited"
@@ -314,7 +313,6 @@ export type SettingsV2CopyKey =
   | "settings.notifications.trayReminder.mayAppearOnce"
   | "settings.notifications.privacy.label"
   | "settings.notifications.privacy.description"
-  | "settings.notifications.privacy.summary"
   | "settings.notifications.keywords.notifications"
   | "settings.notifications.keywords.inApp"
   | "settings.notifications.keywords.status"
@@ -759,7 +757,6 @@ export const settingsV2Copy: Record<
     "settings.notifications.safeViewing.label": "Safe viewing",
     "settings.notifications.safeViewing.description":
       "Opening this page does not send a notification, request Windows permission, play a sound, or start voice playback.",
-    "settings.notifications.safeViewing.safe": "No action on open",
     "settings.notifications.currentFeatures.label": "Current notification features",
     "settings.notifications.currentFeatures.description":
       "Full Windows notification settings are not available in this version.",
@@ -777,8 +774,7 @@ export const settingsV2Copy: Record<
     "settings.notifications.trayReminder.mayAppearOnce": "May appear once",
     "settings.notifications.privacy.label": "Notification privacy",
     "settings.notifications.privacy.description":
-      "Notifications should not display full conversations, file paths, or other sensitive content.",
-    "settings.notifications.privacy.summary": "Short summaries only",
+      "Notifications should avoid full conversations, file paths, and other sensitive content.",
     "settings.notifications.keywords.notifications": "notifications",
     "settings.notifications.keywords.inApp": "in-app messages",
     "settings.notifications.keywords.status": "status messages",
@@ -1174,7 +1170,6 @@ export const settingsV2Copy: Record<
     "settings.notifications.safeViewing.label": "安全查看",
     "settings.notifications.safeViewing.description":
       "打开此页面不会发送通知、请求 Windows 权限、播放声音或启动语音播报。",
-    "settings.notifications.safeViewing.safe": "打开页面不会执行操作",
     "settings.notifications.currentFeatures.label": "当前通知功能",
     "settings.notifications.currentFeatures.description":
       "当前版本尚未提供完整的 Windows 通知设置。",
@@ -1191,8 +1186,7 @@ export const settingsV2Copy: Record<
     "settings.notifications.trayReminder.mayAppearOnce": "可能显示一次",
     "settings.notifications.privacy.label": "通知隐私",
     "settings.notifications.privacy.description":
-      "通知不应显示完整对话、文件路径或其他敏感正文。",
-    "settings.notifications.privacy.summary": "仅显示简短摘要",
+      "通知应避免显示完整对话、文件路径和其他敏感内容。",
     "settings.notifications.keywords.notifications": "通知",
     "settings.notifications.keywords.inApp": "应用内提示",
     "settings.notifications.keywords.status": "状态提示",

@@ -491,6 +491,10 @@ function assertProductCopy(name, diagnostics) {
     "source of truth",
     "projection",
     "runtime binding",
+    "No action on open",
+    "Short summaries only",
+    "\u6253\u5f00\u9875\u9762\u4e0d\u4f1a\u6267\u884c\u64cd\u4f5c",
+    "\u4ec5\u663e\u793a\u7b80\u77ed\u6458\u8981",
     "通知接口",
     "权限状态字段",
     "分发器",
@@ -601,7 +605,7 @@ async function captureSearchScenario([name, width, height, locale, theme, query]
         text: element.textContent?.trim() ?? "",
         breadcrumb: element.querySelector(".jk-search-result__breadcrumb")?.textContent?.trim() ?? "",
         title: element.querySelector("h3")?.textContent?.trim() ?? "",
-        value: element.querySelector(".jk-setting-value")?.textContent?.trim(),
+        value: element.querySelector("strong")?.textContent?.trim(),
       }));
       return {
         query: document
@@ -634,6 +638,33 @@ async function captureSearchScenario([name, width, height, locale, theme, query]
       );
       if (nonNotification.length > 0) {
         throw new Error(`Non-Notifications search result for ${name}: ${JSON.stringify(nonNotification)}`);
+      }
+      const findByTitle = (englishTitle, chineseTitle) =>
+        assertions.resultRows.find(
+          (row) => row.title === englishTitle || row.title === chineseTitle,
+        );
+      const safeViewing = findByTitle("Safe viewing", "安全查看");
+      const privacy = findByTitle("Notification privacy", "通知隐私");
+      const currentFeatures = findByTitle(
+        "Current notification features",
+        "当前通知功能",
+      );
+      if (!safeViewing || safeViewing.value !== undefined) {
+        throw new Error(
+          `Safe viewing search value must be omitted for ${name}: ${JSON.stringify(assertions)}`,
+        );
+      }
+      if (!privacy || privacy.value !== undefined) {
+        throw new Error(
+          `Notification privacy search value must be omitted for ${name}: ${JSON.stringify(assertions)}`,
+        );
+      }
+      const expectedLimited =
+        locale === "zh" ? "当前值: 功能有限" : "Current value: Limited";
+      if (!currentFeatures || currentFeatures.value !== expectedLimited) {
+        throw new Error(
+          `Current notification features search value mismatch for ${name}: ${JSON.stringify(assertions)}`,
+        );
       }
     } else if (!assertions.noResultsVisible) {
       throw new Error(`Expected empty search state for ${name}: ${JSON.stringify(assertions)}`);
