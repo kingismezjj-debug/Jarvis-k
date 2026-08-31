@@ -51,7 +51,7 @@ describe("Settings V2 registry", () => {
       "notifications",
       "about_updates",
     ]);
-    expect(settingsV2GeneralDefinitions).toHaveLength(4);
+    expect(settingsV2GeneralDefinitions).toHaveLength(3);
     expect(settingsV2AppearancePetDefinitions).toHaveLength(6);
     expect(settingsV2VoiceAudioDefinitions).toHaveLength(6);
     expect(settingsV2ModelsIntelligenceDefinitions).toHaveLength(5);
@@ -59,12 +59,11 @@ describe("Settings V2 registry", () => {
     expect(settingsV2MemoryPrivacyDefinitions).toHaveLength(3);
     expect(settingsV2NotificationsDefinitions).toHaveLength(5);
     expect(settingsV2AboutUpdatesDefinitions).toHaveLength(4);
-    expect(settingsV2ProductDefinitions).toHaveLength(39);
+    expect(settingsV2ProductDefinitions).toHaveLength(38);
     expect(settingsV2GeneralDefinitions.map((definition) => definition.order)).toEqual([
       10,
       20,
       30,
-      40,
     ]);
     expect(validateSettingsV2Registry().ok).toBe(true);
   });
@@ -160,7 +159,6 @@ describe("Settings V2 registry", () => {
       "settings.memory.storage_sync",
       "settings.notifications.in_app_status",
       "settings.about.updates",
-      "settings.general.reset_recovery",
       "settings.pet.reduced_motion",
       "settings.voice.push_to_talk",
       "settings.models.routing_policy",
@@ -196,6 +194,23 @@ describe("Settings V2 registry", () => {
       "provider runtime",
       "raw snapshot",
       "boundary metrics",
+      "source of truth",
+      "runtime status",
+      "projection",
+      "capability id",
+      "registry",
+      "migrated",
+      "migration",
+      "schema",
+      "lease",
+      "provider raw",
+      "gate on",
+      "gate off",
+      "settings v2",
+      "development default",
+      "reason code",
+      "settings preview",
+      "coming later",
     ];
     const forbiddenChinese = [
       "本切片",
@@ -405,7 +420,7 @@ describe("Settings V2 registry", () => {
     }
   });
 
-  it("formats the Settings V2 migration summary from the registry", () => {
+  it("formats the session settings summary without preview or migration copy", () => {
     const migratedIds = getSettingsV2MigratedCategoryIds();
     const legacyIds = getSettingsV2LegacyCategoryIds();
     const enSummary = formatSettingsV2MigrationSummary("en");
@@ -423,17 +438,11 @@ describe("Settings V2 registry", () => {
     ]);
     expect(legacyIds).toEqual([]);
 
-    for (const category of settingsV2Categories) {
-      const enLabel = tSettingsV2("en", category.labelKey);
-      const zhLabel = tSettingsV2("zh", category.labelKey);
-      expect(enSummary).toContain(enLabel);
-      expect(zhSummary).toContain(zhLabel);
-    }
-    expect(enSummary.indexOf("Tools & Plugins")).toBeLessThan(
-      enSummary.indexOf("Memory & Privacy"),
-    );
-    expect(zhSummary.indexOf("工具与插件")).toBeLessThan(
-      zhSummary.indexOf("记忆与隐私"),
-    );
+    expect(enSummary).toBe("Manage Jarvis settings for this device.");
+    expect(zhSummary).toBe("管理这台设备上的 Jarvis 设置。");
+    expect(enSummary).not.toContain("preview");
+    expect(enSummary).not.toContain("migration");
+    expect(zhSummary).not.toContain("预览");
+    expect(zhSummary).not.toContain("迁移");
   });
 });

@@ -240,9 +240,8 @@ describe("Settings V2 General view", () => {
   it("renders the real General settings values in English", () => {
     const html = renderView();
     expect(html).toContain("Jarvis Control Center");
-    expect(html).toContain("Available in this preview");
+    expect(html).toContain("Manage Jarvis settings for this device.");
     expect(html).toContain("Tools &amp; Plugins");
-    expect(html).toContain("All ordinary settings categories have moved");
     expect(html).toContain("Memory &amp; Privacy");
     expect(html).toContain("Display language");
     expect(html).toContain("English");
@@ -250,7 +249,10 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Minimize to system tray");
     expect(html).toContain("Launch after Windows sign-in");
     expect(html).toContain("Not supported");
-    expect(html).toContain("Coming later");
+    expect(html).not.toContain("Settings preview");
+    expect(html).not.toContain("Available in this preview");
+    expect(html).not.toContain("Coming later");
+    expect(html).not.toContain("Restore default settings");
   });
 
   it("renders a low-emphasis session-only classic settings fallback action", () => {
@@ -268,15 +270,17 @@ describe("Settings V2 General view", () => {
   it("renders productized zh-CN General copy", () => {
     const html = renderView({ locale: "zh" });
     expect(html).toContain("Jarvis 控制中心");
-    expect(html).toContain("当前预览已开放");
+    expect(html).toContain("管理这台设备上的 Jarvis 设置。");
     expect(html).toContain("工具与插件");
-    expect(html).toContain("所有普通设置分类均已迁移");
     expect(html).toContain("界面语言");
     expect(html).toContain("中文（简体）");
     expect(html).toContain("关闭主窗口时");
     expect(html).toContain("最小化到系统托盘");
     expect(html).toContain("登录后自动启动");
-    expect(html).toContain("后续提供");
+    expect(html).not.toContain("设置预览");
+    expect(html).not.toContain("当前预览已开放");
+    expect(html).not.toContain("后续提供");
+    expect(html).not.toContain("恢复默认设置");
     expect(html).not.toMatch(/[锟闁垾]/);
   });
 
@@ -1285,11 +1289,60 @@ describe("Settings V2 General view", () => {
     expect(html).toContain('data-jarvis-theme="harbor"');
   });
 
-  it("keeps Reset & Recovery non-executable", () => {
+  it("removes the unsupported Reset product definition from the V2 surface and search", () => {
     const html = renderView();
-    expect(html).toContain("Restore default settings");
-    expect(html).toContain("disabled=\"\"");
-    expect(html).toContain("Review reset and recovery");
+    expect(html).not.toContain("Restore default settings");
+    expect(html).not.toContain("Reset &amp; Recovery");
+    expect(html).not.toContain('data-testid="settings-v2-reset-action"');
+
+    for (const query of ["reset", "restore defaults"]) {
+      const results = getSettingsV2SearchResultsForProduct({
+        query,
+        locale: "en",
+        desktopSettings,
+        desktopLaunchAtLoginStatus: launchStatus,
+        activeThemeId: "signal",
+        petSkinRegistry: null,
+      });
+      expect(results).toEqual([]);
+    }
+
+    const zhResults = getSettingsV2SearchResultsForProduct({
+      query: "恢复默认",
+      locale: "zh",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+    });
+    expect(zhResults).toEqual([]);
+  });
+
+  it("does not expose preview or internal rollout terms in Product copy or search", () => {
+    const html = renderView({ onUseClassicSettings: vi.fn() });
+    for (const forbidden of [
+      "Settings preview",
+      "Available in this preview",
+      "preview registry",
+      "migration preview",
+      "Settings V2",
+      "capability projection",
+      "development default",
+      "internal reason code",
+      "Gate OFF",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+
+    const previewResults = getSettingsV2SearchResultsForProduct({
+      query: "preview",
+      locale: "en",
+      desktopSettings,
+      desktopLaunchAtLoginStatus: launchStatus,
+      activeThemeId: "signal",
+      petSkinRegistry: null,
+    });
+    expect(previewResults).toEqual([]);
   });
 
   it("does not directly access runtime APIs from the Settings V2 renderer files", () => {

@@ -5,7 +5,6 @@ export type SettingsV2CopyKey =
   | "settings.shell.description"
   | "settings.shell.search"
   | "settings.shell.category"
-  | "settings.shell.migratedOnly"
   | "settings.shell.useClassic"
   | "settings.shell.useClassicDescription"
   | "settings.shell.notMigratedTitle"
@@ -22,7 +21,6 @@ export type SettingsV2CopyKey =
   | "settings.general.description"
   | "settings.general.section.interface"
   | "settings.general.section.desktop"
-  | "settings.general.section.reset"
   | "settings.general.displayLanguage.label"
   | "settings.general.displayLanguage.description"
   | "settings.general.displayLanguage.action"
@@ -41,12 +39,6 @@ export type SettingsV2CopyKey =
   | "settings.general.launchAtLogin.description"
   | "settings.general.launchAtLogin.unavailable"
   | "settings.general.launchAtLogin.retry"
-  | "settings.general.reset.label"
-  | "settings.general.reset.description"
-  | "settings.general.reset.impact"
-  | "settings.general.reset.action"
-  | "settings.general.reset.details"
-  | "settings.general.reset.unsupported"
   | "settings.appearance.title"
   | "settings.appearance.description"
   | "settings.appearance.section.theme"
@@ -356,10 +348,7 @@ export type SettingsV2CopyKey =
   | "settings.errors.unavailable"
   | "settings.errors.permission_required"
   | "settings.errors.operation_in_progress"
-  | "settings.errors.confirmation_required"
-  | "settings.errors.reset_not_supported"
-  | "settings.confirmation.resetTitle"
-  | "settings.confirmation.resetDescription";
+  | "settings.errors.confirmation_required";
 
 export type SettingsV2ErrorCode =
   | "save_failed"
@@ -367,8 +356,7 @@ export type SettingsV2ErrorCode =
   | "unavailable"
   | "permission_required"
   | "operation_in_progress"
-  | "confirmation_required"
-  | "reset_not_supported";
+  | "confirmation_required";
 
 export const settingsV2Copy: Record<
   SettingsV2Locale,
@@ -377,16 +365,15 @@ export const settingsV2Copy: Record<
   en: {
     "settings.shell.title": "Jarvis Control Center",
     "settings.shell.description":
-      "Available categories are listed from the Settings registry. Categories not moved yet continue to use legacy settings.",
+      "Manage Jarvis settings for this device.",
     "settings.shell.search": "Search settings",
     "settings.shell.category": "Settings category",
-    "settings.shell.migratedOnly": "Settings preview",
     "settings.shell.useClassic": "Use classic settings",
     "settings.shell.useClassicDescription":
       "Switch for this session without changing your settings.",
-    "settings.shell.notMigratedTitle": "This category has not moved yet",
+    "settings.shell.notMigratedTitle": "This area is unavailable",
     "settings.shell.notMigratedDescription":
-      "Use the legacy settings page for this area until the next vertical slice migrates it.",
+      "Use classic settings for this area during this session.",
     "settings.categories.general": "General",
     "settings.categories.appearance_pet": "Appearance & Pet",
     "settings.categories.voice_audio": "Voice & Audio",
@@ -397,17 +384,16 @@ export const settingsV2Copy: Record<
     "settings.categories.about_updates": "About & Updates",
     "settings.general.title": "General",
     "settings.general.description":
-      "Language, window behavior, Windows sign-in launch, and reset boundaries.",
+      "Language, window behavior, and Windows sign-in launch.",
     "settings.general.section.interface": "Interface",
     "settings.general.section.desktop": "Desktop behavior",
-    "settings.general.section.reset": "Reset & Recovery",
     "settings.general.displayLanguage.label": "Display language",
     "settings.general.displayLanguage.description":
-      "Choose the language Jarvis uses in this settings preview.",
+      "Choose the language Jarvis uses in settings.",
     "settings.general.displayLanguage.action": "Choose display language",
     "settings.general.displayLanguage.dialogTitle": "Choose display language",
     "settings.general.displayLanguage.dialogDescription":
-      "This changes Settings V2 immediately and keeps the existing app language preference.",
+      "This changes Jarvis settings immediately and keeps the existing app language preference.",
     "settings.general.displayLanguage.english": "English",
     "settings.general.displayLanguage.chinese": "Chinese (Simplified)",
     "settings.general.closeBehavior.label": "When closing the main window",
@@ -426,14 +412,6 @@ export const settingsV2Copy: Record<
     "settings.general.launchAtLogin.unavailable":
       "Available only in packaged Alpha or Stable builds.",
     "settings.general.launchAtLogin.retry": "Retry",
-    "settings.general.reset.label": "Restore default settings",
-    "settings.general.reset.description":
-      "Restore user-facing settings after a confirmation step.",
-    "settings.general.reset.impact":
-      "This feature will be available later. It will not delete personal data or saved secure settings.",
-    "settings.general.reset.action": "Restore default settings",
-    "settings.general.reset.details": "Review reset and recovery",
-    "settings.general.reset.unsupported": "Coming later",
     "settings.appearance.title": "Appearance & Pet",
     "settings.appearance.description":
       "Choose Jarvis colors, Desktop Pet visibility, motion, and the current local skin summary.",
@@ -447,9 +425,9 @@ export const settingsV2Copy: Record<
     "settings.appearance.theme.dialogTitle": "Choose interface theme",
     "settings.appearance.theme.dialogDescription":
       "Theme changes are saved through Desktop Settings and can be changed again any time.",
-    "settings.appearance.theme.previewTitle": "Theme preview",
+    "settings.appearance.theme.previewTitle": "Theme sample",
     "settings.appearance.theme.previewDescription":
-      "A compact preview of text, borders, and Jarvis accent colors.",
+      "A compact sample of text, borders, and Jarvis accent colors.",
     "settings.theme.signal.label": "Signal",
     "settings.theme.signal.description": "Dark control room with cyan Jarvis accents.",
     "settings.theme.harbor.label": "Harbor",
@@ -468,10 +446,10 @@ export const settingsV2Copy: Record<
     "settings.pet.reducedMotion.system": "Follow system",
     "settings.pet.reducedMotion.on": "Reduced motion",
     "settings.pet.reducedMotion.off": "Full motion",
-    "settings.pet.resetPosition.label": "Reset Desktop Pet position",
+    "settings.pet.resetPosition.label": "Move Desktop Pet back",
     "settings.pet.resetPosition.description":
       "Move the Desktop Pet back to its default safe corner.",
-    "settings.pet.resetPosition.action": "Reset position",
+    "settings.pet.resetPosition.action": "Move back",
     "settings.pet.status.enabled": "Visible",
     "settings.pet.status.disabled": "Hidden",
     "settings.pet.status.motionSystem": "Following system preference",
@@ -843,24 +821,19 @@ export const settingsV2Copy: Record<
     "settings.errors.permission_required": "Windows permission is required.",
     "settings.errors.operation_in_progress": "Another settings action is running.",
     "settings.errors.confirmation_required": "Confirm before continuing.",
-    "settings.errors.reset_not_supported": "Reset is not connected yet.",
-    "settings.confirmation.resetTitle": "Restore default settings",
-    "settings.confirmation.resetDescription":
-      "This action remains unavailable until a safe reset contract is implemented.",
   },
   zh: {
     "settings.shell.title": "Jarvis 控制中心",
     "settings.shell.description":
-      "已开放分类由设置注册表生成。尚未迁移的分类继续使用旧版设置。",
+      "管理这台设备上的 Jarvis 设置。",
     "settings.shell.search": "搜索设置",
     "settings.shell.category": "设置分类",
-    "settings.shell.migratedOnly": "设置预览",
     "settings.shell.useClassic": "使用旧版设置",
     "settings.shell.useClassicDescription":
       "仅在本次运行中切换，不会更改你的设置。",
-    "settings.shell.notMigratedTitle": "此分类尚未迁移",
+    "settings.shell.notMigratedTitle": "此区域暂不可用",
     "settings.shell.notMigratedDescription":
-      "在下一轮纵向切片迁移前，请继续使用旧版设置处理这部分内容。",
+      "本次运行中可使用旧版设置处理这部分内容。",
     "settings.categories.general": "通用",
     "settings.categories.appearance_pet": "外观与桌宠",
     "settings.categories.voice_audio": "语音与音频",
@@ -871,17 +844,16 @@ export const settingsV2Copy: Record<
     "settings.categories.about_updates": "关于与更新",
     "settings.general.title": "通用",
     "settings.general.description":
-      "管理界面语言、窗口关闭方式、登录后启动，以及恢复默认设置。",
+      "管理界面语言、窗口关闭方式和登录后启动。",
     "settings.general.section.interface": "界面",
     "settings.general.section.desktop": "桌面行为",
-    "settings.general.section.reset": "重置与恢复",
     "settings.general.displayLanguage.label": "界面语言",
     "settings.general.displayLanguage.description":
-      "选择此设置预览中 Jarvis 使用的显示语言。",
+      "选择 Jarvis 设置中使用的显示语言。",
     "settings.general.displayLanguage.action": "选择界面语言",
     "settings.general.displayLanguage.dialogTitle": "选择界面语言",
     "settings.general.displayLanguage.dialogDescription":
-      "此设置会立即应用到 Settings V2，并沿用现有应用语言偏好。",
+      "此设置会立即应用到 Jarvis 设置，并沿用现有应用语言偏好。",
     "settings.general.displayLanguage.english": "English",
     "settings.general.displayLanguage.chinese": "中文（简体）",
     "settings.general.closeBehavior.label": "关闭主窗口时",
@@ -899,13 +871,6 @@ export const settingsV2Copy: Record<
     "settings.general.launchAtLogin.unavailable":
       "仅在打包后的 Alpha 或 Stable 应用中可用。",
     "settings.general.launchAtLogin.retry": "重试",
-    "settings.general.reset.label": "恢复默认设置",
-    "settings.general.reset.description": "确认后恢复面向用户的设置。",
-    "settings.general.reset.impact":
-      "此功能将在后续提供。它不会删除个人数据或已保存的安全设置。",
-    "settings.general.reset.action": "恢复默认设置",
-    "settings.general.reset.details": "查看重置与恢复",
-    "settings.general.reset.unsupported": "后续提供",
     "settings.appearance.title": "外观与桌宠",
     "settings.appearance.description":
       "设置 Jarvis 的界面配色、桌宠显示方式、动效和当前皮肤摘要。",
@@ -919,9 +884,9 @@ export const settingsV2Copy: Record<
     "settings.appearance.theme.dialogTitle": "选择界面主题",
     "settings.appearance.theme.dialogDescription":
       "主题会通过桌面设置保存，之后可以随时更改。",
-    "settings.appearance.theme.previewTitle": "主题预览",
+    "settings.appearance.theme.previewTitle": "主题效果",
     "settings.appearance.theme.previewDescription":
-      "预览文字、边框和 Jarvis 强调色的组合效果。",
+      "展示文字、边框和 Jarvis 强调色的组合效果。",
     "settings.theme.signal.label": "Signal",
     "settings.theme.signal.description": "深色控制台风格，使用青蓝色 Jarvis 强调色。",
     "settings.theme.harbor.label": "Harbor",
@@ -939,10 +904,10 @@ export const settingsV2Copy: Record<
     "settings.pet.reducedMotion.system": "跟随系统",
     "settings.pet.reducedMotion.on": "减少动效",
     "settings.pet.reducedMotion.off": "完整动效",
-    "settings.pet.resetPosition.label": "重置桌宠位置",
+    "settings.pet.resetPosition.label": "将桌宠移回默认位置",
     "settings.pet.resetPosition.description":
       "将桌宠移动回默认的安全角落。",
-    "settings.pet.resetPosition.action": "重置位置",
+    "settings.pet.resetPosition.action": "移回默认位置",
     "settings.pet.status.enabled": "已显示",
     "settings.pet.status.disabled": "已隐藏",
     "settings.pet.status.motionSystem": "跟随系统偏好",
@@ -1277,10 +1242,6 @@ export const settingsV2Copy: Record<
     "settings.errors.permission_required": "需要 Windows 权限。",
     "settings.errors.operation_in_progress": "已有设置操作正在进行。",
     "settings.errors.confirmation_required": "继续前需要确认。",
-    "settings.errors.reset_not_supported": "重置功能尚未接入。",
-    "settings.confirmation.resetTitle": "恢复默认设置",
-    "settings.confirmation.resetDescription":
-      "安全重置合同完成前，此操作保持不可用。",
   },
 } as const;
 

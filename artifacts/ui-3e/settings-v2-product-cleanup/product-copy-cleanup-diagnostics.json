@@ -1,0 +1,908 @@
+{
+  "generatedAt": "2026-08-31T03:38:09.023Z",
+  "outputDirectory": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup",
+  "productDefinitions": {
+    "resetPresent": false,
+    "previewCopyPresent": false,
+    "classicSettingsEntryPresent": true
+  },
+  "scenarios": [
+    {
+      "name": "signal-settings-clean-wide",
+      "mode": "general",
+      "locale": "en",
+      "theme": "signal",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\signal-settings-clean-wide.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "harbor-settings-clean-wide",
+      "mode": "general",
+      "locale": "en",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\harbor-settings-clean-wide.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "zh-settings-clean-wide",
+      "mode": "general",
+      "locale": "zh",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\zh-settings-clean-wide.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "en-settings-clean-narrow-top",
+      "mode": "general",
+      "locale": "en",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\en-settings-clean-narrow-top.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 390,
+        "clientWidth": 390,
+        "compactCategory": {
+          "bottom": 618.1875,
+          "display": "block",
+          "height": 70,
+          "left": 80,
+          "right": 378,
+          "top": 548.1875,
+          "visibility": "visible",
+          "width": 298
+        },
+        "main": {
+          "bottom": 1438.28125,
+          "display": "block",
+          "height": 804.09375,
+          "left": 80,
+          "right": 378,
+          "top": 634.1875,
+          "visibility": "visible",
+          "width": 298
+        },
+        "rollback": {
+          "bottom": 445.1875,
+          "display": "flex",
+          "height": 123.5,
+          "left": 80,
+          "right": 378,
+          "top": 321.6875,
+          "visibility": "visible",
+          "width": 298
+        },
+        "scrollWidth": 390,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 980,
+          "innerWidth": 390,
+          "visualHeight": 980,
+          "visualWidth": 390
+        },
+        "wideCategoryNav": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 390,
+          "height": 980
+        },
+        "actualContentSize": [
+          904,
+          980
+        ]
+      }
+    },
+    {
+      "name": "zh-settings-clean-narrow-top",
+      "mode": "general",
+      "locale": "zh",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\zh-settings-clean-narrow-top.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 390,
+        "clientWidth": 390,
+        "compactCategory": {
+          "bottom": 618.1875,
+          "display": "block",
+          "height": 70,
+          "left": 80,
+          "right": 378,
+          "top": 548.1875,
+          "visibility": "visible",
+          "width": 298
+        },
+        "main": {
+          "bottom": 1400.59375,
+          "display": "block",
+          "height": 766.40625,
+          "left": 80,
+          "right": 378,
+          "top": 634.1875,
+          "visibility": "visible",
+          "width": 298
+        },
+        "rollback": {
+          "bottom": 445.1875,
+          "display": "flex",
+          "height": 123.5,
+          "left": 80,
+          "right": 378,
+          "top": 321.6875,
+          "visibility": "visible",
+          "width": 298
+        },
+        "scrollWidth": 390,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 980,
+          "innerWidth": 390,
+          "visualHeight": 980,
+          "visualWidth": 390
+        },
+        "wideCategoryNav": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 390,
+          "height": 980
+        },
+        "actualContentSize": [
+          904,
+          980
+        ]
+      }
+    },
+    {
+      "name": "reset-search-empty-en",
+      "mode": "search-reset",
+      "locale": "en",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\reset-search-empty-en.png",
+      "search": {
+        "query": "reset",
+        "resultTitles": []
+      },
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 835.1875,
+          "display": "block",
+          "height": 348,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 835.1875,
+          "display": "block",
+          "height": 348,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "reset-search-empty-zh",
+      "mode": "search-reset",
+      "locale": "zh",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\reset-search-empty-zh.png",
+      "search": {
+        "query": "恢复默认",
+        "resultTitles": []
+      },
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 835.1875,
+          "display": "block",
+          "height": 348,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 835.1875,
+          "display": "block",
+          "height": 348,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "preview-search-empty-en",
+      "mode": "search-preview",
+      "locale": "en",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\preview-search-empty-en.png",
+      "search": {
+        "query": "preview",
+        "resultTitles": []
+      },
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 835.1875,
+          "display": "block",
+          "height": 348,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 835.1875,
+          "display": "block",
+          "height": 348,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "classic-settings-entry-en",
+      "mode": "classic-entry",
+      "locale": "en",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\classic-settings-entry-en.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "classic-settings-entry-zh",
+      "mode": "classic-entry",
+      "locale": "zh",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\classic-settings-entry-zh.png",
+      "search": null,
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "layout": {
+        "bodyScrollWidth": 1440,
+        "clientWidth": 1440,
+        "compactCategory": {
+          "bottom": 0,
+          "display": "none",
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "visibility": "visible",
+          "width": 0
+        },
+        "main": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 430,
+          "right": 1350,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "rollback": {
+          "bottom": 376.1875,
+          "display": "flex",
+          "height": 63.5,
+          "left": 298,
+          "right": 1218,
+          "top": 312.6875,
+          "visibility": "visible",
+          "width": 920
+        },
+        "scrollWidth": 1440,
+        "viewport": {
+          "devicePixelRatio": 1,
+          "innerHeight": 940,
+          "innerWidth": 1440,
+          "visualHeight": 940,
+          "visualWidth": 1440
+        },
+        "wideCategoryNav": {
+          "bottom": 1074.90625,
+          "display": "block",
+          "height": 587.71875,
+          "left": 166,
+          "right": 406,
+          "top": 487.1875,
+          "visibility": "visible",
+          "width": 240
+        }
+      },
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    },
+    {
+      "name": "gate-off-legacy-unchanged",
+      "mode": "legacy",
+      "locale": "en",
+      "theme": "harbor",
+      "screenshotPath": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3e\\settings-v2-product-cleanup\\gate-off-legacy-unchanged.png",
+      "sideEffects": {
+        "fetchCalls": 0,
+        "realNetworkRequestSent": 0,
+        "mediaCalls": 0,
+        "notificationShowCalls": 0,
+        "clipboardWriteCalls": 0,
+        "modelProviderCalls": 0,
+        "taskBackgroundCalls": 0,
+        "pluginMcpCalls": 0,
+        "appBrowserFileCalls": 0,
+        "updaterCalls": 0,
+        "externalUrlCalls": 0,
+        "windowsExecutorCalls": 0
+      },
+      "settingsV2Count": 0,
+      "legacyCount": 1,
+      "viewport": {
+        "requestedViewport": {
+          "width": 1440,
+          "height": 940
+        },
+        "actualContentSize": [
+          1440,
+          940
+        ]
+      }
+    }
+  ],
+  "sideEffectTotals": {
+    "fetchCalls": 0,
+    "realNetworkRequestSent": 0,
+    "mediaCalls": 0,
+    "notificationShowCalls": 0,
+    "clipboardWriteCalls": 0,
+    "modelProviderCalls": 0,
+    "taskBackgroundCalls": 0,
+    "pluginMcpCalls": 0,
+    "appBrowserFileCalls": 0,
+    "updaterCalls": 0,
+    "externalUrlCalls": 0,
+    "windowsExecutorCalls": 0
+  },
+  "realNetworkRequestSent": false
+}

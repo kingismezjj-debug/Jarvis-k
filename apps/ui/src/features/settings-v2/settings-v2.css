@@ -115,8 +115,7 @@
   margin: 0 0 var(--jk-spacing-3);
 }
 
-.settings-v2-status-row,
-.settings-v2-reset-details {
+.settings-v2-status-row {
   align-items: center;
   border-top: 1px solid var(--jk-color-border-subtle);
   color: var(--jk-color-text-secondary);
@@ -363,8 +362,7 @@
     max-width: 100%;
   }
 
-  .settings-v2-status-row,
-  .settings-v2-reset-details {
+  .settings-v2-status-row {
     align-items: stretch;
     flex-direction: column;
     gap: var(--jk-spacing-2);

@@ -31,7 +31,6 @@ import {
   SearchField,
 } from "@/design-system/foundation-components";
 import {
-  DangerSection,
   SettingRow,
   SettingSwitchRow,
   SettingValueAction,
@@ -56,7 +55,6 @@ import {
   type SettingsV2Locale,
 } from "./settings-v2-copy";
 import { buildSettingsV2AboutUpdatesProductViewModel } from "./settings-v2-about-view-model";
-import { formatSettingsV2MigrationSummary } from "./settings-v2-migration-summary";
 import { buildSettingsV2MemoryPrivacyProductViewModel } from "./settings-v2-memory-view-model";
 import { buildSettingsV2ModelsProductViewModel } from "./settings-v2-models-view-model";
 import { buildSettingsV2NotificationsProductViewModel } from "./settings-v2-notifications-view-model";
@@ -341,7 +339,6 @@ function getSectionLabel(
   const sectionKeys: Record<SettingsV2Definition["sectionId"], SettingsV2CopyKey> = {
     interface: "settings.general.section.interface",
     desktop: "settings.general.section.desktop",
-    reset: "settings.general.section.reset",
     appearance: "settings.appearance.section.theme",
     desktop_pet: "settings.appearance.section.pet",
     pet_skin: "settings.appearance.section.skin",
@@ -571,7 +568,7 @@ function getDefinitionValue({
   if (definition.settingBindingId === "about.safe_viewing") {
     return aboutViewModel.safeViewing.value;
   }
-  return tSettingsV2(locale, "settings.general.reset.unsupported");
+  return undefined;
 }
 
 export function getSettingsV2SearchResultsForProduct({
@@ -718,7 +715,6 @@ export function SettingsV2GeneralView({
   const [languageDialogOpen, setLanguageDialogOpen] = React.useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = React.useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
-  const [resetDialogOpen, setResetDialogOpen] = React.useState(false);
 
   const categories = React.useMemo(
     () =>
@@ -840,12 +836,7 @@ export function SettingsV2GeneralView({
       data-testid="settings-v2-view"
     >
       <SettingsPageHeader
-        action={
-          <span className="settings-v2-chip">
-            {tSettingsV2(locale, "settings.shell.migratedOnly")}
-          </span>
-        }
-        description={formatSettingsV2MigrationSummary(locale)}
+        description={tSettingsV2(locale, "settings.shell.description")}
         title={tSettingsV2(locale, "settings.shell.title")}
       />
 
@@ -1037,23 +1028,6 @@ export function SettingsV2GeneralView({
                 </div>
               </SettingsSection>
 
-              <DangerSection
-                actionDisabled
-                actionLabel={tSettingsV2(locale, "settings.general.reset.action")}
-                description={tSettingsV2(locale, "settings.general.reset.description")}
-                impact={tSettingsV2(locale, "settings.general.reset.impact")}
-                title={tSettingsV2(locale, "settings.general.section.reset")}
-              />
-              <div className="settings-v2-reset-details">
-                <span>{tSettingsV2(locale, "settings.general.reset.unsupported")}</span>
-                <Button
-                  data-testid="settings-v2-reset-action"
-                  onClick={() => setResetDialogOpen(true)}
-                  variant="secondary"
-                >
-                  {tSettingsV2(locale, "settings.general.reset.details")}
-                </Button>
-              </div>
             </section>
           ) : selectedCategoryId === "appearance_pet" ? (
             <section data-testid="settings-v2-appearance-pet">
@@ -1938,21 +1912,6 @@ export function SettingsV2GeneralView({
         </div>
       </Dialog>
 
-      <Dialog
-        description={tSettingsV2(locale, "settings.confirmation.resetDescription")}
-        onClose={() => setResetDialogOpen(false)}
-        open={resetDialogOpen}
-        title={tSettingsV2(locale, "settings.confirmation.resetTitle")}
-      >
-        <div className="settings-v2-dialog-actions" data-testid="settings-v2-reset-dialog">
-          <InlineNotice title={tSettingsV2(locale, "settings.general.reset.unsupported")} tone="warning">
-            {tSettingsV2(locale, "settings.general.reset.impact")}
-          </InlineNotice>
-          <Button onClick={() => setResetDialogOpen(false)} variant="secondary">
-            {tSettingsV2(locale, "settings.common.close")}
-          </Button>
-        </div>
-      </Dialog>
     </div>
   );
 }

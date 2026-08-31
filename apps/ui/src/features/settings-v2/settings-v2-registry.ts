@@ -17,7 +17,6 @@ export type SettingsV2CategoryId = (typeof settingsV2CategoryIds)[number];
 export const settingsV2SectionIds = [
   "interface",
   "desktop",
-  "reset",
   "appearance",
   "desktop_pet",
   "pet_skin",
@@ -242,29 +241,6 @@ export const settingsV2GeneralDefinitions: SettingsV2Definition[] = [
     dangerLevel: "none",
     order: 30,
     helpReferenceId: "settings.general.launch_at_login",
-  },
-  {
-    settingId: "settings.general.reset_recovery",
-    categoryId: "general",
-    sectionId: "reset",
-    labelKey: "settings.general.reset.label",
-    descriptionKey: "settings.general.reset.description",
-    searchKeywordKeys: [
-      "settings.general.reset.label",
-      "settings.general.reset.description",
-      "settings.general.reset.impact",
-    ],
-    controlType: "danger_disabled",
-    settingBindingId: null,
-    validationContractId: "settings-reset.unsupported.v1",
-    capabilityGate: "development_settings_v2",
-    visibility: "product",
-    sensitive: false,
-    restartRequired: false,
-    statusProjectionId: "settings.reset.unsupported",
-    dangerLevel: "danger",
-    order: 40,
-    helpReferenceId: "settings.general.reset_recovery",
   },
 ];
 

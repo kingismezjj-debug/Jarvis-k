@@ -29,29 +29,24 @@ export function getSettingsV2LegacyCategoryIds(): SettingsV2CategoryId[] {
 export function formatSettingsV2MigrationSummary(
   locale: SettingsV2Locale,
 ): string {
-  const migrated = settingsV2Categories
-    .filter((category) => category.migrated)
-    .map((category) => tSettingsV2(locale, category.labelKey));
   const legacy = settingsV2Categories
     .filter((category) => !category.migrated)
     .map((category) => tSettingsV2(locale, category.labelKey));
 
   if (locale === "zh") {
     if (legacy.length === 0) {
-      return `当前预览已开放：${formatZhList(migrated)}。所有普通设置分类均已迁移。`;
+      return "管理这台设备上的 Jarvis 设置。";
     }
-    return `当前预览已开放：${formatZhList(migrated)}。尚未迁移的 ${formatZhList(
+    return `管理这台设备上的 Jarvis 设置。此区域本次运行中可使用旧版设置：${formatZhList(
       legacy,
-    )} 仍使用旧版设置。`;
+    )}。`;
   }
 
   if (legacy.length === 0) {
-    return `Available in this preview: ${formatEnglishList(
-      migrated,
-    )}. All ordinary settings categories have moved.`;
+    return "Manage Jarvis settings for this device.";
   }
 
-  return `Available in this preview: ${formatEnglishList(
-    migrated,
-  )}. Still in legacy settings: ${formatEnglishList(legacy)}.`;
+  return `Manage Jarvis settings for this device. Use classic settings for this session: ${formatEnglishList(
+    legacy,
+  )}.`;
 }

@@ -27,7 +27,6 @@ describe("Settings V2 i18n foundation", () => {
       "permission_required",
       "operation_in_progress",
       "confirmation_required",
-      "reset_not_supported",
     ] as const) {
       expect(formatSettingsV2Error("en", code)).toBeTruthy();
       expect(formatSettingsV2Error("zh", code)).toBeTruthy();
@@ -49,6 +48,14 @@ describe("Settings V2 i18n foundation", () => {
       "Developer tools",
       "control type",
       "fixture",
+      "Settings preview",
+      "Available in this preview",
+      "Coming later",
+      "Settings V2",
+      "migration",
+      "registry",
+      "Gate OFF",
+      "reason code",
     ]) {
       expect(zhCopy).not.toContain(forbidden);
     }
