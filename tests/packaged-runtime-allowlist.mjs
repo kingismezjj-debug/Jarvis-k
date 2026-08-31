@@ -102,8 +102,11 @@ if (packageJson.build?.asar !== false) {
 if (packageJson.build?.win?.forceCodeSigning !== false) {
   fail("Unsigned Alpha config must not require code signing.");
 }
-if (packageJson.build?.win?.signAndEditExecutable !== false) {
-  fail("Unsigned Alpha config must not pretend to sign executables.");
+if (packageJson.build?.win?.signAndEditExecutable === false) {
+  fail("Unsigned Alpha config must keep Windows executable resource editing enabled.");
+}
+if (packageJson.build?.win?.signExecutable !== false) {
+  fail("Unsigned Alpha config must skip code signing without skipping resource editing.");
 }
 if (packageJson.build?.nsis?.deleteAppDataOnUninstall !== false) {
   fail("Uninstall must not delete user data by default.");
@@ -168,6 +171,8 @@ console.log(
       version: packageJson.version,
       asar: packageJson.build.asar,
       unsignedAlpha: true,
+      resourceEditingEnabled: packageJson.build.win.signAndEditExecutable !== false,
+      signExecutable: packageJson.build.win.signExecutable,
       requiredResources: requiredPaths.length,
       scannedEntries: allEntries.length,
       appPackageDigest: digest,
