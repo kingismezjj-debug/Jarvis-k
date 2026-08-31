@@ -10,6 +10,8 @@ const outputDirectory = path.join(
   "ui-3d",
   "settings-v2-fallback",
 );
+const uiSurfaceCapabilityUpdatedChannel =
+  "jarvis-k:ui-surface-capability-updated";
 
 const sideEffectZeroes = {
   fetch: 0,
@@ -54,6 +56,7 @@ async function seedDesktopSettings(userDataDirectory) {
 async function launchDevelopmentDesktop({
   settingsV2EnvValue,
   disableAnimationFrame = false,
+  enableRenderFailureTrap = false,
 } = {}) {
   const userDataDirectory = await mkdtemp(
     path.join(os.tmpdir(), "jarvis-k-settings-v2-fallback-"),
@@ -84,6 +87,9 @@ async function launchDevelopmentDesktop({
     env,
   });
   const window = await electronApp.firstWindow();
+  if (enableRenderFailureTrap) {
+    await installRenderFailureTrap(window);
+  }
   if (disableAnimationFrame) {
     await window.addInitScript(() => {
       window.requestAnimationFrame = () => 1;
@@ -93,6 +99,30 @@ async function launchDevelopmentDesktop({
   await installSideEffectCounters(window);
   await window.setViewportSize({ width: 1280, height: 860 });
   return { electronApp, userDataDirectory, window };
+}
+
+async function installRenderFailureTrap(window) {
+  await window.addInitScript(() => {
+    const originalToLocaleLowerCase = String.prototype.toLocaleLowerCase;
+    if (!String.prototype.__jarvisSettingsV2FallbackTrapInstalled) {
+      Object.defineProperty(String.prototype, "__jarvisSettingsV2FallbackTrapInstalled", {
+        configurable: false,
+        enumerable: false,
+        value: true,
+      });
+      String.prototype.toLocaleLowerCase = function toLocaleLowerCaseTrap(
+        ...args
+      ) {
+        if (
+          window.__jarvisSettingsV2ForceRenderFailure === true &&
+          String(this) === "jarvis-v2-controlled-render-failure"
+        ) {
+          throw new Error("Controlled Settings V2 render failure");
+        }
+        return originalToLocaleLowerCase.apply(this, args);
+      };
+    }
+  });
 }
 
 async function installSideEffectCounters(window) {
@@ -214,6 +244,12 @@ async function captureScenario(input) {
     .getByTestId("settings-v2-view")
     .count();
   const legacyCount = await input.window.getByTestId("settings-view").count();
+  const recoveryCopyCount = await input.window
+    .getByTestId("settings-v2-session-fallback-pending")
+    .count();
+  const v2SearchCount = await input.window
+    .getByTestId("settings-v2-search")
+    .count();
   const sideEffects = await collectSideEffects(input.window);
   const diagnostic = {
     scenario: input.scenario,
@@ -223,10 +259,14 @@ async function captureScenario(input) {
         : "none",
     initialSurface: input.initialSurface,
     healthTransition: input.healthTransition,
+    ...(input.extraDiagnostic ?? {}),
     finalMainProjection: sanitizeProjection(status),
-    finalVisibleSurface: settingsV2Count > 0 ? "v2" : "legacy",
+    finalVisibleSurface:
+      recoveryCopyCount > 0 ? "recovering" : settingsV2Count > 0 ? "v2" : "legacy",
     v2Count: settingsV2Count,
     legacyCount,
+    recoveryCopyVisible: recoveryCopyCount > 0,
+    v2ProductContentInteractable: v2SearchCount > 0,
     settingsMutationCount: 0,
     sideEffects,
     realNetworkRequestSent: false,
@@ -234,6 +274,73 @@ async function captureScenario(input) {
   };
   assertNoSideEffects({ scenario: input.scenario, sideEffects });
   return diagnostic;
+}
+
+async function installFallbackPushHold(electronApp) {
+  await electronApp.evaluate(
+    ({ BrowserWindow }, channel) => {
+      const mainWindow = BrowserWindow.getAllWindows().find(
+        (window) => !window.isDestroyed(),
+      );
+      if (!mainWindow) {
+        throw new Error("Main window unavailable for fallback push hold.");
+      }
+      const state =
+        globalThis.__jarvisSettingsV2FallbackPushHoldState ?? {
+          active: false,
+          held: null,
+          installed: false,
+          originalSend: mainWindow.webContents.send.bind(
+            mainWindow.webContents,
+          ),
+        };
+      if (!state.installed) {
+        const originalSend = state.originalSend;
+        mainWindow.webContents.send = (eventChannel, ...args) => {
+          if (
+            state.active &&
+            eventChannel === channel &&
+            args[0]?.settingsV2SessionFallbackActive === true
+          ) {
+            state.held = { args, channel: eventChannel };
+            return;
+          }
+          return originalSend(eventChannel, ...args);
+        };
+        state.installed = true;
+      }
+      state.active = true;
+      state.held = null;
+      globalThis.__jarvisSettingsV2FallbackPushHoldState = state;
+    },
+    uiSurfaceCapabilityUpdatedChannel,
+  );
+}
+
+async function collectFallbackPushHoldStatus(electronApp) {
+  return electronApp.evaluate(() => {
+    const state = globalThis.__jarvisSettingsV2FallbackPushHoldState;
+    return {
+      active: state?.active === true,
+      held: state?.held !== null && state?.held !== undefined,
+      heldChannel: state?.held?.channel ?? null,
+    };
+  });
+}
+
+async function releaseFallbackPushHold(electronApp) {
+  await electronApp.evaluate(() => {
+    const state = globalThis.__jarvisSettingsV2FallbackPushHoldState;
+    if (!state) {
+      return;
+    }
+    state.active = false;
+    const held = state.held;
+    state.held = null;
+    if (held) {
+      state.originalSend(held.channel, ...held.args);
+    }
+  });
 }
 
 function sanitizeProjection(status) {
@@ -301,43 +408,123 @@ const rollbackDiagnostics = await runWithApp({}, async ({ window }) => {
 });
 diagnostics.push(...rollbackDiagnostics);
 
-await runWithApp({}, async ({ window }) => {
+await runWithApp(
+  { enableRenderFailureTrap: true },
+  async ({ electronApp, window }) => {
   await openSettings(window);
   await waitForV2Ready(window);
+  const statusBeforeFailure = await window.evaluate(() =>
+    window.jarvis?.getUiSurfaceCapabilityStatus?.(),
+  );
+  await installFallbackPushHold(electronApp);
+  await window.evaluate(() => {
+    window.__jarvisSettingsV2ForceRenderFailure = true;
+  });
+  const renderFailureTrapActive = await window.evaluate(() => {
+    try {
+      "jarvis-v2-controlled-render-failure".toLocaleLowerCase();
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  if (!renderFailureTrapActive) {
+    throw new Error("Controlled Settings V2 render failure trap was not active.");
+  }
+  await window.getByTestId("settings-v2-search").fill(
+    "jarvis-v2-controlled-render-failure",
+  );
+  await window
+    .getByTestId("settings-v2-session-fallback-pending")
+    .waitFor({ timeout: 5_000 });
+  await window.waitForFunction(async () => {
+    const recoveryCopyVisible = document.querySelector(
+      '[data-testid="settings-v2-session-fallback-pending"]',
+    ) !== null;
+    const legacyMounted =
+      document.querySelector('[data-testid="settings-view"]') !== null;
+    const status = await window.jarvis?.getUiSurfaceCapabilityStatus?.();
+    return (
+      recoveryCopyVisible &&
+      !legacyMounted &&
+      status?.settingsSurfaceHealth === "failed" &&
+      status?.settingsV2SessionFallbackActive === true
+    );
+  });
+  const heldPushBeforeCapture = await collectFallbackPushHoldStatus(electronApp);
+  const recoveryEvidence = await window.evaluate(async (expectedGeneration) => {
+    const status = await window.jarvis?.getUiSurfaceCapabilityStatus?.();
+    return {
+      errorBoundaryCaught: document.querySelector(
+        '[data-testid="settings-v2-session-fallback-pending"]',
+      ) !== null,
+      healthReportState: "failed",
+      healthReportReasonCode: "settings_v2_renderer_failure",
+      currentGenerationValid:
+        typeof expectedGeneration === "number" &&
+        expectedGeneration > 0,
+      recoveryCopyVisible:
+        document.querySelector(
+          '[data-testid="settings-v2-session-fallback-pending"]',
+        ) !== null,
+      legacyMounted:
+        document.querySelector('[data-testid="settings-view"]') !== null,
+      mainSessionFallbackObserved: status
+        ? {
+            settingsSurfaceMounted: status.settingsSurfaceMounted,
+            settingsSurfaceHealth: status.settingsSurfaceHealth,
+            settingsV2SessionFallbackActive:
+              status.settingsV2SessionFallbackActive,
+            settingsV2MountGeneration:
+              typeof status.settingsV2MountGeneration === "number"
+                ? "present"
+                : "none",
+            reasonCode: status.reasonCode,
+            source: status.source,
+            sensitiveValuesExposed: status.sensitiveValuesExposed,
+            rendererWritable: status.rendererWritable,
+          }
+        : null,
+    };
+  }, statusBeforeFailure.settingsV2MountGeneration);
   diagnostics.push(
     await captureScenario({
       window,
       scenario: "renderer-failure-recovering",
       screenshotName: "renderer-failure-recovering.png",
       initialSurface: "v2",
-      healthTransition: "ready -> renderer_failed_reported",
+      healthTransition: "render_throw -> error_boundary_recovering",
+      extraDiagnostic: {
+        ...recoveryEvidence,
+        fallbackPushHeld: heldPushBeforeCapture.held === true,
+        fallbackPushChannel:
+          heldPushBeforeCapture.heldChannel === uiSurfaceCapabilityUpdatedChannel
+            ? "ui_surface_capability_updated"
+            : "none",
+        expectedMainFallbackPushPending: true,
+      },
     }),
   );
-  const current = await window.evaluate(() =>
+  await releaseFallbackPushHold(electronApp);
+  await waitForLegacy(window);
+  const finalFallbackProjection = await window.evaluate(() =>
     window.jarvis?.getUiSurfaceCapabilityStatus?.(),
   );
-  await window.evaluate((generation) => {
-    return window.jarvis?.reportUiSurfaceHealth?.({
-      surface: "settings_v2",
-      state: "failed",
-      reasonCode: "settings_v2_renderer_failure",
-      generation,
-      source: "renderer",
-      sensitiveValuesExposed: false,
-      rendererWritable: false,
-    });
-  }, current.settingsV2MountGeneration);
-  await waitForLegacy(window);
   diagnostics.push(
     await captureScenario({
       window,
       scenario: "renderer-failure-legacy",
       screenshotName: "renderer-failure-legacy.png",
       initialSurface: "v2",
-      healthTransition: "renderer_failed_reported -> legacy",
+      healthTransition: "failed_report_released -> main_push_legacy",
+      extraDiagnostic: {
+        mainSessionFallback:
+          finalFallbackProjection?.settingsV2SessionFallbackActive === true,
+      },
     }),
   );
-});
+  },
+);
 
 diagnostics.push(
   await runWithApp({ disableAnimationFrame: true }, async ({ window }) => {

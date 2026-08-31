@@ -45,7 +45,9 @@ export function useUiSurfaceMode() {
       }
       try {
         const status = await bridge.reportUiSurfaceHealth(report);
-        setCapabilityStatus(status);
+        if (report.state !== "failed") {
+          setCapabilityStatus(status);
+        }
         return status;
       } catch {
         setCapabilityStatus(null);

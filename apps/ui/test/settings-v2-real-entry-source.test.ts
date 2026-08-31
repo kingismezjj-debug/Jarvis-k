@@ -95,4 +95,11 @@ describe("Settings V2 real entry source boundaries", () => {
     expect(hookSource).not.toContain("sessionStorage");
     expect(appSource).not.toContain("JARVIS_K_ENABLE_SETTINGS_V2");
   });
+
+  it("keeps renderer failure recovery visible until Main pushes fallback", () => {
+    const hookSource = readUiSource("apps/ui/src/hooks/use-ui-surface-mode.ts");
+    expect(hookSource).toContain('if (report.state !== "failed")');
+    expect(hookSource).toContain("setCapabilityStatus(status);");
+    expect(hookSource).toContain("onUiSurfaceCapabilityStatus");
+  });
 });
