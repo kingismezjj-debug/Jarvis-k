@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-08-30
+Updated: 2026-08-31
 
 ## Current Product Phase
 
@@ -62,6 +62,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase UI-2G-Fix Notifications Product projection is repaired: safe viewing and notification privacy are now explanatory rows without pseudo status values, search omits current-value text for those rows, and legitimate limited/in-app/tray status values remain intact.
 - Phase UI-3B Settings V2 development rollout is implemented: development builds mount Settings V2 by default, `JARVIS_K_ENABLE_SETTINGS_V2=0` remains a trusted Legacy rollback, packaged Alpha/Stable/Test keep Legacy by default, and Legacy is retained.
 - Phase UI-3D-B-Fix Settings V2 rollback/fallback foundation is implemented: Desktop Main owns mount generation, accepts only current generation health events, pushes visible session-only Legacy fallback to Renderer, exposes a user-controlled "Use classic settings" session rollback, clears mount timers on dispose, and keeps packaged Alpha Legacy by release-channel gate.
+- Phase UI-3F-3 Launch at Login consistency fix is implemented in code: Windows login item success is now based on Main-owned Electron `launchItems`/exact identity projection with bounded readback verification instead of a single `openAtLogin` readback.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -92,7 +93,8 @@ Voice freeze rules:
 
 - Windows Alpha package remains unsigned and requires manual install acceptance on Windows.
 - Phase 4A-3C Alpha `0.1.0-alpha.1` manual installation acceptance is **FAILED / BLOCKED**: storage isolation acceptance `PASS`, installer install/uninstall mechanics `PARTIAL PASS`, packaged runtime startup `FAIL`, blocking reason `MODULE_NOT_FOUND @jarvis-k/contracts`; First-run, Tray, CoreHost, second-instance, and quit acceptance were not completed.
-- Alpha `0.1.0-alpha.1` is superseded / not distributable. `0.1.0-alpha.2` fixed the packaged runtime dependency closure; `0.1.0-alpha.3` is the current Alpha candidate for launch-at-login validation.
+- Alpha `0.1.0-alpha.1` is superseded / not distributable. `0.1.0-alpha.2` fixed the packaged runtime dependency closure; `0.1.0-alpha.4` is the current installed Alpha under launch-at-login repair validation.
+- UI-3F-2 found a launch-at-login consistency failure in installed `0.1.0-alpha.4`: Windows Run entry existed while persisted `launchAtLoginEnabled=false`; current real system residue is intentionally not modified until a repaired RC is built and a controlled cleanup/install flow is approved.
 - No signing certificate, auto-update, portable build, or store publishing path is configured.
 - Voice is usable only after explicit provider configuration.
 - Strict Voice Pilot UX remains too costly for manual progress and is deferred.
@@ -102,8 +104,8 @@ Voice freeze rules:
 Installation and release:
 
 - Current state supports developer-run Electron plus unsigned Windows x64 Alpha packaging.
-- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.3`.
-- Manual launch-at-login acceptance status is not complete for `0.1.0-alpha.3`; do not treat earlier package acceptance as validating this new startup behavior.
+- Alpha package identity is separate from development and future Stable: product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and version `0.1.0-alpha.4`.
+- Manual launch-at-login acceptance status is not complete for `0.1.0-alpha.4`; a repaired package must be built and installed before continuing login/reboot acceptance.
 - CI runs on `windows-latest` with `npm ci`, typecheck, tests, boundary checks, sensitive artifact guard, and build.
 - Installer packaging uses Electron Builder NSIS, per-user install, no elevation, no auto-run after finish, and user data is retained on uninstall.
 - Signing is explicitly not configured for Alpha; artifacts are named `unsigned-alpha`.

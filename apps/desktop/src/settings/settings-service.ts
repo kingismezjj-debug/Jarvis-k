@@ -254,9 +254,9 @@ export class SettingsService {
     };
   }
 
-  public setDesktopLaunchAtLoginEnabled(
+  public async setDesktopLaunchAtLoginEnabled(
     rawInput: unknown,
-  ): DesktopSettingsSetResult {
+  ): Promise<DesktopSettingsSetResult> {
     const raw = asRecord(rawInput);
     if (typeof raw.launchAtLoginEnabled !== "boolean") {
       return {
@@ -265,13 +265,13 @@ export class SettingsService {
         message: "Launch at login setting is invalid.",
       };
     }
-    const result = this.options.loginItemController?.setEnabled(
-      raw.launchAtLoginEnabled,
-    ) ?? {
-      ok: false,
-      message: "Launch at login is unavailable.",
-      status: createUnavailableLaunchAtLoginStatus(false),
-    };
+    const result = this.options.loginItemController
+      ? await this.options.loginItemController.setEnabled(raw.launchAtLoginEnabled)
+      : {
+          ok: false,
+          message: "Launch at login is unavailable.",
+          status: createUnavailableLaunchAtLoginStatus(false),
+        };
     const nextRequested =
       result.ok && result.status.openAtLogin === raw.launchAtLoginEnabled
         ? raw.launchAtLoginEnabled

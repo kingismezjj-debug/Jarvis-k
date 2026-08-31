@@ -728,6 +728,23 @@ export const DesktopLaunchAtLoginStatusSchema = z
     ]),
     appId: z.string().min(1).max(120),
     productName: z.string().min(1).max(120),
+    hasExactLaunchItem: z.boolean().optional(),
+    exactLaunchItemEnabled: z.boolean().optional(),
+    exactLaunchItemDisabled: z.boolean().optional(),
+    executableWillLaunchAtLogin: z.boolean().optional(),
+    sameExecutableDifferentArgs: z.boolean().optional(),
+    verificationState: z
+      .enum([
+        "enabled",
+        "disabled_by_system",
+        "registered_not_enabled",
+        "same_executable_different_args",
+        "not_registered",
+        "unsupported",
+        "api_unavailable",
+      ])
+      .optional(),
+    verificationAttemptCount: z.number().int().min(0).max(10).optional(),
     errorCode: z
       .enum([
         "LOGIN_ITEM_UNSUPPORTED_RELEASE_CHANNEL",

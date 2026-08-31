@@ -25,6 +25,7 @@ function createSettingsService(input: {
   cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
   packagedAlphaLoginItem?: boolean;
+  loginItemController?: LoginItemController;
   releaseChannel?: "development" | "alpha" | "stable" | "test";
   settingsV2EnvRequested?: boolean;
   settingsV2CapabilityAvailable?: boolean;
@@ -47,9 +48,9 @@ function createSettingsService(input: {
     }),
     configureCommandRouterProductMode,
     configureChatAnswerProductMode,
-    loginItemController: input.packagedAlphaLoginItem
-      ? createLoginItemController()
-      : undefined,
+    loginItemController:
+      input.loginItemController ??
+      (input.packagedAlphaLoginItem ? createLoginItemController() : undefined),
     evaluationCapabilityAvailable: input.evaluationCapabilityAvailable,
     cloudProviderAcceptanceCapabilityAvailable:
       input.cloudProviderAcceptanceCapabilityAvailable,
@@ -933,7 +934,7 @@ describe("SettingsService", () => {
         desktopSettingsPath,
         packagedAlphaLoginItem: true,
       });
-      const result = service.setDesktopLaunchAtLoginEnabled({
+      const result = await service.setDesktopLaunchAtLoginEnabled({
         launchAtLoginEnabled: true,
       });
       expect(result).toMatchObject({
@@ -961,9 +962,177 @@ describe("SettingsService", () => {
     }
   });
 
-  it("fails closed when launch at login is requested outside packaged alpha", () => {
+  it("persists launch at login when Electron confirms with an exact enabled launch item", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-login-launch-items-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      const { service } = createSettingsService({
+        desktopSettingsPath,
+        loginItemController: new LoginItemController({
+          app: {
+            isPackaged: true,
+            getPath: () => "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+            setLoginItemSettings: vi.fn(),
+            getLoginItemSettings: vi.fn(() => ({
+              openAtLogin: false,
+              executableWillLaunchAtLogin: true,
+              launchItems: [
+                {
+                  name: "Jarvis-K Alpha",
+                  path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+                  args: ["--jarvis-startup=login"],
+                  enabled: true,
+                },
+              ],
+            })),
+          },
+          releaseChannel: "alpha",
+          appId: "com.jarvis-k.desktop.alpha",
+          productName: "Jarvis-K Alpha",
+          verificationDelayMs: 0,
+        }),
+      });
+
+      const result = await service.setDesktopLaunchAtLoginEnabled({
+        launchAtLoginEnabled: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        settings: { launchAtLoginEnabled: true },
+      });
+      expect(service.getDesktopLaunchAtLoginStatus()).toMatchObject({
+        requested: true,
+        openAtLogin: true,
+        mismatch: false,
+        hasExactLaunchItem: true,
+        exactLaunchItemEnabled: true,
+      });
+      const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
+      expect(stored.launchAtLoginEnabled).toBe(true);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("ignores renderer-provided login item identity fields and uses the fixed Main identity", async () => {
+    const setLoginItemSettings = vi.fn();
+    const { service } = createSettingsService({
+      loginItemController: new LoginItemController({
+        app: {
+          isPackaged: true,
+          getPath: () => "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+          setLoginItemSettings,
+          getLoginItemSettings: vi.fn(() => ({
+            openAtLogin: false,
+            launchItems: [
+              {
+                name: "Jarvis-K Alpha",
+                path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+                args: ["--jarvis-startup=login"],
+                enabled: true,
+              },
+            ],
+          })),
+        },
+        releaseChannel: "alpha",
+        appId: "com.jarvis-k.desktop.alpha",
+        productName: "Jarvis-K Alpha",
+        verificationDelayMs: 0,
+      }),
+    });
+
+    await expect(
+      service.setDesktopLaunchAtLoginEnabled({
+        launchAtLoginEnabled: true,
+        path: "C:\\Unsafe\\Other.exe",
+        name: "Other",
+        args: ["--other"],
+        enabled: false,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      settings: { launchAtLoginEnabled: true },
+    });
+    expect(setLoginItemSettings).toHaveBeenCalledWith({
+      openAtLogin: true,
+      openAsHidden: true,
+      enabled: true,
+      path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+      args: ["--jarvis-startup=login"],
+      name: "Jarvis-K Alpha",
+    });
+  });
+
+  it("reports persisted preference and OS login item mismatch without mutating settings on startup", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "jarvis-k-desktop-login-reconcile-"),
+    );
+    try {
+      const desktopSettingsPath = path.join(directory, "settings.json");
+      await writeFile(
+        desktopSettingsPath,
+        JSON.stringify({
+          closeButtonBehavior: "minimize_to_tray",
+          closeToTrayNoticeShown: true,
+          launchAtLoginEnabled: false,
+          uiTheme: "signal",
+          uiThemeExplicitlyConfigured: true,
+          desktopPetEnabled: false,
+          desktopPetAlwaysOnTop: true,
+          desktopPetReducedMotion: "system",
+          firstRunOnboardingVersion: 1,
+          firstRunOnboardingState: "skipped",
+          persistedLocally: true,
+          syncedToCloud: false,
+        }),
+      );
+      const before = await readFile(desktopSettingsPath, "utf8");
+      const { service } = createSettingsService({
+        desktopSettingsPath,
+        loginItemController: new LoginItemController({
+          app: {
+            isPackaged: true,
+            getPath: () => "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+            setLoginItemSettings: vi.fn(),
+            getLoginItemSettings: vi.fn(() => ({
+              openAtLogin: false,
+              executableWillLaunchAtLogin: true,
+              launchItems: [
+                {
+                  name: "Jarvis-K Alpha",
+                  path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
+                  args: ["--jarvis-startup=login"],
+                  enabled: true,
+                },
+              ],
+            })),
+          },
+          releaseChannel: "alpha",
+          appId: "com.jarvis-k.desktop.alpha",
+          productName: "Jarvis-K Alpha",
+          verificationDelayMs: 0,
+        }),
+      });
+
+      expect(service.getDesktopSettings().launchAtLoginEnabled).toBe(false);
+      expect(service.getDesktopLaunchAtLoginStatus()).toMatchObject({
+        requested: false,
+        openAtLogin: true,
+        mismatch: true,
+        verificationState: "enabled",
+      });
+      await expect(readFile(desktopSettingsPath, "utf8")).resolves.toBe(before);
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("fails closed when launch at login is requested outside packaged alpha", async () => {
     const { service } = createSettingsService();
-    const result = service.setDesktopLaunchAtLoginEnabled({
+    const result = await service.setDesktopLaunchAtLoginEnabled({
       launchAtLoginEnabled: true,
     });
     expect(result).toMatchObject({
@@ -1303,5 +1472,6 @@ function createLoginItemController(): LoginItemController {
     releaseChannel: "alpha",
     appId: "com.jarvis-k.desktop.alpha",
     productName: "Jarvis-K Alpha",
+    verificationDelayMs: 0,
   });
 }
