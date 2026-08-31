@@ -55,6 +55,9 @@ import {
 } from "./storage/storage-profile";
 import { LoginItemController } from "./login-item/login-item-controller";
 import {
+  runLoginItemReadbackDiagnosticIfRequested
+} from "./login-item/login-item-readback-diagnostic";
+import {
   resolveDesktopStartupSource,
   type DesktopStartupSource
 } from "./startup/startup-source";
@@ -251,7 +254,28 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
+    const loginItemReadbackDiagnostic =
+      await runLoginItemReadbackDiagnosticIfRequested({
+        argv: process.argv,
+        app,
+        releaseChannel: storageProfile.releaseChannel,
+        appId: storageProfile.appId,
+        productName: storageProfile.productName,
+        outputPath: path.join(
+          storageProfile.userDataPath,
+          "diagnostics",
+          "login-item-readback.json"
+        )
+      });
+    if (loginItemReadbackDiagnostic.handled) {
+      process.stdout.write(
+        `[desktop] login item readback diagnostic ${loginItemReadbackDiagnostic.status}\n`
+      );
+      app.quit();
+      return;
+    }
+
     const coreEntry = path.join(
       __dirname,
       "..",
