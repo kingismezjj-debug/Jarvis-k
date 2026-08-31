@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3G-2A Installed V2 Acceptance Evidence Closure",
+  "generatedAt": "2026-08-31T12:04:00.000Z",
+  "launchMode": "installed_clean_child_process",
+  "adminUrlRemovedFromChildEnvironment": true,
+  "gateEnvRemovedFromChildEnvironment": true,
+  "userGlobalEnvironmentModified": false,
+  "ordinaryShortcutEnvironmentMayInheritUserAdminUrl": true,
+  "machineObserved": {
+    "git": {
+      "head": "93c1f9c3d88f1dd0375283a2b51c65c475e7315c",
+      "originMain": "93c1f9c3d88f1dd0375283a2b51c65c475e7315c",
+      "worktree": "clean"
+    },
+    "installedAlpha": {
+      "installedExeExists": true,
+      "installedExeBasename": "Jarvis-K Alpha.exe",
+      "installedExeSha256": "68E1D6AB02A784A1ED310DD2785B27DCF2BDC583426299882235F5F4FECDA5F2",
+      "productName": "Jarvis-K Alpha",
+      "fileVersion": "0.1.0-alpha.4",
+      "productVersion": "0.1.0.4",
+      "packageVersion": "0.1.0-alpha.4",
+      "packageProductName": "Jarvis-K Alpha"
+    },
+    "environment": {
+      "userGateEnvClassification": "missing",
+      "machineGateEnvClassification": "missing",
+      "userAdminUrlPresence": "present",
+      "machineAdminUrlPresence": "missing",
+      "childGateEnvClassification": "missing",
+      "childAdminUrlPresence": "removed"
+    },
+    "launchAtLogin": {
+      "currentPreference": false,
+      "hkcuRunJarvisEntries": [],
+      "hklmRunJarvisEntries": []
+    },
+    "currentProcessSnapshot": {
+      "alphaElectronProcessCount": 5,
+      "coreHostCandidateCount": 0
+    },
+    "ui3gGateEvidencePreserved": {
+      "diagnosticsPath": "artifacts/ui-3g/settings-v2-alpha-default-on/gate-rollout-diagnostics.json",
+      "notOverwritten": true
+    }
+  },
+  "userObserved": {
+    "packagedAlphaEnvMissingDefaultedToSettingsV2": true,
+    "allEightCategoriesOpened": true,
+    "useClassicSettingsSwitchedToLegacy": true,
+    "v2AndLegacyNotMountedTogether": true,
+    "fullQuitAndReopenEnteredSettingsV2Again": true,
+    "noErrorObserved": true,
+    "noNetworkPromptObserved": true,
+    "noMicrophonePermissionObserved": true,
+    "noModelLoadingObserved": true,
+    "sideEffects": {
+      "classification": "user-attested-not-observed",
+      "exactMachineCounts": "not_claimed"
+    }
+  },
+  "inferred": {
+    "settingsV2DefaultOnReason": "alpha_default_enabled",
+    "sessionRollbackPersistence": "session_only",
+    "restartRetryBehavior": "new_app_session_retries_gate_and_returns_to_v2",
+    "adminUrlImpact": "User-level JARVIS_K_IZYTOKEN_ADMIN_URL may still be inherited by ordinary shortcuts, but the installed acceptance child process removed it and the Settings V2 gate does not depend on that variable."
+  },
+  "screenshotEvidence": {
+    "installed-alpha-default-v2.png": {
+      "status": "not_captured",
+      "reason": "Installed Playwright launch exited before firstWindow while existing installed Alpha Electron processes were present; no process termination or repeated launch was performed under evidence-only boundaries.",
+      "evidenceSource": "userObserved"
+    },
+    "installed-session-rollback-legacy.png": {
+      "status": "not_captured",
+      "reason": "Session rollback result is recorded from user observation; no additional persistent-state-changing capture was attempted.",
+      "evidenceSource": "userObserved"
+    },
+    "installed-restart-v2.png": {
+      "status": "not_captured",
+      "reason": "Restart retry result is recorded from user observation; no additional launch loop was forced after the clean-child screenshot capture was unavailable.",
+      "evidenceSource": "userObserved"
+    }
+  },
+  "remainingWork": {
+    "installedRenderFailureFaultInjection": "not_completed",
+    "installedTimeoutFaultInjection": "not_completed",
+    "upgradeDowngrade": "not_completed",
+    "unsignedExternalDistributionAllowed": false
+  },
+  "conclusion": {
+    "installedV2Acceptance": "PASS",
+    "rolloutComplete": false,
+    "readyForNextApproval": true
+  }
+}
