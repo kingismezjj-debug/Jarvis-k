@@ -70,4 +70,20 @@ describe("Windows Alpha packaging config", () => {
       "--publish",
     );
   });
+
+  it("cleans only the Alpha login item identities on uninstall", () => {
+    const cleanupScript = readFileSync(
+      path.join(rootDirectory, "build", "nsis", "alpha-login-item-cleanup.nsh"),
+      "utf8",
+    );
+
+    expect(cleanupScript).toContain(
+      'DeleteRegValue HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Run" "Jarvis-K Alpha"',
+    );
+    expect(cleanupScript).toContain(
+      'DeleteRegValue HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Run" "com.jarvis-k.desktop.alpha"',
+    );
+    expect(cleanupScript).not.toMatch(/DeleteReg(Value|Key)\s+HKCU\s+".*Run"\s+"\*"/u);
+    expect(cleanupScript).not.toContain('"com.jarvis-k.desktop"');
+  });
 });

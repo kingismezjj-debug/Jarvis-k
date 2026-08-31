@@ -888,7 +888,7 @@ function createUnavailableLaunchAtLoginStatus(
     canModify: false,
     mismatch: requested,
     releaseChannel: "development",
-    startupArgument: "--jarvis-startup=login",
+    startupArgument: "jarvis-startup=login",
     source: "unsupported-release-channel",
     appId: "com.jarvis-k.desktop.development",
     productName: "Jarvis-K",

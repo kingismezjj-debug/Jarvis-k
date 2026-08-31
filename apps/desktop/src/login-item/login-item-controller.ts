@@ -1,10 +1,12 @@
 import type { DesktopLaunchAtLoginStatus } from "@jarvis-k/contracts";
 import type { ReleaseChannel } from "../storage/storage-profile";
-import { LOGIN_STARTUP_ARGUMENT } from "../startup/startup-source";
+import {
+  LEGACY_LOGIN_STARTUP_ARGUMENT,
+  LOGIN_STARTUP_ARGUMENT,
+} from "../startup/startup-source";
 
 export interface ElectronLoginItemSettings {
   readonly openAtLogin?: boolean;
-  readonly openAsHidden?: boolean;
   readonly enabled?: boolean;
   readonly path?: string;
   readonly args?: string[];
@@ -62,7 +64,7 @@ interface LoginItemProjection {
 }
 
 interface LoginItemStatusSample {
-  readonly query: "exact" | "executable";
+  readonly query: "exact" | "executable" | "legacy_exact";
   readonly status: ElectronLoginItemStatus;
 }
 
@@ -98,9 +100,7 @@ export class LoginItemController {
       };
     }
     try {
-      this.options.app.setLoginItemSettings(
-        this.loginItemWriteSettings(enabled),
-      );
+      this.applyLoginItemChange(enabled);
       const status = await this.confirmRequestedState(enabled);
       return {
         ok: status.openAtLogin === enabled,
@@ -133,12 +133,51 @@ export class LoginItemController {
   private loginItemWriteSettings(openAtLogin: boolean): ElectronLoginItemSettings {
     return {
       openAtLogin,
-      openAsHidden: true,
       enabled: openAtLogin,
       path: this.options.app.getPath("exe"),
       args: [LOGIN_STARTUP_ARGUMENT],
-      name: this.options.productName,
     };
+  }
+
+  private applyLoginItemChange(enabled: boolean): void {
+    const cleanupSettings = this.legacyLoginItemCleanupSettings();
+    for (const settings of cleanupSettings) {
+      this.options.app.setLoginItemSettings(settings);
+    }
+    this.options.app.setLoginItemSettings(
+      this.loginItemWriteSettings(enabled),
+    );
+  }
+
+  private legacyLoginItemCleanupSettings(): ElectronLoginItemSettings[] {
+    const executablePath = this.options.app.getPath("exe");
+    const cleanupTargets: ElectronLoginItemSettings[] = [];
+    for (const args of [
+      [LEGACY_LOGIN_STARTUP_ARGUMENT],
+      [LOGIN_STARTUP_ARGUMENT],
+    ]) {
+      cleanupTargets.push({
+        openAtLogin: false,
+        enabled: false,
+        path: executablePath,
+        args,
+        name: this.options.productName,
+      });
+      cleanupTargets.push({
+        openAtLogin: false,
+        enabled: false,
+        path: executablePath,
+        args,
+        name: this.options.appId,
+      });
+    }
+    cleanupTargets.push({
+      openAtLogin: false,
+      enabled: false,
+      path: executablePath,
+      args: [LEGACY_LOGIN_STARTUP_ARGUMENT],
+    });
+    return cleanupTargets;
   }
 
   private loginItemReadSettings(): ElectronLoginItemSettings[] {
@@ -150,6 +189,10 @@ export class LoginItemController {
       },
       {
         path: executablePath,
+      },
+      {
+        path: executablePath,
+        args: [LEGACY_LOGIN_STARTUP_ARGUMENT],
       },
     ];
   }
@@ -195,12 +238,16 @@ export class LoginItemController {
 
   private readProjection(): LoginItemProjection {
     const samples = this.loginItemReadSettings().map((settings, index) => ({
-      query: index === 0 ? "exact" as const : "executable" as const,
+      query: index === 0
+        ? "exact" as const
+        : index === 1
+          ? "executable" as const
+          : "legacy_exact" as const,
       status: this.options.app.getLoginItemSettings(settings),
     }));
     return projectLoginItemStatus({
       executablePath: this.options.app.getPath("exe"),
-      productName: this.options.productName,
+      appId: this.options.appId,
       samples,
     });
   }
@@ -278,14 +325,17 @@ export class LoginItemController {
       verificationState: "api_unavailable",
       verificationAttemptCount: 0,
       errorCode,
-      errorMessage: error instanceof Error ? error.message : "Unknown error",
+      errorMessage:
+        error instanceof Error
+          ? "Electron login item API failed."
+          : "Unknown error",
     };
   }
 }
 
 function projectLoginItemStatus(input: {
   readonly executablePath: string;
-  readonly productName: string;
+  readonly appId: string;
   readonly samples: readonly LoginItemStatusSample[];
 }): LoginItemProjection {
   const exactSamples = input.samples.filter((sample) => sample.query === "exact");
@@ -294,6 +344,9 @@ function projectLoginItemStatus(input: {
   );
   const executableQueryEnabled = input.samples
     .filter((sample) => sample.query === "executable")
+    .some((sample) => sample.status.openAtLogin === true);
+  const legacyExactQueryEnabled = input.samples
+    .filter((sample) => sample.query === "legacy_exact")
     .some((sample) => sample.status.openAtLogin === true);
   const executableWillLaunchAtLogin = input.samples.some(
     (sample) => sample.status.executableWillLaunchAtLogin === true,
@@ -316,7 +369,8 @@ function projectLoginItemStatus(input: {
         pathsEqual(item.path, input.executablePath) &&
         !argsEqual(item.args ?? [], [LOGIN_STARTUP_ARGUMENT]),
     ) ||
-      executableQueryEnabled);
+      executableQueryEnabled ||
+      legacyExactQueryEnabled);
   const openAtLogin = exactLaunchItemEnabled;
 
   return {
@@ -364,13 +418,13 @@ function isExactLaunchItem(
   item: ElectronLoginItemLaunchItem,
   input: {
     readonly executablePath: string;
-    readonly productName: string;
+    readonly appId: string;
   },
 ): boolean {
   return (
     pathsEqual(item.path, input.executablePath) &&
     argsEqual(item.args ?? [], [LOGIN_STARTUP_ARGUMENT]) &&
-    (item.name === undefined || item.name === input.productName)
+    (item.name === undefined || item.name === input.appId)
   );
 }
 

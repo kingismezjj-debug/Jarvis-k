@@ -1,4 +1,5 @@
-export const LOGIN_STARTUP_ARGUMENT = "--jarvis-startup=login";
+export const LOGIN_STARTUP_ARGUMENT = "jarvis-startup=login";
+export const LEGACY_LOGIN_STARTUP_ARGUMENT = "--jarvis-startup=login";
 
 export type DesktopStartupSource =
   | "manual"
@@ -10,7 +11,10 @@ export type DesktopStartupSource =
 export function resolveDesktopStartupSource(
   argv: readonly string[] = process.argv,
 ): DesktopStartupSource {
-  if (argv.includes(LOGIN_STARTUP_ARGUMENT)) {
+  if (
+    argv.includes(LOGIN_STARTUP_ARGUMENT) ||
+    argv.includes(LEGACY_LOGIN_STARTUP_ARGUMENT)
+  ) {
     return "login";
   }
   if (argv.includes("--squirrel-firstrun")) {

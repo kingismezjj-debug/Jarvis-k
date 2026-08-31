@@ -950,7 +950,7 @@ describe("SettingsService", () => {
         openAtLogin: true,
         supported: true,
         releaseChannel: "alpha",
-        startupArgument: "--jarvis-startup=login",
+        startupArgument: "jarvis-startup=login",
       });
       const stored = JSON.parse(await readFile(desktopSettingsPath, "utf8"));
       expect(stored).toMatchObject({
@@ -980,9 +980,9 @@ describe("SettingsService", () => {
               executableWillLaunchAtLogin: true,
               launchItems: [
                 {
-                  name: "Jarvis-K Alpha",
+                  name: "com.jarvis-k.desktop.alpha",
                   path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
-                  args: ["--jarvis-startup=login"],
+                  args: ["jarvis-startup=login"],
                   enabled: true,
                 },
               ],
@@ -1029,9 +1029,9 @@ describe("SettingsService", () => {
             openAtLogin: false,
             launchItems: [
               {
-                name: "Jarvis-K Alpha",
+                name: "com.jarvis-k.desktop.alpha",
                 path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
-                args: ["--jarvis-startup=login"],
+                args: ["jarvis-startup=login"],
                 enabled: true,
               },
             ],
@@ -1058,11 +1058,9 @@ describe("SettingsService", () => {
     });
     expect(setLoginItemSettings).toHaveBeenCalledWith({
       openAtLogin: true,
-      openAsHidden: true,
       enabled: true,
       path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
-      args: ["--jarvis-startup=login"],
-      name: "Jarvis-K Alpha",
+      args: ["jarvis-startup=login"],
     });
   });
 
@@ -1102,9 +1100,9 @@ describe("SettingsService", () => {
               executableWillLaunchAtLogin: true,
               launchItems: [
                 {
-                  name: "Jarvis-K Alpha",
+                  name: "com.jarvis-k.desktop.alpha",
                   path: "C:\\Users\\Test\\Jarvis-K Alpha.exe",
-                  args: ["--jarvis-startup=login"],
+                  args: ["jarvis-startup=login"],
                   enabled: true,
                 },
               ],

@@ -1,6 +1,9 @@
 import { mkdir, open, rename, rm } from "node:fs/promises";
 import path from "node:path";
-import { LOGIN_STARTUP_ARGUMENT } from "../startup/startup-source";
+import {
+  LEGACY_LOGIN_STARTUP_ARGUMENT,
+  LOGIN_STARTUP_ARGUMENT,
+} from "../startup/startup-source";
 import type {
   ElectronLoginItemLaunchItem,
   ElectronLoginItemSettings,
@@ -58,6 +61,13 @@ export interface LoginItemReadbackDiagnosticReport {
   readonly productName: string;
   readonly appId: string;
   readonly startupArgument: typeof LOGIN_STARTUP_ARGUMENT;
+  readonly legacyStartupArgument: typeof LEGACY_LOGIN_STARTUP_ARGUMENT;
+  readonly runtimeAppUserModelId: {
+    readonly expected: string;
+    readonly matchesAppId: true;
+    readonly source: "desktop-storage-profile";
+  };
+  readonly identitySummary: LoginItemReadbackDiagnosticIdentitySummary;
   readonly installedExecutable: {
     readonly basename: string;
     readonly pathMatchesExpected: true;
@@ -92,10 +102,36 @@ export interface LoginItemReadbackDiagnosticReadback {
 
 export interface LoginItemReadbackDiagnosticLaunchItem {
   readonly nameExactMatch: boolean;
+  readonly nameMatchesAppUserModelId: boolean;
+  readonly nameMatchesLegacyProductName: boolean;
   readonly pathExactMatch: boolean;
   readonly argsExactMatch: boolean;
+  readonly newStartupArgumentMatch: boolean;
+  readonly legacyStartupArgumentMatch: boolean;
   readonly scope: "user" | "machine" | "missing" | "unknown";
   readonly enabled: "true" | "false" | "missing";
+}
+
+export interface LoginItemReadbackDiagnosticIdentitySummary {
+  readonly activeIdentity: "app_user_model_id";
+  readonly defaultIdentityPresent:
+    | "present"
+    | "not_observed"
+    | "disabled"
+    | "unknown";
+  readonly legacyIdentityPresent:
+    | "present"
+    | "not_observed"
+    | "disabled"
+    | "unknown";
+  readonly newStartupArgumentObserved: boolean;
+  readonly legacyStartupArgumentObserved: boolean;
+  readonly activeIdentityClassification:
+    | "default_identity_enabled"
+    | "default_identity_disabled"
+    | "legacy_identity_observed"
+    | "no_identity_observed"
+    | "readback_unavailable";
 }
 
 export async function runLoginItemReadbackDiagnosticIfRequested(
@@ -168,6 +204,7 @@ export async function createLoginItemReadbackDiagnosticReport(
         ? { errorCode: "electron_readback_failed" }
         : {}),
     readbacks,
+    identitySummary: summarizeIdentity(readbacks),
   };
 }
 
@@ -207,6 +244,20 @@ function createBaseReport(
     productName: safeTrim(options.productName),
     appId: safeTrim(options.appId),
     startupArgument: LOGIN_STARTUP_ARGUMENT,
+    legacyStartupArgument: LEGACY_LOGIN_STARTUP_ARGUMENT,
+    runtimeAppUserModelId: {
+      expected: safeTrim(options.appId),
+      matchesAppId: true,
+      source: "desktop-storage-profile",
+    },
+    identitySummary: {
+      activeIdentity: "app_user_model_id",
+      defaultIdentityPresent: "unknown",
+      legacyIdentityPresent: "unknown",
+      newStartupArgumentObserved: false,
+      legacyStartupArgumentObserved: false,
+      activeIdentityClassification: "readback_unavailable",
+    },
     installedExecutable: {
       basename: path.basename(executablePath),
       pathMatchesExpected: true,
@@ -244,6 +295,7 @@ function readLoginItemSettings(
       status,
       executablePath,
       productName: options.productName,
+      appId: options.appId,
     });
   } catch (error) {
     return {
@@ -330,14 +382,22 @@ function sanitizeLoginItemStatus(input: {
   readonly status: ElectronLoginItemStatus;
   readonly executablePath: string;
   readonly productName: string;
+  readonly appId: string;
 }): LoginItemReadbackDiagnosticReadback {
   const launchItems = input.status.launchItems ?? [];
   const jarvisRelatedLaunchItems = launchItems
     .filter((item) => isJarvisRelatedLaunchItem(item, input))
     .map((item) => ({
-      nameExactMatch: item.name === input.productName,
+      nameExactMatch: item.name === input.appId,
+      nameMatchesAppUserModelId: item.name === input.appId,
+      nameMatchesLegacyProductName: item.name === input.productName,
       pathExactMatch: pathsEqual(item.path, input.executablePath),
       argsExactMatch: argsEqual(item.args ?? [], [LOGIN_STARTUP_ARGUMENT]),
+      newStartupArgumentMatch: argsEqual(item.args ?? [], [LOGIN_STARTUP_ARGUMENT]),
+      legacyStartupArgumentMatch: argsEqual(
+        item.args ?? [],
+        [LEGACY_LOGIN_STARTUP_ARGUMENT],
+      ),
       scope: classifyScope(item.scope),
       enabled:
         item.enabled === true
@@ -364,14 +424,81 @@ function sanitizeLoginItemStatus(input: {
 
 function isJarvisRelatedLaunchItem(
   item: ElectronLoginItemLaunchItem,
-  input: { readonly executablePath: string; readonly productName: string },
+  input: {
+    readonly executablePath: string;
+    readonly productName: string;
+    readonly appId: string;
+  },
 ): boolean {
   return (
+    item.name === input.appId ||
+    item.name === input.productName ||
     item.name?.toLowerCase().includes("jarvis") === true ||
     pathsEqual(item.path, input.executablePath) ||
     item.path?.toLowerCase().includes("jarvis") === true ||
-    item.args?.includes(LOGIN_STARTUP_ARGUMENT) === true
+    item.args?.includes(LOGIN_STARTUP_ARGUMENT) === true ||
+    item.args?.includes(LEGACY_LOGIN_STARTUP_ARGUMENT) === true
   );
+}
+
+function summarizeIdentity(
+  readbacks: readonly LoginItemReadbackDiagnosticReadback[],
+): LoginItemReadbackDiagnosticIdentitySummary {
+  if (readbacks.some((readback) => readback.status !== "ok")) {
+    return {
+      activeIdentity: "app_user_model_id",
+      defaultIdentityPresent: "unknown",
+      legacyIdentityPresent: "unknown",
+      newStartupArgumentObserved: false,
+      legacyStartupArgumentObserved: false,
+      activeIdentityClassification: "readback_unavailable",
+    };
+  }
+  const items = readbacks.flatMap(
+    (readback) => readback.jarvisRelatedLaunchItems,
+  );
+  const defaultItems = items.filter(
+    (item) =>
+      item.nameMatchesAppUserModelId &&
+      item.pathExactMatch &&
+      item.newStartupArgumentMatch,
+  );
+  const legacyItems = items.filter(
+    (item) =>
+      item.nameMatchesLegacyProductName &&
+      item.pathExactMatch &&
+      (item.legacyStartupArgumentMatch || item.newStartupArgumentMatch),
+  );
+  const defaultEnabled = defaultItems.some((item) => item.enabled === "true");
+  const defaultDisabled = defaultItems.some((item) => item.enabled === "false");
+  const legacyObserved = legacyItems.length > 0;
+
+  return {
+    activeIdentity: "app_user_model_id",
+    defaultIdentityPresent: defaultEnabled
+      ? "present"
+      : defaultDisabled
+        ? "disabled"
+        : defaultItems.length > 0
+          ? "present"
+          : "not_observed",
+    legacyIdentityPresent: legacyItems.some((item) => item.enabled === "false")
+      ? "disabled"
+      : legacyObserved
+        ? "present"
+        : "not_observed",
+    newStartupArgumentObserved: items.some((item) => item.newStartupArgumentMatch),
+    legacyStartupArgumentObserved: items.some(
+      (item) => item.legacyStartupArgumentMatch,
+    ),
+    activeIdentityClassification: defaultEnabled
+      ? "default_identity_enabled"
+      : defaultDisabled
+        ? "default_identity_disabled"
+        : legacyObserved
+          ? "legacy_identity_observed"
+          : "no_identity_observed",
+  };
 }
 
 function classifyScope(

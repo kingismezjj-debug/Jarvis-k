@@ -720,7 +720,7 @@ export const DesktopLaunchAtLoginStatusSchema = z
     canModify: z.boolean(),
     mismatch: z.boolean(),
     releaseChannel: DesktopLaunchAtLoginReleaseChannelSchema,
-    startupArgument: z.literal("--jarvis-startup=login"),
+    startupArgument: z.literal("jarvis-startup=login"),
     source: z.enum([
       "electron-login-item",
       "unsupported-release-channel",

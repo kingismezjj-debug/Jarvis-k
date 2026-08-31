@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -203,6 +203,27 @@ describe("Desktop storage profile", () => {
         cwd: path.join("C:", "work", "Jarvis-k"),
       }),
     ).toThrow("only allowed in development or test");
+  });
+
+  it("applies the AppUserModelId before login-item APIs are reachable from Main", async () => {
+    const mainSource = await readFile(
+      path.join(process.cwd(), "apps", "desktop", "src", "main.ts"),
+      "utf8",
+    );
+    const applyProfileIndex = mainSource.indexOf(
+      "applyDesktopStorageProfile(app, storageProfile)",
+    );
+    const diagnosticIndex = mainSource.indexOf(
+      "runLoginItemReadbackDiagnosticIfRequested",
+      mainSource.indexOf("app.whenReady"),
+    );
+    const controllerIndex = mainSource.indexOf("new LoginItemController");
+
+    expect(applyProfileIndex).toBeGreaterThan(-1);
+    expect(diagnosticIndex).toBeGreaterThan(-1);
+    expect(controllerIndex).toBeGreaterThan(-1);
+    expect(applyProfileIndex).toBeLessThan(diagnosticIndex);
+    expect(applyProfileIndex).toBeLessThan(controllerIndex);
   });
 
   it("keeps Alpha secure provider state isolated from development", async () => {

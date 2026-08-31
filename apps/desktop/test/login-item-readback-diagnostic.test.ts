@@ -109,9 +109,16 @@ describe("login item readback diagnostic", () => {
       const outputPath = path.join(directory, "login-item-readback.json");
       const { app, getLoginItemSettings } = createApp({
         getLoginItemSettings: (settings) => ({
-          openAtLogin: settings?.args?.includes("--jarvis-startup=login") === true,
+          openAtLogin: settings?.args?.includes("jarvis-startup=login") === true,
           executableWillLaunchAtLogin: true,
           launchItems: [
+            {
+              name: "com.jarvis-k.desktop.alpha",
+              path: "C:/Users/Alice/AppData/Local/Programs/Jarvis-K Alpha/Jarvis-K Alpha.exe",
+              args: ["jarvis-startup=login"],
+              scope: "user",
+              enabled: true,
+            },
             {
               name: "Jarvis-K Alpha",
               path: "C:/Users/Alice/AppData/Local/Programs/Jarvis-K Alpha/Jarvis-K Alpha.exe",
@@ -148,7 +155,7 @@ describe("login item readback diagnostic", () => {
       });
       expect(getLoginItemSettings).toHaveBeenNthCalledWith(3, {
         path: expect.stringContaining("Jarvis-K Alpha.exe"),
-        args: ["--jarvis-startup=login"],
+        args: ["jarvis-startup=login"],
       });
       const stored = JSON.parse(await readFile(outputPath, "utf8"));
       expect(stored).toMatchObject({
@@ -162,7 +169,21 @@ describe("login item readback diagnostic", () => {
         releaseChannel: "alpha",
         productName: "Jarvis-K Alpha",
         appId: "com.jarvis-k.desktop.alpha",
-        startupArgument: "--jarvis-startup=login",
+        startupArgument: "jarvis-startup=login",
+        legacyStartupArgument: "--jarvis-startup=login",
+        runtimeAppUserModelId: {
+          expected: "com.jarvis-k.desktop.alpha",
+          matchesAppId: true,
+          source: "desktop-storage-profile",
+        },
+        identitySummary: {
+          activeIdentity: "app_user_model_id",
+          defaultIdentityPresent: "present",
+          legacyIdentityPresent: "present",
+          newStartupArgumentObserved: true,
+          legacyStartupArgumentObserved: true,
+          activeIdentityClassification: "default_identity_enabled",
+        },
         installedExecutable: {
           basename: "Jarvis-K Alpha.exe",
           pathMatchesExpected: true,
@@ -187,13 +208,28 @@ describe("login item readback diagnostic", () => {
         requestedArgs: "login_startup",
         openAtLogin: true,
         executableWillLaunchAtLogin: true,
-        launchItemsTotalCount: 2,
-        jarvisRelatedLaunchItemCount: 1,
+        launchItemsTotalCount: 3,
+        jarvisRelatedLaunchItemCount: 2,
         jarvisRelatedLaunchItems: [
           {
             nameExactMatch: true,
+            nameMatchesAppUserModelId: true,
+            nameMatchesLegacyProductName: false,
             pathExactMatch: true,
             argsExactMatch: true,
+            newStartupArgumentMatch: true,
+            legacyStartupArgumentMatch: false,
+            scope: "user",
+            enabled: "true",
+          },
+          {
+            nameExactMatch: false,
+            nameMatchesAppUserModelId: false,
+            nameMatchesLegacyProductName: true,
+            pathExactMatch: true,
+            argsExactMatch: false,
+            newStartupArgumentMatch: false,
+            legacyStartupArgumentMatch: true,
             scope: "user",
             enabled: "true",
           },
@@ -220,9 +256,9 @@ describe("login item readback diagnostic", () => {
           executableWillLaunchAtLogin: true,
           launchItems: [
             {
-              name: "Jarvis-K Alpha",
+              name: "com.jarvis-k.desktop.alpha",
               path: "C:\\Users\\Alice\\AppData\\Local\\Programs\\Jarvis-K Alpha\\Jarvis-K Alpha.exe",
-              args: ["--jarvis-startup=login"],
+              args: ["jarvis-startup=login"],
               scope: "user",
               ...(enabled === undefined ? {} : { enabled }),
             },
@@ -254,9 +290,9 @@ describe("login item readback diagnostic", () => {
               scope: "machine",
             },
             {
-              name: "Jarvis-K Alpha",
+              name: "com.jarvis-k.desktop.alpha",
               path: "D:\\Other\\Jarvis-K Alpha.exe",
-              args: ["--jarvis-startup=login"],
+              args: ["jarvis-startup=login"],
               scope: "user",
             },
           ],
@@ -269,16 +305,24 @@ describe("login item readback diagnostic", () => {
 
     expect(report.readbacks[0]?.jarvisRelatedLaunchItems).toEqual([
       {
-        nameExactMatch: true,
+        nameExactMatch: false,
+        nameMatchesAppUserModelId: false,
+        nameMatchesLegacyProductName: true,
         pathExactMatch: true,
         argsExactMatch: false,
+        newStartupArgumentMatch: false,
+        legacyStartupArgumentMatch: false,
         scope: "machine",
         enabled: "missing",
       },
       {
         nameExactMatch: true,
+        nameMatchesAppUserModelId: true,
+        nameMatchesLegacyProductName: false,
         pathExactMatch: false,
         argsExactMatch: true,
+        newStartupArgumentMatch: true,
+        legacyStartupArgumentMatch: false,
         scope: "user",
         enabled: "missing",
       },
