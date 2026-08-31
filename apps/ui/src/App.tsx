@@ -270,25 +270,29 @@ export default function App() {
     evaluationSurfaceEnabled: uiSurfaceMode.evaluationSurfaceEnabled,
   });
   const reportSettingsV2SurfaceHealth = useCallback(
-    (
-      state: "mounting" | "ready" | "failed" | "unmounted",
+    (event: {
+      state: "mounting" | "ready" | "failed" | "unmounted";
       reasonCode:
         | "settings_v2_mounting"
         | "settings_v2_ready"
         | "settings_v2_renderer_failure"
-        | "settings_v2_unmounted",
-    ) => {
-      void uiSurfaceMode.reportUiSurfaceHealth({
+        | "settings_v2_unmounted";
+      generation?: number | null;
+    }) =>
+      uiSurfaceMode.reportUiSurfaceHealth({
         surface: "settings_v2",
-        state,
-        reasonCode,
+        state: event.state,
+        reasonCode: event.reasonCode,
+        generation: event.generation ?? null,
         source: "renderer",
         sensitiveValuesExposed: false,
         rendererWritable: false,
-      });
-    },
+      }),
     [uiSurfaceMode.reportUiSurfaceHealth],
   );
+  const handleUseClassicSettings = useCallback(() => {
+    void uiSurfaceMode.requestUiSurfaceSessionFallback();
+  }, [uiSurfaceMode.requestUiSurfaceSessionFallback]);
   const [draft, setDraft] = useState("");
   const [memorySnapshotDraft, setMemorySnapshotDraft] = useState("");
   const [memoryAlphaProbeDraft, setMemoryAlphaProbeDraft] = useState("");
@@ -2548,6 +2552,7 @@ export default function App() {
             uiSurfaceMode.settingsV2SurfaceEnabled ? (
               <ScrollArea className="min-h-0 flex-1">
                 <SettingsV2SurfaceHost
+                  locale={uiLanguage}
                   reportHealth={reportSettingsV2SurfaceHealth}
                 >
                   <SettingsV2GeneralView
@@ -2558,6 +2563,7 @@ export default function App() {
                     locale={uiLanguage}
                     petSkinRegistry={petSkinRegistry}
                     productAboutInfo={productAboutInfo}
+                    onUseClassicSettings={handleUseClassicSettings}
                   onOpenExistingSkinManagement={() => {
                     void trackAction(
                       "Refresh local skin management",

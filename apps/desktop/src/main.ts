@@ -12,7 +12,8 @@ import {
 } from "electron";
 import {
   PET_SKIN_INSTALLED_PROTOCOL,
-  PET_SKIN_PREVIEW_PROTOCOL
+  PET_SKIN_PREVIEW_PROTOCOL,
+  IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL
 } from "@jarvis-k/contracts";
 import {
   SecureHeavyPlannerProviderStore,
@@ -100,6 +101,7 @@ let glmHeavyPlannerProviderStore: SecureHeavyPlannerProviderStore | null =
 let deepseekChatAnswerProviderStore: SecureChatAnswerProviderStore | null =
   null;
 let settingsService: SettingsService | null = null;
+let settingsUiSurfaceStatusDisposer: (() => void) | null = null;
 let secureStoreService: SecureStoreService | null = null;
 let petController: DesktopPetController | null = null;
 let petIpcDisposer: (() => void) | null = null;
@@ -371,6 +373,16 @@ if (!hasSingleInstanceLock) {
       productVersion: app.getVersion(),
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
+    settingsUiSurfaceStatusDisposer =
+      settingsService.onUiSurfaceCapabilityStatus((status) => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return;
+        }
+        mainWindow.webContents.send(
+          IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL,
+          status
+        );
+      });
     petController = new DesktopPetController({
       settingsService,
       getMainWindow: () => mainWindow,
@@ -699,6 +711,10 @@ function disposeDesktopRuntime(): void {
   petController = null;
   settingsIpcDisposer?.();
   settingsIpcDisposer = null;
+  settingsUiSurfaceStatusDisposer?.();
+  settingsUiSurfaceStatusDisposer = null;
+  settingsService?.dispose();
+  settingsService = null;
   secureStoreIpcDisposer?.();
   secureStoreIpcDisposer = null;
   supervisorIpcDisposer?.();

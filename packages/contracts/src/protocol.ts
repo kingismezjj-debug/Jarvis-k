@@ -148,8 +148,12 @@ export const IPC_QWEN_RUNTIME_CONTROL_SET_CHANNEL =
   "jarvis-k:qwen-runtime-control-set";
 export const IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL =
   "jarvis-k:ui-surface-capability-status";
+export const IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL =
+  "jarvis-k:ui-surface-capability-updated";
 export const IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL =
   "jarvis-k:ui-surface-health-report";
+export const IPC_UI_SURFACE_SESSION_FALLBACK_REQUEST_CHANNEL =
+  "jarvis-k:ui-surface-session-fallback-request";
 
 export const TaskStateSchema = z.enum([
   "queued",
@@ -496,6 +500,7 @@ export const UiSurfaceCapabilityStatusSchema = z
       .enum(["not_started", "mounting", "ready", "failed"])
       .default("not_started"),
     settingsV2SessionFallbackActive: z.boolean().default(false),
+    settingsV2MountGeneration: z.number().int().positive().nullable().default(null),
     reasonCode: z
       .enum([
         "enabled",
@@ -525,6 +530,7 @@ export const UiSurfaceHealthReportSchema = z
       "settings_v2_renderer_failure",
       "settings_v2_unmounted",
     ]),
+    generation: z.number().int().positive().nullable().default(null),
     source: z.literal("renderer"),
     sensitiveValuesExposed: z.literal(false),
     rendererWritable: z.literal(false),
@@ -532,6 +538,19 @@ export const UiSurfaceHealthReportSchema = z
   .strict();
 export type UiSurfaceHealthReport = z.infer<
   typeof UiSurfaceHealthReportSchema
+>;
+
+export const UiSurfaceSessionFallbackRequestSchema = z
+  .object({
+    surface: z.literal("settings_v2"),
+    action: z.literal("use_classic_settings"),
+    source: z.literal("renderer"),
+    sensitiveValuesExposed: z.literal(false),
+    rendererWritable: z.literal(false),
+  })
+  .strict();
+export type UiSurfaceSessionFallbackRequest = z.infer<
+  typeof UiSurfaceSessionFallbackRequestSchema
 >;
 
 export const ProductAboutInfoSchema = z
@@ -3871,6 +3890,12 @@ export interface JarvisBridge {
   reportUiSurfaceHealth(
     report: UiSurfaceHealthReport,
   ): Promise<UiSurfaceCapabilityStatus>;
+  requestUiSurfaceSessionFallback(
+    request: UiSurfaceSessionFallbackRequest,
+  ): Promise<UiSurfaceCapabilityStatus>;
+  onUiSurfaceCapabilityStatus(
+    listener: (status: UiSurfaceCapabilityStatus) => void,
+  ): () => void;
   getDesktopSettings(): Promise<DesktopSettings>;
   getDesktopLaunchAtLoginStatus(): Promise<DesktopLaunchAtLoginStatus>;
   getProductAboutInfo(): Promise<ProductAboutInfo>;

@@ -57,8 +57,10 @@ import {
   IPC_TTS_SETTINGS_OPEN_CHANNEL,
   IPC_TTS_SETTINGS_STATUS_CHANNEL,
   IPC_TTS_SYNTHESIZE_CHANNEL,
+  IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
   IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL,
+  IPC_UI_SURFACE_SESSION_FALLBACK_REQUEST_CHANNEL,
   IPC_VOICE_SETTINGS_OPEN_CHANNEL,
   IPC_VOICE_SETTINGS_STATUS_CHANNEL,
   IPC_VOICE_AUDIO_CHANNEL,
@@ -74,6 +76,7 @@ import {
   TtsSynthesisResultSchema,
   UiSurfaceCapabilityStatusSchema,
   UiSurfaceHealthReportSchema,
+  UiSurfaceSessionFallbackRequestSchema,
   VoiceServiceStatusSchema,
   VoiceAudioFrame,
   VoiceAudioFrameSchema,
@@ -400,6 +403,28 @@ const bridge: JarvisBridge = {
         UiSurfaceHealthReportSchema.parse(report)
       )
     ),
+  requestUiSurfaceSessionFallback: async (request) =>
+    UiSurfaceCapabilityStatusSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_UI_SURFACE_SESSION_FALLBACK_REQUEST_CHANNEL,
+        UiSurfaceSessionFallbackRequestSchema.parse(request)
+      )
+    ),
+  onUiSurfaceCapabilityStatus: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, rawStatus: unknown) => {
+      const parsed = UiSurfaceCapabilityStatusSchema.safeParse(rawStatus);
+      if (parsed.success) {
+        listener(parsed.data);
+      }
+    };
+    ipcRenderer.on(IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(
+        IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL,
+        handler
+      );
+    };
+  },
   getVoiceServiceStatus: async () =>
     VoiceServiceStatusSchema.parse(
       await ipcRenderer.invoke(IPC_VOICE_SETTINGS_STATUS_CHANNEL)

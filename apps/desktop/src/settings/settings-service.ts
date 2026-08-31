@@ -10,6 +10,7 @@ import {
   DesktopUiThemeSchema,
   ProductAboutInfoSchema,
   UiSurfaceHealthReportSchema,
+  UiSurfaceSessionFallbackRequestSchema,
 } from "@jarvis-k/contracts";
 import type {
   DesktopCloseButtonBehavior,
@@ -53,6 +54,20 @@ export interface SettingsServiceOptions {
   desktopSettingsPath?: string;
 }
 
+type UiSurfaceCapabilityStatusListener = (
+  status: UiSurfaceCapabilityStatus,
+) => void;
+
+const uiSurfaceHealthReasonByState: Record<
+  UiSurfaceHealthReport["state"],
+  UiSurfaceHealthReport["reasonCode"]
+> = {
+  mounting: "settings_v2_mounting",
+  ready: "settings_v2_ready",
+  failed: "settings_v2_renderer_failure",
+  unmounted: "settings_v2_unmounted",
+};
+
 export class SettingsService {
   private commandRouterProductModeEnabled = false;
   private chatAnswerProductModeEnabled = false;
@@ -62,6 +77,11 @@ export class SettingsService {
     "not_started";
   private settingsV2SessionFallbackActive = false;
   private settingsV2MountTimer: NodeJS.Timeout | undefined;
+  private settingsV2MountTimerGeneration: number | null = null;
+  private settingsV2ActiveMountGeneration: number | null = null;
+  private settingsV2NextMountGeneration = 1;
+  private readonly uiSurfaceCapabilityStatusListeners =
+    new Set<UiSurfaceCapabilityStatusListener>();
 
   public constructor(private readonly options: SettingsServiceOptions) {
     this.desktopSettings = this.loadDesktopSettings();
@@ -99,6 +119,10 @@ export class SettingsService {
           ? "failed"
           : "not_started",
       settingsV2SessionFallbackActive: this.settingsV2SessionFallbackActive,
+      settingsV2MountGeneration:
+        this.options.settingsV2CapabilityAvailable === true
+          ? this.settingsV2ActiveMountGeneration
+          : null,
       reasonCode: this.settingsV2SessionFallbackActive
         ? "settings_v2_session_fallback"
         : this.options.settingsV2ReasonCode ?? fallbackReasonCode,
@@ -113,6 +137,9 @@ export class SettingsService {
     if (!parsed.success || parsed.data.surface !== "settings_v2") {
       return this.getUiSurfaceCapabilityStatus();
     }
+    if (!this.isUiSurfaceHealthReasonConsistent(parsed.data)) {
+      return this.getUiSurfaceCapabilityStatus();
+    }
     if (this.settingsV2SessionFallbackActive) {
       return this.getUiSurfaceCapabilityStatus();
     }
@@ -120,12 +147,43 @@ export class SettingsService {
       return this.getUiSurfaceCapabilityStatus();
     }
 
-    this.applyUiSurfaceHealthReport(parsed.data);
+    if (this.applyUiSurfaceHealthReport(parsed.data)) {
+      this.publishUiSurfaceCapabilityStatus();
+    }
     return this.getUiSurfaceCapabilityStatus();
+  }
+
+  public requestUiSurfaceSessionFallback(
+    rawInput: unknown,
+  ): UiSurfaceCapabilityStatus {
+    const parsed = UiSurfaceSessionFallbackRequestSchema.safeParse(rawInput);
+    if (!parsed.success || parsed.data.surface !== "settings_v2") {
+      return this.getUiSurfaceCapabilityStatus();
+    }
+    if (this.options.settingsV2CapabilityAvailable !== true) {
+      return this.getUiSurfaceCapabilityStatus();
+    }
+    if (!this.settingsV2SessionFallbackActive) {
+      this.activateSettingsV2SessionFallback();
+      this.publishUiSurfaceCapabilityStatus();
+    }
+    return this.getUiSurfaceCapabilityStatus();
+  }
+
+  public onUiSurfaceCapabilityStatus(
+    listener: UiSurfaceCapabilityStatusListener,
+  ): () => void {
+    this.uiSurfaceCapabilityStatusListeners.add(listener);
+    return () => {
+      this.uiSurfaceCapabilityStatusListeners.delete(listener);
+    };
   }
 
   public dispose(): void {
     this.clearSettingsV2MountTimer();
+    this.settingsV2ActiveMountGeneration = null;
+    this.settingsSurfaceHealth = "not_started";
+    this.uiSurfaceCapabilityStatusListeners.clear();
   }
 
   public getDesktopSettings(): DesktopSettings {
@@ -593,51 +651,102 @@ export class SettingsService {
     }
   }
 
-  private applyUiSurfaceHealthReport(report: UiSurfaceHealthReport): void {
-    if (report.state === "mounting") {
-      this.settingsSurfaceHealth = "mounting";
-      this.startSettingsV2MountTimer();
-      return;
-    }
-    if (report.state === "ready") {
-      this.clearSettingsV2MountTimer();
-      this.settingsSurfaceHealth = "ready";
-      return;
-    }
-    if (report.state === "failed") {
-      this.activateSettingsV2SessionFallback();
-      return;
-    }
-    if (report.state === "unmounted") {
-      this.clearSettingsV2MountTimer();
-      this.settingsSurfaceHealth = "not_started";
-    }
+  private isUiSurfaceHealthReasonConsistent(
+    report: UiSurfaceHealthReport,
+  ): boolean {
+    return uiSurfaceHealthReasonByState[report.state] === report.reasonCode;
   }
 
-  private startSettingsV2MountTimer(): void {
-    this.clearSettingsV2MountTimer();
+  private applyUiSurfaceHealthReport(report: UiSurfaceHealthReport): boolean {
+    if (report.state === "mounting") {
+      if (report.generation !== null) {
+        return false;
+      }
+      if (
+        this.settingsV2ActiveMountGeneration !== null &&
+        (this.settingsSurfaceHealth === "mounting" ||
+          this.settingsSurfaceHealth === "ready")
+      ) {
+        return false;
+      }
+      const generation = this.settingsV2NextMountGeneration;
+      this.settingsV2NextMountGeneration += 1;
+      this.settingsV2ActiveMountGeneration = generation;
+      this.settingsSurfaceHealth = "mounting";
+      this.startSettingsV2MountTimer(generation);
+      return true;
+    }
+    if (report.generation !== this.settingsV2ActiveMountGeneration) {
+      return false;
+    }
+    if (report.state === "ready") {
+      this.clearSettingsV2MountTimer(report.generation);
+      this.settingsSurfaceHealth = "ready";
+      return true;
+    }
+    if (report.state === "failed") {
+      this.activateSettingsV2SessionFallback(report.generation);
+      return true;
+    }
+    if (report.state === "unmounted") {
+      this.clearSettingsV2MountTimer(report.generation);
+      this.settingsV2ActiveMountGeneration = null;
+      this.settingsSurfaceHealth = "not_started";
+      return true;
+    }
+    return false;
+  }
+
+  private startSettingsV2MountTimer(generation: number): void {
     const timeoutMs = Math.max(
       50,
       this.options.settingsV2MountTimeoutMs ?? 5_000,
     );
+    this.settingsV2MountTimerGeneration = generation;
     this.settingsV2MountTimer = setTimeout(() => {
-      this.activateSettingsV2SessionFallback();
+      if (
+        this.settingsV2ActiveMountGeneration !== generation ||
+        this.settingsSurfaceHealth !== "mounting" ||
+        this.settingsV2SessionFallbackActive
+      ) {
+        return;
+      }
+      this.activateSettingsV2SessionFallback(generation);
+      this.publishUiSurfaceCapabilityStatus();
     }, timeoutMs);
     this.settingsV2MountTimer.unref?.();
   }
 
-  private clearSettingsV2MountTimer(): void {
+  private clearSettingsV2MountTimer(generation?: number | null): void {
     if (!this.settingsV2MountTimer) {
+      return;
+    }
+    if (
+      typeof generation === "number" &&
+      this.settingsV2MountTimerGeneration !== generation
+    ) {
       return;
     }
     clearTimeout(this.settingsV2MountTimer);
     this.settingsV2MountTimer = undefined;
+    this.settingsV2MountTimerGeneration = null;
   }
 
-  private activateSettingsV2SessionFallback(): void {
-    this.clearSettingsV2MountTimer();
+  private activateSettingsV2SessionFallback(generation?: number | null): void {
+    this.clearSettingsV2MountTimer(generation);
     this.settingsV2SessionFallbackActive = true;
     this.settingsSurfaceHealth = "failed";
+  }
+
+  private publishUiSurfaceCapabilityStatus(): void {
+    const status = this.getUiSurfaceCapabilityStatus();
+    for (const listener of this.uiSurfaceCapabilityStatusListeners) {
+      try {
+        listener(status);
+      } catch {
+        // Status fanout must never block settings or app shutdown.
+      }
+    }
   }
 
   private persistDesktopSettings(): void {

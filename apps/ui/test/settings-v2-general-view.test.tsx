@@ -253,6 +253,18 @@ describe("Settings V2 General view", () => {
     expect(html).toContain("Coming later");
   });
 
+  it("renders a low-emphasis session-only classic settings fallback action", () => {
+    const html = renderView({ onUseClassicSettings: vi.fn() });
+    expect(html).toContain('data-testid="settings-v2-session-rollback"');
+    expect(html).toContain("Use classic settings");
+    expect(html).toContain(
+      "Switch for this session without changing your settings.",
+    );
+    expect(html).not.toContain("JARVIS_K_ENABLE_SETTINGS_V2");
+    expect(html).not.toContain("release channel");
+    expect(html).not.toContain("localStorage");
+  });
+
   it("renders productized zh-CN General copy", () => {
     const html = renderView({ locale: "zh" });
     expect(html).toContain("Jarvis 控制中心");

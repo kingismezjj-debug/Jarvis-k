@@ -108,6 +108,7 @@ export type SettingsV2GeneralViewProps = {
   memoryAlphaStatus?: MemoryAlphaStatus | null;
   onOpenMemoryCenter?: () => void;
   productAboutInfo?: ProductAboutInfo | null;
+  onUseClassicSettings?: () => void;
   initialCategoryId?: SettingsV2CategoryId;
 };
 
@@ -708,6 +709,7 @@ export function SettingsV2GeneralView({
   memoryAlphaStatus,
   onOpenMemoryCenter,
   productAboutInfo,
+  onUseClassicSettings,
   initialCategoryId,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -846,6 +848,24 @@ export function SettingsV2GeneralView({
         description={formatSettingsV2MigrationSummary(locale)}
         title={tSettingsV2(locale, "settings.shell.title")}
       />
+
+      {onUseClassicSettings ? (
+        <div
+          className="settings-v2-session-rollback"
+          data-testid="settings-v2-session-rollback"
+        >
+          <span>
+            {tSettingsV2(locale, "settings.shell.useClassicDescription")}
+          </span>
+          <Button
+            aria-label={tSettingsV2(locale, "settings.shell.useClassic")}
+            onClick={onUseClassicSettings}
+            variant="secondary"
+          >
+            {tSettingsV2(locale, "settings.shell.useClassic")}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="settings-v2-search-row">
         <SearchField

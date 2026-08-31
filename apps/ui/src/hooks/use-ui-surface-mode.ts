@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
+  UiSurfaceSessionFallbackRequest,
   UiSurfaceCapabilityStatus,
   UiSurfaceHealthReport,
 } from "@jarvis-k/contracts";
@@ -54,6 +55,29 @@ export function useUiSurfaceMode() {
     [],
   );
 
+  const requestUiSurfaceSessionFallback = useCallback(async () => {
+    const bridge = window.jarvis;
+    if (!bridge?.requestUiSurfaceSessionFallback) {
+      setCapabilityStatus(null);
+      return null;
+    }
+    const request: UiSurfaceSessionFallbackRequest = {
+      surface: "settings_v2",
+      action: "use_classic_settings",
+      source: "renderer",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    };
+    try {
+      const status = await bridge.requestUiSurfaceSessionFallback(request);
+      setCapabilityStatus(status);
+      return status;
+    } catch {
+      setCapabilityStatus(null);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     let disposed = false;
     const bridge = window.jarvis;
@@ -61,6 +85,13 @@ export function useUiSurfaceMode() {
       setCapabilityStatus(null);
       return;
     }
+    const removeStatusListener = bridge.onUiSurfaceCapabilityStatus?.(
+      (status) => {
+        if (!disposed) {
+          setCapabilityStatus(status);
+        }
+      },
+    );
     void bridge
       .getUiSurfaceCapabilityStatus()
       .then((status) => {
@@ -75,6 +106,7 @@ export function useUiSurfaceMode() {
       });
     return () => {
       disposed = true;
+      removeStatusListener?.();
     };
   }, []);
 
@@ -94,6 +126,7 @@ export function useUiSurfaceMode() {
       capabilityStatus,
       refreshUiSurfaceCapabilityStatus,
       reportUiSurfaceHealth,
+      requestUiSurfaceSessionFallback,
       resetUiSurfaceMode,
       setDeveloperModeEnabled,
     }),
@@ -102,6 +135,7 @@ export function useUiSurfaceMode() {
       developerModeEnabled,
       refreshUiSurfaceCapabilityStatus,
       reportUiSurfaceHealth,
+      requestUiSurfaceSessionFallback,
       resetUiSurfaceMode,
       setDeveloperModeEnabled,
     ],

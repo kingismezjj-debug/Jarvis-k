@@ -6,6 +6,8 @@ export type SettingsV2CopyKey =
   | "settings.shell.search"
   | "settings.shell.category"
   | "settings.shell.migratedOnly"
+  | "settings.shell.useClassic"
+  | "settings.shell.useClassicDescription"
   | "settings.shell.notMigratedTitle"
   | "settings.shell.notMigratedDescription"
   | "settings.categories.general"
@@ -379,6 +381,9 @@ export const settingsV2Copy: Record<
     "settings.shell.search": "Search settings",
     "settings.shell.category": "Settings category",
     "settings.shell.migratedOnly": "Settings preview",
+    "settings.shell.useClassic": "Use classic settings",
+    "settings.shell.useClassicDescription":
+      "Switch for this session without changing your settings.",
     "settings.shell.notMigratedTitle": "This category has not moved yet",
     "settings.shell.notMigratedDescription":
       "Use the legacy settings page for this area until the next vertical slice migrates it.",
@@ -850,6 +855,9 @@ export const settingsV2Copy: Record<
     "settings.shell.search": "搜索设置",
     "settings.shell.category": "设置分类",
     "settings.shell.migratedOnly": "设置预览",
+    "settings.shell.useClassic": "使用旧版设置",
+    "settings.shell.useClassicDescription":
+      "仅在本次运行中切换，不会更改你的设置。",
     "settings.shell.notMigratedTitle": "此分类尚未迁移",
     "settings.shell.notMigratedDescription":
       "在下一轮纵向切片迁移前，请继续使用旧版设置处理这部分内容。",

@@ -73,8 +73,26 @@ describe("Settings V2 real entry source boundaries", () => {
     const hookSource = readUiSource("apps/ui/src/hooks/use-ui-surface-mode.ts");
     expect(hookSource).toContain("getUiSurfaceCapabilityStatus");
     expect(hookSource).toContain("refreshUiSurfaceCapabilityStatus");
+    expect(hookSource).toContain("onUiSurfaceCapabilityStatus");
+    expect(hookSource).toContain("requestUiSurfaceSessionFallback");
     expect(hookSource).not.toContain("setItem(\"settingsV2");
     expect(hookSource).not.toContain("location.search");
     expect(hookSource).not.toContain("URLSearchParams");
+  });
+
+  it("keeps Settings V2 session rollback Main-owned and non-persistent", () => {
+    const appSource = readUiSource("apps/ui/src/App.tsx");
+    const viewSource = readUiSource(
+      "apps/ui/src/features/settings-v2/settings-v2-general-view.tsx",
+    );
+    const hookSource = readUiSource("apps/ui/src/hooks/use-ui-surface-mode.ts");
+
+    expect(viewSource).toContain("settings-v2-session-rollback");
+    expect(viewSource).toContain("settings.shell.useClassic");
+    expect(appSource).toContain("handleUseClassicSettings");
+    expect(hookSource).toContain("use_classic_settings");
+    expect(hookSource).not.toContain("localStorage.setItem");
+    expect(hookSource).not.toContain("sessionStorage");
+    expect(appSource).not.toContain("JARVIS_K_ENABLE_SETTINGS_V2");
   });
 });
