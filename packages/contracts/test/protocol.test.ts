@@ -49,10 +49,61 @@ import {
   VoiceTranscriptSchema,
   UserControlledMemoryRecordSchema,
   UserPreferenceMemoryRecordSchema,
+  UiSurfaceCapabilityStatusSchema,
   createCommandEnvelope
 } from "../src";
 
 describe("protocol contracts", () => {
+  it("accepts only fixed Main-owned Settings V2 internal fault mode values", () => {
+    const base = {
+      evaluationCapabilityAvailable: false,
+      cloudProviderAcceptanceCapabilityAvailable: false,
+      settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: true,
+      settingsV2Capability: true,
+      settingsSurfaceRequested: "general_settings",
+      settingsSurfaceMounted: "v2",
+      settingsSurfaceHealth: "mounting",
+      settingsV2SessionFallbackActive: false,
+      settingsV2MountGeneration: 1,
+      reasonCode: "alpha_default_enabled",
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    } as const;
+
+    expect(
+      UiSurfaceCapabilityStatusSchema.parse({
+        ...base,
+        settingsV2InternalFaultMode: "settings_v2_render_failure",
+      }).settingsV2InternalFaultMode,
+    ).toBe("settings_v2_render_failure");
+    expect(
+      UiSurfaceCapabilityStatusSchema.parse({
+        ...base,
+        settingsV2InternalFaultMode: "settings_v2_mount_timeout",
+      }).settingsV2InternalFaultMode,
+    ).toBe("settings_v2_mount_timeout");
+    expect(UiSurfaceCapabilityStatusSchema.parse(base)).toMatchObject({
+      settingsV2InternalFaultMode: "none",
+    });
+    expect(
+      UiSurfaceCapabilityStatusSchema.safeParse({
+        ...base,
+        settingsV2InternalFaultMode: "settings_v2_custom",
+      }).success,
+    ).toBe(false);
+    expect(
+      UiSurfaceCapabilityStatusSchema.safeParse({
+        ...base,
+        argv: [
+          "--jarvis-internal-settings-v2-fault=settings_v2_render_failure",
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects private model installation paths from inventory DTOs", () => {
     const result = ModelInventoryItemSchema.safeParse({
       manifest: {

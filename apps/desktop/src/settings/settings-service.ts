@@ -28,6 +28,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { ChatAnswerProviderConfiguration } from "../secure-chat-answer-provider-store";
 import type { LoginItemController } from "../login-item/login-item-controller";
+import type { SettingsV2InternalFaultMode } from "./settings-v2-internal-fault-mode";
 
 export interface SettingsServiceOptions {
   loadChatAnswerProviderConfiguration: () => Promise<ChatAnswerProviderConfiguration | null>;
@@ -48,6 +49,7 @@ export interface SettingsServiceOptions {
   settingsV2ReleaseAllowed?: boolean;
   settingsV2ReasonCode?: UiSurfaceCapabilityStatus["reasonCode"];
   settingsV2MountTimeoutMs?: number;
+  settingsV2InternalFaultMode?: SettingsV2InternalFaultMode;
   releaseChannel?: "development" | "alpha" | "stable" | "test";
   productName?: string;
   productVersion?: string;
@@ -123,6 +125,8 @@ export class SettingsService {
         this.options.settingsV2CapabilityAvailable === true
           ? this.settingsV2ActiveMountGeneration
           : null,
+      settingsV2InternalFaultMode:
+        this.options.settingsV2InternalFaultMode ?? "none",
       reasonCode: this.settingsV2SessionFallbackActive
         ? "settings_v2_session_fallback"
         : this.options.settingsV2ReasonCode ?? fallbackReasonCode,

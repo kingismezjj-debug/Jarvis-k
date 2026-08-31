@@ -96,6 +96,30 @@ describe("Settings V2 real entry source boundaries", () => {
     expect(appSource).not.toContain("JARVIS_K_ENABLE_SETTINGS_V2");
   });
 
+  it("keeps Settings V2 internal fault mode read-only and Main-projected", () => {
+    const appSource = readUiSource("apps/ui/src/App.tsx");
+    const hookSource = readUiSource("apps/ui/src/hooks/use-ui-surface-mode.ts");
+    const preloadSource = readUiSource("apps/desktop/src/preload.ts");
+    const boundarySource = readUiSource(
+      "apps/ui/src/features/settings-v2/settings-v2-surface-boundary.tsx",
+    );
+
+    expect(appSource).toContain("settingsV2InternalFaultMode");
+    expect(preloadSource).toContain("UiSurfaceCapabilityStatusSchema.parse");
+    expect(preloadSource).toContain("UiSurfaceCapabilityStatusSchema.safeParse");
+    expect(preloadSource).toContain("onUiSurfaceCapabilityStatus");
+    expect(boundarySource).toContain("settings_v2_render_failure");
+    expect(boundarySource).toContain("settings_v2_mount_timeout");
+    expect(boundarySource).toContain(
+      "Controlled Settings V2 internal render failure",
+    );
+    expect(boundarySource).not.toContain("location.search");
+    expect(boundarySource).not.toContain("localStorage");
+    expect(boundarySource).not.toContain("sessionStorage");
+    expect(hookSource).not.toContain("settingsV2InternalFaultMode:");
+    expect(hookSource).not.toContain("setSettingsV2InternalFaultMode");
+  });
+
   it("keeps renderer failure recovery visible until Main pushes fallback", () => {
     const hookSource = readUiSource("apps/ui/src/hooks/use-ui-surface-mode.ts");
     expect(hookSource).toContain('if (report.state !== "failed")');

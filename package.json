@@ -80,6 +80,7 @@
     "settings-v2:notifications:capture": "npm run build:ui && node scripts/capture-ui2g-settings-v2-notifications.mjs",
     "settings-v2:about-updates:capture": "npm run build:contracts && npm run build:desktop && npm run build:ui && node scripts/capture-ui2h-settings-v2-about-updates.mjs",
     "settings-v2:product-cleanup:capture": "npm run build:contracts && npm run build:desktop && npm run build:ui && node scripts/capture-ui3e-product-cleanup.mjs",
+    "settings-v2:installed-fault-implementation:capture": "npm run package:windows:dir && node tests/desktop-settings-v2-internal-fault-implementation-smoke.mjs",
     "gallery:ui-foundation:capture": "node scripts/capture-ui1-component-gallery.mjs",
     "plugin:validate:examples": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/plugins/stock-analysis examples/plugins/ecommerce-product-comparison",
     "plugin:validate:local-template": "npm run build:contracts && node scripts/validate-plugin-manifest.mjs examples/local-plugins/hello-readonly",

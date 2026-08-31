@@ -34,6 +34,9 @@ function createSettingsService(input: {
     SettingsService["getUiSurfaceCapabilityStatus"]
   >["reasonCode"];
   settingsV2MountTimeoutMs?: number;
+  settingsV2InternalFaultMode?: ReturnType<
+    SettingsService["getUiSurfaceCapabilityStatus"]
+  >["settingsV2InternalFaultMode"];
   productName?: string;
   productVersion?: string;
 } = {}) {
@@ -60,6 +63,7 @@ function createSettingsService(input: {
     settingsV2ReleaseAllowed: input.settingsV2ReleaseAllowed,
     settingsV2ReasonCode: input.settingsV2ReasonCode,
     settingsV2MountTimeoutMs: input.settingsV2MountTimeoutMs,
+    settingsV2InternalFaultMode: input.settingsV2InternalFaultMode,
     productName: input.productName,
     productVersion: input.productVersion,
     desktopSettingsPath: input.desktopSettingsPath,
@@ -96,6 +100,7 @@ describe("SettingsService", () => {
       settingsV2EnvRequested: false,
       settingsV2SessionFallbackActive: false,
       settingsV2MountGeneration: null,
+      settingsV2InternalFaultMode: "none",
       settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -409,6 +414,7 @@ describe("SettingsService", () => {
       settingsV2EnvRequested: false,
       settingsV2SessionFallbackActive: false,
       settingsV2MountGeneration: null,
+      settingsV2InternalFaultMode: "none",
       settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -433,6 +439,7 @@ describe("SettingsService", () => {
       settingsV2EnvRequested: false,
       settingsV2SessionFallbackActive: false,
       settingsV2MountGeneration: null,
+      settingsV2InternalFaultMode: "none",
       settingsV2ReleaseAllowed: false,
       source: "desktop-main",
       sensitiveValuesExposed: false,
@@ -458,11 +465,31 @@ describe("SettingsService", () => {
       settingsV2EnvRequested: true,
       settingsV2SessionFallbackActive: false,
       settingsV2MountGeneration: null,
+      settingsV2InternalFaultMode: "none",
       settingsV2ReleaseAllowed: true,
       source: "desktop-main",
       sensitiveValuesExposed: false,
       rendererWritable: false,
     });
+  });
+
+  it("projects a Main-owned internal Settings V2 fault mode without mutating settings", () => {
+    const { service } = createSettingsService({
+      settingsV2CapabilityAvailable: true,
+      settingsV2ReleaseAllowed: true,
+      settingsV2ReasonCode: "alpha_default_enabled",
+      settingsV2InternalFaultMode: "settings_v2_render_failure",
+    });
+    const beforeSettings = service.getDesktopSettings();
+    expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
+      settingsSurfaceMounted: "v2",
+      settingsV2CapabilityAvailable: true,
+      settingsV2InternalFaultMode: "settings_v2_render_failure",
+      source: "desktop-main",
+      sensitiveValuesExposed: false,
+      rendererWritable: false,
+    });
+    expect(service.getDesktopSettings()).toEqual(beforeSettings);
   });
 
   it("exposes product About info as a Main-owned safe projection", () => {

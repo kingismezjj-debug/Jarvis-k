@@ -2552,6 +2552,10 @@ export default function App() {
             uiSurfaceMode.settingsV2SurfaceEnabled ? (
               <ScrollArea className="min-h-0 flex-1">
                 <SettingsV2SurfaceHost
+                  internalFaultMode={
+                    uiSurfaceMode.capabilityStatus?.settingsV2InternalFaultMode ??
+                    "none"
+                  }
                   locale={uiLanguage}
                   reportHealth={reportSettingsV2SurfaceHealth}
                 >

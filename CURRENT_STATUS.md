@@ -213,3 +213,11 @@ Phase 4B-3 Skin Contract requirement:
 - Resolver, ASR, Qwen rerank, or Pilot Manifest changes.
 - Real Windows acceptance without explicit user approval and safety variable.
 - Marketplace, remote skin download, community upload, or AI skin generation before explicit approval.
+
+## UI-3G-2C Status
+
+- Added packaged Alpha-only internal Settings V2 fault modes for installed fallback acceptance preparation.
+- Fault modes are fixed Main-owned CLI enums only: `settings_v2_render_failure` and `settings_v2_mount_timeout`.
+- Ordinary startup projects `settingsV2InternalFaultMode=none`; the modes are not persisted and are not renderer writable.
+- Implementation evidence is stored under `artifacts/ui-3g/settings-v2-installed-fault-implementation/` and is not installed acceptance.
+- Installed RC5 remains untouched; internal RC6 is for the next manual installed fault acceptance only.
