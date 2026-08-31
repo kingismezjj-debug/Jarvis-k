@@ -505,9 +505,9 @@ describe("SettingsService", () => {
     expect("releaseChannel" in aboutInfo).toBe(false);
   });
 
-  it("reports Settings V2 flag requests blocked outside development", () => {
+  it("reports Settings V2 flag requests blocked outside approved channels", () => {
     const { service } = createSettingsService({
-      releaseChannel: "alpha",
+      releaseChannel: "stable",
       settingsV2CapabilityAvailable: false,
       settingsV2EnvRequested: true,
       settingsV2ReleaseAllowed: false,
@@ -533,6 +533,24 @@ describe("SettingsService", () => {
     });
     expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
       reasonCode: "development_default_enabled",
+      settingsSurfaceMounted: "v2",
+      settingsV2Capability: true,
+      settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: true,
+    });
+  });
+
+  it("reports Settings V2 Alpha default-on separately from env requests", () => {
+    const { service } = createSettingsService({
+      releaseChannel: "alpha",
+      settingsV2CapabilityAvailable: true,
+      settingsV2EnvRequested: false,
+      settingsV2ReleaseAllowed: true,
+      settingsV2ReasonCode: "alpha_default_enabled",
+    });
+    expect(service.getUiSurfaceCapabilityStatus()).toMatchObject({
+      reasonCode: "alpha_default_enabled",
       settingsSurfaceMounted: "v2",
       settingsV2Capability: true,
       settingsV2CapabilityAvailable: true,

@@ -12,7 +12,8 @@ export function resolveSettingsV2Gate(input: {
   envValue: string | undefined;
   releaseChannel: ReleaseChannel;
 }): SettingsV2GateDecision {
-  const settingsV2ReleaseAllowed = input.releaseChannel === "development";
+  const settingsV2ReleaseAllowed =
+    input.releaseChannel === "development" || input.releaseChannel === "alpha";
   const envValue = input.envValue;
 
   if (envValue === "1") {
@@ -48,8 +49,11 @@ export function resolveSettingsV2Gate(input: {
     settingsV2CapabilityAvailable: settingsV2ReleaseAllowed,
     settingsV2EnvRequested: false,
     settingsV2ReleaseAllowed,
-    reasonCode: settingsV2ReleaseAllowed
-      ? "development_default_enabled"
-      : "flag_disabled",
+    reasonCode:
+      input.releaseChannel === "development"
+        ? "development_default_enabled"
+        : input.releaseChannel === "alpha"
+          ? "alpha_default_enabled"
+          : "flag_disabled",
   };
 }

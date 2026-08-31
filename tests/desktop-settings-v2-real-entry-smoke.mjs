@@ -11,8 +11,8 @@ const rootDirectory = path.resolve(import.meta.dirname, "..");
 const outputDirectory = path.join(
   rootDirectory,
   "artifacts",
-  "ui-3b",
-  "settings-v2-gate",
+  "ui-3g",
+  "settings-v2-alpha-default-on",
 );
 const packagedExecutablePath = path.join(
   rootDirectory,
@@ -35,6 +35,10 @@ const sideEffectZeroes = {
   clipboard: 0,
   windowsExecutor: 0,
 };
+const relativeOutputDirectory = path
+  .relative(rootDirectory, outputDirectory)
+  .split(path.sep)
+  .join("/");
 
 async function seedDesktopSettings(userDataDirectory) {
   await writeFile(
@@ -178,6 +182,7 @@ async function countVisibleText(window, text) {
 
 async function installSideEffectCounters(window) {
   await window.addInitScript(() => {
+    window.localStorage.setItem("jarvis-k-ui-language", "en");
     window.__jarvisSettingsV2MediaCalls = 0;
     window.__jarvisSettingsV2FetchCalls = 0;
     window.__jarvisSettingsV2NotificationCalls = 0;
@@ -552,14 +557,44 @@ const scenarios = [
     screenshotName: "development-invalid-legacy.png",
   },
   {
-    scenario: "packaged-alpha-env-one-legacy",
+    scenario: "packaged-alpha-default-v2",
+    runtimeEnvironment: "alpha",
+    packaged: true,
+    envClassification: "missing",
+    settingsV2EnvValue: undefined,
+    expectedMountedSurface: "v2",
+    expectedReasonCode: "alpha_default_enabled",
+    screenshotName: "packaged-alpha-default-v2.png",
+  },
+  {
+    scenario: "packaged-alpha-explicit-zero-legacy",
+    runtimeEnvironment: "alpha",
+    packaged: true,
+    envClassification: "zero",
+    settingsV2EnvValue: "0",
+    expectedMountedSurface: "legacy",
+    expectedReasonCode: "flag_disabled",
+    screenshotName: "packaged-alpha-explicit-zero-legacy.png",
+  },
+  {
+    scenario: "packaged-alpha-explicit-one-v2",
     runtimeEnvironment: "alpha",
     packaged: true,
     envClassification: "one",
     settingsV2EnvValue: "1",
+    expectedMountedSurface: "v2",
+    expectedReasonCode: "enabled",
+    screenshotName: "packaged-alpha-explicit-one-v2.png",
+  },
+  {
+    scenario: "packaged-alpha-invalid-legacy",
+    runtimeEnvironment: "alpha",
+    packaged: true,
+    envClassification: "invalid",
+    settingsV2EnvValue: "invalid-ui3g-alpha-value",
     expectedMountedSurface: "legacy",
-    expectedReasonCode: "release_channel_not_allowed",
-    screenshotName: "packaged-alpha-env-one-legacy.png",
+    expectedReasonCode: "invalid_flag",
+    screenshotName: "packaged-alpha-invalid-legacy.png",
   },
 ];
 
@@ -570,7 +605,7 @@ for (const scenario of scenarios) {
 
 const diagnostics = {
   generatedAt: new Date().toISOString(),
-  outputDirectory,
+  outputDirectory: relativeOutputDirectory,
   realNetworkRequestSent: false,
   scenarios: results.map((result) => result.diagnostic),
   sideEffectTotals: results.reduce(

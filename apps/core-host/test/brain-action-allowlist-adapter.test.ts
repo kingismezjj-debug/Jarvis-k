@@ -21,6 +21,7 @@ describe("BrainActionAllowlistAdapter", () => {
   it("opens allowlisted browser aliases without shell execution", async () => {
     const launches: Array<{ command: string; args: readonly string[] }> = [];
     const adapter = new BrainActionAllowlistAdapter({
+      env: {},
       launch: async (command, args) => {
         launches.push({ command, args });
       }
@@ -71,6 +72,7 @@ describe("BrainActionAllowlistAdapter", () => {
   it("blocks IZYtoken admin browser alias when the fixed safe URL is not configured", async () => {
     const launches: Array<{ command: string; args: readonly string[] }> = [];
     const adapter = new BrainActionAllowlistAdapter({
+      env: {},
       launch: async (command, args) => {
         launches.push({ command, args });
       }

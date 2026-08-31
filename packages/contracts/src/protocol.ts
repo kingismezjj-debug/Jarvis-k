@@ -505,6 +505,7 @@ export const UiSurfaceCapabilityStatusSchema = z
       .enum([
         "enabled",
         "development_default_enabled",
+        "alpha_default_enabled",
         "flag_disabled",
         "invalid_flag",
         "release_channel_not_allowed",
