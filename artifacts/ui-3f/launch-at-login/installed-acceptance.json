@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3F-11 Launch at Login Evidence Closure",
+  "generatedAt": "2026-08-31T10:27:10.4375682Z",
+  "evidencePolicy": {
+    "fullUserPathRecorded": false,
+    "unrelatedProcessesRecorded": false,
+    "unrelatedRegistryRecorded": false,
+    "automatedRebootClaimed": false,
+    "loginItemWritePerformedByCodex": false
+  },
+  "git": {
+    "head": "c66032611c3bf340550b5dd78de269ece2f7d808",
+    "originMain": "c66032611c3bf340550b5dd78de269ece2f7d808",
+    "worktreeCleanAtGeneration": true
+  },
+  "machineObserved": {
+    "installedRc4": {
+      "exeBasename": "Jarvis-K Alpha.exe",
+      "exeSha256": "68E1D6AB02A784A1ED310DD2785B27DCF2BDC583426299882235F5F4FECDA5F2",
+      "productName": "Jarvis-K Alpha",
+      "fileVersion": "0.1.0-alpha.4",
+      "productVersion": "0.1.0.4",
+      "packageVersion": "0.1.0-alpha.4",
+      "packageProductName": "Jarvis-K Alpha",
+      "appId": "com.jarvis-k.desktop.alpha",
+      "metadataAndAppIdentityCorrect": true
+    },
+    "currentStateAfterDisable": {
+      "launchAtLogin": false,
+      "persistedLaunchAtLoginEnabled": false,
+      "hkcuRun": [
+        {
+          "identity": "Jarvis-K Alpha",
+          "exists": false
+        },
+        {
+          "identity": "com.jarvis-k.desktop.alpha",
+          "exists": false
+        }
+      ],
+      "hklmRun": [
+        {
+          "identity": "Jarvis-K Alpha",
+          "exists": false
+        },
+        {
+          "identity": "com.jarvis-k.desktop.alpha",
+          "exists": false
+        }
+      ],
+      "startupApproved": [
+        {
+          "locationClass": "current_user",
+          "bucket": "run",
+          "identity": "Jarvis-K Alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "current_user",
+          "bucket": "run",
+          "identity": "com.jarvis-k.desktop.alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "current_user",
+          "bucket": "run32",
+          "identity": "Jarvis-K Alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "current_user",
+          "bucket": "run32",
+          "identity": "com.jarvis-k.desktop.alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "local_machine",
+          "bucket": "run",
+          "identity": "Jarvis-K Alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "local_machine",
+          "bucket": "run",
+          "identity": "com.jarvis-k.desktop.alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "local_machine",
+          "bucket": "run32",
+          "identity": "Jarvis-K Alpha",
+          "exists": false
+        },
+        {
+          "locationClass": "local_machine",
+          "bucket": "run32",
+          "identity": "com.jarvis-k.desktop.alpha",
+          "exists": false
+        }
+      ],
+      "startupFolders": [
+        {
+          "folderClass": "current_user_startup",
+          "jarvisItemCount": 0
+        },
+        {
+          "folderClass": "all_users_startup",
+          "jarvisItemCount": 0
+        }
+      ],
+      "scheduledTaskJarvisCount": 0,
+      "installedMainProcessCount": 0,
+      "installedCoreHostProcessCount": 0
+    },
+    "latestReadbackDiagnostic": {
+      "source": "appData diagnostics/login-item-readback.json",
+      "timestamp": "2026-08-31T10:00:28.702Z",
+      "status": "completed",
+      "appVersion": "0.1.0-alpha.4",
+      "productName": "Jarvis-K Alpha",
+      "appId": "com.jarvis-k.desktop.alpha",
+      "startupArgument": "jarvis-startup=login",
+      "legacyStartupArgument": "--jarvis-startup=login",
+      "runtimeAppUserModelId": {
+        "expected": "com.jarvis-k.desktop.alpha",
+        "matchesAppId": true,
+        "source": "desktop-storage-profile"
+      },
+      "sideEffects": {
+        "setLoginItemSettingsCalled": false,
+        "settingsPersistenceTouched": false,
+        "coreHostStarted": false,
+        "trayStarted": false,
+        "rendererStarted": false,
+        "realNetworkRequestSent": false,
+        "microphoneStarted": false,
+        "modelStarted": false,
+        "pluginStarted": false,
+        "executorStarted": false
+      },
+      "readbacks": [
+        {
+          "query": "default",
+          "requestedPath": "absent",
+          "requestedArgs": "absent",
+          "status": "ok",
+          "openAtLogin": false,
+          "executableWillLaunchAtLogin": false,
+          "launchItemsTotalCount": 0,
+          "jarvisRelatedLaunchItemCount": 0,
+          "jarvisRelatedLaunchItems": []
+        },
+        {
+          "query": "executable",
+          "requestedPath": "installed_exe",
+          "requestedArgs": "absent",
+          "status": "ok",
+          "openAtLogin": false,
+          "executableWillLaunchAtLogin": false,
+          "launchItemsTotalCount": 0,
+          "jarvisRelatedLaunchItemCount": 0,
+          "jarvisRelatedLaunchItems": []
+        },
+        {
+          "query": "exact",
+          "requestedPath": "installed_exe",
+          "requestedArgs": "login_startup",
+          "status": "ok",
+          "openAtLogin": true,
+          "executableWillLaunchAtLogin": false,
+          "launchItemsTotalCount": 0,
+          "jarvisRelatedLaunchItemCount": 0,
+          "jarvisRelatedLaunchItems": []
+        }
+      ]
+    }
+  },
+  "userObserved": {
+    "rc3UninstallClearedOldRunResidual": {
+      "observed": true,
+      "evidenceClass": "user-attested"
+    },
+    "enable": {
+      "uiOn": true,
+      "persistedTrue": true,
+      "activeRunIdentity": "com.jarvis-k.desktop.alpha",
+      "startupArgument": "jarvis-startup=login",
+      "legacyIdentityAbsent": true,
+      "exactElectronReadbackOpenAtLoginTrue": true,
+      "evidenceClass": "user-attested plus sanitized readback diagnostic"
+    },
+    "restartAfterEnable": {
+      "noMainWindowPopup": true,
+      "trayAppeared": true,
+      "trayRestoredMainWindow": true,
+      "oneMainProcessObserved": true,
+      "oneCoreHostObserved": true,
+      "mainCommandLineContainedStartupToken": true,
+      "evidenceClass": "user-attested reboot/tray observation"
+    },
+    "disable": {
+      "uiOff": true,
+      "persistedFalse": true,
+      "newAndLegacyRunIdentitiesAbsent": true,
+      "evidenceClass": "user-attested plus current machine readback"
+    },
+    "restartAfterDisable": {
+      "noWindow": true,
+      "noTray": true,
+      "noJarvisOrCoreHostProcesses": true,
+      "runIdentitiesRemainedAbsent": true,
+      "evidenceClass": "user-attested reboot observation plus current machine readback"
+    }
+  },
+  "inferred": {
+    "launchAtLoginAcceptance": "PASS",
+    "rc4IdentityFixEffective": true,
+    "oldIdentityMigrationEffective": true,
+    "disableCleanupEffective": true,
+    "noLegacyIdentityRegressionObserved": true,
+    "safeToCloseUi3fLaunchAtLoginEvidence": true,
+    "inferenceBasis": [
+      "installed metadata matches Jarvis-K Alpha 0.1.0-alpha.4",
+      "user-attested enable/reboot/disable/reboot observations",
+      "current machine-observed persisted false and no new or legacy Run entries",
+      "sanitized Electron readback diagnostic shows exact query openAtLogin=true after enable"
+    ]
+  }
+}
