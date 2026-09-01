@@ -263,3 +263,11 @@ Phase 4B-3 Skin Contract requirement:
 - Accepted upgrade result: alpha.5 displayed Settings V2 by default, all eight categories opened, Harbor theme and Pet state were retained, onboarding did not reappear, session classic-settings rollback worked, V2/Legacy were not mounted together, and clean Tray exit returned Jarvis/CoreHost process count to zero.
 - Clean alpha.5 install, alpha.5 uninstall retention, and downgrade observation remain incomplete; downgrade remains unsupported.
 - Unsigned external distribution remains disallowed until the remaining isolated install/uninstall/upgrade-readiness gates are explicitly closed.
+
+## UI-3H-3A Status
+
+- Isolated VMware Windows 10 alpha.5 uninstall retention acceptance is recorded as PASS in `artifacts/ui-3h/isolated-alpha5-uninstall-retention/isolated-alpha5-uninstall-retention.json`.
+- The alpha.5 formal per-user uninstaller removed the program files, uninstall records, shortcuts, startup folder entries, and old/new Run identities in the isolated VM evidence.
+- The synthetic Alpha profile was retained after uninstall: settings, the upgrade fixture marker, Harbor theme, Pet state, onboarding synthetic fields, and `launchAtLoginEnabled=false` remained intact.
+- Alpha.4 to alpha.5 isolated in-place upgrade remains PASS from UI-3H-2A.
+- Clean alpha.5 install remains incomplete, downgrade remains unsupported, downgrade prevention is not yet implemented, and unsigned external distribution remains disallowed.

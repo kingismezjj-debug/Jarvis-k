@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3H-3A Alpha.5 Uninstall Retention Evidence Closure",
+  "recordedAt": "2026-09-01T00:00:00.000Z",
+  "evidenceOnly": true,
+  "productLogicChanged": false,
+  "buildExecuted": false,
+  "installExecutedByCodex": false,
+  "uninstallExecutedByCodex": false,
+  "downgradeExecuted": false,
+  "hostMachineObserved": {
+    "head": "c92f2bb5ad108a24c0ebd93e09db6a5953572b42",
+    "originMain": "c92f2bb5ad108a24c0ebd93e09db6a5953572b42",
+    "worktreeClean": true,
+    "installedRc7Unchanged": true,
+    "installedRc7ExeSha256": "68E1D6AB02A784A1ED310DD2785B27DCF2BDC583426299882235F5F4FECDA5F2",
+    "installedRc7PackageVersion": "0.1.0-alpha.4",
+    "jarvisMainOrCoreHostProcessCount": 0,
+    "launchAtLogin": "off",
+    "jarvisRunIdentityCount": 0,
+    "realAlphaProfileReadOrCopied": false
+  },
+  "vmStart": {
+    "classification": "userObserved",
+    "sourceSnapshot": "S2-Alpha5-Upgraded",
+    "installedPackageVersion": "0.1.0-alpha.5",
+    "profile": "synthetic_only",
+    "networkDisconnected": true,
+    "vmwareSharedFoldersDisabled": true,
+    "jarvisProcessEnvironmentVariablesPresent": false,
+    "launchAtLogin": "off",
+    "oldRunIdentityPresent": false,
+    "newRunIdentityPresent": false,
+    "jarvisMainOrCoreHostProcessCount": 0
+  },
+  "syntheticFixture": {
+    "classification": "userProvidedMachineOutput",
+    "marker": {
+      "synthetic": true,
+      "noSecrets": true,
+      "containsCredential": false,
+      "containsMemoryBody": false,
+      "containsChatHistory": false,
+      "containsProviderConfiguration": false,
+      "containsModelCache": false
+    }
+  },
+  "uninstallExecution": {
+    "classification": "userObserved",
+    "entryPoint": "Windows Settings Apps and features",
+    "formalPerUserUninstallerUsed": true,
+    "manualProgramDirectoryDeletion": false,
+    "manualRegistryEdit": false,
+    "manualProfileCleanup": false,
+    "otherVersionInstalled": false,
+    "downgradeExecuted": false
+  },
+  "afterUninstallMachineOutput": {
+    "classification": "userProvidedMachineOutput",
+    "installDirectoryPresent": false,
+    "mainExecutablePresent": false,
+    "perUserUninstallRecordPresent": false,
+    "machineUninstallRecordPresent": false,
+    "wow6432NodeUninstallRecordPresent": false,
+    "desktopJarvisShortcutPresent": false,
+    "startMenuJarvisShortcutPresent": false,
+    "legacyRunIdentityPresent": false,
+    "activeRunIdentityPresent": false,
+    "startupFolderJarvisEntriesPresent": false,
+    "jarvisMainOrCoreHostProcessCount": 0,
+    "alphaAppDataProfileRetained": true,
+    "settingsFileRetained": true,
+    "upgradeFixtureFileRetained": true,
+    "syntheticMarkerRetained": true,
+    "syntheticMarkerSynthetic": true,
+    "syntheticMarkerNoSecrets": true,
+    "launchAtLoginEnabled": false,
+    "harborThemeRetained": true,
+    "petStateRetained": true,
+    "onboardingSyntheticFieldsRetained": true,
+    "settingsFileSha256BeforeAfterMatched": true,
+    "fixtureMarkerSha256BeforeAfterMatched": true
+  },
+  "snapshot": {
+    "classification": "userObserved",
+    "created": "S3-Alpha5-Uninstalled-Profile-Retained"
+  },
+  "sideEffects": {
+    "classification": "userObserved",
+    "realNetworkProviderModelMicrophonePluginOrExecutorActionsObserved": false,
+    "networkDisconnectedDuringTest": true,
+    "providerActionsObserved": false,
+    "modelActionsObserved": false,
+    "microphoneActionsObserved": false,
+    "pluginActionsObserved": false,
+    "executorActionsObserved": false
+  },
+  "inferred": {
+    "alpha5UninstallRetentionAcceptance": "PASS",
+    "formalUninstallerRemovedExecutableAndShortcuts": true,
+    "formalUninstallerRemovedUninstallRecords": true,
+    "formalUninstallerRemovedRunIdentities": true,
+    "syntheticProfileRetainedAfterUninstall": true,
+    "alpha4ToAlpha5UpgradeAcceptance": "PASS",
+    "cleanAlpha5InstallAcceptanceCompleted": false,
+    "downgradeObservationCompleted": false,
+    "downgradeSupported": false,
+    "downgradePreventionImplemented": false,
+    "unsignedExternalDistributionAllowed": false
+  }
+}
