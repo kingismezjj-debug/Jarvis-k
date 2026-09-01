@@ -468,14 +468,14 @@ describe("SettingsService", () => {
   it("exposes product About info as a Main-owned safe projection", () => {
     const { service } = createSettingsService({
       productName: "Jarvis-K Alpha",
-      productVersion: "0.1.0-alpha.4",
+      productVersion: "0.1.0-alpha.5",
       releaseChannel: "alpha",
     });
 
     const aboutInfo = service.getProductAboutInfo();
     expect(aboutInfo).toEqual({
       productName: "Jarvis-K Alpha",
-      version: "0.1.0-alpha.4",
+      version: "0.1.0-alpha.5",
       inAppUpdatesSupported: false,
       updateCheckAvailable: false,
       externalLinksAvailable: false,

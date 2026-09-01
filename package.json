@@ -1,8 +1,8 @@
 {
   "name": "jarvis-k",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "productName": "Jarvis-K Alpha",
-  "shortVersionWindows": "0.1.0.4",
+  "shortVersionWindows": "0.1.0.5",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
   "main": "apps/desktop/dist/main.js",
@@ -98,6 +98,7 @@
     "smoke:desktop:pet-skin-studio": "npm run build && electron tests/desktop-pet-skin-studio-smoke.cjs",
     "package:windows:dir": "npm run build && electron-builder --win --x64 --dir",
     "package:windows:alpha": "npm run build && electron-builder --win nsis --x64",
+    "alpha5:upgrade:harness": "node scripts/alpha5-upgrade-compatibility-harness.mjs",
     "packaged-runtime:fault-hook-absence": "node tests/packaged-runtime-fault-hook-absence.mjs",
     "verify:package:windows": "npm run package:windows:dir && node tests/packaged-runtime-allowlist.mjs && node tests/packaged-runtime-dependency-closure.mjs && npm run packaged-runtime:fault-hook-absence && node tests/packaged-runtime-smoke.mjs",
     "smoke:desktop:memory-degraded": "npm run build && node tests/desktop-memory-degraded-smoke.mjs",

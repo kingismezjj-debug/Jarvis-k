@@ -32,9 +32,9 @@ const packageJson = JSON.parse(
 
 describe("Windows Alpha packaging config", () => {
   it("keeps the Alpha product identity and installer scope fixed", () => {
-    expect(packageJson.version).toBe("0.1.0-alpha.4");
+    expect(packageJson.version).toBe("0.1.0-alpha.5");
     expect(packageJson.productName).toBe("Jarvis-K Alpha");
-    expect(packageJson.shortVersionWindows).toBe("0.1.0.4");
+    expect(packageJson.shortVersionWindows).toBe("0.1.0.5");
     expect(packageJson.build?.appId).toBe("com.jarvis-k.desktop.alpha");
     expect(packageJson.build?.productName).toBe("Jarvis-K Alpha");
     expect(packageJson.build?.win?.target).toEqual([

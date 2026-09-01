@@ -38,7 +38,7 @@ function createApp(input: {
         input.executablePath ??
         "C:\\Users\\Alice\\AppData\\Local\\Programs\\Jarvis-K Alpha\\Jarvis-K Alpha.exe",
     ),
-    getVersion: vi.fn(() => input.version ?? "0.1.0-alpha.4"),
+    getVersion: vi.fn(() => input.version ?? "0.1.0-alpha.5"),
     getLoginItemSettings,
   };
   return { app, getLoginItemSettings };
@@ -164,7 +164,7 @@ describe("login item readback diagnostic", () => {
         timestamp: "2026-08-31T08:00:00.000Z",
         status: "completed",
         electronVersion: "39.8.5",
-        appVersion: "0.1.0-alpha.4",
+        appVersion: "0.1.0-alpha.5",
         packaged: true,
         releaseChannel: "alpha",
         productName: "Jarvis-K Alpha",
@@ -393,7 +393,7 @@ describe("login item readback diagnostic", () => {
       });
       await runLoginItemReadbackDiagnosticIfRequested({
         argv: [LOGIN_ITEM_READBACK_DIAGNOSTIC_FLAG],
-        app: createApp({ version: "0.1.0-alpha.4" }).app,
+        app: createApp({ version: "0.1.0-alpha.5" }).app,
         releaseChannel: "alpha",
         appId: "com.jarvis-k.desktop.alpha",
         productName: "Jarvis-K Alpha",
@@ -401,7 +401,7 @@ describe("login item readback diagnostic", () => {
       });
 
       const stored = await readFile(outputPath, "utf8");
-      expect(stored).toContain("0.1.0-alpha.4");
+      expect(stored).toContain("0.1.0-alpha.5");
       expect(stored).not.toContain("0.1.0-alpha.3");
       expect(stored.trim().split("\n").filter((line) => line.includes("schemaVersion")))
         .toHaveLength(1);

@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "directory": "C:\\Users\\Administrator\\Documents\\Jarvis-k\\artifacts\\ui-3h\\alpha5-upgrade-compatibility\\synthetic-profile-fixture",
+  "files": [
+    "jarvis-k-alpha-upgrade-fixture.json",
+    "jarvis-k-desktop-settings.json"
+  ],
+  "marker": {
+    "schemaVersion": 1,
+    "synthetic": true,
+    "generatedAt": "2026-09-01T03:45:33.025Z",
+    "target": "jarvis-k-alpha-upgrade-compatibility",
+    "noSecrets": true,
+    "containsCredential": false,
+    "containsMemoryBody": false,
+    "containsChatHistory": false,
+    "containsProviderConfiguration": false,
+    "containsModelCache": false,
+    "source": "ui-3h-1-fixture-generator"
+  }
+}

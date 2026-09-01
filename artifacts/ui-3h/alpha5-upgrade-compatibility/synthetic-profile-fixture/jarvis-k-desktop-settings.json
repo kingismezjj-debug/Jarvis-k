@@ -1,0 +1,15 @@
+{
+  "closeButtonBehavior": "minimize_to_tray",
+  "closeToTrayNoticeShown": true,
+  "launchAtLoginEnabled": false,
+  "uiTheme": "harbor",
+  "uiThemeExplicitlyConfigured": true,
+  "desktopPetEnabled": true,
+  "desktopPetAlwaysOnTop": true,
+  "desktopPetReducedMotion": "system",
+  "firstRunOnboardingVersion": 1,
+  "firstRunOnboardingState": "completed",
+  "firstRunOnboardingStateChangedAt": "2026-09-01T00:00:00.000Z",
+  "persistedLocally": true,
+  "syncedToCloud": false
+}

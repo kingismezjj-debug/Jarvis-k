@@ -247,3 +247,11 @@ Phase 4B-3 Skin Contract requirement:
 - Gate and Legacy remain available; session rollback remains session-only.
 - Launch at Login remained OFF during the installed acceptance, and Jarvis Run identities were absent.
 - Upgrade/downgrade validation remains incomplete, and unsigned external distribution remains disallowed.
+
+## UI-3H-1 Status
+
+- Alpha package metadata is being advanced to `0.1.0-alpha.5` with Windows short version `0.1.0.5` while keeping product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, and Alpha storage namespaces unchanged.
+- A synthetic-only upgrade compatibility harness defines the future isolated acceptance plan, source package matrix, fixture marker, installer hash allowlist, process/login-entry preflight, and environment cleanup requirements without executing installers or touching the real Alpha profile.
+- Downgrade remains unsupported: `env=0` Legacy rollback and the session-only "Use classic settings" action are the supported rollback paths, while future signed updater work must reject version rollback.
+- Normal Alpha `.5` is intended to retain packaged Alpha Settings V2 default-on, production fallback, Launch at Login identity repair, legacy login-item cleanup, read-only login-item diagnostics, and absence of the removed internal fault hook.
+- Installed RC7, real `%APPDATA%\Jarvis-K-Alpha`, user environment variables, login items, shortcuts, and registry state remain outside the harness and must not be modified by UI-3H-1 automation.
