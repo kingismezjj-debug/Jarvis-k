@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3G-3B Normal RC7 Installed Acceptance Evidence Closure",
+  "evidenceOnly": true,
+  "productLogicModified": false,
+  "launchMode": "installed_clean_child_process",
+  "cleanChildEnvironment": {
+    "adminUrlRemovedFromChildEnvironment": true,
+    "gateEnvRemovedFromChildEnvironment": true,
+    "userGlobalEnvironmentModified": false,
+    "ordinaryShortcutEnvironmentMayInheritUserAdminUrl": true
+  },
+  "machineObserved": {
+    "git": {
+      "baseline": "269c9e8ce201ff896581500fd0b82a7ad8e976ac",
+      "headBeforeEvidenceCommit": "269c9e8ce201ff896581500fd0b82a7ad8e976ac",
+      "originMainBeforeEvidenceCommit": "269c9e8ce201ff896581500fd0b82a7ad8e976ac",
+      "worktreeBeforeEvidenceCommit": "clean"
+    },
+    "installedAlpha": {
+      "installedExeExists": true,
+      "installedExeBasename": "Jarvis-K Alpha.exe",
+      "installedExeSha256": "68E1D6AB02A784A1ED310DD2785B27DCF2BDC583426299882235F5F4FECDA5F2",
+      "productName": "Jarvis-K Alpha",
+      "fileVersion": "0.1.0-alpha.4",
+      "productVersion": "0.1.0.4",
+      "packageVersion": "0.1.0-alpha.4",
+      "packageProductName": "Jarvis-K Alpha",
+      "packageMain": "apps/desktop/dist/main.js",
+      "appId": "com.jarvis-k.desktop.alpha"
+    },
+    "installedBundleFaultHookAbsence": {
+      "scannedInstalledResourcesAppTextFiles": true,
+      "deniedMatchCount": 0,
+      "deniedStrings": [
+        "--jarvis-internal-settings-v2-fault",
+        "settings_v2_render_failure",
+        "settings_v2_mount_timeout",
+        "settingsV2InternalFaultMode",
+        "Controlled Settings V2 internal render failure",
+        "SettingsV2InternalFaultTrigger",
+        "settings-v2-internal-fault-mode"
+      ]
+    },
+    "launchAtLogin": {
+      "hkcuJarvisRunIdentityCount": 0,
+      "hklmJarvisRunIdentityCount": 0,
+      "newIdentityPresent": false,
+      "legacyIdentityPresent": false
+    },
+    "processes": {
+      "jarvisRelatedProcessCount": 0
+    },
+    "environment": {
+      "userGateEnvClassification": "missing",
+      "machineGateEnvClassification": "missing",
+      "userAdminUrlPresence": "present",
+      "machineAdminUrlPresence": "missing",
+      "childGateEnvClassification": "missing",
+      "childAdminUrlPresence": "removed"
+    }
+  },
+  "userObserved": {
+    "normalRc7CurrentlyInstalled": true,
+    "packagedAlphaEnvMissingDefaultedToSettingsV2": "PASS",
+    "allEightCategoriesOpened": "PASS",
+    "useClassicSettingsSwitchedToLegacy": "PASS",
+    "v2AndLegacyNotMountedTogether": "PASS",
+    "fullQuitAndReopenEnteredSettingsV2Again": "PASS",
+    "launchAtLoginRemainedOff": "PASS",
+    "persistedLaunchAtLoginEnabled": false,
+    "unexpectedBehaviorObserved": false,
+    "sideEffects": {
+      "classification": "user-attested-not-observed",
+      "exactMachineCounts": "not_claimed"
+    }
+  },
+  "inferred": {
+    "settingsV2DefaultOnReason": "alpha_default_enabled",
+    "sessionRollbackPersistence": "session_only",
+    "restartRetryBehavior": "new_app_session_retries_gate_and_returns_to_v2",
+    "internalFaultHookRemovedFromNormalRuntime": true,
+    "historicalFaultEvidenceRetained": true,
+    "installedFallbackAcceptanceStatus": "PASS",
+    "upgradeDowngradeValidation": "not_completed",
+    "unsignedExternalDistribution": "not_allowed"
+  }
+}

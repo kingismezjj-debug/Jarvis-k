@@ -238,3 +238,12 @@ Phase 4B-3 Skin Contract requirement:
 - Normal Settings V2 Gate, health generation, timeout fallback, Error Boundary recovery, session rollback, and Launch at Login remain in scope for RC7 regression checks.
 - Normal RC7 is awaiting installed acceptance after packaging.
 - Upgrade/downgrade validation remains incomplete, and unsigned external distribution remains disallowed.
+
+## UI-3G-3B Status
+
+- Normal RC7 installed Settings V2 acceptance passed and is recorded in `artifacts/ui-3g/normal-rc7-installed-acceptance/normal-rc7-installed-acceptance.json`.
+- The normal installed RC7 bundle has no internal Settings V2 fault hook strings in packaged runtime resources.
+- Installed fallback acceptance remains PASS from UI-3G-2D, with historical evidence retained.
+- Gate and Legacy remain available; session rollback remains session-only.
+- Launch at Login remained OFF during the installed acceptance, and Jarvis Run identities were absent.
+- Upgrade/downgrade validation remains incomplete, and unsigned external distribution remains disallowed.
