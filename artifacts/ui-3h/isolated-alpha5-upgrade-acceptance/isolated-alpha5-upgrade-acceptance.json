@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3H-2A Isolated Alpha.4 to Alpha.5 Upgrade Evidence Closure",
+  "recordedAt": "2026-09-01T00:00:00.000Z",
+  "evidenceOnly": true,
+  "productLogicChanged": false,
+  "hostMachineObserved": {
+    "head": "20e2458dbd94e49eb83f22137855cdf51b6ebb41",
+    "originMain": "20e2458dbd94e49eb83f22137855cdf51b6ebb41",
+    "worktreeClean": true,
+    "installedRc7Unchanged": true,
+    "installedRc7ExeSha256": "68E1D6AB02A784A1ED310DD2785B27DCF2BDC583426299882235F5F4FECDA5F2",
+    "installedRc7PackageVersion": "0.1.0-alpha.4",
+    "jarvisMainOrCoreHostProcessCount": 0,
+    "launchAtLogin": "off",
+    "jarvisRunIdentityCount": 0,
+    "realAlphaProfileReadOrCopied": false
+  },
+  "vmIsolation": {
+    "classification": "userObserved",
+    "hypervisor": "VMware Workstation Pro",
+    "os": "Windows 10",
+    "account": "local_test_account",
+    "realAlphaProfileCopied": false,
+    "fixtureSource": "UI-3H-1 synthetic-profile-fixture",
+    "vmwareSharedFoldersDisabledBeforeTest": true,
+    "networkDisconnectedBeforeTest": true,
+    "jarvisEnvironmentVariablesPresent": false,
+    "snapshots": [
+      "S0-Clean-Windows",
+      "S0B-Test-Materials-Verified",
+      "S1-Alpha4-Synthetic-Profile",
+      "S2-Alpha5-Upgraded"
+    ]
+  },
+  "syntheticFixture": {
+    "classification": "userProvidedMachineOutput",
+    "marker": {
+      "schemaVersion": 1,
+      "synthetic": true,
+      "noSecrets": true,
+      "containsCredential": false,
+      "containsMemoryBody": false,
+      "containsChatHistory": false,
+      "containsProviderConfiguration": false,
+      "containsModelCache": false
+    },
+    "settingsBackupSha256BeforeUpgrade": "F71BBF1E12CA91D7920770C7289E63EDE61FAA708F70BCA7C659C73DAD7326FF"
+  },
+  "installers": {
+    "classification": "userProvidedMachineOutput",
+    "sourceAlpha4": {
+      "filename": "Jarvis-K-Alpha-0.1.0-alpha.4-Setup-RC4-Identity.exe",
+      "sha256": "CB1822F19F05A7C8B896CDADAF7681F0477142C045C8F866A2F97BAB957664FD"
+    },
+    "targetAlpha5": {
+      "filename": "Jarvis-K-Alpha-0.1.0-alpha.5-Upgrade-Internal-Setup.exe",
+      "sha256": "C0436C6E795B61CB510BFE3810872F56B066600802A0E2BF1AB8E30801AB6C2C"
+    }
+  },
+  "beforeUpgrade": {
+    "classification": "userProvidedMachineOutput",
+    "installedPackageVersion": "0.1.0-alpha.4",
+    "jarvisMainOrCoreHostProcessCount": 0,
+    "launchAtLogin": "off",
+    "oldRunIdentityPresent": false,
+    "newRunIdentityPresent": false
+  },
+  "alpha4ManualAcceptance": {
+    "classification": "userObserved",
+    "legacySurfaceDisplayed": true,
+    "harborThemeRetained": true,
+    "petEnabled": true,
+    "onboardingDidNotReappear": true,
+    "singleMainAndSingleCoreHostWhileRunning": true,
+    "trayFullExitReturnedProcessCountToZero": true,
+    "launchAtLoginRemainedOff": true
+  },
+  "upgradeExecution": {
+    "classification": "userObserved",
+    "sourceAlpha4UninstalledFirst": false,
+    "targetAlpha5InstallerPerformedInPlaceOverwrite": true,
+    "downgradeExecuted": false,
+    "uninstallExecuted": false
+  },
+  "afterUpgradeMachineOutput": {
+    "classification": "userProvidedMachineOutput",
+    "installedPackageVersion": "0.1.0-alpha.5",
+    "productName": "Jarvis-K Alpha",
+    "fileVersion": "0.1.0-alpha.5",
+    "productVersion": "0.1.0.5",
+    "fixtureMarkerPresent": true,
+    "syntheticSettingsRetained": true,
+    "desktopPetPositionAddedAsOrdinaryRuntimeState": true,
+    "allowedSyntheticSettingsFieldsMatchedBeforeAfter": true,
+    "launchAtLoginEnabled": false,
+    "oldRunIdentityPresent": false,
+    "newRunIdentityPresent": false,
+    "jarvisMainOrCoreHostProcessCount": 0
+  },
+  "nsisAndShortcutEvidence": {
+    "classification": "userProvidedMachineOutput",
+    "hkcuUninstallDisplayName": "Jarvis-K Alpha 0.1.0-alpha.5",
+    "uninstallStringPointsToCurrentPerUserInstallation": true,
+    "hklmUninstallMatches": 0,
+    "wow6432NodeUninstallMatches": 0,
+    "desktopShortcutCount": 1,
+    "startMenuShortcutCount": 1,
+    "duplicateAlpha4UninstallRecordObserved": false
+  },
+  "manualAcceptance": {
+    "classification": "userObserved",
+    "defaultSettingsV2": "PASS",
+    "allEightCategories": "PASS",
+    "harborThemeRetained": "PASS",
+    "petRetained": "PASS",
+    "onboardingDidNotReappear": "PASS",
+    "launchAtLoginRemainedOff": "PASS",
+    "noBlankCrashOrRecoveryError": "PASS",
+    "useClassicSettingsSwitchedToLegacy": "PASS",
+    "v2AndLegacyNotMountedTogether": "PASS",
+    "trayFullExitReturnedJarvisAndCoreHostProcessCountToZero": "PASS",
+    "normalRestartRestoredDefaultV2": "PASS"
+  },
+  "sideEffects": {
+    "classification": "userObserved",
+    "realNetworkProviderModelMicrophonePluginOrExecutorActionsObserved": false,
+    "networkDisconnectedBeforeTest": true,
+    "providerActionsObserved": false,
+    "modelActionsObserved": false,
+    "microphoneActionsObserved": false,
+    "pluginActionsObserved": false,
+    "executorActionsObserved": false
+  },
+  "inferred": {
+    "inPlaceUpgradeSucceeded": true,
+    "sessionRollbackDidNotPersist": true,
+    "syntheticSettingsPreserved": true,
+    "alpha4ToAlpha5UpgradeAcceptance": "PASS",
+    "cleanInstallAcceptanceCompleted": false,
+    "uninstallRetentionAcceptanceCompleted": false,
+    "downgradeObservationCompleted": false,
+    "downgradeSupported": false,
+    "unsignedExternalDistributionAllowed": false
+  }
+}

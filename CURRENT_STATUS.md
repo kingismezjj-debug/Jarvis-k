@@ -255,3 +255,11 @@ Phase 4B-3 Skin Contract requirement:
 - Downgrade remains unsupported: `env=0` Legacy rollback and the session-only "Use classic settings" action are the supported rollback paths, while future signed updater work must reject version rollback.
 - Normal Alpha `.5` is intended to retain packaged Alpha Settings V2 default-on, production fallback, Launch at Login identity repair, legacy login-item cleanup, read-only login-item diagnostics, and absence of the removed internal fault hook.
 - Installed RC7, real `%APPDATA%\Jarvis-K-Alpha`, user environment variables, login items, shortcuts, and registry state remain outside the harness and must not be modified by UI-3H-1 automation.
+
+## UI-3H-2A Status
+
+- Isolated VMware Windows 10 alpha.4 to alpha.5 in-place upgrade acceptance is recorded as PASS in `artifacts/ui-3h/isolated-alpha5-upgrade-acceptance/isolated-alpha5-upgrade-acceptance.json`.
+- The evidence uses only the UI-3H-1 synthetic profile fixture; it records VM observations as user-observed or user-provided machine output and does not claim Codex direct machine observation inside the VM.
+- Accepted upgrade result: alpha.5 displayed Settings V2 by default, all eight categories opened, Harbor theme and Pet state were retained, onboarding did not reappear, session classic-settings rollback worked, V2/Legacy were not mounted together, and clean Tray exit returned Jarvis/CoreHost process count to zero.
+- Clean alpha.5 install, alpha.5 uninstall retention, and downgrade observation remain incomplete; downgrade remains unsupported.
+- Unsigned external distribution remains disallowed until the remaining isolated install/uninstall/upgrade-readiness gates are explicitly closed.
