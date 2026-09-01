@@ -69,6 +69,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase UI-3F-11 Launch at Login evidence closure is recorded for installed RC4: user-attested enable/reboot/disable/reboot behavior plus current machine-observed persisted OFF state and absent new/legacy Run entries are captured in `artifacts/ui-3f/launch-at-login/installed-acceptance.json`.
 - Phase UI-3G-1 Packaged Alpha Settings V2 default-on rollout is implemented: development and packaged Alpha now mount Settings V2 by default, `JARVIS_K_ENABLE_SETTINGS_V2=0` remains the trusted Legacy rollback, invalid values fail closed to Legacy, and Stable/Test continue to mount Legacy.
 - Phase UI-3G-2A installed Settings V2 acceptance evidence is recorded for RC5: user-observed packaged Alpha default V2 entry, eight-category navigation, session-only classic-settings rollback, V2/Legacy mutual exclusion, and restart retry are captured in `artifacts/ui-3g/installed-v2-acceptance/installed-v2-acceptance.json`; installed render-failure/timeout fault injection and upgrade/downgrade remain incomplete, and unsigned external distribution remains blocked.
+- Phase UI-3G-2D installed fallback evidence is recorded for internal RC6: render-failure final Legacy fallback is user-attested PASS, recovery copy was not human-observed, installed real timeout fallback is user-attested PASS after approximately five seconds, and normal restart without the fault flag returned to Settings V2; upgrade/downgrade remains incomplete and RC6 remains an internal fault build only, not for external distribution.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
@@ -221,3 +222,11 @@ Phase 4B-3 Skin Contract requirement:
 - Ordinary startup projects `settingsV2InternalFaultMode=none`; the modes are not persisted and are not renderer writable.
 - Implementation evidence is stored under `artifacts/ui-3g/settings-v2-installed-fault-implementation/` and is not installed acceptance.
 - Installed RC5 remains untouched; internal RC6 is for the next manual installed fault acceptance only.
+
+## UI-3G-2D Status
+
+- Installed internal RC6 fallback acceptance is recorded in `artifacts/ui-3g/installed-fallback-acceptance/installed-fallback-acceptance.json`.
+- Render-failure fixed CLI reached Legacy in the installed app; recovery copy was not human-observed and is only inferred from implementation evidence.
+- Mount-timeout fixed CLI reached Legacy after an approximately five-second user-observed delay.
+- Normal restart without a fault flag returned to Settings V2, confirming the fault mode did not persist.
+- Upgrade/downgrade validation remains incomplete, and the unsigned internal fault build must not be externally distributed.

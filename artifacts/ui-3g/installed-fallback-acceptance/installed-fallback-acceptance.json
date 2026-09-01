@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3G-2D Installed Fallback Evidence Closure",
+  "generatedAt": "2026-09-01T00:00:00.000Z",
+  "evidenceOnly": true,
+  "faultsReRunDuringClosure": false,
+  "launchMode": "installed_clean_child_process_for_prior_acceptance",
+  "cleanChildEnvironment": {
+    "usedForInstalledAcceptance": true,
+    "adminUrlRemovedFromChildEnvironment": true,
+    "gateEnvRemovedFromChildEnvironment": true,
+    "userGlobalEnvironmentModified": false,
+    "ordinaryShortcutEnvironmentMayInheritUserAdminUrl": true
+  },
+  "machineObserved": {
+    "git": {
+      "head": "aaeeb45a2f3d115d779d43374bc7124b348e8127",
+      "originMain": "aaeeb45a2f3d115d779d43374bc7124b348e8127",
+      "worktree": "clean"
+    },
+    "installedAlpha": {
+      "installedExeExists": true,
+      "installedExeBasename": "Jarvis-K Alpha.exe",
+      "installedExeSha256": "68E1D6AB02A784A1ED310DD2785B27DCF2BDC583426299882235F5F4FECDA5F2",
+      "productName": "Jarvis-K Alpha",
+      "fileVersion": "0.1.0-alpha.4",
+      "productVersion": "0.1.0.4",
+      "packageVersion": "0.1.0-alpha.4",
+      "packageProductName": "Jarvis-K Alpha",
+      "resourcesContainInternalFaultParser": true,
+      "resourcesContainRenderFailureMode": true,
+      "resourcesContainMountTimeoutMode": true,
+      "resourcesContainPreloadStrictFaultEnum": true
+    },
+    "launchAtLogin": {
+      "persistedLaunchAtLoginEnabled": false,
+      "hkcuJarvisRunIdentityCount": 0,
+      "hklmJarvisRunIdentityCount": 0,
+      "newIdentityPresent": false,
+      "legacyIdentityPresent": false
+    },
+    "processes": {
+      "jarvisRelatedProcessCount": 0
+    },
+    "environment": {
+      "userGateEnvClassification": "missing",
+      "machineGateEnvClassification": "missing",
+      "userAdminUrlPresence": "present",
+      "machineAdminUrlPresence": "missing"
+    }
+  },
+  "userObserved": {
+    "renderFailure": {
+      "fixedCliMode": "settings_v2_render_failure",
+      "finalFallback": "user-attested-pass",
+      "finalVisibleSurface": "legacy",
+      "recoveryCopy": "not_observed",
+      "blankFreezeCrashObserved": false
+    },
+    "normalRestartAfterRenderFailure": {
+      "faultFlagPresent": false,
+      "settingsV2Returned": true,
+      "faultModePersisted": false
+    },
+    "mountTimeout": {
+      "fixedCliMode": "settings_v2_mount_timeout",
+      "finalVisibleSurface": "legacy",
+      "duration": {
+        "classification": "approximately_5_seconds_user_observed",
+        "exactMillisecondsClaimed": false
+      }
+    },
+    "finalNormalRestartAfterTimeout": {
+      "faultFlagPresent": false,
+      "settingsV2Returned": true,
+      "faultModePersisted": false
+    },
+    "sideEffects": {
+      "classification": "user-attested-not-observed",
+      "exactMachineCounts": "not_claimed"
+    }
+  },
+  "inferred": {
+    "renderFailureChain": {
+      "basis": "UI-3G-2C implementation tests and packaged-win-unpacked evidence",
+      "chain": [
+        "packaged_alpha_gate_to_settings_v2",
+        "valid_mounting_health_report",
+        "main_owned_generation_created",
+        "fault_child_threw_inside_settings_v2_error_boundary",
+        "renderer_reported_failed_with_current_generation",
+        "main_entered_settings_v2_session_fallback",
+        "capability_push_switched_surface",
+        "settings_v2_unmounted",
+        "legacy_mounted"
+      ],
+      "recoveryCopyVisibleInImplementationEvidence": true,
+      "recoveryCopyHumanObservedInInstalledAcceptance": false
+    },
+    "mountTimeoutChain": {
+      "basis": "UI-3G-2C implementation tests plus user-observed installed timeout",
+      "chain": [
+        "packaged_alpha_gate_to_settings_v2",
+        "valid_mounting_health_report",
+        "main_owned_generation_created",
+        "ready_suppressed_only",
+        "production_5000ms_timer_elapsed",
+        "main_entered_settings_v2_session_fallback",
+        "capability_push_switched_surface",
+        "legacy_mounted"
+      ],
+      "productionTimeoutMs": 5000,
+      "exactInstalledDurationMsClaimed": false
+    },
+    "restartRetry": {
+      "faultModesAreCliOnly": true,
+      "faultModesPersisted": false,
+      "newAppSessionWithoutFaultFlagReturnsToNormalGate": true
+    }
+  },
+  "implementationEvidenceReferences": {
+    "diagnostics": "artifacts/ui-3g/settings-v2-installed-fault-implementation/implementation-diagnostics.json",
+    "renderFailureRecoveringScreenshot": "artifacts/ui-3g/settings-v2-installed-fault-implementation/render-failure-recovering.png",
+    "renderFailureLegacyScreenshot": "artifacts/ui-3g/settings-v2-installed-fault-implementation/render-failure-legacy.png",
+    "mountTimeoutLegacyScreenshot": "artifacts/ui-3g/settings-v2-installed-fault-implementation/mount-timeout-legacy.png",
+    "restartWithoutFlagScreenshot": "artifacts/ui-3g/settings-v2-installed-fault-implementation/restart-without-flag-normal-v2.png"
+  },
+  "remainingWork": {
+    "upgradeDowngrade": "not_completed",
+    "externalDistribution": "blocked_unsigned_internal_fault_build",
+    "installedRecoveryCopyHumanObservation": "not_completed"
+  },
+  "conclusion": {
+    "installedRenderFailureFinalLegacy": "PASS",
+    "installedRenderFailureRecoveryCopy": "NOT_OBSERVED",
+    "installedMountTimeoutFinalLegacy": "PASS",
+    "restartRetry": "PASS",
+    "faultPersistence": "PASS",
+    "rolloutComplete": false,
+    "readyForNextApproval": true
+  }
+}
