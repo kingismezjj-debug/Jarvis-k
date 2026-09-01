@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/preload.cjs && esbuild src/settings-preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/settings-preload.cjs && esbuild src/pet-preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/pet-preload.cjs",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && esbuild src/preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/preload.cjs && esbuild src/settings-preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/settings-preload.cjs && esbuild src/pet-preload.ts --bundle --platform=browser --format=cjs --external:electron --outfile=dist/pet-preload.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

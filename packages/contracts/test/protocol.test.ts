@@ -54,7 +54,7 @@ import {
 } from "../src";
 
 describe("protocol contracts", () => {
-  it("accepts only fixed Main-owned Settings V2 internal fault mode values", () => {
+  it("does not expose Settings V2 internal fault controls in the product surface contract", () => {
     const base = {
       evaluationCapabilityAvailable: false,
       cloudProviderAcceptanceCapabilityAvailable: false,
@@ -73,25 +73,13 @@ describe("protocol contracts", () => {
       rendererWritable: false,
     } as const;
 
-    expect(
-      UiSurfaceCapabilityStatusSchema.parse({
-        ...base,
-        settingsV2InternalFaultMode: "settings_v2_render_failure",
-      }).settingsV2InternalFaultMode,
-    ).toBe("settings_v2_render_failure");
-    expect(
-      UiSurfaceCapabilityStatusSchema.parse({
-        ...base,
-        settingsV2InternalFaultMode: "settings_v2_mount_timeout",
-      }).settingsV2InternalFaultMode,
-    ).toBe("settings_v2_mount_timeout");
-    expect(UiSurfaceCapabilityStatusSchema.parse(base)).toMatchObject({
-      settingsV2InternalFaultMode: "none",
-    });
+    expect(UiSurfaceCapabilityStatusSchema.parse(base)).not.toHaveProperty(
+      "settingsV2InternalFaultMode",
+    );
     expect(
       UiSurfaceCapabilityStatusSchema.safeParse({
         ...base,
-        settingsV2InternalFaultMode: "settings_v2_custom",
+        settingsV2InternalFaultMode: "settings_v2_render_failure",
       }).success,
     ).toBe(false);
     expect(

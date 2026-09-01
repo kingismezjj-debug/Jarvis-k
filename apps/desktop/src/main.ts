@@ -35,7 +35,6 @@ import { DesktopLifecycleController } from "./lifecycle/desktop-lifecycle-contro
 import { registerSettingsIpc } from "./ipc/register-settings-ipc";
 import { SettingsService } from "./settings/settings-service";
 import { resolveSettingsV2Gate } from "./settings/settings-v2-gate";
-import { resolveSettingsV2InternalFaultMode } from "./settings/settings-v2-internal-fault-mode";
 import { registerSecureStoreIpc } from "./ipc/register-secure-store-ipc";
 import { SecureStoreService } from "./secure-store/secure-store-service";
 import { VoiceController } from "./voice/voice-controller";
@@ -333,11 +332,6 @@ if (!hasSingleInstanceLock) {
       envValue: process.env.JARVIS_K_ENABLE_SETTINGS_V2,
       releaseChannel: storageProfile.releaseChannel
     });
-    const settingsV2InternalFaultMode = resolveSettingsV2InternalFaultMode({
-      argv: process.argv,
-      isPackaged: app.isPackaged,
-      releaseChannel: storageProfile.releaseChannel
-    });
     if (storageProfile.releaseChannel === "development") {
       console.info("[desktop] settingsV2", {
         requested: settingsV2Gate.settingsV2EnvRequested,
@@ -398,7 +392,6 @@ if (!hasSingleInstanceLock) {
       settingsV2EnvRequested: settingsV2Gate.settingsV2EnvRequested,
       settingsV2ReleaseAllowed: settingsV2Gate.settingsV2ReleaseAllowed,
       settingsV2ReasonCode: settingsV2Gate.reasonCode,
-      settingsV2InternalFaultMode,
       releaseChannel: storageProfile.releaseChannel,
       productName: storageProfile.productName,
       productVersion: app.getVersion(),

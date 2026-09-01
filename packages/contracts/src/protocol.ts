@@ -501,13 +501,6 @@ export const UiSurfaceCapabilityStatusSchema = z
       .default("not_started"),
     settingsV2SessionFallbackActive: z.boolean().default(false),
     settingsV2MountGeneration: z.number().int().positive().nullable().default(null),
-    settingsV2InternalFaultMode: z
-      .enum([
-        "none",
-        "settings_v2_render_failure",
-        "settings_v2_mount_timeout",
-      ])
-      .default("none"),
     reasonCode: z
       .enum([
         "enabled",

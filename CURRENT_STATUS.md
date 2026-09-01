@@ -230,3 +230,11 @@ Phase 4B-3 Skin Contract requirement:
 - Mount-timeout fixed CLI reached Legacy after an approximately five-second user-observed delay.
 - Normal restart without a fault flag returned to Settings V2, confirming the fault mode did not persist.
 - Upgrade/downgrade validation remains incomplete, and the unsigned internal fault build must not be externally distributed.
+
+## UI-3G-3A Status
+
+- UI-3G-2C/2D internal fault acceptance is complete and its historical evidence remains retained.
+- The internal Settings V2 fault hook has been removed from the normal packaged Alpha runtime contract, Main wiring, Renderer surface, and package scripts.
+- Normal Settings V2 Gate, health generation, timeout fallback, Error Boundary recovery, session rollback, and Launch at Login remain in scope for RC7 regression checks.
+- Normal RC7 is awaiting installed acceptance after packaging.
+- Upgrade/downgrade validation remains incomplete, and unsigned external distribution remains disallowed.

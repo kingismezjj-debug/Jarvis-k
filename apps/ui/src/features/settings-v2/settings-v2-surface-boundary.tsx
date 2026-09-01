@@ -2,9 +2,6 @@ import { Component, type ReactNode, useEffect, useRef } from "react";
 import type { UiSurfaceCapabilityStatus } from "@jarvis-k/contracts";
 import type { UiLanguage } from "@/app/types";
 
-type SettingsV2InternalFaultMode =
-  UiSurfaceCapabilityStatus["settingsV2InternalFaultMode"];
-
 type SettingsV2SurfaceHealthEvent = {
   state: "mounting" | "ready" | "failed" | "unmounted";
   reasonCode:
@@ -21,14 +18,12 @@ type SettingsV2SurfaceHealthReporter = (
 
 type SettingsV2SurfaceHostProps = {
   children: ReactNode;
-  internalFaultMode?: SettingsV2InternalFaultMode;
   locale: UiLanguage;
   reportHealth: SettingsV2SurfaceHealthReporter;
 };
 
 export function SettingsV2SurfaceHost({
   children,
-  internalFaultMode = "none",
   locale,
   reportHealth,
 }: SettingsV2SurfaceHostProps) {
@@ -72,9 +67,6 @@ export function SettingsV2SurfaceHost({
         });
         return;
       }
-      if (internalFaultMode === "settings_v2_mount_timeout") {
-        return;
-      }
       readyFrame = window.requestAnimationFrame(() => {
         if (!disposed && !failedRef.current) {
           void reportHealth({
@@ -101,7 +93,7 @@ export function SettingsV2SurfaceHost({
         });
       }
     };
-  }, [internalFaultMode, reportHealth]);
+  }, [reportHealth]);
 
   return (
     <SettingsV2SurfaceErrorBoundary
@@ -118,21 +110,9 @@ export function SettingsV2SurfaceHost({
       }}
       locale={locale}
     >
-      <SettingsV2InternalFaultTrigger mode={internalFaultMode} />
       {children}
     </SettingsV2SurfaceErrorBoundary>
   );
-}
-
-function SettingsV2InternalFaultTrigger({
-  mode,
-}: {
-  mode: SettingsV2InternalFaultMode;
-}) {
-  if (mode === "settings_v2_render_failure") {
-    throw new Error("Controlled Settings V2 internal render failure");
-  }
-  return null;
 }
 
 type SettingsV2SurfaceErrorBoundaryProps = {
