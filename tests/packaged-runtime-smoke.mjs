@@ -125,9 +125,9 @@ try {
   const electronRuntimeVersion = await electronApp.evaluate(
     () => process.versions.electron,
   );
-  if (productAboutInfo.version !== "0.1.0-alpha.5") {
+  if (productAboutInfo.version !== "0.1.0-alpha.6") {
     throw new Error(
-      `Packaged ProductAboutInfo returned ${productAboutInfo.version}, expected app version 0.1.0-alpha.5.`,
+      `Packaged ProductAboutInfo returned ${productAboutInfo.version}, expected app version 0.1.0-alpha.6.`,
     );
   }
   if (productAboutInfo.version === electronRuntimeVersion) {

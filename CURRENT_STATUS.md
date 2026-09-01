@@ -271,3 +271,13 @@ Phase 4B-3 Skin Contract requirement:
 - The synthetic Alpha profile was retained after uninstall: settings, the upgrade fixture marker, Harbor theme, Pet state, onboarding synthetic fields, and `launchAtLoginEnabled=false` remained intact.
 - Alpha.4 to alpha.5 isolated in-place upgrade remains PASS from UI-3H-2A.
 - Clean alpha.5 install remains incomplete, downgrade remains unsupported, downgrade prevention is not yet implemented, and unsigned external distribution remains disallowed.
+
+## UI-3H-3C Status
+
+- Alpha package metadata has advanced to `0.1.0-alpha.6` with Windows short version `0.1.0.6`; product name `Jarvis-K Alpha`, appId/AppUserModelId `com.jarvis-k.desktop.alpha`, NSIS x64 per-user scope, no elevation, and unsigned/no-publish policy remain unchanged.
+- A packaged Alpha NSIS downgrade guard is implemented in `build/nsis/alpha-installer-policy.nsh` using a strict HKCU Alpha installer-state marker with schema version `1`, release ordinal `6`, appId/channel validation, GUI and silent `/S` enforcement, and explicit downgrade exit code `1638`.
+- Bootstrap installs over pre-marker alpha.4/alpha.5 are allowed by exact DisplayName/DisplayVersion checks; clean install and same-version repair are allowed; malformed, mismatched, unknown, or newer installed state fails closed.
+- The uninstall hook preserves the Alpha installer-state marker and profile data while retaining precise cleanup of the old display-name and new AppUserModelId login identities; it does not use wildcard registry cleanup.
+- A normal unsigned Alpha.6 internal downgrade-guard candidate was built under `artifacts/packaged/ui-3h-alpha6-downgrade-guard/` for isolated VM acceptance only; it has not been installed or executed on the host.
+- Host installed RC7, login items, registry state, user environment variables, and real `%APPDATA%\Jarvis-K-Alpha` profile remain untouched.
+- Downgrade prevention still requires isolated VM acceptance before any external Alpha distribution; unsigned external distribution remains disallowed.

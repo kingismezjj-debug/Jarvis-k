@@ -93,8 +93,8 @@ if (packageJson.build?.appId !== "com.jarvis-k.desktop.alpha") {
 if (packageJson.build?.productName !== "Jarvis-K Alpha") {
   fail("Electron builder productName is not Jarvis-K Alpha.");
 }
-if (packageJson.version !== "0.1.0-alpha.5") {
-  fail("Packaged Alpha version is not 0.1.0-alpha.5.");
+if (packageJson.version !== "0.1.0-alpha.6") {
+  fail("Packaged Alpha version is not 0.1.0-alpha.6.");
 }
 if (packageJson.build?.asar !== false) {
   fail("Alpha packaged runtime must keep asar disabled for child process paths.");

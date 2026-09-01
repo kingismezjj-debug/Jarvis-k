@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -26,15 +26,21 @@ const packageJson = JSON.parse(
       allowElevation?: boolean;
       runAfterFinish?: boolean;
       deleteAppDataOnUninstall?: boolean;
+      include?: string;
     };
   };
 };
+const packageLock = JSON.parse(
+  readFileSync(path.join(rootDirectory, "package-lock.json"), "utf8"),
+) as { version?: string; packages?: Record<string, { version?: string }> };
 
 describe("Windows Alpha packaging config", () => {
   it("keeps the Alpha product identity and installer scope fixed", () => {
-    expect(packageJson.version).toBe("0.1.0-alpha.5");
+    expect(packageJson.version).toBe("0.1.0-alpha.6");
+    expect(packageLock.version).toBe("0.1.0-alpha.6");
+    expect(packageLock.packages?.[""]?.version).toBe("0.1.0-alpha.6");
     expect(packageJson.productName).toBe("Jarvis-K Alpha");
-    expect(packageJson.shortVersionWindows).toBe("0.1.0.5");
+    expect(packageJson.shortVersionWindows).toBe("0.1.0.6");
     expect(packageJson.build?.appId).toBe("com.jarvis-k.desktop.alpha");
     expect(packageJson.build?.productName).toBe("Jarvis-K Alpha");
     expect(packageJson.build?.win?.target).toEqual([
@@ -72,18 +78,30 @@ describe("Windows Alpha packaging config", () => {
   });
 
   it("cleans only the Alpha login item identities on uninstall", () => {
-    const cleanupScript = readFileSync(
-      path.join(rootDirectory, "build", "nsis", "alpha-login-item-cleanup.nsh"),
+    const installerPolicyScript = readFileSync(
+      path.join(rootDirectory, "build", "nsis", "alpha-installer-policy.nsh"),
       "utf8",
     );
 
-    expect(cleanupScript).toContain(
+    expect(installerPolicyScript).toContain(
       'DeleteRegValue HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Run" "Jarvis-K Alpha"',
     );
-    expect(cleanupScript).toContain(
+    expect(installerPolicyScript).toContain(
       'DeleteRegValue HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Run" "com.jarvis-k.desktop.alpha"',
     );
-    expect(cleanupScript).not.toMatch(/DeleteReg(Value|Key)\s+HKCU\s+".*Run"\s+"\*"/u);
-    expect(cleanupScript).not.toContain('"com.jarvis-k.desktop"');
+    expect(installerPolicyScript).not.toMatch(/DeleteReg(Value|Key)\s+HKCU\s+".*Run"\s+"\*"/u);
+    expect(installerPolicyScript).not.toContain('"com.jarvis-k.desktop"');
+  });
+
+  it("uses the Alpha installer policy include for downgrade prevention", () => {
+    expect(packageJson.build?.nsis?.include).toBe(
+      "build/nsis/alpha-installer-policy.nsh",
+    );
+    expect(
+      existsSync(path.join(rootDirectory, "build", "nsis", "alpha-login-item-cleanup.nsh")),
+    ).toBe(false);
+    expect(
+      existsSync(path.join(rootDirectory, "build", "nsis", "alpha-installer-policy.nsh")),
+    ).toBe(true);
   });
 });

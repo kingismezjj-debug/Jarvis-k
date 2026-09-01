@@ -183,7 +183,7 @@ const pluginManagementStatus = {
 
 const productAboutInfo: ProductAboutInfo = {
   productName: "Jarvis-K Alpha",
-  version: "0.1.0-alpha.5",
+  version: "0.1.0-alpha.6",
   inAppUpdatesSupported: false,
   updateCheckAvailable: false,
   externalLinksAvailable: false,
@@ -873,7 +873,7 @@ describe("Settings V2 General view", () => {
       "Review the installed Jarvis-K version and the update options currently available.",
     );
     expect(html).toContain("Jarvis-K Alpha");
-    expect(html).toContain("0.1.0-alpha.5");
+    expect(html).toContain("0.1.0-alpha.6");
     expect(html).not.toContain("39.8.5");
     expect(html).toContain("In-app updates");
     expect(html).toContain("Not available in this Alpha");
@@ -953,14 +953,14 @@ describe("Settings V2 General view", () => {
       petSkinRegistry: null,
       productAboutInfo: {
         ...productAboutInfo,
-        version: "0.1.0-alpha.5",
+        version: "0.1.0-alpha.6",
       },
     });
 
     const versionResult = results.find(
       ({ definition }) => definition.settingBindingId === "about.version",
     );
-    expect(versionResult?.value).toBe("0.1.0-alpha.5");
+    expect(versionResult?.value).toBe("0.1.0-alpha.6");
     expect(results.map(({ value }) => value).join(" ")).not.toContain("39.8.5");
   });
 

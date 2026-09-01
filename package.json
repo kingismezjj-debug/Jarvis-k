@@ -1,8 +1,8 @@
 {
   "name": "jarvis-k",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "productName": "Jarvis-K Alpha",
-  "shortVersionWindows": "0.1.0.5",
+  "shortVersionWindows": "0.1.0.6",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
   "main": "apps/desktop/dist/main.js",
@@ -593,7 +593,7 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": false,
       "deleteAppDataOnUninstall": false,
-      "include": "build/nsis/alpha-login-item-cleanup.nsh",
+      "include": "build/nsis/alpha-installer-policy.nsh",
       "artifactName": "${productName}-${version}-windows-${arch}-unsigned-alpha-setup.${ext}"
     }
   },
