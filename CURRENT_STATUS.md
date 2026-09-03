@@ -304,3 +304,12 @@ Phase 4B-3 Skin Contract requirement:
 - Native PE audit completed with `totalPeArtifacts=11`, `invalidSignatureCount=0`, and `unsignedUnexpectedCount=0`; unsigned Electron/Chromium runtime DLLs are documented as expected upstream runtime artifacts rather than Jarvis-owned signer failures.
 - The standalone NSIS uninstaller is not retained in the packaged output after embedding, so uninstaller signature verification remains pending isolated signed lifecycle install acceptance.
 - Signed lifecycle VM acceptance remains pending, and external Alpha distribution remains NO until the signed install/upgrade/repair/uninstall/downgrade-block matrix is completed and explicitly approved.
+
+## UI-3I-2B Status
+
+- Signed Alpha.7 isolated Windows 10 lifecycle acceptance is recorded as PASS in `artifacts/ui-3i/signed-alpha7-isolated-lifecycle/signed-alpha7-isolated-lifecycle-acceptance.json`.
+- The evidence records user-provided VM machine output and user-observed UI results separately from host machine observations; Codex did not install, uninstall, sign, build, publish, upload, restore/control the VM, or read the host Alpha profile during this evidence closure.
+- Accepted lifecycle coverage includes unsigned Alpha.6 to signed Alpha.7 in-place upgrade, signed same-version repair, signed Alpha.7 uninstall with retained profile and installer-state marker, retained-profile reinstall, and real guarded Alpha.6 GUI plus silent `/S` downgrade blocking against a genuine Alpha.7 ordinal marker.
+- Installer, installed Main, and installed Uninstaller Authenticode, timestamp, and publisher checks are recorded as PASS in the isolated VM evidence; source build signing evidence remains PASS from UI-3I-1H.
+- The reinstall path is explicitly classified as retained-profile reinstall, not pristine clean install. Pristine signed Alpha.7 clean install and Windows 11 signed lifecycle acceptance remain not completed.
+- External distribution readiness remains NO until the remaining acceptance gaps and external release approval path are closed.
