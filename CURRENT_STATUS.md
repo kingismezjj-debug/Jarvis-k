@@ -289,3 +289,9 @@ Phase 4B-3 Skin Contract requirement:
 - The simulated ordinal `7` marker is explicitly VM-only and is not recorded as a real alpha.7 installation; final VM state was restored to valid ordinal `6`.
 - Historical unguarded alpha.4/alpha.5 installers cannot be retroactively blocked.
 - Code signing and signed installer lifecycle acceptance remain pending; external distribution remains NO.
+
+## UI-3I-1A Status
+
+- Offline signed-artifact verification harness preparation is implemented in `scripts/verify-windows-signed-release.mjs`; it requires an explicit artifact/build directory, records only relative artifact paths, inventories PE binaries, and fails closed for unsigned, invalid, wrong-publisher, wrong-thumbprint, missing-timestamp, missing-SignTool, and missing-required-role states.
+- Synthetic-only preparation evidence and an external release manifest draft are recorded under `artifacts/ui-3i/signed-artifact-verification-preparation/`; both explicitly keep `realSignedArtifactVerified=false`, `executionBlocked=true`, `azureIdentity=pending`, and `externalDistributionAllowed=false`.
+- Real Azure signing backend configuration, alpha.7 version/ordinal uplift, signed candidate generation, signed lifecycle VM acceptance, and external distribution remain blocked pending completed Azure identity validation and a separately approved signing implementation.

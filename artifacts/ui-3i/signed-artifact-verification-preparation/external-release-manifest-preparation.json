@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "external_release_manifest_preparation",
+  "product": {
+    "name": "Jarvis-K Alpha",
+    "version": "0.1.0-alpha.6",
+    "appId": "com.jarvis-k.desktop.alpha",
+    "channel": "alpha"
+  },
+  "installer": {
+    "filename": null,
+    "size": null,
+    "sha256": null
+  },
+  "signer": {
+    "subjectClassification": "pending_azure_identity",
+    "thumbprintClassification": "pending_certificate_profile"
+  },
+  "timestampClassification": "not_verified",
+  "downgradeMarkerOrdinal": 6,
+  "supportedUpgradeFloor": "0.1.0-alpha.6",
+  "unsignedHistoricalInstallerWarning": true,
+  "publishUploadState": "disabled",
+  "realSignedArtifactVerified": false,
+  "executionBlocked": true,
+  "azureIdentity": "pending",
+  "externalDistributionAllowed": false,
+  "notProductionCertificateIdentity": true
+}

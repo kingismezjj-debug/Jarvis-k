@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3I-1A Signed Artifact Verification Harness Preparation",
+  "evidenceType": "synthetic_preparation_only",
+  "realSignedArtifactVerified": false,
+  "executionBlocked": true,
+  "azureIdentity": "pending",
+  "externalDistributionAllowed": false,
+  "product": {
+    "name": "Jarvis-K Alpha",
+    "version": "0.1.0-alpha.6",
+    "appId": "com.jarvis-k.desktop.alpha",
+    "channel": "alpha",
+    "shortVersionWindows": "0.1.0.6",
+    "releaseOrdinal": 6
+  },
+  "artifactRoot": {
+    "explicitInputRequired": true,
+    "defaultDiskScanAllowed": false,
+    "fullPathRecorded": false
+  },
+  "expectedSigner": {
+    "runtimeProvided": true,
+    "hardcodedProductionSubject": false,
+    "hardcodedProductionThumbprint": false,
+    "currentProductionSignerAvailable": false,
+    "testFixturePlaceholderAllowedOnlyInTests": true
+  },
+  "toolchain": {
+    "powershellAuthenticodeReadOnly": true,
+    "signToolProbeRequiredForProduction": true,
+    "signToolAutoDownloadAllowed": false,
+    "signingActionAllowed": false
+  },
+  "checks": {
+    "finalNsisInstaller": "required_fail_closed",
+    "mainExe": "required_fail_closed",
+    "uninstaller": "required_fail_closed",
+    "helperExe": "inventory_and_classify",
+    "dll": "inventory_and_classify",
+    "nodeNativeModule": "inventory_and_unresolved_if_unsigned",
+    "otherPeBinary": "inventory_and_classify"
+  },
+  "failClosedRules": {
+    "notSigned": "FAIL",
+    "unknownError": "FAIL",
+    "hashMismatch": "FAIL",
+    "invalidChain": "FAIL",
+    "timestampAbsentOrInvalid": "FAIL",
+    "wrongExpectedPublisher": "FAIL",
+    "wrongExpectedThumbprint": "FAIL",
+    "missingExpectedSigner": "FAIL",
+    "missingRequiredRole": "FAIL"
+  },
+  "thirdPartyPolicy": {
+    "doNotRequireJarvisSignerByDefault": true,
+    "preserveUpstreamSignerClassification": true,
+    "unsignedNativeBinary": "UNRESOLVED",
+    "silentPassAllowed": false
+  },
+  "safety": {
+    "azureCredentialRead": false,
+    "pfxOrPrivateKeyRead": false,
+    "certificatePasswordRead": false,
+    "environmentModified": false,
+    "registryModified": false,
+    "installerBuilt": false,
+    "installerSigned": false,
+    "installerPublished": false,
+    "installerUploaded": false,
+    "appInstalledOrUninstalled": false,
+    "realUserProfileRead": false
+  }
+}
