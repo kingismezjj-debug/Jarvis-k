@@ -1,8 +1,8 @@
 {
   "name": "jarvis-k",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "productName": "Jarvis-K Alpha",
-  "shortVersionWindows": "0.1.0.6",
+  "shortVersionWindows": "0.1.0.7",
   "private": true,
   "description": "A typed, supervised Windows desktop agent runtime.",
   "main": "apps/desktop/dist/main.js",
@@ -580,9 +580,17 @@
           ]
         }
       ],
-      "forceCodeSigning": false,
-      "signExecutable": false,
-      "artifactName": "${productName}-${version}-${os}-${arch}-unsigned-alpha.${ext}"
+      "forceCodeSigning": true,
+      "azureSignOptions": {
+        "publisherName": "Jiajian zou",
+        "endpoint": "https://eus.codesigning.azure.net",
+        "certificateProfileName": "jarvis-k-alpha-public",
+        "codeSigningAccountName": "jarvisksigningalpha02",
+        "fileDigest": "SHA256",
+        "timestampRfc3161": "http://timestamp.acs.microsoft.com",
+        "timestampDigest": "SHA256"
+      },
+      "artifactName": "${productName}-${version}-${os}-${arch}-signed-alpha.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -594,7 +602,7 @@
       "runAfterFinish": false,
       "deleteAppDataOnUninstall": false,
       "include": "build/nsis/alpha-installer-policy.nsh",
-      "artifactName": "${productName}-${version}-windows-${arch}-unsigned-alpha-setup.${ext}"
+      "artifactName": "${productName}-${version}-windows-${arch}-signed-alpha-setup.${ext}"
     }
   },
   "allowScripts": {

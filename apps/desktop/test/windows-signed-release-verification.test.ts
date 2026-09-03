@@ -85,6 +85,7 @@ describe("Windows signed release verification harness", () => {
         "--channel=alpha",
         "--downgrade-marker-ordinal=7",
         "--json",
+        "--real-signed-artifact-verified",
       ]),
     ).toMatchObject({
       artifactDir: "artifacts/packaged/example",
@@ -95,6 +96,7 @@ describe("Windows signed release verification harness", () => {
       channel: "alpha",
       downgradeMarkerOrdinal: 7,
       json: true,
+      realSignedArtifactVerified: true,
     });
   });
 
@@ -156,6 +158,56 @@ describe("Windows signed release verification harness", () => {
         verdict: "FAIL",
         certificateThumbprintClassification: "wrong_thumbprint",
         timestampClassification: "absent",
+      });
+    });
+  });
+
+  it("marks a real fully signed report as verified and recognizes electron-builder uninstaller names", () => {
+    withArtifactDirectory((directory) => {
+      writePe(directory, "Jarvis-K Alpha-0.1.0-alpha.7-windows-x64-signed-alpha-setup.exe");
+      writePe(directory, "win-unpacked/Jarvis-K Alpha.exe");
+      writePe(
+        directory,
+        "Jarvis-K Alpha-0.1.0-alpha.7-windows-x64-signed-alpha-setup.__uninstaller.exe",
+      );
+      writePe(directory, "win-unpacked/resources/elevate.exe");
+
+      const report = verifySignedReleaseArtifacts({
+        artifactDir: directory,
+        expectedSignerSubject: expectedSubject,
+        expectedSignerThumbprint: expectedThumbprint,
+        realSignedArtifactVerified: true,
+        productVersion: "0.1.0-alpha.7",
+        downgradeMarkerOrdinal: 7,
+        signToolProbe: {
+          available: true,
+          path: "not-recorded",
+          sourceClassification: "test_fixture",
+        },
+        verifyAuthenticode: () => validSignature(),
+        inspectDigest: () => ({ digestAlgorithm: "sha256", controlledError: null }),
+      });
+
+      expect(report.summary).toMatchObject({
+        status: "PASS",
+        failed: 0,
+        unresolved: 0,
+        invalidSignatureCount: 0,
+        unsignedUnexpectedCount: 0,
+      });
+      expect(report.realSignedArtifactVerified).toBe(true);
+      expect(report.executionBlocked).toBe(false);
+      expect(report.azureIdentity).toBe("verified");
+      expect(report.requiredRoles.missing).toEqual([]);
+      expect(report.artifacts.find((artifact) => artifact.role === "uninstaller")).toMatchObject({
+        verdict: "PASS",
+        classification: "signed_valid_expected_publisher",
+      });
+      expect(report.externalReleaseManifest).toMatchObject({
+        realSignedArtifactVerified: true,
+        executionBlocked: false,
+        azureIdentity: "verified",
+        externalDistributionAllowed: false,
       });
     });
   });

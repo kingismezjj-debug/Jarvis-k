@@ -1,9 +1,9 @@
 export const ALPHA_INSTALLER_POLICY_SCHEMA_VERSION = 1;
 export const ALPHA_INSTALLER_STATE_KEY =
   "HKCU\\Software\\Jarvis-K\\Alpha\\InstallerState";
-export const ALPHA_RELEASE_ORDINAL = 6;
-export const ALPHA_CURRENT_VERSION = "0.1.0-alpha.6";
-export const ALPHA_SHORT_VERSION_WINDOWS = "0.1.0.6";
+export const ALPHA_RELEASE_ORDINAL = 7;
+export const ALPHA_CURRENT_VERSION = "0.1.0-alpha.7";
+export const ALPHA_SHORT_VERSION_WINDOWS = "0.1.0.7";
 export const ALPHA_APP_ID = "com.jarvis-k.desktop.alpha";
 export const ALPHA_CHANNEL = "alpha";
 export const ALPHA_PRODUCT_NAME = "Jarvis-K Alpha";
@@ -56,11 +56,11 @@ export function createAlphaInstallerPolicyPlan() {
     },
     preMarkerBootstrapAllowlist: PRE_MARKER_BOOTSTRAP_ALLOWLIST,
     pendingAcceptance: [
-      "clean-alpha6-install",
-      "alpha5-to-alpha6-in-place-upgrade",
-      "guarded-alpha6-to-lower-guarded-candidate-block",
-      "same-version-alpha6-repair",
-      "alpha6-uninstall-retains-marker",
+      "clean-alpha7-install",
+      "alpha6-to-alpha7-in-place-upgrade",
+      "guarded-alpha7-to-lower-guarded-candidate-block",
+      "same-version-alpha7-repair",
+      "alpha7-uninstall-retains-marker",
     ],
   };
 }

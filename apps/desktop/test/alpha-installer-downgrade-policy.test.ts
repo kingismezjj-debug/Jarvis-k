@@ -49,21 +49,21 @@ describe("Alpha installer downgrade prevention policy", () => {
   it("keeps package metadata, policy constants, and NSIS marker values synchronized", () => {
     const nsis = readFileSync(nsisPolicyPath, "utf8");
 
-    expect(packageJson.version).toBe("0.1.0-alpha.6");
-    expect(packageLock.version).toBe("0.1.0-alpha.6");
-    expect(packageLock.packages?.[""]?.version).toBe("0.1.0-alpha.6");
-    expect(packageJson.shortVersionWindows).toBe("0.1.0.6");
+    expect(packageJson.version).toBe("0.1.0-alpha.7");
+    expect(packageLock.version).toBe("0.1.0-alpha.7");
+    expect(packageLock.packages?.[""]?.version).toBe("0.1.0-alpha.7");
+    expect(packageJson.shortVersionWindows).toBe("0.1.0.7");
     expect(packageJson.build?.appId).toBe(ALPHA_APP_ID);
     expect(packageJson.build?.productName).toBe("Jarvis-K Alpha");
     expect(packageJson.build?.nsis?.include).toBe(
       "build/nsis/alpha-installer-policy.nsh",
     );
-    expect(ALPHA_CURRENT_VERSION).toBe("0.1.0-alpha.6");
-    expect(ALPHA_SHORT_VERSION_WINDOWS).toBe("0.1.0.6");
-    expect(ALPHA_RELEASE_ORDINAL).toBe(6);
-    expect(nsis).toContain("!define JARVIS_ALPHA_RELEASE_ORDINAL 6");
+    expect(ALPHA_CURRENT_VERSION).toBe("0.1.0-alpha.7");
+    expect(ALPHA_SHORT_VERSION_WINDOWS).toBe("0.1.0.7");
+    expect(ALPHA_RELEASE_ORDINAL).toBe(7);
+    expect(nsis).toContain("!define JARVIS_ALPHA_RELEASE_ORDINAL 7");
     expect(nsis).toContain(
-      '!define JARVIS_ALPHA_INSTALLED_VERSION "0.1.0-alpha.6"',
+      '!define JARVIS_ALPHA_INSTALLED_VERSION "0.1.0-alpha.7"',
     );
   });
 
@@ -74,8 +74,8 @@ describe("Alpha installer downgrade prevention policy", () => {
       key: ALPHA_INSTALLER_STATE_KEY,
       values: {
         schemaVersion: 1,
-        installedReleaseOrdinal: 6,
-        installedVersion: "0.1.0-alpha.6",
+        installedReleaseOrdinal: 7,
+        installedVersion: "0.1.0-alpha.7",
         appId: ALPHA_APP_ID,
         channel: "alpha",
       },
@@ -122,8 +122,8 @@ describe("Alpha installer downgrade prevention policy", () => {
     expect(
       classifyAlphaInstallerPolicy({
         marker: marker({
-          installedReleaseOrdinal: 7,
-          installedVersion: "0.1.0-alpha.7",
+          installedReleaseOrdinal: 8,
+          installedVersion: "0.1.0-alpha.8",
         }),
       }),
     ).toMatchObject({

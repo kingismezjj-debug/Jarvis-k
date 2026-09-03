@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3I-1H Azure Artifact Signing Signed Alpha.7 Build Retry",
+  "generatedAt": "2026-09-03T08:15:08.244Z",
+  "artifactRoot": {
+    "explicit": true,
+    "basename": "ui-3i-signed-alpha7-candidate-attempt2",
+    "fullPathRecorded": false
+  },
+  "expectedSigner": {
+    "subjectClassification": "provided",
+    "thumbprintClassification": "provided",
+    "productionReady": true
+  },
+  "toolchain": {
+    "powershellAuthenticode": true,
+    "signTool": {
+      "requiredForProduction": true,
+      "available": true,
+      "pathRecorded": false,
+      "sourceClassification": "windows_sdk_or_path"
+    }
+  },
+  "product": {
+    "name": "Jarvis-K Alpha",
+    "version": "0.1.0-alpha.7",
+    "appId": "com.jarvis-k.desktop.alpha",
+    "channel": "alpha"
+  },
+  "realSignedArtifactVerified": true,
+  "executionBlocked": false,
+  "azureIdentity": "verified",
+  "externalDistributionAllowed": false,
+  "requiredRoles": {
+    "expected": [
+      "final_nsis_installer",
+      "main_exe",
+      "uninstaller"
+    ],
+    "missing": []
+  },
+  "uninstallerVerification": {
+    "status": "pending_isolated_install"
+  },
+  "artifacts": [
+    {
+      "relativePath": "Jarvis-K Alpha-0.1.0-alpha.7-windows-x64-signed-alpha-setup.exe",
+      "sha256": "C62C957338974F74B1B3F22091E24438233047BEDD6B13EB5E9B998370290271",
+      "size": 95286912,
+      "role": "final_nsis_installer",
+      "ownership": "jarvis_owned",
+      "signatureStatus": "valid",
+      "signerSubjectClassification": "exact_match",
+      "certificateThumbprintClassification": "exact_match",
+      "digestAlgorithm": "sha256",
+      "timestampClassification": "valid",
+      "classification": "signed_valid_expected_publisher",
+      "documentedOrigin": null,
+      "controlledError": null,
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/d3dcompiler_47.dll",
+      "sha256": "C8E25ABD3D45DFB55966A74613258C39B4A83EA2AC77F2F80903499F4D5C03F0",
+      "size": 4741480,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "valid",
+      "signerSubjectClassification": "wrong_expected_publisher",
+      "certificateThumbprintClassification": "wrong_thumbprint",
+      "digestAlgorithm": "sha256",
+      "timestampClassification": "valid",
+      "classification": "signed_valid_third_party",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": null,
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/dxcompiler.dll",
+      "sha256": "17AFC13607FFD6B7F8DF79CB744C3E4DEDA388EFCFE9FAA43FEC36C8971450CF",
+      "size": 26070528,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "not_signed",
+      "signerSubjectClassification": "missing",
+      "certificateThumbprintClassification": "missing",
+      "digestAlgorithm": "unknown",
+      "timestampClassification": "absent",
+      "classification": "unsigned_expected_with_documented_origin",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": "signtool_verify_failed",
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/dxil.dll",
+      "sha256": "436F128F22050AE27323DA61321A469DE0678DEF7A4E6D86F9CCAD4858724F0A",
+      "size": 1503600,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "valid",
+      "signerSubjectClassification": "wrong_expected_publisher",
+      "certificateThumbprintClassification": "wrong_thumbprint",
+      "digestAlgorithm": "sha256",
+      "timestampClassification": "valid",
+      "classification": "signed_valid_third_party",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": null,
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/ffmpeg.dll",
+      "sha256": "254B008DEBCBA0A3D4B728DD7FD256576BA2373A94BB4534A8F4B255F3F19532",
+      "size": 3058176,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "not_signed",
+      "signerSubjectClassification": "missing",
+      "certificateThumbprintClassification": "missing",
+      "digestAlgorithm": "unknown",
+      "timestampClassification": "absent",
+      "classification": "unsigned_expected_with_documented_origin",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": "signtool_verify_failed",
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/Jarvis-K Alpha.exe",
+      "sha256": "6A90A0EC93B69B9E4F9ECC5F04819BE3E37B62DD99C48D61C7F7E2E48AF109F1",
+      "size": 210946816,
+      "role": "main_exe",
+      "ownership": "jarvis_owned",
+      "signatureStatus": "valid",
+      "signerSubjectClassification": "exact_match",
+      "certificateThumbprintClassification": "exact_match",
+      "digestAlgorithm": "sha256",
+      "timestampClassification": "valid",
+      "classification": "signed_valid_expected_publisher",
+      "documentedOrigin": null,
+      "controlledError": null,
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/libEGL.dll",
+      "sha256": "6B9F036B3F9FB96C1941A9871EC84B319BE1B773DE2EC2B0DC66855080D7E77D",
+      "size": 504320,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "not_signed",
+      "signerSubjectClassification": "missing",
+      "certificateThumbprintClassification": "missing",
+      "digestAlgorithm": "unknown",
+      "timestampClassification": "absent",
+      "classification": "unsigned_expected_with_documented_origin",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": "signtool_verify_failed",
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/libGLESv2.dll",
+      "sha256": "083F5EE786A4F24C01085605DEFFA59E5B06811E6DC69CB07C75B406110F9CFD",
+      "size": 8400384,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "not_signed",
+      "signerSubjectClassification": "missing",
+      "certificateThumbprintClassification": "missing",
+      "digestAlgorithm": "unknown",
+      "timestampClassification": "absent",
+      "classification": "unsigned_expected_with_documented_origin",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": "signtool_verify_failed",
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/resources/elevate.exe",
+      "sha256": "0B8FD7F1D2BC406045B782BA20ED6108B97625F8EC98A5EA27DCF996F733E697",
+      "size": 123136,
+      "role": "helper_exe",
+      "ownership": "upstream",
+      "signatureStatus": "valid",
+      "signerSubjectClassification": "exact_match",
+      "certificateThumbprintClassification": "exact_match",
+      "digestAlgorithm": "sha256",
+      "timestampClassification": "valid",
+      "classification": "signed_valid_third_party",
+      "documentedOrigin": {
+        "packageOrDependency": "electron-builder nsis elevate helper",
+        "rationale": "packager-provided helper binary copied into win-unpacked resources"
+      },
+      "controlledError": null,
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/vk_swiftshader.dll",
+      "sha256": "A089801E624E1C6809F33F55B328B3EBCE33D7CC6B80237541769DDDF166C975",
+      "size": 5640192,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "not_signed",
+      "signerSubjectClassification": "missing",
+      "certificateThumbprintClassification": "missing",
+      "digestAlgorithm": "unknown",
+      "timestampClassification": "absent",
+      "classification": "unsigned_expected_with_documented_origin",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": "signtool_verify_failed",
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    },
+    {
+      "relativePath": "win-unpacked/vulkan-1.dll",
+      "sha256": "781D6BAD9DC2AD30EDE89A89A056E5538FED8E3B1D25C669201233C02AB7C1A4",
+      "size": 944128,
+      "role": "dll",
+      "ownership": "upstream",
+      "signatureStatus": "not_signed",
+      "signerSubjectClassification": "missing",
+      "certificateThumbprintClassification": "missing",
+      "digestAlgorithm": "unknown",
+      "timestampClassification": "absent",
+      "classification": "unsigned_expected_with_documented_origin",
+      "documentedOrigin": {
+        "packageOrDependency": "Electron/Chromium Windows runtime",
+        "rationale": "packager-provided runtime binary from Electron distribution"
+      },
+      "controlledError": "signtool_verify_failed",
+      "verdict": "PASS",
+      "failureReasons": [],
+      "unresolvedReasons": []
+    }
+  ],
+  "summary": {
+    "totalPeArtifacts": 11,
+    "failed": 0,
+    "unresolved": 0,
+    "requiredRolesMissing": 0,
+    "invalidSignatureCount": 0,
+    "unsignedUnexpectedCount": 0,
+    "classificationCounts": {
+      "signed_valid_expected_publisher": 2,
+      "signed_valid_third_party": 3,
+      "unsigned_expected_with_documented_origin": 6
+    },
+    "status": "PASS"
+  },
+  "externalReleaseManifest": {
+    "schemaVersion": 1,
+    "product": {
+      "name": "Jarvis-K Alpha",
+      "version": "0.1.0-alpha.7",
+      "appId": "com.jarvis-k.desktop.alpha",
+      "channel": "alpha"
+    },
+    "installer": {
+      "filename": "Jarvis-K Alpha-0.1.0-alpha.7-windows-x64-signed-alpha-setup.exe",
+      "size": 95286912,
+      "sha256": "C62C957338974F74B1B3F22091E24438233047BEDD6B13EB5E9B998370290271"
+    },
+    "signer": {
+      "subjectClassification": "provided",
+      "thumbprintClassification": "provided"
+    },
+    "timestampClassification": "valid",
+    "downgradeMarkerOrdinal": 7,
+    "supportedUpgradeFloor": "0.1.0-alpha.7",
+    "unsignedHistoricalInstallerWarning": true,
+    "publishUploadState": "disabled",
+    "realSignedArtifactVerified": true,
+    "executionBlocked": false,
+    "azureIdentity": "verified",
+    "externalDistributionAllowed": false
+  },
+  "buildAttempt": {
+    "phase": "UI-3I-1H",
+    "buildInvocationCount": 1,
+    "electronBuilderOutputBasename": "ui-3i-signed-alpha7-candidate-attempt2",
+    "publishUploadPerformed": false,
+    "installUninstallPerformed": false,
+    "dependencyBootstrapSkipped": true,
+    "azureSigningOperation": "SUCCESS",
+    "signToolInvocationCountObserved": 4,
+    "signedPathsObserved": [
+      "win-unpacked/Jarvis-K Alpha.exe",
+      "win-unpacked/resources/elevate.exe",
+      "embedded_nsis_uninstaller",
+      "Jarvis-K Alpha-0.1.0-alpha.7-windows-x64-signed-alpha-setup.exe"
+    ]
+  },
+  "provenance": {
+    "outputDirectoryBasename": "ui-3i-signed-alpha7-candidate-attempt2",
+    "source": "attempt2 build output only",
+    "previousFailedPartialOutputUsed": false,
+    "olderAlphaArtifactMixed": false,
+    "productVersion": "0.1.0-alpha.7"
+  },
+  "keyArtifacts": {
+    "installer": {
+      "relativePath": "Jarvis-K Alpha-0.1.0-alpha.7-windows-x64-signed-alpha-setup.exe",
+      "size": 95286912,
+      "sha256": "C62C957338974F74B1B3F22091E24438233047BEDD6B13EB5E9B998370290271"
+    },
+    "mainExe": {
+      "relativePath": "win-unpacked/Jarvis-K Alpha.exe",
+      "size": 210946816,
+      "sha256": "6A90A0EC93B69B9E4F9ECC5F04819BE3E37B62DD99C48D61C7F7E2E48AF109F1"
+    },
+    "elevateHelper": {
+      "relativePath": "win-unpacked/resources/elevate.exe",
+      "size": 123136,
+      "sha256": "0B8FD7F1D2BC406045B782BA20ED6108B97625F8EC98A5EA27DCF996F733E697"
+    }
+  },
+  "independentAuthenticode": {
+    "installer": {
+      "status": "Valid",
+      "signToolVerify": "PASS",
+      "timestamp": "valid",
+      "signerCnMatch": true,
+      "signerOMatch": true,
+      "productName": "Jarvis-K Alpha",
+      "fileVersion": "0.1.0-alpha.7",
+      "productVersion": "0.1.0-alpha.7"
+    },
+    "mainExe": {
+      "status": "Valid",
+      "signToolVerify": "PASS",
+      "timestamp": "valid",
+      "signerCnMatch": true,
+      "signerOMatch": true,
+      "productName": "Jarvis-K Alpha",
+      "fileVersion": "0.1.0-alpha.7",
+      "productVersion": "0.1.0.7"
+    },
+    "uninstaller": {
+      "status": "pending_isolated_install",
+      "reason": "standalone uninstaller is not retained in attempt2 output after NSIS embeds it; verify after isolated install"
+    }
+  }
+}

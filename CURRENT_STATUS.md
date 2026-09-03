@@ -295,3 +295,12 @@ Phase 4B-3 Skin Contract requirement:
 - Offline signed-artifact verification harness preparation is implemented in `scripts/verify-windows-signed-release.mjs`; it requires an explicit artifact/build directory, records only relative artifact paths, inventories PE binaries, and fails closed for unsigned, invalid, wrong-publisher, wrong-thumbprint, missing-timestamp, missing-SignTool, and missing-required-role states.
 - Synthetic-only preparation evidence and an external release manifest draft are recorded under `artifacts/ui-3i/signed-artifact-verification-preparation/`; both explicitly keep `realSignedArtifactVerified=false`, `executionBlocked=true`, `azureIdentity=pending`, and `externalDistributionAllowed=false`.
 - Real Azure signing backend configuration, alpha.7 version/ordinal uplift, signed candidate generation, signed lifecycle VM acceptance, and external distribution remain blocked pending completed Azure identity validation and a separately approved signing implementation.
+
+## UI-3I-1H Status
+
+- Signed Alpha.7 Azure Artifact Signing candidate build retry completed as PASS in `artifacts/packaged/ui-3i-signed-alpha7-candidate-attempt2/` with one full build invocation, no publish/upload, and no install/uninstall.
+- Verification evidence is recorded in `artifacts/ui-3i/signed-alpha7-candidate/signed-alpha7-build-verification.json`; `realSignedArtifactVerified=true`, `executionBlocked=false`, and `externalDistributionAllowed=false`.
+- The final NSIS installer, unpacked main EXE, and packaged elevate helper verify as Authenticode Valid with RFC 3161 timestamps, expected publisher CN/O `Jiajian zou`, and independent SignTool verification PASS.
+- Native PE audit completed with `totalPeArtifacts=11`, `invalidSignatureCount=0`, and `unsignedUnexpectedCount=0`; unsigned Electron/Chromium runtime DLLs are documented as expected upstream runtime artifacts rather than Jarvis-owned signer failures.
+- The standalone NSIS uninstaller is not retained in the packaged output after embedding, so uninstaller signature verification remains pending isolated signed lifecycle install acceptance.
+- Signed lifecycle VM acceptance remains pending, and external Alpha distribution remains NO until the signed install/upgrade/repair/uninstall/downgrade-block matrix is completed and explicitly approved.

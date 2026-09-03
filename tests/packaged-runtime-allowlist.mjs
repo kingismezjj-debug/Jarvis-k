@@ -93,20 +93,39 @@ if (packageJson.build?.appId !== "com.jarvis-k.desktop.alpha") {
 if (packageJson.build?.productName !== "Jarvis-K Alpha") {
   fail("Electron builder productName is not Jarvis-K Alpha.");
 }
-if (packageJson.version !== "0.1.0-alpha.6") {
-  fail("Packaged Alpha version is not 0.1.0-alpha.6.");
+if (packageJson.version !== "0.1.0-alpha.7") {
+  fail("Packaged Alpha version is not 0.1.0-alpha.7.");
 }
 if (packageJson.build?.asar !== false) {
   fail("Alpha packaged runtime must keep asar disabled for child process paths.");
 }
-if (packageJson.build?.win?.forceCodeSigning !== false) {
-  fail("Unsigned Alpha config must not require code signing.");
+if (packageJson.build?.win?.forceCodeSigning !== true) {
+  fail("External Alpha config must fail closed when code signing is unavailable.");
 }
 if (packageJson.build?.win?.signAndEditExecutable === false) {
-  fail("Unsigned Alpha config must keep Windows executable resource editing enabled.");
+  fail("External Alpha config must keep Windows executable resource editing enabled.");
 }
-if (packageJson.build?.win?.signExecutable !== false) {
-  fail("Unsigned Alpha config must skip code signing without skipping resource editing.");
+if (packageJson.build?.win?.signExecutable === false) {
+  fail("External Alpha config must not disable executable signing.");
+}
+const azureSignOptions = packageJson.build?.win?.azureSignOptions;
+if (!azureSignOptions) {
+  fail("External Alpha config must use Azure Trusted Signing.");
+}
+if (packageJson.build?.win?.signtoolOptions) {
+  fail("External Alpha config must not configure signtool/PFX signing alongside Azure signing.");
+}
+if (azureSignOptions?.endpoint !== "https://eus.codesigning.azure.net") {
+  fail("Azure Trusted Signing endpoint is not the approved East US account endpoint.");
+}
+if (azureSignOptions?.certificateProfileName !== "jarvis-k-alpha-public") {
+  fail("Azure Trusted Signing certificate profile is not the approved profile.");
+}
+if (azureSignOptions?.codeSigningAccountName !== "jarvisksigningalpha02") {
+  fail("Azure Trusted Signing account name is not the approved account.");
+}
+if (azureSignOptions?.fileDigest !== "SHA256" || azureSignOptions?.timestampDigest !== "SHA256") {
+  fail("Azure Trusted Signing must use SHA256 file and timestamp digests.");
 }
 if (packageJson.build?.nsis?.deleteAppDataOnUninstall !== false) {
   fail("Uninstall must not delete user data by default.");
@@ -170,9 +189,10 @@ console.log(
       productName: packageJson.build.productName,
       version: packageJson.version,
       asar: packageJson.build.asar,
-      unsignedAlpha: true,
+      signedExternalAlpha: true,
       resourceEditingEnabled: packageJson.build.win.signAndEditExecutable !== false,
       signExecutable: packageJson.build.win.signExecutable,
+      azureSigningConfigured: true,
       requiredResources: requiredPaths.length,
       scannedEntries: allEntries.length,
       appPackageDigest: digest,

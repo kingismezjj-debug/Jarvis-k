@@ -20,6 +20,17 @@ const packageJson = JSON.parse(
       forceCodeSigning?: boolean;
       signAndEditExecutable?: boolean;
       signExecutable?: boolean;
+      signtoolOptions?: unknown;
+      azureSignOptions?: {
+        publisherName?: string;
+        endpoint?: string;
+        certificateProfileName?: string;
+        codeSigningAccountName?: string;
+        fileDigest?: string;
+        timestampRfc3161?: string;
+        timestampDigest?: string;
+      };
+      artifactName?: string;
     };
     nsis?: {
       perMachine?: boolean;
@@ -27,6 +38,7 @@ const packageJson = JSON.parse(
       runAfterFinish?: boolean;
       deleteAppDataOnUninstall?: boolean;
       include?: string;
+      artifactName?: string;
     };
   };
 };
@@ -36,11 +48,11 @@ const packageLock = JSON.parse(
 
 describe("Windows Alpha packaging config", () => {
   it("keeps the Alpha product identity and installer scope fixed", () => {
-    expect(packageJson.version).toBe("0.1.0-alpha.6");
-    expect(packageLock.version).toBe("0.1.0-alpha.6");
-    expect(packageLock.packages?.[""]?.version).toBe("0.1.0-alpha.6");
+    expect(packageJson.version).toBe("0.1.0-alpha.7");
+    expect(packageLock.version).toBe("0.1.0-alpha.7");
+    expect(packageLock.packages?.[""]?.version).toBe("0.1.0-alpha.7");
     expect(packageJson.productName).toBe("Jarvis-K Alpha");
-    expect(packageJson.shortVersionWindows).toBe("0.1.0.6");
+    expect(packageJson.shortVersionWindows).toBe("0.1.0.7");
     expect(packageJson.build?.appId).toBe("com.jarvis-k.desktop.alpha");
     expect(packageJson.build?.productName).toBe("Jarvis-K Alpha");
     expect(packageJson.build?.win?.target).toEqual([
@@ -54,7 +66,7 @@ describe("Windows Alpha packaging config", () => {
     });
   });
 
-  it("edits Windows executable resources while remaining unsigned", () => {
+  it("edits Windows executable resources while requiring Azure Trusted Signing", () => {
     const electronRuntimeVersion = packageJson.devDependencies?.electron?.replace(
       /^[^\d]*/,
       "",
@@ -62,9 +74,64 @@ describe("Windows Alpha packaging config", () => {
 
     expect(electronRuntimeVersion).toBe("39.8.5");
     expect(packageJson.version).not.toBe(electronRuntimeVersion);
-    expect(packageJson.build?.win?.forceCodeSigning).toBe(false);
-    expect(packageJson.build?.win?.signExecutable).toBe(false);
+    expect(packageJson.build?.win?.forceCodeSigning).toBe(true);
+    expect(packageJson.build?.win?.signExecutable).not.toBe(false);
     expect(packageJson.build?.win?.signAndEditExecutable).not.toBe(false);
+    expect(packageJson.build?.win?.signtoolOptions).toBeUndefined();
+    expect(packageJson.build?.win?.azureSignOptions).toEqual({
+      publisherName: "Jiajian zou",
+      endpoint: "https://eus.codesigning.azure.net",
+      certificateProfileName: "jarvis-k-alpha-public",
+      codeSigningAccountName: "jarvisksigningalpha02",
+      fileDigest: "SHA256",
+      timestampRfc3161: "http://timestamp.acs.microsoft.com",
+      timestampDigest: "SHA256",
+    });
+    expect(packageJson.build?.win?.artifactName).toContain("signed-alpha");
+    expect(packageJson.build?.win?.artifactName).not.toContain("unsigned");
+  });
+
+  it("uses Azure signing field names supported by the installed electron-builder", () => {
+    const winOptionsTypes = readFileSync(
+      path.join(
+        rootDirectory,
+        "node_modules",
+        "app-builder-lib",
+        "out",
+        "options",
+        "winOptions.d.ts",
+      ),
+      "utf8",
+    );
+    const azureManager = readFileSync(
+      path.join(
+        rootDirectory,
+        "node_modules",
+        "app-builder-lib",
+        "out",
+        "codeSign",
+        "windowsSignAzureManager.js",
+      ),
+      "utf8",
+    );
+
+    for (const field of [
+      "publisherName",
+      "endpoint",
+      "certificateProfileName",
+      "codeSigningAccountName",
+      "fileDigest",
+      "timestampRfc3161",
+      "timestampDigest",
+    ]) {
+      expect(winOptionsTypes).toContain(field);
+      expect(packageJson.build?.win?.azureSignOptions).toHaveProperty(field);
+    }
+    expect(azureManager).toContain("Invoke-TrustedSigning");
+    expect(azureManager).toContain("CodeSigningAccountName");
+    expect(azureManager).toContain("CertificateProfileName");
+    expect(azureManager).toContain("TimestampRfc3161");
+    expect(azureManager).not.toContain("signtoolOptions");
   });
 
   it("does not publish or upload Alpha artifacts from local package scripts", () => {
@@ -75,6 +142,8 @@ describe("Windows Alpha packaging config", () => {
     expect(packageJson.scripts?.["package:windows:alpha"]).not.toContain(
       "--publish",
     );
+    expect(packageJson.build?.nsis?.artifactName).toContain("signed-alpha-setup");
+    expect(packageJson.build?.nsis?.artifactName).not.toContain("unsigned");
   });
 
   it("cleans only the Alpha login item identities on uninstall", () => {

@@ -60,6 +60,10 @@ export function parseSignedReleaseVerificationArgs(argv = process.argv.slice(2))
       );
     } else if (arg === "--allow-synthetic-placeholder") {
       options.allowSyntheticPlaceholder = true;
+    } else if (arg === "--real-signed-artifact-verified") {
+      options.realSignedArtifactVerified = true;
+    } else if (arg === "--allow-uninstaller-pending-isolated-install") {
+      options.allowUninstallerPendingIsolatedInstall = true;
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -118,25 +122,47 @@ export function verifySignedReleaseArtifacts(options = {}) {
   });
 
   const roleCounts = countRoles(artifacts);
-  const missingRequiredRoles = REQUIRED_JARVIS_ROLES.filter((role) => !roleCounts[role]);
+  const uninstallerPendingIsolatedInstall = Boolean(
+    options.allowUninstallerPendingIsolatedInstall && !roleCounts.uninstaller,
+  );
+  const missingRequiredRoles = REQUIRED_JARVIS_ROLES.filter(
+    (role) => !roleCounts[role] && !(role === "uninstaller" && uninstallerPendingIsolatedInstall),
+  );
   const releaseManifest = createExternalReleaseManifest({
     product: {
       name: options.productName ?? "Jarvis-K Alpha",
-      version: options.productVersion ?? "0.1.0-alpha.6",
+      version: options.productVersion ?? "0.1.0-alpha.7",
       appId: options.appId ?? "com.jarvis-k.desktop.alpha",
       channel: options.channel ?? "alpha",
     },
     installer: artifacts.find((artifact) => artifact.role === "final_nsis_installer") ?? null,
     expectedSigner,
     downgradeMarkerOrdinal: options.downgradeMarkerOrdinal ?? 6,
-    supportedUpgradeFloor: options.supportedUpgradeFloor ?? "0.1.0-alpha.6",
+    supportedUpgradeFloor: options.supportedUpgradeFloor ?? "0.1.0-alpha.7",
   });
 
   const failedArtifacts = artifacts.filter((artifact) => artifact.verdict === "FAIL");
   const unresolvedArtifacts = artifacts.filter((artifact) => artifact.verdict === "UNRESOLVED");
+  const invalidSignatureCount = artifacts.filter(
+    (artifact) => artifact.signatureStatus !== "valid" && artifact.signatureStatus !== "not_signed",
+  ).length;
+  const unsignedUnexpectedCount = artifacts.filter(
+    (artifact) =>
+      artifact.signatureStatus === "not_signed" &&
+      artifact.classification !== "unsigned_expected_with_documented_origin",
+  ).length;
+  const status =
+    missingRequiredRoles.length > 0 || failedArtifacts.length > 0 || unresolvedArtifacts.length > 0
+      ? "FAIL"
+      : "PASS";
+  const realSignedArtifactVerified = Boolean(
+    options.realSignedArtifactVerified && status === "PASS" && expectedSigner.productionReady,
+  );
   const report = {
     schemaVersion: SIGNED_RELEASE_VERIFICATION_SCHEMA_VERSION,
-    phase: "UI-3I-1A Signed Artifact Verification Harness Preparation",
+    phase: realSignedArtifactVerified
+      ? "UI-3I-1H Azure Artifact Signing Signed Alpha.7 Build Retry"
+      : "UI-3I-1A Signed Artifact Verification Harness Preparation",
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     artifactRoot: {
       explicit: true,
@@ -158,13 +184,20 @@ export function verifySignedReleaseArtifacts(options = {}) {
       },
     },
     product: releaseManifest.product,
-    realSignedArtifactVerified: false,
-    executionBlocked: true,
-    azureIdentity: "pending",
+    realSignedArtifactVerified,
+    executionBlocked: !realSignedArtifactVerified,
+    azureIdentity: realSignedArtifactVerified ? "verified" : "pending",
     externalDistributionAllowed: false,
     requiredRoles: {
       expected: REQUIRED_JARVIS_ROLES,
       missing: missingRequiredRoles,
+    },
+    uninstallerVerification: {
+      status: roleCounts.uninstaller
+        ? "verified"
+        : uninstallerPendingIsolatedInstall
+          ? "pending_isolated_install"
+          : "missing",
     },
     artifacts,
     summary: {
@@ -172,12 +205,17 @@ export function verifySignedReleaseArtifacts(options = {}) {
       failed: failedArtifacts.length,
       unresolved: unresolvedArtifacts.length,
       requiredRolesMissing: missingRequiredRoles.length,
-      status:
-        missingRequiredRoles.length > 0 || failedArtifacts.length > 0 || unresolvedArtifacts.length > 0
-          ? "FAIL"
-          : "PASS",
+      invalidSignatureCount,
+      unsignedUnexpectedCount,
+      classificationCounts: countClassifications(artifacts),
+      status,
     },
-    externalReleaseManifest: releaseManifest,
+    externalReleaseManifest: {
+      ...releaseManifest,
+      realSignedArtifactVerified,
+      executionBlocked: !realSignedArtifactVerified,
+      azureIdentity: realSignedArtifactVerified ? "verified" : "pending",
+    },
   };
 
   assertReportIsSanitized(report);
@@ -220,7 +258,20 @@ export function classifyPeArtifact(input) {
     if (certificateThumbprintClassification !== "exact_match") failureReasons.push("wrong_expected_thumbprint");
     if (timestampClassification !== "valid") failureReasons.push(`timestamp_${timestampClassification}`);
     if (digestAlgorithm !== "sha256") failureReasons.push(`digest_${digestAlgorithm}`);
-  } else if (signatureStatus !== "valid" || timestampClassification !== "valid") {
+  } else if (
+    signatureStatus === "not_signed" &&
+    classifyReleaseSignatureClass({
+      role,
+      ownership,
+      signatureStatus,
+      signerSubjectClassification,
+      timestampClassification,
+    }) !== "unsigned_expected_with_documented_origin"
+  ) {
+    unresolvedReasons.push("non_jarvis_pe_requires_review");
+  } else if (signatureStatus !== "valid" && signatureStatus !== "not_signed") {
+    unresolvedReasons.push("non_jarvis_pe_requires_review");
+  } else if (signatureStatus === "valid" && timestampClassification !== "valid") {
     unresolvedReasons.push("non_jarvis_pe_requires_review");
   }
 
@@ -228,12 +279,16 @@ export function classifyPeArtifact(input) {
     role === "native_node" &&
     (signatureStatus !== "valid" || ownership !== "upstream")
   ) {
+    if (!unresolvedReasons.includes("non_jarvis_pe_requires_review")) {
+      unresolvedReasons.push("non_jarvis_pe_requires_review");
+    }
     unresolvedReasons.push("native_binary_not_silently_accepted");
   }
 
   return {
     relativePath: input.relativePath,
     sha256: input.sha256 ?? sha256File(input.absolutePath),
+    size: input.size ?? statSync(input.absolutePath).size,
     role,
     ownership,
     signatureStatus,
@@ -241,6 +296,14 @@ export function classifyPeArtifact(input) {
     certificateThumbprintClassification,
     digestAlgorithm,
     timestampClassification,
+    classification: classifyReleaseSignatureClass({
+      role,
+      ownership,
+      signatureStatus,
+      signerSubjectClassification,
+      timestampClassification,
+    }),
+    documentedOrigin: classifyDocumentedOrigin(input.relativePath, role, ownership),
     controlledError: signature.controlledError ?? digestInspection.controlledError ?? null,
     verdict: failureReasons.length > 0 ? "FAIL" : unresolvedReasons.length > 0 ? "UNRESOLVED" : "PASS",
     failureReasons,
@@ -251,7 +314,7 @@ export function classifyPeArtifact(input) {
 export function createExternalReleaseManifest(input = {}) {
   const product = input.product ?? {
     name: "Jarvis-K Alpha",
-    version: "0.1.0-alpha.6",
+    version: "0.1.0-alpha.7",
     appId: "com.jarvis-k.desktop.alpha",
     channel: "alpha",
   };
@@ -272,7 +335,7 @@ export function createExternalReleaseManifest(input = {}) {
     },
     timestampClassification: installer?.timestampClassification ?? "not_verified",
     downgradeMarkerOrdinal: input.downgradeMarkerOrdinal ?? 6,
-    supportedUpgradeFloor: input.supportedUpgradeFloor ?? "0.1.0-alpha.6",
+    supportedUpgradeFloor: input.supportedUpgradeFloor ?? "0.1.0-alpha.7",
     unsignedHistoricalInstallerWarning: true,
     publishUploadState: "disabled",
     realSignedArtifactVerified: false,
@@ -328,21 +391,26 @@ export function parseDigestAlgorithmFromSignToolOutput(output) {
 }
 
 export function readAuthenticodeSignature(absolutePath) {
+  const literalPath = String(absolutePath).replace(/'/gu, "''");
   const psScript = [
+    "& {",
     "$ErrorActionPreference = 'Stop'",
-    "$sig = Get-AuthenticodeSignature -LiteralPath $args[0]",
-    "[pscustomobject]@{",
+    "Import-Module Microsoft.PowerShell.Security -ErrorAction Stop",
+    `$sig = Get-AuthenticodeSignature -LiteralPath '${literalPath}'`,
+    "$result = [pscustomobject]@{",
     "Status = [string]$sig.Status",
     "StatusMessage = [string]$sig.StatusMessage",
     "SignerSubject = if ($sig.SignerCertificate) { [string]$sig.SignerCertificate.Subject } else { $null }",
     "CertificateThumbprint = if ($sig.SignerCertificate) { [string]$sig.SignerCertificate.Thumbprint } else { $null }",
     "TimestampPresent = $null -ne $sig.TimeStamperCertificate",
     "TimestampValid = $null -ne $sig.TimeStamperCertificate",
-    "} | ConvertTo-Json -Compress",
-  ].join("; ");
+    "}",
+    "$result | ConvertTo-Json -Compress",
+    "}",
+  ].join("\n");
   const output = execFileSync(
-    "powershell.exe",
-    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psScript, absolutePath],
+    "pwsh.exe",
+    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psScript],
     {
       encoding: "utf8",
       windowsHide: true,
@@ -480,9 +548,11 @@ function normalizeThumbprint(value) {
 
 function classifyArtifactRole(relativePath) {
   const basename = path.posix.basename(relativePath).toLowerCase();
-  if (/setup|installer/u.test(basename) && basename.endsWith(".exe")) return "final_nsis_installer";
+  if (/setup|installer/u.test(basename) && !/__uninstaller/u.test(basename) && basename.endsWith(".exe")) {
+    return "final_nsis_installer";
+  }
   if (basename === "jarvis-k alpha.exe") return "main_exe";
-  if (/uninstall/u.test(basename) && basename.endsWith(".exe")) return "uninstaller";
+  if (/(?:uninstall|__uninstaller)/u.test(basename) && basename.endsWith(".exe")) return "uninstaller";
   if (basename.endsWith(".node")) return "native_node";
   if (basename.endsWith(".dll")) return "dll";
   if (basename.endsWith(".exe")) return "helper_exe";
@@ -491,7 +561,10 @@ function classifyArtifactRole(relativePath) {
 
 function classifyArtifactOwnership(relativePath, role) {
   if (REQUIRED_JARVIS_ROLES.includes(role)) return "jarvis_owned";
-  if (/node_modules|electron|chrome|ffmpeg|vulkan|swiftshader|resources\/elevate\.exe/iu.test(relativePath)) {
+  if (
+    /node_modules|electron|chrome|ffmpeg|vulkan|swiftshader|resources\/elevate\.exe/iu.test(relativePath) ||
+    /(?:^|\/)(?:d3dcompiler_47|dxcompiler|dxil|libEGL|libGLESv2)\.dll$/u.test(relativePath)
+  ) {
     return "upstream";
   }
   return "unknown";
@@ -536,6 +609,60 @@ function countRoles(artifacts) {
     counts[artifact.role] = (counts[artifact.role] ?? 0) + 1;
     return counts;
   }, {});
+}
+
+function countClassifications(artifacts) {
+  return artifacts.reduce((counts, artifact) => {
+    counts[artifact.classification] = (counts[artifact.classification] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function classifyReleaseSignatureClass(input) {
+  if (
+    input.signatureStatus === "valid" &&
+    input.signerSubjectClassification === "exact_match" &&
+    input.timestampClassification === "valid" &&
+    REQUIRED_JARVIS_ROLES.includes(input.role)
+  ) {
+    return "signed_valid_expected_publisher";
+  }
+  if (input.signatureStatus === "valid" && input.timestampClassification === "valid") {
+    return "signed_valid_third_party";
+  }
+  if (input.signatureStatus === "not_signed" && input.ownership === "upstream") {
+    return "unsigned_expected_with_documented_origin";
+  }
+  if (input.signatureStatus === "not_signed") {
+    return "unsigned_unexpected";
+  }
+  return "invalid_signature";
+}
+
+function classifyDocumentedOrigin(relativePath, role, ownership) {
+  if (ownership !== "upstream") return null;
+  if (role === "helper_exe" && /resources\/elevate\.exe/iu.test(relativePath)) {
+    return {
+      packageOrDependency: "electron-builder nsis elevate helper",
+      rationale: "packager-provided helper binary copied into win-unpacked resources",
+    };
+  }
+  if (/(?:^|\/)(?:d3dcompiler_47|dxcompiler|dxil|ffmpeg|libEGL|libGLESv2|vk_swiftshader|vulkan-1)\.dll$/u.test(relativePath)) {
+    return {
+      packageOrDependency: "Electron/Chromium Windows runtime",
+      rationale: "packager-provided runtime binary from Electron distribution",
+    };
+  }
+  if (/node_modules/iu.test(relativePath)) {
+    return {
+      packageOrDependency: "packaged npm dependency",
+      rationale: "native binary belongs to a packaged dependency and requires dependency-level review",
+    };
+  }
+  return {
+    packageOrDependency: "upstream packaged runtime",
+    rationale: "non-Jarvis-owned packaged binary classified by allowlist",
+  };
 }
 
 function sanitizeToolText(value) {
