@@ -281,3 +281,11 @@ Phase 4B-3 Skin Contract requirement:
 - A normal unsigned Alpha.6 internal downgrade-guard candidate was built under `artifacts/packaged/ui-3h-alpha6-downgrade-guard/` for isolated VM acceptance only; it has not been installed or executed on the host.
 - Host installed RC7, login items, registry state, user environment variables, and real `%APPDATA%\Jarvis-K-Alpha` profile remain untouched.
 - Downgrade prevention still requires isolated VM acceptance before any external Alpha distribution; unsigned external distribution remains disallowed.
+
+## UI-3H-3D Status
+
+- Guarded Alpha.6 isolated VMware Windows acceptance is recorded as PASS in `artifacts/ui-3h/isolated-alpha6-downgrade-guard-acceptance/isolated-alpha6-downgrade-guard-acceptance.json`.
+- Recorded acceptance covers alpha.5 to alpha.6 in-place upgrade, clean alpha.6 install, same-version repair, alpha.6 uninstall marker retention, same-version reinstall with retained marker, and simulated future-marker GUI plus silent downgrade blocking.
+- The simulated ordinal `7` marker is explicitly VM-only and is not recorded as a real alpha.7 installation; final VM state was restored to valid ordinal `6`.
+- Historical unguarded alpha.4/alpha.5 installers cannot be retroactively blocked.
+- Code signing and signed installer lifecycle acceptance remain pending; external distribution remains NO.
