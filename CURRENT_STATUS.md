@@ -313,3 +313,12 @@ Phase 4B-3 Skin Contract requirement:
 - Installer, installed Main, and installed Uninstaller Authenticode, timestamp, and publisher checks are recorded as PASS in the isolated VM evidence; source build signing evidence remains PASS from UI-3I-1H.
 - The reinstall path is explicitly classified as retained-profile reinstall, not pristine clean install. Pristine signed Alpha.7 clean install and Windows 11 signed lifecycle acceptance remain not completed.
 - External distribution readiness remains NO until the remaining acceptance gaps and external release approval path are closed.
+
+## UI-3I-2C Status
+
+- Windows 11 pristine signed Alpha.7 clean-install acceptance is recorded as PASS in `artifacts/ui-3i/signed-alpha7-windows11-pristine-clean-install/signed-alpha7-windows11-pristine-clean-install-acceptance.json`.
+- The evidence is strictly evidence-only and layered: Codex host baseline is recorded separately from user-observed Windows 11 UI results and user-provided VM machine output.
+- Accepted clean-install coverage includes Windows Update PASS, pristine-before-Jarvis snapshot, isolated installer staging, no SmartScreen or UAC elevation observed, publisher classified as `Jiajian zou`, Windows 11 UI checks 1-13 PASS, final machine state PASS, and final pass snapshot creation.
+- User-provided machine output records Windows 11 Pro `10.0.26200`, TPM and Secure Boot ready state, signed installer SHA-256 and Authenticode validity, pristine pre-install absence of install directory/profile/marker/shortcuts/processes/environment variables/Run identities, installer exit code `0`, installed Alpha.7 version, signed Main and Uninstaller validity, ordinal `7` marker, Launch at Login remaining OFF, one uninstall registration, and desktop/start-menu shortcuts present.
+- Codex did not modify product logic, installer policy, signing configuration, Gate or runtime code; did not build, sign, install, uninstall, publish, upload, or enter external publishing.
+- UI-3I-2C stops at evidence closure. External distribution readiness remains NO until a separate external release approval path is completed.

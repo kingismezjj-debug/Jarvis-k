@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3I-2C Windows 11 Pristine Signed Clean-Install Evidence Closure",
+  "recordedAt": "2026-09-04T00:00:00.000Z",
+  "evidenceOnly": true,
+  "productLogicChanged": false,
+  "signingConfigurationChanged": false,
+  "installerChanged": false,
+  "gateSettingsDowngradePolicyOrRuntimeChanged": false,
+  "buildExecutedByCodex": false,
+  "signingExecutedByCodex": false,
+  "installExecutedByCodex": false,
+  "uninstallExecutedByCodex": false,
+  "downgradeExecutedByCodex": false,
+  "vmRestoreOrControlExecutedByCodex": false,
+  "publishOrUploadExecutedByCodex": false,
+  "externalPublishingEntered": false,
+  "hostMachineObserved": {
+    "classification": "machineObserved",
+    "head": "4273de80d5a1221973341bc691c58b1bfaad7368",
+    "originMain": "4273de80d5a1221973341bc691c58b1bfaad7368",
+    "worktreeClean": true,
+    "jarvisMainOrCoreHostProcessCount": 0,
+    "hkcuJarvisRunIdentityCount": 0,
+    "hklmJarvisRunIdentityCount": 0,
+    "realAlphaProfileReadOrCopied": false,
+    "userOrMachineEnvironmentModified": false,
+    "registryModified": false
+  },
+  "userObserved": {
+    "classification": "userObserved",
+    "windowsUpdate": "PASS",
+    "snapshotBeforeJarvisCreated": "W11-S1-Pristine-Before-Jarvis",
+    "pristineBaseline": "PASS",
+    "snapshotSignedInstallerStagedCreated": "W11-S2-Pristine-Signed-Installer-Staged",
+    "smartScreenDidNotAppear": true,
+    "uacElevationDidNotAppear": true,
+    "publisherDisplayedOrClassifiedAs": "Jiajian zou",
+    "windows11UiChecks": {
+      "check01": "PASS",
+      "check02": "PASS",
+      "check03": "PASS",
+      "check04": "PASS",
+      "check05": "PASS",
+      "check06": "PASS",
+      "check07": "PASS",
+      "check08": "PASS",
+      "check09": "PASS",
+      "check10": "PASS",
+      "check11": "PASS",
+      "check12": "PASS",
+      "check13": "PASS"
+    },
+    "finalMachineState": "PASS",
+    "snapshotSignedAlpha7CleanInstallPassCreated": "W11-S3-Signed-Alpha7-Clean-Install-PASS"
+  },
+  "userProvidedMachineOutput": {
+    "classification": "userProvidedMachineOutput",
+    "windows": {
+      "WindowsProductName": "Microsoft Windows 11 Pro",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200",
+      "OSArchitecture": "64-bit",
+      "tpm": {
+        "present": true,
+        "ready": true,
+        "enabled": true,
+        "activated": true
+      },
+      "secureBoot": true
+    },
+    "installer": {
+      "sha256": "C62C957338974F74B1B3F22091E24438233047BEDD6B13EB5E9B998370290271",
+      "authenticode": "Valid",
+      "rfc3161TimestampPresent": true,
+      "signerCnAndOMatchJiajianZou": true
+    },
+    "isolatedBeforeInstallation": {
+      "sharedFolderAccessible": false,
+      "internet443": false
+    },
+    "pristineBeforeInstallation": {
+      "installDirectory": false,
+      "profile": false,
+      "installerMarker": false,
+      "shortcuts": false,
+      "jarvisProcessCount": 0,
+      "jarvisEnvironmentVariableCount": 0,
+      "hkcuHklmOldNewRunIdentities": 0
+    },
+    "installResult": {
+      "installerExitCode": 0,
+      "installedVersion": "0.1.0-alpha.7",
+      "installedMainExeSignature": "Valid",
+      "installedMainTimestamp": true,
+      "installedMainPublisherMatch": true,
+      "installedUninstallerSignature": "Valid",
+      "installedUninstallerTimestamp": true,
+      "installedUninstallerPublisherMatch": true,
+      "marker": {
+        "schemaVersion": 1,
+        "installedReleaseOrdinal": 7,
+        "installedVersion": "0.1.0-alpha.7",
+        "appId": "com.jarvis-k.desktop.alpha",
+        "channel": "alpha"
+      }
+    },
+    "final": {
+      "processCount": 0,
+      "persistedLaunchAtLoginEnabled": false,
+      "hkcuHklmOldNewRunIdentities": 0,
+      "uninstallRegistrationCount": 1,
+      "desktopAndStartMenuShortcutsPresent": true
+    }
+  },
+  "inferred": {
+    "classification": "inferred",
+    "windows11PristineSignedCleanInstall": "PASS",
+    "signedInstallerMainUninstallerLifecycleSignatureCoverage": "PASS",
+    "packagedAlphaDefaultOnSettingsV2OnWindows11": "PASS",
+    "launchAtLoginRemainedOff": "PASS",
+    "noPriorProfileWasReused": "PASS",
+    "noUnsignedFallbackWasAccepted": "PASS",
+    "windows11AcceptanceCompleted": true,
+    "pristineCleanInstallAcceptanceCompleted": true,
+    "externalDistributionReady": false,
+    "externalDistributionAllowed": false
+  },
+  "limitations": {
+    "classification": "inferred",
+    "scope": "UI-3I-2C only",
+    "externalPublishingEntered": false,
+    "externalDistributionReadiness": "NO",
+    "externalDistributionAllowed": false,
+    "remainingBlockers": [
+      "External distribution approval and release process not completed"
+    ]
+  },
+  "sensitiveDataPolicy": {
+    "fullUserPathsRecorded": false,
+    "realProfileContentRecorded": false,
+    "credentialsTokensTenantSubscriptionOrEmailRecorded": false,
+    "registryDumpRecorded": false,
+    "environmentVariableValuesRecorded": false,
+    "userProvidedVmOutputMarkedAsCodexMachineObserved": false
+  }
+}
