@@ -1,5 +1,7 @@
 import type {
   BrainCommandResult,
+  AssistantTurnId,
+  AssistantTurnProjection,
   Conversation,
   EventEnvelope,
   Message,
@@ -32,6 +34,7 @@ export type ConversationTtsProjection = {
 export type ConversationViewModel = {
   alphaCopy: ConversationAlphaCopy;
   brainResult: BrainCommandResult | null;
+  assistantTurn: AssistantTurnProjection | null;
   conversations: Conversation[];
   copy: ConversationCopy;
   error: string | null;
@@ -45,6 +48,7 @@ export type ConversationViewModel = {
 
 export type ConversationActions = {
   clearSessionHistory(): void;
+  cancelAssistantTurn(turnId: AssistantTurnId): void;
   confirmUserRouteAlias(proposal: UserRouteAliasLearningProposal): void;
   confirmVoiceCommandCorrection(
     candidate: VoiceCommandCorrectionCandidate,

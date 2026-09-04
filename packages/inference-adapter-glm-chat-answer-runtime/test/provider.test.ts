@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyOpenAiCompatibleChatAnswerResponseShape,
+  createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest,
   createDeepseekChatAnswerRuntimeCompletionRequest,
   createGlmChatAnswerRuntimeCompletionRequest,
   classifyGlmChatAnswerRuntimeTransportFailure,
@@ -271,6 +272,100 @@ describe("GLM Chat Answer runtime provider", () => {
     );
   });
 
+  it("streams DeepSeek text deltas through the single OpenAI-compatible adapter", async () => {
+    const transport = fixedStreamingTransport([
+      streamingChunk("你好"),
+      streamingChunk("，Jarvis"),
+      streamingChunk(""),
+      streamingChunk("-K"),
+    ]);
+    const provider = new DeepseekChatAnswerRuntimeProvider({
+      credential: { apiKey: "test-deepseek-key" },
+      transport,
+      now: () => new Date("2026-09-04T00:00:00.000Z")
+    });
+
+    const events = await collectStream(
+      provider.startTextTurn(
+        {
+          ...fixedRequest,
+          providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID
+        },
+        {},
+        new AbortController().signal
+      )
+    );
+
+    expect(events).toEqual([
+      { type: "delta", delta: { kind: "text", text: "你好" } },
+      { type: "delta", delta: { kind: "text", text: "，Jarvis" } },
+      { type: "delta", delta: { kind: "text", text: "-K" } },
+      { type: "final", text: "你好，Jarvis-K" }
+    ]);
+    expect(transport.lastRequest?.body).toMatchObject({
+      model: DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
+      stream: true,
+      temperature: 0,
+      max_tokens: 128
+    });
+    expect(transport.lastRequest?.body).not.toHaveProperty("tools");
+    expect(transport.lastRequest?.body).not.toHaveProperty("tool_choice");
+    expect(JSON.stringify(events)).not.toContain("test-deepseek-key");
+  });
+
+  it("fails closed for malformed chunks, tool calls, and partial disconnects", async () => {
+    await expect(
+      collectStream(
+        streamingProvider([{ choices: [{ delta: { tool_calls: [] } }] }])
+      )
+    ).resolves.toEqual([
+      {
+        type: "failure",
+        reason: "unsupported_tool_call",
+        safeMessage: "The provider attempted an unsupported tool call.",
+        retryable: false
+      }
+    ]);
+    await expect(collectStream(streamingProvider([{ nope: true }]))).resolves.toEqual([
+      {
+        type: "failure",
+        reason: "malformed_response",
+        safeMessage: "The provider returned malformed streaming data.",
+        retryable: true
+      }
+    ]);
+    await expect(collectStream(disconnectingStreamingProvider())).resolves.toEqual([
+      { type: "delta", delta: { kind: "text", text: "partial" } },
+      {
+        type: "failure",
+        reason: "transport_failed",
+        safeMessage: "The provider connection failed while streaming.",
+        retryable: true
+      }
+    ]);
+  });
+
+  it("creates a plain-text streaming request without JSON response mode", () => {
+    const request = createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
+      {
+        ...fixedRequest,
+        providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID
+      },
+      "deepseek.v4-flash.compact_json_object_256"
+    );
+
+    expect(request).toMatchObject({
+      model: DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
+      stream: true,
+      temperature: 0,
+      max_tokens: 256
+    });
+    expect(request).not.toHaveProperty("response_format");
+    expect(request).not.toHaveProperty("tools");
+    expect(request.messages[0].content).toContain("Do not call tools");
+    expect(request.messages[1].content).toBe(fixedRequest.utterance);
+  });
+
   it("classifies DeepSeek array-content response shape without persisting content", () => {
     const shape = classifyOpenAiCompatibleChatAnswerResponseShape({
       choices: [
@@ -310,4 +405,81 @@ function fixedTransport(body: unknown, status = 200): GlmChatAnswerRuntimeTransp
       return { status, body };
     }
   };
+}
+
+function fixedStreamingTransport(
+  chunks: unknown[]
+): GlmChatAnswerRuntimeTransport & {
+  lastRequest?: Parameters<GlmChatAnswerRuntimeTransport["send"]>[0];
+} {
+  return {
+    async send(request) {
+      this.lastRequest = request;
+      return { status: 200, body: {} };
+    },
+    async *stream(request) {
+      this.lastRequest = request;
+      for (const chunk of chunks) {
+        yield chunk;
+      }
+    }
+  };
+}
+
+function streamingProvider(chunks: unknown[]) {
+  const provider = new DeepseekChatAnswerRuntimeProvider({
+    credential: { apiKey: "test-deepseek-key" },
+    transport: fixedStreamingTransport(chunks)
+  });
+  return provider.startTextTurn(
+    {
+      ...fixedRequest,
+      providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID
+    },
+    {},
+    new AbortController().signal
+  );
+}
+
+function disconnectingStreamingProvider() {
+  const provider = new DeepseekChatAnswerRuntimeProvider({
+    credential: { apiKey: "test-deepseek-key" },
+    transport: {
+      async send() {
+        return { status: 200, body: {} };
+      },
+      async *stream() {
+        yield streamingChunk("partial");
+        throw new TypeError("private disconnect detail");
+      }
+    }
+  });
+  return provider.startTextTurn(
+    {
+      ...fixedRequest,
+      providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID
+    },
+    {},
+    new AbortController().signal
+  );
+}
+
+function streamingChunk(text: string) {
+  return {
+    choices: [
+      {
+        delta: {
+          content: text
+        }
+      }
+    ]
+  };
+}
+
+async function collectStream<T>(stream: AsyncIterable<T>): Promise<T[]> {
+  const events: T[] = [];
+  for await (const event of stream) {
+    events.push(event);
+  }
+  return events;
 }

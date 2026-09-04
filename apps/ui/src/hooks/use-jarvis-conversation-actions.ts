@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   BrainCommandResultSchema,
   type AppCommand,
+  type AssistantTurnId,
   type BrainCommandResult,
   type BrainCommandSource,
   type VoiceAsrProviderId,
@@ -68,7 +69,9 @@ export function useJarvisConversationActions({
           setError("Core returned an invalid Brain result.");
           return false;
         }
-        setBrainResult(brain.data);
+        setBrainResult(
+          brain.data.dispatchStatus === "running" ? null : brain.data,
+        );
         setError(null);
         return true;
       } finally {
@@ -92,6 +95,15 @@ export function useJarvisConversationActions({
   const runBrainCommand = useCallback(
     async (text: string) => dispatchBrainCommand(text, "text"),
     [dispatchBrainCommand],
+  );
+
+  const cancelAssistantTurn = useCallback(
+    async (turnId: AssistantTurnId) =>
+      sendCommand({
+        type: "agent.cancelAssistantTurn",
+        payload: { turnId },
+      }),
+    [sendCommand],
   );
 
   const retryBrainCommand = useCallback(async () => {
@@ -150,6 +162,7 @@ export function useJarvisConversationActions({
 
   return {
     clearSessionHistory,
+    cancelAssistantTurn,
     createConversation,
     dispatchBrainCommand,
     renameConversation,

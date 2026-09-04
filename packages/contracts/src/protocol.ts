@@ -45,6 +45,10 @@ import {
   type PetSkinRegistryProjection,
   type PetSkinRenderFailureReport,
 } from "./pet-skin-protocol";
+import {
+  AssistantTurnIdSchema,
+  AssistantTurnProjectionSchema,
+} from "./assistant-loop-protocol";
 import type {
   GlmAdvancedBrainAcceptanceCommandResult,
   GlmAdvancedBrainAcceptanceConsentRequest,
@@ -948,6 +952,7 @@ export type BrainIntent = z.infer<typeof BrainIntentSchema>;
 
 export const BrainDispatchStatusSchema = z.enum([
   "completed",
+  "running",
   "blocked",
   "needs_approval",
   "degraded",
@@ -2231,6 +2236,7 @@ export const BrainCommandResultSchema = z
     plannerSelection: BrainPlannerSelectionReportSchema.optional(),
     plannerResult: BrainPlannerResultSchema.optional(),
     chatAnswer: ChatAnswerResultSchema.optional(),
+    assistantTurnId: AssistantTurnIdSchema.optional(),
     pluginResult: PluginInvocationResultSchema.optional(),
     plan: z.array(BrainPlanStepSchema).min(1).max(8),
     dispatchStatus: BrainDispatchStatusSchema,
@@ -2282,6 +2288,14 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
         voiceInputMode: VoiceInputModeSchema.optional(),
         voiceInputModeSource: VoiceInputModeSourceSchema.optional(),
         asrProviderId: VoiceAsrProviderIdSchema.optional(),
+      })
+      .strict(),
+  }),
+  z.object({
+    type: z.literal("agent.cancelAssistantTurn"),
+    payload: z
+      .object({
+        turnId: AssistantTurnIdSchema,
       })
       .strict(),
   }),
@@ -3692,6 +3706,7 @@ export const CoreSnapshotSchema = z
     updatedAt: z.string().datetime(),
     voice: VoiceSnapshotSchema,
     textOnlyAcceptance: TextOnlyAcceptanceModeSchema.optional(),
+    assistantTurn: AssistantTurnProjectionSchema.optional(),
     messages: z.array(MessageSchema),
     conversations: z.array(ConversationSchema).default([]),
     activeConversationId: z.string().min(1).max(128).optional(),

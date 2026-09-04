@@ -145,6 +145,7 @@ export default function App() {
     commandRouterProductModeStatus,
     qwenRuntimeControlStatus,
     approveTask,
+    cancelAssistantTurn,
     cancelTask,
     clearSessionHistory,
     confirmCommandRouterLocalAppLaunch,
@@ -654,6 +655,12 @@ export default function App() {
 
   const coreOnline = connection === "online";
   const textOnlyAcceptanceMode = snapshot?.textOnlyAcceptance?.enabled === true;
+  const assistantTurn = snapshot?.assistantTurn ?? null;
+  const assistantTurnActive =
+    assistantTurn !== null &&
+    !["completed", "cancelled", "failed", "interrupted"].includes(
+      assistantTurn.status,
+    );
   const developerModeEnabled = uiSurfaceMode.developerModeEnabled;
   const evaluationSurfaceEnabled = uiSurfaceMode.evaluationSurfaceEnabled;
   const ptt = usePttCapture(async (command) => {
@@ -1674,7 +1681,7 @@ export default function App() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (sending) return;
+    if (sending || assistantTurnActive) return;
     if (!text) {
       notifyAction(copy.action.typeCommandFirst, "warning");
       return;
@@ -2036,6 +2043,9 @@ export default function App() {
                 clearSessionHistory: () => {
                   void handleClearSessionHistory();
                 },
+                cancelAssistantTurn: (turnId) => {
+                  void cancelAssistantTurn(turnId);
+                },
                 confirmUserRouteAlias: (proposal) => {
                   void handleConfirmUserRouteAlias(proposal);
                 },
@@ -2056,13 +2066,14 @@ export default function App() {
               }}
               viewModel={{
                 alphaCopy,
+                assistantTurn,
                 brainResult,
                 conversations,
                 copy,
                 error,
                 events,
                 messages: visibleMessages,
-                sending,
+                sending: sending || assistantTurnActive,
                 sessionHistory,
                 tts: {
                   displayedStatus: displayedLocalTtsStatus,

@@ -118,6 +118,23 @@ describe("UI feature component boundaries", () => {
     expect(sources).not.toContain("stack");
   });
 
+  it("keeps assistant streaming projection transient without brain result duplication", () => {
+    const appSource = readSource("App.tsx");
+    const actionsSource = readSource("hooks/use-jarvis-conversation-actions.ts");
+    const listSource = readSource(
+      "features/conversation/conversation-message-list.tsx",
+    );
+
+    expect(appSource).toContain("const assistantTurnActive =");
+    expect(appSource).toContain("sending || assistantTurnActive");
+    expect(actionsSource).toContain(
+      'brain.data.dispatchStatus === "running" ? null : brain.data',
+    );
+    expect(listSource).toContain('data-testid="assistant-streaming-turn"');
+    expect(listSource).toContain('data-testid="assistant-stream-cancel"');
+    expect(listSource).toContain('turn.status === "completed"');
+  });
+
   it("keeps critical task timeline status and action test ids", () => {
     const source = readSource("features/tasks/task-timeline.tsx");
 

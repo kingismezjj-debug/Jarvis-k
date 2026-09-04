@@ -902,6 +902,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
 
   const {
     clearSessionHistory,
+    cancelAssistantTurn,
     createConversation,
     dispatchBrainCommand,
     renameConversation,
@@ -1200,6 +1201,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     commandRouterProductModeStatus,
     qwenRuntimeControlStatus,
     approveTask,
+    cancelAssistantTurn,
     cancelTask,
     clearSessionHistory,
     error,

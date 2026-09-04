@@ -70,6 +70,10 @@ export class ChatDispatchService {
     return this.options?.forcedChatAnswerUtterances ?? [];
   }
 
+  public async resolvePreferenceProjection(): Promise<ChatAnswerPreferenceProjection> {
+    return this.resolveChatAnswerPreferenceProjection();
+  }
+
   public async dispatch(input: ChatDispatchInput): Promise<ChatDispatchResult> {
     const providerId = this.options?.providerId ?? "chat-answer.unconfigured";
     const preferenceProjection =

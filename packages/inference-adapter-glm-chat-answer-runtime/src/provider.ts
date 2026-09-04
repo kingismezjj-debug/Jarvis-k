@@ -1,9 +1,14 @@
 import type { ChatAnswerProvider } from "@jarvis-k/capabilities";
 import {
+  ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS,
+  AssistantModelAdapterEventSchema,
+  AssistantProviderFailureReasonSchema,
   ChatAnswerRequestSchema,
   ChatAnswerResultSchema,
   type ChatAnswerRequest,
-  type ChatAnswerResult
+  type ChatAnswerResult,
+  type AssistantModelAdapterEvent,
+  type AssistantProviderFailureReason
 } from "@jarvis-k/contracts";
 import {
   classifyOpenAiCompatibleChatAnswerFixtureFailure,
@@ -45,6 +50,10 @@ export const OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_STRATEGY_ID =
   "compact_json_object_128";
 export const OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_MAX_OUTPUT_TOKENS = 128;
 export const OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_LARGE_MAX_OUTPUT_TOKENS = 256;
+const SECRET_PATTERN =
+  /(?:\bBearer\b|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|secret|sk-[A-Za-z0-9_-]{8,})/iu;
+const EXECUTION_SHAPED_OUTPUT_PATTERN =
+  /(?:tool_calls|function_call|powershell|cmd\.exe|exec|spawn|delete|format|shutdown|reboot|rm\s+-rf)/iu;
 
 const PROFILES = [
   {
@@ -94,8 +103,11 @@ export interface OpenAiCompatibleChatAnswerRuntimeTransportRequest {
   readonly profileId: OpenAiCompatibleChatAnswerRuntimeProfileId;
   readonly url: OpenAiCompatibleChatAnswerRuntimeProfile["endpoint"];
   readonly headers: Record<string, string>;
-  readonly body: OpenAiCompatibleChatAnswerRuntimeCompletionRequest;
+  readonly body:
+    | OpenAiCompatibleChatAnswerRuntimeCompletionRequest
+    | OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest;
   readonly timeoutMs: typeof OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_TIMEOUT_MS;
+  readonly signal?: AbortSignal;
 }
 
 export interface OpenAiCompatibleChatAnswerRuntimeTransportResponse {
@@ -120,6 +132,9 @@ export interface OpenAiCompatibleChatAnswerRuntimeTransport {
   send(
     request: OpenAiCompatibleChatAnswerRuntimeTransportRequest
   ): Promise<OpenAiCompatibleChatAnswerRuntimeTransportResponse>;
+  stream?(
+    request: OpenAiCompatibleChatAnswerRuntimeTransportRequest
+  ): AsyncIterable<unknown>;
 }
 
 export interface OpenAiCompatibleChatAnswerRuntimeCompletionMessage {
@@ -137,6 +152,17 @@ export interface OpenAiCompatibleChatAnswerRuntimeCompletionRequest {
     readonly type: "json_object";
   };
   readonly stream: false;
+  readonly temperature: 0;
+  readonly max_tokens: 128 | 256;
+}
+
+export interface OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
+  readonly model: OpenAiCompatibleChatAnswerRuntimeProfile["modelId"];
+  readonly messages: readonly [
+    OpenAiCompatibleChatAnswerRuntimeCompletionMessage,
+    OpenAiCompatibleChatAnswerRuntimeCompletionMessage
+  ];
+  readonly stream: true;
   readonly temperature: 0;
   readonly max_tokens: 128 | 256;
 }
@@ -229,6 +255,115 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
       );
     }
   }
+
+  public async *startTextTurn(
+    request: ChatAnswerRequest,
+    _context: Record<string, never>,
+    signal: AbortSignal
+  ): AsyncIterable<AssistantModelAdapterEvent> {
+    const parsedRequest = ChatAnswerRequestSchema.parse(request);
+    if (parsedRequest.providerId !== this.profile.providerId) {
+      throw new Error(
+        "OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_PROVIDER_MISMATCH"
+      );
+    }
+    if (!this.options.transport.stream) {
+      yield adapterFailure(
+        "provider_unavailable",
+        "The configured answer provider does not support streaming.",
+        true
+      );
+      return;
+    }
+
+    let accumulated = "";
+    try {
+      const chunks = this.options.transport.stream({
+        profileId: this.profile.profileId,
+        url: this.profile.endpoint,
+        headers: {
+          Authorization: `Bearer ${this.options.credential.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
+          parsedRequest,
+          this.profile.profileId
+        ),
+        timeoutMs: this.profile.timeoutMs,
+        signal
+      });
+      for await (const chunk of chunks) {
+        if (signal.aborted) {
+          yield adapterFailure("cancelled", "The answer was cancelled.", false);
+          return;
+        }
+        const parsedChunk = parseOpenAiCompatibleStreamingChunk(chunk);
+        if (parsedChunk.type === "empty") {
+          continue;
+        }
+        if (parsedChunk.type === "tool_call") {
+          yield adapterFailure(
+            "unsupported_tool_call",
+            "The provider attempted an unsupported tool call.",
+            false
+          );
+          return;
+        }
+        if (parsedChunk.type === "malformed") {
+          yield adapterFailure(
+            "malformed_response",
+            "The provider returned malformed streaming data.",
+            true
+          );
+          return;
+        }
+        if (parsedChunk.type === "delta") {
+          accumulated += parsedChunk.text;
+          if (
+            accumulated.length > ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS ||
+            isUnsafeStreamText(accumulated)
+          ) {
+            yield adapterFailure(
+              "malformed_response",
+              "The provider returned unsafe or oversized streaming data.",
+              false
+            );
+            return;
+          }
+          yield AssistantModelAdapterEventSchema.parse({
+            type: "delta",
+            delta: {
+              kind: "text",
+              text: parsedChunk.text
+            }
+          });
+        }
+      }
+    } catch (error) {
+      yield adapterFailure(
+        classifyStreamingProviderFailure(error, signal.aborted),
+        signal.aborted
+          ? "The answer was cancelled."
+          : "The provider connection failed while streaming.",
+        !signal.aborted
+      );
+      return;
+    }
+
+    const finalText = accumulated.trim();
+    if (finalText.length === 0) {
+      yield adapterFailure(
+        "malformed_response",
+        "The provider completed without answer text.",
+        true
+      );
+      return;
+    }
+    yield AssistantModelAdapterEventSchema.parse({
+      type: "final",
+      text: finalText
+    });
+  }
 }
 
 export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
@@ -251,9 +386,8 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
       );
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
+    const abortScope = createTransportAbortScope(
+      request.signal,
       request.timeoutMs
     );
     try {
@@ -261,7 +395,7 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
         method: "POST",
         headers: request.headers,
         body: JSON.stringify(request.body),
-        signal: controller.signal
+        signal: abortScope.signal
       });
       const text = await response.text();
       return {
@@ -272,13 +406,126 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
       throw new OpenAiCompatibleChatAnswerRuntimeTransportFailure(
         classifyOpenAiCompatibleChatAnswerRuntimeTransportFailure(
           error,
-          controller.signal.aborted
+          abortScope.timedOut()
         )
       );
     } finally {
-      clearTimeout(timeout);
+      abortScope.dispose();
     }
   }
+
+  public async *stream(
+    request: OpenAiCompatibleChatAnswerRuntimeTransportRequest
+  ): AsyncIterable<unknown> {
+    const profile = getOpenAiCompatibleChatAnswerRuntimeProfile(
+      request.profileId
+    );
+    if (request.url !== profile.endpoint) {
+      throw new Error(
+        "OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_ENDPOINT_MISMATCH"
+      );
+    }
+    if (request.body.model !== profile.modelId) {
+      throw new Error(
+        "OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_MODEL_MISMATCH"
+      );
+    }
+
+    const abortScope = createTransportAbortScope(
+      request.signal,
+      request.timeoutMs
+    );
+    try {
+      const response = await fetch(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(request.body),
+        signal: abortScope.signal
+      });
+      if (!response.ok) {
+        throw new OpenAiCompatibleChatAnswerRuntimeHttpFailure(response.status);
+      }
+      if (!response.body) {
+        throw new OpenAiCompatibleChatAnswerRuntimeTransportFailure("connection");
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const events = drainSseEvents(buffer);
+        buffer = events.remainder;
+        for (const eventText of events.events) {
+          const trimmed = eventText.trim();
+          if (!trimmed || trimmed === "[DONE]") {
+            continue;
+          }
+          yield JSON.parse(trimmed);
+        }
+      }
+      buffer += decoder.decode();
+      const events = drainSseEvents(`${buffer}\n\n`);
+      for (const eventText of events.events) {
+        const trimmed = eventText.trim();
+        if (!trimmed || trimmed === "[DONE]") {
+          continue;
+        }
+        yield JSON.parse(trimmed);
+      }
+    } catch (error) {
+      if (error instanceof OpenAiCompatibleChatAnswerRuntimeHttpFailure) {
+        throw error;
+      }
+      throw new OpenAiCompatibleChatAnswerRuntimeTransportFailure(
+        classifyOpenAiCompatibleChatAnswerRuntimeTransportFailure(
+          error,
+          abortScope.timedOut()
+        )
+      );
+    } finally {
+      abortScope.dispose();
+    }
+  }
+}
+
+class OpenAiCompatibleChatAnswerRuntimeHttpFailure extends Error {
+  public constructor(readonly status: number) {
+    super("OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_HTTP_FAILURE");
+  }
+}
+
+function createTransportAbortScope(
+  upstream: AbortSignal | undefined,
+  timeoutMs: number
+): {
+  readonly signal: AbortSignal;
+  readonly timedOut: () => boolean;
+  readonly dispose: () => void;
+} {
+  const controller = new AbortController();
+  let didTimeout = false;
+  const abortFromUpstream = () => controller.abort();
+  if (upstream?.aborted) {
+    controller.abort();
+  } else {
+    upstream?.addEventListener("abort", abortFromUpstream, { once: true });
+  }
+  const timeout = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    timedOut: () => didTimeout,
+    dispose: () => {
+      clearTimeout(timeout);
+      upstream?.removeEventListener("abort", abortFromUpstream);
+    }
+  };
 }
 
 export function listOpenAiCompatibleChatAnswerRuntimeProfiles():
@@ -394,6 +641,56 @@ export function createOpenAiCompatibleChatAnswerRuntimeCompletionRequest(
   };
 }
 
+export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
+  request: ChatAnswerRequest,
+  profileId: OpenAiCompatibleChatAnswerRuntimeProfileId
+): OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
+  const parsed = ChatAnswerRequestSchema.parse(request);
+  const profile = getOpenAiCompatibleChatAnswerRuntimeProfile(profileId);
+  if (parsed.providerId !== profile.providerId) {
+    throw new Error(
+      "OPENAI_COMPATIBLE_CHAT_ANSWER_RUNTIME_PROVIDER_MISMATCH"
+    );
+  }
+
+  return {
+    model: profile.modelId,
+    messages: [
+      {
+        role: "system",
+        content: [
+          "Answer the user's benign question directly as plain text.",
+          "Do not call tools, functions, plugins, or actions.",
+          "Do not include credentials, URLs with query strings, command lines, or raw provider metadata.",
+          "If a tool call would be needed, answer that the request is unsupported in this text-only streaming path.",
+          "Keep the answer concise and user-facing.",
+          ...(profile.family === "deepseek"
+            ? ["Put final answer text in delta.content only; do not use reasoning_content."]
+            : []),
+          ...(parsed.preferenceProjection?.preferredResponseLanguage === "zh"
+            ? ["Use Chinese answer text."]
+            : []),
+          ...(parsed.preferenceProjection?.preferredResponseLength === "short"
+            ? ["Keep the answer short."]
+            : []),
+          ...(parsed.preferenceProjection?.preferredResponseStyle
+            ? [
+                `Use ${parsed.preferenceProjection.preferredResponseStyle} answer style.`
+              ]
+            : [])
+        ].join(" ")
+      },
+      {
+        role: "user",
+        content: parsed.utterance
+      }
+    ],
+    stream: true,
+    temperature: 0,
+    max_tokens: profile.maxOutputTokens
+  };
+}
+
 export function classifyOpenAiCompatibleChatAnswerRuntimeFailure(
   input:
     | { readonly kind: "http"; readonly status: number }
@@ -426,6 +723,116 @@ function parseResponseBody(text: string): unknown {
   } catch {
     return {};
   }
+}
+
+type StreamingChunkParseResult =
+  | { readonly type: "empty" }
+  | { readonly type: "delta"; readonly text: string }
+  | { readonly type: "tool_call" }
+  | { readonly type: "malformed" };
+
+function parseOpenAiCompatibleStreamingChunk(
+  chunk: unknown
+): StreamingChunkParseResult {
+  if (!isRecord(chunk) || !Array.isArray(chunk.choices)) {
+    return { type: "malformed" };
+  }
+  const choice = chunk.choices[0];
+  if (!isRecord(choice)) {
+    return { type: "empty" };
+  }
+  const delta = choice.delta;
+  if (!isRecord(delta)) {
+    return { type: "empty" };
+  }
+  if (hasOwn(delta, "tool_calls") || hasOwn(delta, "function_call")) {
+    return { type: "tool_call" };
+  }
+  const content = delta.content;
+  if (typeof content !== "string") {
+    return { type: "empty" };
+  }
+  const normalized = content.replace(/\s+/gu, " ");
+  if (normalized.length === 0) {
+    return { type: "empty" };
+  }
+  return { type: "delta", text: normalized };
+}
+
+function drainSseEvents(buffer: string): {
+  readonly events: string[];
+  readonly remainder: string;
+} {
+  const parts = buffer.split(/\r?\n\r?\n/u);
+  const remainder = parts.pop() ?? "";
+  const events = parts
+    .map((part) =>
+      part
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice("data:".length).trim())
+        .join("\n")
+    )
+    .filter((part) => part.length > 0);
+  return { events, remainder };
+}
+
+function adapterFailure(
+  reason: AssistantProviderFailureReason,
+  safeMessage: string,
+  retryable: boolean
+): AssistantModelAdapterEvent {
+  return AssistantModelAdapterEventSchema.parse({
+    type: "failure",
+    reason: AssistantProviderFailureReasonSchema.parse(reason),
+    safeMessage,
+    retryable
+  });
+}
+
+function classifyStreamingProviderFailure(
+  error: unknown,
+  aborted: boolean
+): AssistantProviderFailureReason {
+  if (aborted) {
+    return "cancelled";
+  }
+  if (error instanceof OpenAiCompatibleChatAnswerRuntimeHttpFailure) {
+    if (error.status === 401) {
+      return "authentication_failed";
+    }
+    if (error.status === 403) {
+      return "access_forbidden";
+    }
+    if (error.status === 429) {
+      return "rate_limited";
+    }
+    if (error.status === 408 || error.status === 504) {
+      return "provider_timeout";
+    }
+    if (error.status === 404 || error.status === 503) {
+      return "provider_unavailable";
+    }
+    return "transport_failed";
+  }
+  if (
+    error instanceof OpenAiCompatibleChatAnswerRuntimeTransportFailure &&
+    error.category === "timeout"
+  ) {
+    return "provider_timeout";
+  }
+  if (error instanceof SyntaxError) {
+    return "malformed_response";
+  }
+  if (error instanceof TypeError) {
+    return "transport_failed";
+  }
+  return "unknown_provider_failure";
+}
+
+function isUnsafeStreamText(value: string): boolean {
+  return SECRET_PATTERN.test(value) || EXECUTION_SHAPED_OUTPUT_PATTERN.test(value);
 }
 
 function failureResult(
@@ -470,7 +877,11 @@ function isCredential(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOwn(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
 }
 
 export const GLM_CHAT_ANSWER_RUNTIME_PROFILE_ID =

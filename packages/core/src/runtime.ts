@@ -1,5 +1,6 @@
 import {
   AppEvent,
+  AssistantTurnProjection,
   BrainAlphaHardening,
   BrainAlphaHardeningSchema,
   BrainAlphaMemoryContext,
@@ -131,6 +132,10 @@ import {
   type VoiceRegressionRepository,
 } from "./voice-regression-service";
 import { ChatDispatchService } from "./chat-dispatch-service";
+import {
+  AssistantRuntime,
+  isAssistantTextModelAdapter,
+} from "./assistant-runtime";
 import {
   CommandRoutingService,
   type CommandRoutingOutcome as CoreBrainRoutingOutcome,
@@ -493,6 +498,8 @@ export class CoreRuntime {
   private readonly taskDispatchService: TaskDispatchService | undefined;
   private readonly pluginInvocationService: PluginInvocationService;
   private readonly voiceResolutionService: VoiceResolutionService;
+  private readonly assistantRuntime: AssistantRuntime;
+  private assistantTurn: AssistantTurnProjection | undefined;
   private readonly chatDispatchService: ChatDispatchService;
   private readonly commandRoutingService: CommandRoutingService;
   private readonly memoryRecallService: MemoryRecallService;
@@ -602,6 +609,22 @@ export class CoreRuntime {
       provider: this.chatAnswerProvider,
       options: this.chatAnswer,
       preferenceRepository: this.userPreferenceMemoryRepository,
+      now: this.now,
+    });
+    this.assistantRuntime = new AssistantRuntime({
+      getProviderId: () =>
+        this.chatAnswer?.providerId ?? "chat-answer.unconfigured",
+      getModelAdapter: () =>
+        isAssistantTextModelAdapter(this.chatAnswerProvider)
+          ? this.chatAnswerProvider
+          : undefined,
+      persistFinalMessage: (text, conversationId) =>
+        this.persistAssistantFinalMessage(text, conversationId),
+      publishProjection: (projection, correlationId) => {
+        this.assistantTurn = projection;
+        this.publishSnapshot(correlationId);
+      },
+      createId,
       now: this.now,
     });
     this.memoryRecallService = new MemoryRecallService({
@@ -795,6 +818,7 @@ export class CoreRuntime {
           }
         : {}),
       messages: this.messages.map((message) => ({ ...message })),
+      ...(this.assistantTurn ? { assistantTurn: this.assistantTurn } : {}),
       conversations: this.conversations.map((conversation) => ({
         ...conversation,
       })),
@@ -862,6 +886,10 @@ export class CoreRuntime {
 
       case "agent.runBrainCommand": {
         return this.handleBrainCommand(envelope);
+      }
+
+      case "agent.cancelAssistantTurn": {
+        return this.cancelAssistantTurn(envelope);
       }
 
       case "agent.confirmVoiceCommandCorrection": {
@@ -1930,6 +1958,16 @@ export class CoreRuntime {
         ? {}
         : { conversationId: payload.conversationId }),
     });
+    const shouldStreamAssistant =
+      this.shouldStartStreamingAssistantTurn(payload.source, routing.decision);
+    if (shouldStreamAssistant && this.assistantRuntime.hasActiveTurn()) {
+      return this.failure(envelope, {
+        code: "ASSISTANT_TURN_ALREADY_ACTIVE",
+        message:
+          "An assistant answer is still being generated. Cancel it before sending another question.",
+        retryable: false,
+      });
+    }
     const accepted = await this.acceptMessage({
       envelope,
       role: "user",
@@ -1943,6 +1981,92 @@ export class CoreRuntime {
     });
     if (!accepted.ok) {
       return accepted.result;
+    }
+
+    if (shouldStreamAssistant) {
+      const preferenceProjection =
+        await this.chatDispatchService.resolvePreferenceProjection();
+      const started = this.assistantRuntime.startTextTurn({
+        assistantInput: {
+          kind: "text",
+          text: routingText,
+          source:
+            payload.source === "voice" ? "voice_transcript" : "user",
+          conversationId: accepted.message.conversationId,
+        },
+        source: payload.source,
+        text: routingText,
+        decision: routing.decision,
+        conversationId: accepted.message.conversationId,
+        correlationId: envelope.correlationId,
+        preferenceProjection,
+      });
+      if (!started.ok) {
+        return this.failure(envelope, {
+          code: started.code,
+          message: started.message,
+          retryable: started.code === "ASSISTANT_PROVIDER_UNAVAILABLE",
+        });
+      }
+
+      const runningPlan = this.runningBrainPlan(
+        this.brainPlan(routing.decision.intent),
+      );
+      const toolProductLoop = await this.createBrainToolProductLoop({
+        source: payload.source,
+        decision: routing.decision,
+        planning,
+        dispatchStatus: "running",
+      });
+      const alphaHardening = this.createBrainAlphaHardening({
+        source: payload.source,
+        decision: routing.decision,
+        toolProductLoop,
+        dispatchStatus: "running",
+        ...(accepted.memoryRecall ? { memoryRecall: accepted.memoryRecall } : {}),
+      });
+      this.appendSessionHistory({
+        source: payload.source,
+        decision: routing.decision,
+        toolProductLoop,
+        dispatchStatus: "running",
+        alphaHardening,
+      });
+      const brainResult = BrainCommandResultSchema.parse({
+        source: payload.source,
+        text: payload.text,
+        ...(voiceCorrection
+          ? {
+              rawTranscript: voiceCorrection.rawTranscript,
+              normalizedTranscript: voiceCorrection.normalizedTranscript,
+              voiceInputMode: voiceCorrection.inputMode,
+              voiceInputModeSource: voiceCorrection.inputModeSource,
+              correctionSource: voiceCorrection.correctionSource,
+              correctionConfidence: voiceCorrection.correctionConfidence,
+              correctionCandidates: voiceCorrection.correctionCandidates,
+              voiceCorrection,
+            }
+          : {}),
+        routedAt: this.now().toISOString(),
+        decision: routing.decision,
+        routerSelection: routing.selection,
+        plannerSelection: planning.selection,
+        ...(planning.result ? { plannerResult: planning.result } : {}),
+        plan: runningPlan,
+        dispatchStatus: "running",
+        summary: "Assistant answer is being generated.",
+        messageId: accepted.message.id,
+        assistantTurnId: started.turnId,
+        toolProductLoop,
+        alphaHardening,
+        ...(accepted.memoryRecall ? { memoryRecall: accepted.memoryRecall } : {}),
+      });
+      await this.captureVoiceRegressionResolution({
+        voiceCorrection,
+        asrProviderId: payload.asrProviderId,
+        resolverLatencyMs: voiceResolverLatencyMs,
+      });
+      return this.success(envelope, { brain: brainResult });
     }
 
     const dispatched = await this.dispatchBrainIntent({
@@ -4439,6 +4563,45 @@ export class CoreRuntime {
     return this.chatDispatchService.dispatch(input);
   }
 
+  private shouldStartStreamingAssistantTurn(
+    source: "text" | "voice",
+    decision: BrainRouterDecision,
+  ): boolean {
+    return (
+      source === "text" &&
+      decision.intent === "chat.answer" &&
+      this.chatAnswer?.enabled === true &&
+      isAssistantTextModelAdapter(this.chatAnswerProvider)
+    );
+  }
+
+  private async cancelAssistantTurn(
+    envelope: CommandEnvelope,
+  ): Promise<CommandResult> {
+    if (envelope.command.type !== "agent.cancelAssistantTurn") {
+      return this.failure(envelope, {
+        code: "ASSISTANT_COMMAND_INVALID",
+        message: "Assistant turn cancellation received an unsupported command.",
+        retryable: false,
+      });
+    }
+    const result = this.assistantRuntime.cancel(envelope.command.payload.turnId);
+    if (!result.ok) {
+      return this.failure(envelope, {
+        code: result.code,
+        message: result.message,
+        retryable: false,
+      });
+    }
+    this.assistantTurn = this.assistantRuntime.getProjection();
+    this.publishSnapshot(envelope.correlationId);
+    return this.success(envelope, {
+      turnId: result.turnId,
+      status: result.status,
+      directActionAttempted: false,
+    });
+  }
+
   private async createBrainToolProductLoop(input: {
     source: "text" | "voice";
     decision: BrainRouterDecision;
@@ -5692,7 +5855,9 @@ export class CoreRuntime {
           ? "completed"
           : input.dispatchStatus === "needs_approval"
             ? "needs_confirmation"
-            : input.dispatchStatus,
+            : input.dispatchStatus === "running"
+              ? "pending"
+              : input.dispatchStatus,
       label: "Projected UI result",
     });
     return steps.slice(0, 12);
@@ -5946,6 +6111,12 @@ export class CoreRuntime {
   private completeBrainPlan(plan: BrainPlanStep[]): BrainPlanStep[] {
     return plan.map((step) =>
       step.id === "dispatch" ? { ...step, status: "completed" } : step,
+    );
+  }
+
+  private runningBrainPlan(plan: BrainPlanStep[]): BrainPlanStep[] {
+    return plan.map((step) =>
+      step.id === "dispatch" ? { ...step, status: "running" } : step,
     );
   }
 
@@ -6312,6 +6483,31 @@ export class CoreRuntime {
       message,
       ...(memoryRecall ? { memoryRecall } : {}),
     };
+  }
+
+  private async persistAssistantFinalMessage(
+    text: string,
+    conversationId: string,
+  ): Promise<Message> {
+    const message: Message = {
+      id: createId("msg"),
+      conversationId,
+      role: "assistant",
+      text,
+      createdAt: this.now().toISOString(),
+    };
+    if (this.memoryRepository) {
+      await this.memoryRepository.appendMessage(message);
+      if (!this.activeConversationId) {
+        await this.memoryRepository.setActiveConversationId(conversationId);
+      }
+      await this.refreshConversationState();
+      this.health = "ready";
+    } else {
+      this.upsertLocalConversationForMessage(message);
+    }
+    this.messages.push(message);
+    return message;
   }
 
   private async retrieveMemoryRecallForAcceptedMessage(

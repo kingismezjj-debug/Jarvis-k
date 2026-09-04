@@ -1,13 +1,9 @@
 import { z } from "zod";
-import {
-  ConversationSchema,
-  MessageSchema,
-  TaskSchema,
-} from "./protocol";
 import { ToolIdSchema, ToolRiskSchema } from "./tool-protocol";
 
 export const ASSISTANT_LOOP_CONTRACT_VERSION = 1 as const;
 export const ASSISTANT_LOOP_MAX_TOOL_ITERATIONS = 4 as const;
+export const ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS = 8_000 as const;
 
 const ReferenceIdSchema = z.string().trim().min(1).max(128);
 const ReasonCodeSchema = z.string().regex(/^[A-Z0-9_:. -]{1,160}$/u);
@@ -96,6 +92,22 @@ export const ToolExecutionIdSchema = z
   .max(128)
   .brand<"ToolExecutionId">();
 export type ToolExecutionId = z.infer<typeof ToolExecutionIdSchema>;
+
+export const AssistantProviderFailureReasonSchema = z.enum([
+  "authentication_failed",
+  "access_forbidden",
+  "rate_limited",
+  "provider_unavailable",
+  "provider_timeout",
+  "malformed_response",
+  "unsupported_tool_call",
+  "cancelled",
+  "transport_failed",
+  "unknown_provider_failure",
+]);
+export type AssistantProviderFailureReason = z.infer<
+  typeof AssistantProviderFailureReasonSchema
+>;
 
 export type AssistantJsonValue =
   | string
@@ -385,6 +397,32 @@ export const CancellationReasonSchema = z
   .strict();
 export type CancellationReason = z.infer<typeof CancellationReasonSchema>;
 
+export const AssistantModelAdapterEventSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("delta"),
+      delta: AssistantStreamDeltaSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("final"),
+      text: safePublicString(20_000),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("failure"),
+      reason: AssistantProviderFailureReasonSchema,
+      safeMessage: safePublicString(1_000),
+      retryable: z.boolean(),
+    })
+    .strict(),
+]);
+export type AssistantModelAdapterEvent = z.infer<
+  typeof AssistantModelAdapterEventSchema
+>;
+
 const AssistantEventMetaSchema = z
   .object({
     eventId: AssistantEventIdSchema,
@@ -557,7 +595,7 @@ export const AssistantTurnProjectionSchema = z
     createdAt: z.string().datetime().optional(),
     updatedAt: z.string().datetime().optional(),
     activeProviderAdapterId: ReferenceIdSchema.optional(),
-    streamText: z.string().max(8_000).default(""),
+    streamText: z.string().max(ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS).default(""),
     toolIterationCount: z.number().int().min(0).max(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS),
     proposals: z.array(ProposalProjectionSchema).max(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS),
     executions: z.array(ExecutionProjectionSchema).max(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS),
@@ -589,9 +627,9 @@ export const AssistantLoopFoundationCompatibilitySchema = z
     parallelTaskRuntimeIntroduced: z.literal(false),
     parallelApprovalRuntimeIntroduced: z.literal(false),
     providerRawPayloadInPublicContracts: z.literal(false),
-    conversationSchemaReusable: ConversationSchema.optional(),
-    messageSchemaReusable: MessageSchema.optional(),
-    taskSchemaReusable: TaskSchema.optional(),
+    conversationSchemaReusedByReference: z.literal(true).default(true),
+    messageSchemaReusedByReference: z.literal(true).default(true),
+    taskSchemaReusedByReference: z.literal(true).default(true),
   })
   .strict();
 export type AssistantLoopFoundationCompatibility = z.infer<
