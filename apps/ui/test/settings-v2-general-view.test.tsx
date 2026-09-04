@@ -85,6 +85,63 @@ const answerProviderConfigurationStatus = {
   reasonCodes: ["CHAT_ANSWER_PROVIDER_CONFIGURED_UNTESTED"],
 } as ChatAnswerProviderConfigurationStatus;
 
+const answerProviderConnectionMessages = [
+  {
+    status: "success",
+    en: "Connection succeeded. You can enable the online answer service.",
+    zh: "连接成功，可以启用在线回答服务。",
+  },
+  {
+    status: "authentication_failed",
+    en: "Authentication failed. Check the key and try again.",
+    zh: "身份验证失败，请检查密钥后重试。",
+  },
+  {
+    status: "access_forbidden",
+    en: "The current credential cannot use this service or model.",
+    zh: "当前凭据无权使用该服务或模型。",
+  },
+  {
+    status: "rate_limited",
+    en: "Requests are too frequent or quota-limited. Try again later.",
+    zh: "请求过于频繁或额度受限，请稍后重试。",
+  },
+  {
+    status: "model_not_found",
+    en: "The configured model was not found. Check the model name.",
+    zh: "找不到所配置的模型，请检查模型名称。",
+  },
+  {
+    status: "endpoint_unreachable",
+    en: "Cannot reach the online service. Check the service address and network.",
+    zh: "无法连接在线服务，请检查服务地址和网络。",
+  },
+  {
+    status: "provider_timeout",
+    en: "The online service timed out. Try again later.",
+    zh: "在线服务响应超时，请稍后重试。",
+  },
+  {
+    status: "malformed_response",
+    en: "The online service returned a response Jarvis-K could not recognize.",
+    zh: "在线服务返回了无法识别的响应。",
+  },
+  {
+    status: "tls_or_certificate_error",
+    en: "Jarvis-K could not verify the secure connection to the online service.",
+    zh: "无法验证在线服务的安全连接。",
+  },
+  {
+    status: "unknown_failure",
+    en: "Connection test failed. Check the configuration and try again.",
+    zh: "连接测试失败，请检查配置后重试。",
+  },
+] as const satisfies readonly {
+  readonly status: ChatAnswerProviderConfigurationStatus["connectionTestStatus"];
+  readonly en: string;
+  readonly zh: string;
+}[];
+
 const modelManifest = {
   id: "Qwen/Qwen3-0.6B",
   capability: "intent_router",
@@ -1269,6 +1326,81 @@ describe("Settings V2 General view", () => {
     expect(html).not.toContain("ChatAnswerProvider");
     expect(html).not.toContain("CoreHost");
     expect(html).not.toContain("startTextTurn");
+  });
+
+  it.each(answerProviderConnectionMessages)(
+    "renders safe Chat Answer connection test category copy for $status",
+    ({ status, en, zh }) => {
+      const english = renderView({
+        initialCategoryId: "models_intelligence",
+        chatAnswerProductModeStatus: answerProviderStatus,
+        chatAnswerProviderConfigurationStatus: {
+          ...answerProviderConfigurationStatus,
+          connectionTestStatus: status,
+        },
+        commandRouterProductModeStatus: commandRouterStatus,
+        initialAnswerProviderConfigurationOpen: true,
+      });
+      const chinese = renderView({
+        locale: "zh",
+        initialCategoryId: "models_intelligence",
+        chatAnswerProductModeStatus: answerProviderStatus,
+        chatAnswerProviderConfigurationStatus: {
+          ...answerProviderConfigurationStatus,
+          connectionTestStatus: status,
+        },
+        commandRouterProductModeStatus: commandRouterStatus,
+        initialAnswerProviderConfigurationOpen: true,
+      });
+
+      expect(english).toContain(en);
+      expect(chinese).toContain(zh);
+      for (const forbidden of [
+        "test-deepseek-key",
+        "Authorization",
+        "Bearer",
+        "raw response",
+        "stack trace",
+        "connectionTestStatus",
+        "authentication_failed",
+        "endpoint_unreachable",
+      ]) {
+        expect(english).not.toContain(forbidden);
+        expect(chinese).not.toContain(forbidden);
+      }
+    },
+  );
+
+  it("keeps Chat Answer connection test controls accessible and stateful", () => {
+    const testing = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: answerProviderStatus,
+      chatAnswerProviderConfigurationStatus: {
+        ...answerProviderConfigurationStatus,
+        connectionTestStatus: "testing",
+        connectionTestAttemptId: "chat_answer_connection_test_render01",
+      },
+      commandRouterProductModeStatus: commandRouterStatus,
+      initialAnswerProviderConfigurationOpen: true,
+    });
+    expect(testing).toContain("Testing the saved service with one minimal request.");
+    expect(testing).toContain("disabled");
+
+    const failed = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: answerProviderStatus,
+      chatAnswerProviderConfigurationStatus: {
+        ...answerProviderConfigurationStatus,
+        connectionTestStatus: "unknown_failure",
+      },
+      commandRouterProductModeStatus: commandRouterStatus,
+      initialAnswerProviderConfigurationOpen: true,
+    });
+    expect(failed).toContain(
+      "Connection test failed. Check the configuration and try again.",
+    );
+    expect(failed).toContain("Enable</button>");
+    expect(failed).toContain("disabled");
   });
 
   it("includes Models & Intelligence in product search results with current values", () => {

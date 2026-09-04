@@ -436,6 +436,10 @@ export const ChatAnswerProviderConfigurationStatusSchema = z
     credentialExposed: z.literal(false),
     publicConfiguration: ChatAnswerProviderPublicConfigurationSchema.optional(),
     connectionTestStatus: ChatAnswerProviderConnectionTestStatusSchema,
+    connectionTestAttemptId: z
+      .string()
+      .regex(/^chat_answer_connection_test_[A-Za-z0-9_-]{8,80}$/u)
+      .optional(),
     connectionTestedAt: z.string().datetime().optional(),
     networkRequestRequiredForTest: z.literal(true),
     lastOperationMessage: z.string().min(1).max(500).optional(),
@@ -493,6 +497,9 @@ export const ChatAnswerProviderConnectionTestRequestSchema = z
   .object({
     providerId: ChatAnswerProviderIdSchema,
     userConfirmedNetworkRequest: z.literal(true),
+    connectionTestAttemptId: z
+      .string()
+      .regex(/^chat_answer_connection_test_[A-Za-z0-9_-]{8,80}$/u),
   })
   .strict();
 export type ChatAnswerProviderConnectionTestRequest = z.infer<

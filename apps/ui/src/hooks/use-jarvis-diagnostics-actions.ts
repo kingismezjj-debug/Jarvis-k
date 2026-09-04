@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
+  ChatAnswerProviderConfigurationCommandResultSchema,
   ChatAnswerProviderConfigurationStatusSchema,
   ChatAnswerProductModeStatusSchema,
   CommandRouterLocalAppLaunchResultSchema,
@@ -25,6 +26,9 @@ interface UseJarvisDiagnosticsActionsOptions {
   setChatAnswerProviderConfigurationStatus(
     status: ChatAnswerProviderConfigurationStatus | null,
   ): void;
+  getChatAnswerProviderConfigurationStatusSnapshot?():
+    | ChatAnswerProviderConfigurationStatus
+    | null;
   setCommandRouterProductModeStatus(
     status: CommandRouterProductModeStatus | null,
   ): void;
@@ -40,10 +44,12 @@ export function useJarvisDiagnosticsActions({
   sendCommand,
   setChatAnswerProductModeStatus,
   setChatAnswerProviderConfigurationStatus,
+  getChatAnswerProviderConfigurationStatusSnapshot,
   setCommandRouterProductModeStatus,
   setQwenRuntimeControlStatus,
   setCommandRouterLocalAppLaunchResult,
 }: UseJarvisDiagnosticsActionsOptions) {
+  const activeChatAnswerConnectionTestAttemptId = useRef<string | null>(null);
   const probeCore = useCallback(
     async () =>
       sendCommand({
@@ -161,16 +167,60 @@ export function useJarvisDiagnosticsActions({
   );
 
   const testChatAnswerProviderConnection = useCallback(
-    async () =>
-      applyChatAnswerProviderConfigurationResult(
-        () =>
-          window.jarvis.testChatAnswerProviderConnection({
-            providerId: "chat-answer.openai-compatible.deepseek",
-            userConfirmedNetworkRequest: true,
-          }),
-        "Online answer service connection test could not run.",
-      ),
-    [applyChatAnswerProviderConfigurationResult],
+    async () => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      const attemptId = createChatAnswerConnectionTestAttemptId();
+      activeChatAnswerConnectionTestAttemptId.current = attemptId;
+      const currentStatus = getChatAnswerProviderConfigurationStatusSnapshot?.();
+      if (currentStatus) {
+        setChatAnswerProviderConfigurationStatus({
+          ...currentStatus,
+          connectionTestStatus: "testing",
+          connectionTestAttemptId: attemptId,
+          reasonCodes: ["CHAT_ANSWER_PROVIDER_CONNECTION_TESTING"],
+        });
+      }
+      setSending(true);
+      try {
+        const result = await window.jarvis.testChatAnswerProviderConnection({
+          providerId: "chat-answer.openai-compatible.deepseek",
+          userConfirmedNetworkRequest: true,
+          connectionTestAttemptId: attemptId,
+        });
+        const parsedResult =
+          ChatAnswerProviderConfigurationCommandResultSchema.parse(result);
+        if (
+          parsedResult.status.connectionTestAttemptId !== attemptId ||
+          activeChatAnswerConnectionTestAttemptId.current !== attemptId
+        ) {
+          return true;
+        }
+        setChatAnswerProviderConfigurationStatus(parsedResult.status);
+        await refreshChatAnswerProductModeStatus();
+        setError(null);
+        return true;
+      } catch {
+        if (activeChatAnswerConnectionTestAttemptId.current === attemptId) {
+          setError("Online answer service connection test could not run.");
+        }
+        return false;
+      } finally {
+        if (activeChatAnswerConnectionTestAttemptId.current === attemptId) {
+          activeChatAnswerConnectionTestAttemptId.current = null;
+        }
+        setSending(false);
+      }
+    },
+    [
+      getChatAnswerProviderConfigurationStatusSnapshot,
+      refreshChatAnswerProductModeStatus,
+      setChatAnswerProviderConfigurationStatus,
+      setError,
+      setSending,
+    ],
   );
 
   const setChatAnswerProviderConfigurationEnabled = useCallback(
@@ -367,4 +417,12 @@ export function useJarvisDiagnosticsActions({
     setQwenRuntimeControlAction,
     testChatAnswerProviderConnection,
   };
+}
+
+function createChatAnswerConnectionTestAttemptId(): string {
+  const random =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().replace(/-/gu, "")
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  return `chat_answer_connection_test_${random.slice(0, 48)}`;
 }

@@ -196,6 +196,18 @@ export type SettingsV2CopyKey =
   | "settings.models.answerProvider.test.malformed_response"
   | "settings.models.answerProvider.test.tls_or_certificate_error"
   | "settings.models.answerProvider.test.unknown_failure"
+  | "settings.models.answerProvider.testMessage.not_tested"
+  | "settings.models.answerProvider.testMessage.testing"
+  | "settings.models.answerProvider.testMessage.success"
+  | "settings.models.answerProvider.testMessage.authentication_failed"
+  | "settings.models.answerProvider.testMessage.access_forbidden"
+  | "settings.models.answerProvider.testMessage.rate_limited"
+  | "settings.models.answerProvider.testMessage.model_not_found"
+  | "settings.models.answerProvider.testMessage.endpoint_unreachable"
+  | "settings.models.answerProvider.testMessage.provider_timeout"
+  | "settings.models.answerProvider.testMessage.malformed_response"
+  | "settings.models.answerProvider.testMessage.tls_or_certificate_error"
+  | "settings.models.answerProvider.testMessage.unknown_failure"
   | "settings.models.localModels.label"
   | "settings.models.localModels.description"
   | "settings.models.localModels.refresh"
@@ -659,6 +671,30 @@ export const settingsV2Copy: Record<
       "Secure connection failed",
     "settings.models.answerProvider.test.unknown_failure":
       "Could not verify connection",
+    "settings.models.answerProvider.testMessage.not_tested":
+      "Test the connection before enabling online answers.",
+    "settings.models.answerProvider.testMessage.testing":
+      "Testing the saved service with one minimal request.",
+    "settings.models.answerProvider.testMessage.success":
+      "Connection succeeded. You can enable the online answer service.",
+    "settings.models.answerProvider.testMessage.authentication_failed":
+      "Authentication failed. Check the key and try again.",
+    "settings.models.answerProvider.testMessage.access_forbidden":
+      "The current credential cannot use this service or model.",
+    "settings.models.answerProvider.testMessage.rate_limited":
+      "Requests are too frequent or quota-limited. Try again later.",
+    "settings.models.answerProvider.testMessage.model_not_found":
+      "The configured model was not found. Check the model name.",
+    "settings.models.answerProvider.testMessage.endpoint_unreachable":
+      "Cannot reach the online service. Check the service address and network.",
+    "settings.models.answerProvider.testMessage.provider_timeout":
+      "The online service timed out. Try again later.",
+    "settings.models.answerProvider.testMessage.malformed_response":
+      "The online service returned a response Jarvis-K could not recognize.",
+    "settings.models.answerProvider.testMessage.tls_or_certificate_error":
+      "Jarvis-K could not verify the secure connection to the online service.",
+    "settings.models.answerProvider.testMessage.unknown_failure":
+      "Connection test failed. Check the configuration and try again.",
     "settings.models.localModels.label": "Local models",
     "settings.models.localModels.description":
       "Shows installed, selected, and ready local model states from the existing model service.",
@@ -1147,6 +1183,30 @@ export const settingsV2Copy: Record<
     "settings.models.answerProvider.test.tls_or_certificate_error":
       "安全连接失败",
     "settings.models.answerProvider.test.unknown_failure": "无法验证连接",
+    "settings.models.answerProvider.testMessage.not_tested":
+      "启用在线回答服务前，请先测试连接。",
+    "settings.models.answerProvider.testMessage.testing":
+      "正在用一次最小请求测试已保存的服务。",
+    "settings.models.answerProvider.testMessage.success":
+      "连接成功，可以启用在线回答服务。",
+    "settings.models.answerProvider.testMessage.authentication_failed":
+      "身份验证失败，请检查密钥后重试。",
+    "settings.models.answerProvider.testMessage.access_forbidden":
+      "当前凭据无权使用该服务或模型。",
+    "settings.models.answerProvider.testMessage.rate_limited":
+      "请求过于频繁或额度受限，请稍后重试。",
+    "settings.models.answerProvider.testMessage.model_not_found":
+      "找不到所配置的模型，请检查模型名称。",
+    "settings.models.answerProvider.testMessage.endpoint_unreachable":
+      "无法连接在线服务，请检查服务地址和网络。",
+    "settings.models.answerProvider.testMessage.provider_timeout":
+      "在线服务响应超时，请稍后重试。",
+    "settings.models.answerProvider.testMessage.malformed_response":
+      "在线服务返回了无法识别的响应。",
+    "settings.models.answerProvider.testMessage.tls_or_certificate_error":
+      "无法验证在线服务的安全连接。",
+    "settings.models.answerProvider.testMessage.unknown_failure":
+      "连接测试失败，请检查配置后重试。",
     "settings.models.localModels.label": "本地模型",
     "settings.models.localModels.description":
       "从现有模型服务读取本机安装、已选择和当前就绪状态。",

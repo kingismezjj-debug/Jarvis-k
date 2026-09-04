@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ChatAnswerProviderConfigurationSaveRequestSchema,
   ChatAnswerProviderConfigurationStatusSchema,
+  ChatAnswerProviderConnectionTestRequestSchema,
   ChatAnswerProviderCredentialReplaceRequestSchema,
   ChatAnswerPreferenceProjectionSchema,
   ChatAnswerRequestSchema,
@@ -161,6 +162,7 @@ describe("Chat Answer contracts", () => {
         modelId: "deepseek-v4-flash"
       },
       connectionTestStatus: "success",
+      connectionTestAttemptId: "chat_answer_connection_test_contract01",
       connectionTestedAt: "2026-09-04T00:00:00.000Z",
       networkRequestRequiredForTest: true,
       reasonCodes: ["CHAT_ANSWER_PROVIDER_CONNECTION_TESTED"]
@@ -168,6 +170,41 @@ describe("Chat Answer contracts", () => {
 
     expect(JSON.stringify(status)).not.toContain("apiKey");
     expect(JSON.stringify(status)).not.toContain("Bearer");
+  });
+
+  it("accepts only bounded Chat Answer connection test attempt correlation", () => {
+    expect(
+      ChatAnswerProviderConnectionTestRequestSchema.parse({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        userConfirmedNetworkRequest: true,
+        connectionTestAttemptId: "chat_answer_connection_test_contract01"
+      })
+    ).toMatchObject({
+      connectionTestAttemptId: "chat_answer_connection_test_contract01"
+    });
+    expect(() =>
+      ChatAnswerProviderConnectionTestRequestSchema.parse({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        userConfirmedNetworkRequest: true,
+        connectionTestAttemptId: "http_status_401_raw_body"
+      })
+    ).toThrow();
+    expect(() =>
+      ChatAnswerProviderConfigurationStatusSchema.parse({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        providerLabel: "DeepSeek",
+        protocolLabel: "OpenAI-compatible",
+        configured: true,
+        enabled: false,
+        runtimeArmed: false,
+        secureStorageAvailable: true,
+        credentialConfigured: true,
+        credentialExposed: false,
+        connectionTestStatus: "http_401_raw_failure",
+        networkRequestRequiredForTest: true,
+        reasonCodes: ["CHAT_ANSWER_PROVIDER_CONFIGURED_UNTESTED"]
+      })
+    ).toThrow();
   });
 
   it("rejects unknown fields and unsupported Chat Answer provider inputs", () => {

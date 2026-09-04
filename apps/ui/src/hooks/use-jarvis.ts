@@ -267,6 +267,18 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     },
     [],
   );
+  const chatAnswerProviderConfigurationStatusRef =
+    useRef<ChatAnswerProviderConfigurationStatus | null>(
+      chatAnswerProviderConfigurationStatus,
+    );
+  useEffect(() => {
+    chatAnswerProviderConfigurationStatusRef.current =
+      chatAnswerProviderConfigurationStatus;
+  }, [chatAnswerProviderConfigurationStatus]);
+  const getChatAnswerProviderConfigurationStatusSnapshot = useCallback(
+    () => chatAnswerProviderConfigurationStatusRef.current,
+    [],
+  );
   const setCommandRouterProductModeStatus = useCallback(
     (status: CommandRouterProductModeStatus | null) => {
       dispatchDiagnosticsState({
@@ -1019,6 +1031,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     sendCommand,
     setChatAnswerProductModeStatus,
     setChatAnswerProviderConfigurationStatus,
+    getChatAnswerProviderConfigurationStatusSnapshot,
     setCommandRouterProductModeStatus,
     setQwenRuntimeControlStatus,
     setCommandRouterLocalAppLaunchResult,

@@ -97,6 +97,7 @@ export class SettingsService {
   private chatAnswerProductModeRuntimeArmed = false;
   private chatAnswerProviderConnectionTest: {
     status: ChatAnswerProviderConnectionTestStatus;
+    attemptId?: string;
     testedAt?: string;
   } = { status: "not_tested" };
   private desktopSettings: DesktopSettings;
@@ -771,12 +772,16 @@ export class SettingsService {
         "Save the online answer service and key before testing.",
       );
     }
-    this.chatAnswerProviderConnectionTest = { status: "testing" };
+    this.chatAnswerProviderConnectionTest = {
+      status: "testing",
+      attemptId: parsed.data.connectionTestAttemptId,
+    };
     try {
       const status =
         await this.options.testChatAnswerProviderConnection(configuration);
       this.chatAnswerProviderConnectionTest = {
         status,
+        attemptId: parsed.data.connectionTestAttemptId,
         ...(status === "success" ? { testedAt: new Date().toISOString() } : {}),
       };
       return {
@@ -788,7 +793,10 @@ export class SettingsService {
         ),
       };
     } catch {
-      this.chatAnswerProviderConnectionTest = { status: "unknown_failure" };
+      this.chatAnswerProviderConnectionTest = {
+        status: "unknown_failure",
+        attemptId: parsed.data.connectionTestAttemptId,
+      };
       return {
         ok: false,
         status: await this.buildChatAnswerProviderConfigurationStatus(
@@ -915,6 +923,12 @@ export class SettingsService {
           }
         : {}),
       connectionTestStatus: this.chatAnswerProviderConnectionTest.status,
+      ...(this.chatAnswerProviderConnectionTest.attemptId
+        ? {
+            connectionTestAttemptId:
+              this.chatAnswerProviderConnectionTest.attemptId,
+          }
+        : {}),
       ...(this.chatAnswerProviderConnectionTest.testedAt
         ? { connectionTestedAt: this.chatAnswerProviderConnectionTest.testedAt }
         : {}),

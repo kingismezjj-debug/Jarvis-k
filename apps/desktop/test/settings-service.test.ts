@@ -30,7 +30,14 @@ function createSettingsService(input: {
   testConnectionResult?:
     | "success"
     | "authentication_failed"
-    | "endpoint_unreachable";
+    | "access_forbidden"
+    | "rate_limited"
+    | "model_not_found"
+    | "endpoint_unreachable"
+    | "provider_timeout"
+    | "malformed_response"
+    | "tls_or_certificate_error"
+    | "unknown_failure";
   evaluationCapabilityAvailable?: boolean;
   cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
@@ -232,10 +239,14 @@ describe("SettingsService", () => {
       service.testChatAnswerProviderConnection({
         providerId: "chat-answer.openai-compatible.deepseek",
         userConfirmedNetworkRequest: true,
+        connectionTestAttemptId: "chat_answer_connection_test_success01",
       }),
     ).resolves.toMatchObject({
       ok: true,
-      status: { connectionTestStatus: "success" },
+      status: {
+        connectionTestStatus: "success",
+        connectionTestAttemptId: "chat_answer_connection_test_success01",
+      },
     });
 
     await expect(
@@ -262,6 +273,120 @@ describe("SettingsService", () => {
     });
   });
 
+  it.each([
+    "authentication_failed",
+    "access_forbidden",
+    "rate_limited",
+    "model_not_found",
+    "endpoint_unreachable",
+    "provider_timeout",
+    "malformed_response",
+    "tls_or_certificate_error",
+    "unknown_failure",
+  ] as const)(
+    "preserves safe Chat Answer connection test category %s without enabling runtime",
+    async (testConnectionResult) => {
+      const { configureChatAnswerProductMode, service } = createSettingsService({
+        testConnectionResult,
+      });
+
+      await service.saveChatAnswerProviderConfiguration({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        serviceUrl: "https://api.deepseek.com/chat/completions",
+        modelId: "deepseek-v4-flash",
+      });
+      await service.replaceChatAnswerProviderCredential({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        apiKey: "test-deepseek-key",
+      });
+
+      const result = await service.testChatAnswerProviderConnection({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        userConfirmedNetworkRequest: true,
+        connectionTestAttemptId: "chat_answer_connection_test_failure01",
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        status: {
+          connectionTestStatus: testConnectionResult,
+          connectionTestAttemptId: "chat_answer_connection_test_failure01",
+          enabled: false,
+          runtimeArmed: false,
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain("test-deepseek-key");
+      expect(configureChatAnswerProductMode).toHaveBeenLastCalledWith({
+        enabled: false,
+      });
+
+      await expect(
+        service.setChatAnswerProviderConfigurationEnabled({
+          providerId: "chat-answer.openai-compatible.deepseek",
+          enabled: true,
+          requireRecentSuccessfulTest: true,
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        status: {
+          enabled: false,
+          runtimeArmed: false,
+          connectionTestStatus: testConnectionResult,
+        },
+      });
+    },
+  );
+
+  it("invalidates successful Chat Answer connection tests after configuration or key changes", async () => {
+    const { service } = createSettingsService();
+    await service.saveChatAnswerProviderConfiguration({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      serviceUrl: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash",
+    });
+    await service.replaceChatAnswerProviderCredential({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      apiKey: "test-deepseek-key",
+    });
+    await service.testChatAnswerProviderConnection({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      userConfirmedNetworkRequest: true,
+      connectionTestAttemptId: "chat_answer_connection_test_reset01",
+    });
+
+    await expect(
+      service.saveChatAnswerProviderConfiguration({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        serviceUrl: "https://api.deepseek.com/chat/completions",
+        modelId: "deepseek-v4-flash",
+      }),
+    ).resolves.toMatchObject({
+      status: {
+        connectionTestStatus: "not_tested",
+        enabled: false,
+        runtimeArmed: false,
+      },
+    });
+
+    await service.testChatAnswerProviderConnection({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      userConfirmedNetworkRequest: true,
+      connectionTestAttemptId: "chat_answer_connection_test_reset02",
+    });
+    await expect(
+      service.replaceChatAnswerProviderCredential({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        apiKey: "test-deepseek-2-key",
+      }),
+    ).resolves.toMatchObject({
+      status: {
+        connectionTestStatus: "not_tested",
+        enabled: false,
+        runtimeArmed: false,
+      },
+    });
+  });
+
   it("removes Chat Answer configuration and clears the active runtime", async () => {
     const { configureChatAnswerProductMode, service } = createSettingsService({
       configuration: {
@@ -275,6 +400,7 @@ describe("SettingsService", () => {
     await service.testChatAnswerProviderConnection({
       providerId: "chat-answer.openai-compatible.deepseek",
       userConfirmedNetworkRequest: true,
+      connectionTestAttemptId: "chat_answer_connection_test_delete01",
     });
     await service.setChatAnswerProviderConfigurationEnabled({
       providerId: "chat-answer.openai-compatible.deepseek",
@@ -1420,6 +1546,7 @@ describe("SettingsService", () => {
     await service.testChatAnswerProviderConnection({
       providerId: "chat-answer.openai-compatible.deepseek",
       userConfirmedNetworkRequest: true,
+      connectionTestAttemptId: "chat_answer_connection_test_product01",
     });
     const result = await service.setChatAnswerProductModeEnabled({
       enabled: true,

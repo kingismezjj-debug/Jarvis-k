@@ -869,6 +869,13 @@ export function SettingsV2GeneralView({
     locale,
     answerConnectionTestStatus,
   );
+  const answerConnectionTestMessage = getAnswerConnectionTestMessage(
+    locale,
+    answerConnectionTestStatus,
+  );
+  const answerConnectionTestTone = getAnswerConnectionTestTone(
+    answerConnectionTestStatus,
+  );
   const answerServiceUrlValid =
     normalizeAnswerServiceUrl(answerServiceUrl) ===
     "https://api.deepseek.com/chat/completions";
@@ -1626,6 +1633,12 @@ export function SettingsV2GeneralView({
                         locale,
                         "settings.models.answerProvider.testNotice",
                       )}
+                    </InlineNotice>
+                    <InlineNotice
+                      title={answerConnectionTestLabel}
+                      tone={answerConnectionTestTone}
+                    >
+                      {answerConnectionTestMessage}
                     </InlineNotice>
                     <div className="settings-v2-dialog-actions">
                       <Button disabled={!answerCanSave} type="submit">
@@ -2423,6 +2436,50 @@ function getAnswerConnectionTestLabel(
     SettingsV2CopyKey
   >;
   return tSettingsV2(locale, keyByStatus[status]);
+}
+
+function getAnswerConnectionTestMessage(
+  locale: SettingsV2Locale,
+  status: ChatAnswerProviderConfigurationStatus["connectionTestStatus"],
+): string {
+  const keyByStatus = {
+    not_tested: "settings.models.answerProvider.testMessage.not_tested",
+    testing: "settings.models.answerProvider.testMessage.testing",
+    success: "settings.models.answerProvider.testMessage.success",
+    authentication_failed:
+      "settings.models.answerProvider.testMessage.authentication_failed",
+    access_forbidden:
+      "settings.models.answerProvider.testMessage.access_forbidden",
+    rate_limited: "settings.models.answerProvider.testMessage.rate_limited",
+    model_not_found:
+      "settings.models.answerProvider.testMessage.model_not_found",
+    endpoint_unreachable:
+      "settings.models.answerProvider.testMessage.endpoint_unreachable",
+    provider_timeout:
+      "settings.models.answerProvider.testMessage.provider_timeout",
+    malformed_response:
+      "settings.models.answerProvider.testMessage.malformed_response",
+    tls_or_certificate_error:
+      "settings.models.answerProvider.testMessage.tls_or_certificate_error",
+    unknown_failure:
+      "settings.models.answerProvider.testMessage.unknown_failure",
+  } satisfies Record<
+    ChatAnswerProviderConfigurationStatus["connectionTestStatus"],
+    SettingsV2CopyKey
+  >;
+  return tSettingsV2(locale, keyByStatus[status]);
+}
+
+function getAnswerConnectionTestTone(
+  status: ChatAnswerProviderConfigurationStatus["connectionTestStatus"],
+): "info" | "success" | "warning" {
+  if (status === "success") {
+    return "success";
+  }
+  if (status === "not_tested" || status === "testing") {
+    return "info";
+  }
+  return "warning";
 }
 
 function normalizeAnswerServiceUrl(value: string): string | null {
