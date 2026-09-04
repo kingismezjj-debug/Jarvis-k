@@ -2199,6 +2199,7 @@ export const SessionHistoryEntrySchema = z
     dispatchStatus: BrainDispatchStatusSchema,
     confirmation: z.enum(["not_required", "required", "granted", "blocked"]),
     resultStatus: z.enum([
+      "running",
       "completed",
       "blocked",
       "degraded",

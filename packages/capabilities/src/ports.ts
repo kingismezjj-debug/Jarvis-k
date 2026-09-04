@@ -3,6 +3,7 @@ import type {
   DeviceCapability,
   BrainPlannerRequest,
   BrainPlannerResult,
+  AssistantModelAdapterEvent,
   ChatAnswerRequest,
   ChatAnswerResult,
   EmbeddingGenerationRequest,
@@ -190,6 +191,11 @@ export interface HeavyPlannerProvider {
 
 export interface ChatAnswerProvider {
   answer(request: ChatAnswerRequest): Promise<ChatAnswerResult>;
+  startTextTurn?(
+    request: ChatAnswerRequest,
+    context: Record<string, never>,
+    signal: AbortSignal,
+  ): AsyncIterable<AssistantModelAdapterEvent>;
 }
 
 export interface AdvancedReasoningProvider {

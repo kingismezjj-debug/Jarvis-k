@@ -96,6 +96,7 @@ const FAILURE_REASON_CODES: Record<AssistantProviderFailureReason, string> = {
   access_forbidden: "ACCESS_FORBIDDEN",
   rate_limited: "RATE_LIMITED",
   provider_unavailable: "PROVIDER_UNAVAILABLE",
+  streaming_not_supported: "STREAMING_NOT_SUPPORTED",
   provider_timeout: "PROVIDER_TIMEOUT",
   malformed_response: "MALFORMED_RESPONSE",
   unsupported_tool_call: "UNSUPPORTED_TOOL_CALL",

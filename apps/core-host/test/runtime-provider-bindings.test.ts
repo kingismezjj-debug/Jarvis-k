@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ChatAnswerResultSchema } from "@jarvis-k/contracts";
+import {
+  AssistantModelAdapterEventSchema,
+  ChatAnswerResultSchema,
+  type AssistantModelAdapterEvent,
+  type ChatAnswerRequest,
+} from "@jarvis-k/contracts";
 import type { ChatAnswerProvider } from "@jarvis-k/capabilities";
 import {
   DEEPSEEK_CHAT_ANSWER_RUNTIME_256_PROFILE_ID,
@@ -94,6 +99,117 @@ describe("Core Host runtime provider bindings", () => {
     );
   });
 
+  it("forwards configured chat answer streaming capability and abort signals", async () => {
+    let receivedSignal: AbortSignal | undefined;
+    const inner: ChatAnswerProvider = {
+      answer: async (request) =>
+        ChatAnswerResultSchema.parse({
+          providerId: request.providerId,
+          status: "answered",
+          reasonCode: "ANSWERED",
+          failureClass: "none",
+          answer: "one-shot",
+          fallbackUsed: false,
+          directActionAttempted: false,
+          rawProviderResponsePersisted: false,
+          credentialExposed: false,
+          answeredAt: "2026-09-04T00:00:00.000Z",
+        }),
+      async *startTextTurn(
+        _request: ChatAnswerRequest,
+        _context: Record<string, never>,
+        signal: AbortSignal,
+      ) {
+        receivedSignal = signal;
+        yield AssistantModelAdapterEventSchema.parse({
+          type: "delta",
+          delta: { kind: "text", text: "stream" },
+        });
+        yield AssistantModelAdapterEventSchema.parse({
+          type: "final",
+          text: "stream",
+        });
+      },
+    };
+    const provider = new ConfigurableChatAnswerProvider(
+      DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+    );
+    provider.configure(inner);
+    const controller = new AbortController();
+    const events = await collectEvents(
+      provider.startTextTurn!(
+        {
+          providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+          utterance: "ordinary question",
+          source: "text",
+          routedAt: "2026-09-04T00:00:00.000Z",
+          routerDecision: {
+            intent: "chat.answer",
+            confidence: 0.72,
+            requiresApproval: false,
+            slots: {},
+            reason: "Defaulted to a conversational answer route.",
+          },
+        },
+        {},
+        controller.signal,
+      ),
+    );
+
+    expect(events.map((event) => event.type)).toEqual(["delta", "final"]);
+    expect(receivedSignal).toBe(controller.signal);
+    expect(JSON.stringify(events)).not.toContain(placeholderCredential.apiKey);
+  });
+
+  it("classifies configured providers without streaming support explicitly", async () => {
+    const provider = new ConfigurableChatAnswerProvider(
+      DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+    );
+    provider.configure({
+      answer: async (request) =>
+        ChatAnswerResultSchema.parse({
+          providerId: request.providerId,
+          status: "answered",
+          reasonCode: "ANSWERED",
+          failureClass: "none",
+          answer: "one-shot",
+          fallbackUsed: false,
+          directActionAttempted: false,
+          rawProviderResponsePersisted: false,
+          credentialExposed: false,
+          answeredAt: "2026-09-04T00:00:00.000Z",
+        }),
+    });
+
+    const events = await collectEvents(
+      provider.startTextTurn!(
+        {
+          providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+          utterance: "ordinary question",
+          source: "text",
+          routedAt: "2026-09-04T00:00:00.000Z",
+          routerDecision: {
+            intent: "chat.answer",
+            confidence: 0.72,
+            requiresApproval: false,
+            slots: {},
+            reason: "Defaulted to a conversational answer route.",
+          },
+        },
+        {},
+        new AbortController().signal,
+      ),
+    );
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: "failure",
+        reason: "streaming_not_supported",
+        retryable: true,
+      }),
+    ]);
+  });
+
   it("clears planner provider when configuration targets a different provider", async () => {
     const plannerComposition = createCoreHostPlannerComposition(
       loadRuntimeConfig({ JARVIS_K_ENABLE_HEAVY_PLANNER_OPENAI: "1" }),
@@ -146,3 +262,13 @@ describe("Core Host runtime provider bindings", () => {
     );
   });
 });
+
+async function collectEvents(
+  events: AsyncIterable<AssistantModelAdapterEvent>,
+): Promise<AssistantModelAdapterEvent[]> {
+  const collected: AssistantModelAdapterEvent[] = [];
+  for await (const event of events) {
+    collected.push(event);
+  }
+  return collected;
+}

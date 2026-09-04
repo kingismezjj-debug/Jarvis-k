@@ -1,5 +1,6 @@
 import type { ChatAnswerProvider } from "@jarvis-k/capabilities";
 import {
+  AssistantModelAdapterEventSchema,
   ChatAnswerRequestSchema,
   ChatAnswerResultSchema,
 } from "@jarvis-k/contracts";
@@ -43,10 +44,30 @@ export class ConfigurableChatAnswerProvider implements ChatAnswerProvider {
     }
     return this.current.answer(request);
   }
+
+  public async *startTextTurn(
+    request: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[0],
+    context: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[1],
+    signal: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[2],
+  ): ReturnType<NonNullable<ChatAnswerProvider["startTextTurn"]>> {
+    if (!this.current?.startTextTurn) {
+      yield AssistantModelAdapterEventSchema.parse({
+        type: "failure",
+        reason: "streaming_not_supported",
+        safeMessage:
+          "The configured answer provider does not support streaming.",
+        retryable: true,
+      });
+      return;
+    }
+    yield* this.current.startTextTurn(request, context, signal);
+  }
 }
 
 export class LocalSmokeChatAnswerProvider implements ChatAnswerProvider {
   private readonly providerId = "chat-answer.local-smoke";
+  private readonly answerText =
+    "Smoke Chat Answer: Jarvis-K routed this general question through the bounded chat answer provider path.";
 
   public async answer(
     request: Parameters<ChatAnswerProvider["answer"]>[0],
@@ -57,15 +78,38 @@ export class LocalSmokeChatAnswerProvider implements ChatAnswerProvider {
       status: "answered",
       reasonCode: "FIXTURE_ANSWER",
       failureClass: "none",
-      answer:
-        parsed.utterance.trim().length > 0
-          ? "Smoke Chat Answer: Jarvis-K routed this general question through the bounded chat answer provider path."
-          : undefined,
+      answer: parsed.utterance.trim().length > 0 ? this.answerText : undefined,
       fallbackUsed: false,
       directActionAttempted: false,
       rawProviderResponsePersisted: false,
       credentialExposed: false,
       answeredAt: new Date().toISOString(),
+    });
+  }
+
+  public async *startTextTurn(
+    request: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[0],
+  ): ReturnType<NonNullable<ChatAnswerProvider["startTextTurn"]>> {
+    const parsed = ChatAnswerRequestSchema.parse(request);
+    if (parsed.utterance.trim().length === 0) {
+      yield AssistantModelAdapterEventSchema.parse({
+        type: "failure",
+        reason: "malformed_response",
+        safeMessage: "The local smoke answer request was empty.",
+        retryable: false,
+      });
+      return;
+    }
+    yield AssistantModelAdapterEventSchema.parse({
+      type: "delta",
+      delta: {
+        kind: "text",
+        text: this.answerText,
+      },
+    });
+    yield AssistantModelAdapterEventSchema.parse({
+      type: "final",
+      text: this.answerText,
     });
   }
 }
@@ -111,5 +155,33 @@ export class OneShotFixedUtteranceChatAnswerProvider
     }
     this.used = true;
     return this.inner.answer(request);
+  }
+
+  public async *startTextTurn(
+    request: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[0],
+    context: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[1],
+    signal: Parameters<NonNullable<ChatAnswerProvider["startTextTurn"]>>[2],
+  ): ReturnType<NonNullable<ChatAnswerProvider["startTextTurn"]>> {
+    if (this.used || request.utterance.trim() !== this.allowedUtterance) {
+      yield AssistantModelAdapterEventSchema.parse({
+        type: "failure",
+        reason: "provider_unavailable",
+        safeMessage: "The configured answer provider is unavailable.",
+        retryable: true,
+      });
+      return;
+    }
+    if (!this.inner.startTextTurn) {
+      yield AssistantModelAdapterEventSchema.parse({
+        type: "failure",
+        reason: "streaming_not_supported",
+        safeMessage:
+          "The configured answer provider does not support streaming.",
+        retryable: true,
+      });
+      return;
+    }
+    this.used = true;
+    yield* this.inner.startTextTurn(request, context, signal);
   }
 }

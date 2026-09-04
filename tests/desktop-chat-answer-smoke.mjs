@@ -15,8 +15,9 @@ const scenarios = {
     command: "Explain API gateway in one short sentence.",
     expectedText:
       "Smoke Chat Answer: Jarvis-K routed this general question through the bounded chat answer provider path.",
-    expectedDispatchStatus: "completed",
-    expectedChatAnswerStatus: "answered",
+    expectedDispatchStatus: "running",
+    expectedChatAnswerStatus: undefined,
+    expectsStreaming: true,
     enableSmokeProvider: true
   },
   unavailable: {
@@ -26,6 +27,7 @@ const scenarios = {
       "Chat answer generation is unavailable; deterministic rules remain active.",
     expectedDispatchStatus: "degraded",
     expectedChatAnswerStatus: "unavailable",
+    expectsStreaming: false,
     enableSmokeProvider: false
   }
 };
@@ -140,6 +142,25 @@ async function waitForBrainResult(window) {
       if (!result.ok) return false;
       const tasks = result.data?.tasks;
       const brain = window.__chatAnswerSmokeLastBrain;
+      if (window.__chatAnswerSmokeExpected.expectsStreaming) {
+        const assistantTurn = result.data?.assistantTurn;
+        const messages = Array.isArray(result.data?.messages)
+          ? result.data.messages
+          : [];
+        return Boolean(
+          Array.isArray(tasks) &&
+            tasks.length === 0 &&
+            brain &&
+            brain.decision?.intent === "chat.answer" &&
+            brain.dispatchStatus === "running" &&
+            brain.assistantTurnId === assistantTurn?.turnId &&
+            assistantTurn?.status === "completed" &&
+            assistantTurn?.finalAnswer?.rawProviderResponsePersisted === false &&
+            assistantTurn?.finalAnswer?.providerRawPayloadExposed === false &&
+            messages.filter((message) => message.role === "assistant")
+              .length === 1
+        );
+      }
       return Boolean(
         Array.isArray(tasks) &&
           tasks.length === 0 &&
@@ -215,10 +236,14 @@ try {
         scenario: scenario.slug,
         commandClass: "chat.general",
         expectedDispatchStatus: scenario.expectedDispatchStatus,
-        expectedChatAnswerStatus: scenario.expectedChatAnswerStatus,
+        ...(scenario.expectedChatAnswerStatus
+          ? { expectedChatAnswerStatus: scenario.expectedChatAnswerStatus }
+          : {}),
+        assistantRuntimeStreamingExpected: scenario.expectsStreaming === true,
         providerClass: scenario.enableSmokeProvider
           ? "local_smoke_chat_answer_provider"
           : "unconfigured_provider",
+        realNetworkRequestSent: false,
         qwenRuntimeUsed: false,
         qwenRouteRequired: false,
         fixtureProductPathUsed: false,

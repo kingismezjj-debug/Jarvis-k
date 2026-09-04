@@ -137,6 +137,7 @@ describe("assistant runtime streaming loop", () => {
   it("normalizes malformed, timeout, disconnect, and unsupported tool-call failures", async () => {
     await expectFailure([{ type: "failure", reason: "malformed_response", safeMessage: "bad stream", retryable: true }], "MALFORMED_RESPONSE");
     await expectFailure([{ type: "failure", reason: "provider_timeout", safeMessage: "timed out", retryable: true }], "PROVIDER_TIMEOUT");
+    await expectFailure([{ type: "failure", reason: "streaming_not_supported", safeMessage: "streaming unsupported", retryable: true }], "STREAMING_NOT_SUPPORTED");
     await expectFailure([delta("partial")], "MALFORMED_RESPONSE");
     await expectFailure([{ type: "failure", reason: "unsupported_tool_call", safeMessage: "tool calls unsupported", retryable: false }], "UNSUPPORTED_TOOL_CALL");
   });

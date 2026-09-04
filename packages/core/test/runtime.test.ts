@@ -3,11 +3,13 @@ import {
   BrainCommandResultSchema,
   ChatAnswerResultSchema,
   CommandRouterLocalAppLaunchResultSchema,
+  type AssistantModelAdapterEvent,
   type BrainPlannerRequest,
   type BrainPlannerResult,
   type CapabilitySnapshot,
   type ChatAnswerRequest,
   type ChatAnswerResult,
+  type CoreSnapshot,
   type Message,
   type EventEnvelope,
   type UserControlledMemoryRecord,
@@ -819,6 +821,47 @@ class CapturingChatAnswerProvider implements ChatAnswerProvider {
       credentialExposed: false,
       answeredAt: "2026-08-13T00:00:00.000Z",
     });
+  }
+}
+
+class StreamingChatAnswerProvider implements ChatAnswerProvider {
+  public readonly requests: ChatAnswerRequest[] = [];
+  public readonly signals: AbortSignal[] = [];
+
+  public constructor(
+    public events:
+      | AssistantModelAdapterEvent[]
+      | ((signal: AbortSignal) => AsyncIterable<AssistantModelAdapterEvent>),
+  ) {}
+
+  public async answer(request: ChatAnswerRequest): Promise<ChatAnswerResult> {
+    this.requests.push({ ...request });
+    return ChatAnswerResultSchema.parse({
+      providerId: request.providerId,
+      status: "answered",
+      reasonCode: "FIXTURE_ANSWER",
+      failureClass: "none",
+      answer: "One-shot fallback should not be used for streaming tests.",
+      fallbackUsed: false,
+      directActionAttempted: false,
+      rawProviderResponsePersisted: false,
+      credentialExposed: false,
+      answeredAt: "2026-09-04T00:00:00.000Z",
+    });
+  }
+
+  public async *startTextTurn(
+    request: ChatAnswerRequest,
+    _context: Record<string, never>,
+    signal: AbortSignal,
+  ): AsyncIterable<AssistantModelAdapterEvent> {
+    this.requests.push({ ...request });
+    this.signals.push(signal);
+    const events =
+      typeof this.events === "function" ? this.events(signal) : this.events;
+    for await (const event of events) {
+      yield event;
+    }
   }
 }
 
@@ -9670,6 +9713,381 @@ describe("CoreRuntime", () => {
     expect(brain.chatAnswer?.directActionAttempted).toBe(false);
   });
 
+  it.each([
+    "\u8bf7\u7528\u4e09\u70b9\u7b80\u8981\u8bf4\u660e\u6d41\u5f0f\u56de\u7b54\u548c\u975e\u6d41\u5f0f\u56de\u7b54\u7684\u533a\u522b\u3002",
+    "Explain streaming and non-streaming assistant replies in three points.",
+  ])(
+    "streams ordinary conversational input through AssistantRuntime: %s",
+    async (text) => {
+      const provider = new StreamingChatAnswerProvider([
+        delta("First"),
+        delta("Second"),
+        final("FirstSecond"),
+      ]);
+      const { runtime } = createRuntimeWithChatAnswer(provider, {
+        enabled: true,
+        providerId: "chat-answer.openai-compatible.deepseek",
+      });
+
+      const result = await runtime.handle(
+        createCommandEnvelope({
+          type: "agent.runBrainCommand",
+          payload: {
+            source: "text",
+            text,
+          },
+        }),
+      );
+      const brain = BrainCommandResultSchema.parse(
+        result.ok
+          ? (result.data as { brain?: unknown } | undefined)?.brain
+          : undefined,
+      );
+
+      expect(brain.decision.intent).toBe("chat.answer");
+      expect(brain.dispatchStatus).toBe("running");
+      expect(brain.assistantTurnId).toBeDefined();
+      await waitForSnapshot(
+        runtime,
+        (snapshot) => snapshot.assistantTurn?.streamText === "FirstSecond",
+      );
+      await waitForSnapshot(
+        runtime,
+        (snapshot) => snapshot.assistantTurn?.status === "completed",
+      );
+      const snapshot = runtime.getSnapshot();
+      const assistantMessages = snapshot.messages.filter(
+        (message) => message.role === "assistant",
+      );
+      expect(provider.requests).toHaveLength(1);
+      expect(provider.requests[0]?.utterance).toBe(text);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.text).toBe("FirstSecond");
+      expect(snapshot.tasks).toHaveLength(0);
+      expect(JSON.stringify(snapshot)).not.toMatch(
+        /(?:Bearer|apiKey|secret|raw-provider-payload)/iu,
+      );
+    },
+  );
+
+  it("cancels the formal streaming turn, ignores stale output, and starts the next ordinary question", async () => {
+    const release = createDeferred<void>();
+    const provider = new StreamingChatAnswerProvider(async function* (signal) {
+      yield delta("partial");
+      await release.promise;
+      expect(signal.aborted).toBe(true);
+      yield delta(" stale");
+      yield final("partial stale");
+    });
+    const { runtime } = createRuntimeWithChatAnswer(provider, {
+      enabled: true,
+      providerId: "chat-answer.openai-compatible.deepseek",
+    });
+
+    const first = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "Please explain assistant cancellation behavior.",
+        },
+      }),
+    );
+    const firstBrain = BrainCommandResultSchema.parse(
+      first.ok
+        ? (first.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+    expect(firstBrain.assistantTurnId).toBeDefined();
+    await waitForSnapshot(
+      runtime,
+      (snapshot) => snapshot.assistantTurn?.streamText === "partial",
+    );
+
+    const cancelled = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.cancelAssistantTurn",
+        payload: {
+          turnId: firstBrain.assistantTurnId,
+        },
+      }),
+    );
+    expect(cancelled.ok).toBe(true);
+    expect(provider.signals[0]?.aborted).toBe(true);
+    release.resolve();
+    await waitForSnapshot(
+      runtime,
+      (snapshot) => snapshot.assistantTurn?.status === "cancelled",
+    );
+    await flushPromises();
+    expect(runtime.getSnapshot().assistantTurn?.streamText).toBe("partial");
+    expect(
+      runtime
+        .getSnapshot()
+        .messages
+        .filter((message) => message.role === "assistant"),
+    ).toHaveLength(0);
+
+    provider.events = [delta("retry"), delta("ok"), final("retryok")];
+    const retry = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "Give a short retry answer.",
+        },
+      }),
+    );
+    const retryBrain = BrainCommandResultSchema.parse(
+      retry.ok
+        ? (retry.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+    expect(retryBrain.dispatchStatus).toBe("running");
+    await waitForSnapshot(
+      runtime,
+      (snapshot) =>
+        snapshot.assistantTurn?.turnId === retryBrain.assistantTurnId &&
+        snapshot.assistantTurn.status === "completed",
+    );
+    expect(
+      runtime
+        .getSnapshot()
+        .messages
+        .filter((message) => message.role === "assistant"),
+    ).toHaveLength(1);
+  });
+
+  it("keeps explicit deterministic commands out of chat streaming", async () => {
+    let opened = false;
+    const provider = new StreamingChatAnswerProvider([
+      delta("should not stream"),
+      final("should not stream"),
+    ]);
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        async openBrowser() {
+          return {
+            status: "blocked",
+            reasonCode: "TARGET_NOT_ALLOWLISTED",
+            label: "browser",
+          };
+        },
+        async openLocalApp() {
+          opened = true;
+          return {
+            status: "completed",
+            reasonCode: "ALLOWLISTED_TARGET_OPENED",
+            label: "notepad",
+            verificationStatus: "verified",
+            verificationSummary: "Notepad launch verified.",
+          };
+        },
+      },
+      undefined,
+      undefined,
+      undefined,
+      provider,
+      {
+        enabled: true,
+        providerId: "chat-answer.openai-compatible.deepseek",
+      },
+      undefined,
+      new InMemoryTaskRepository(),
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "open notepad",
+        },
+      }),
+    );
+    const brain = BrainCommandResultSchema.parse(
+      result.ok
+        ? (result.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+
+    expect(brain.decision.intent).toBe("localApp.open");
+    expect(opened).toBe(true);
+    expect(provider.requests).toHaveLength(0);
+    expect(runtime.getSnapshot().assistantTurn).toBeUndefined();
+  });
+
+  it("routes harmless ambiguous conversation to chat streaming without Windows execution", async () => {
+    let actionCalls = 0;
+    const provider = new StreamingChatAnswerProvider([
+      delta("safe "),
+      final("safe"),
+    ]);
+    const { runtime } = createRuntime(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        async openBrowser() {
+          actionCalls += 1;
+          return {
+            status: "blocked",
+            reasonCode: "TARGET_NOT_ALLOWLISTED",
+            label: "browser",
+          };
+        },
+        async openLocalApp() {
+          actionCalls += 1;
+          return {
+            status: "blocked",
+            reasonCode: "TARGET_NOT_ALLOWLISTED",
+            label: "notepad",
+          };
+        },
+      },
+      undefined,
+      undefined,
+      undefined,
+      provider,
+      {
+        enabled: true,
+        providerId: "chat-answer.openai-compatible.deepseek",
+      },
+      undefined,
+      new InMemoryTaskRepository(),
+    );
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "Could you explain why assistants sometimes ask follow-up questions?",
+        },
+      }),
+    );
+    const brain = BrainCommandResultSchema.parse(
+      result.ok
+        ? (result.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+
+    expect(brain.decision.intent).toBe("chat.answer");
+    expect(actionCalls).toBe(0);
+    await waitForSnapshot(
+      runtime,
+      (snapshot) => snapshot.assistantTurn?.status === "completed",
+    );
+    expect(runtime.getSnapshot().tasks).toHaveLength(0);
+  });
+
+  it("fails closed when a formal streaming provider proposes a tool call", async () => {
+    const provider = new StreamingChatAnswerProvider([
+      {
+        type: "failure",
+        reason: "unsupported_tool_call",
+        safeMessage: "The provider attempted an unsupported tool call.",
+        retryable: false,
+      },
+    ]);
+    const { runtime } = createRuntimeWithChatAnswer(provider, {
+      enabled: true,
+      providerId: "chat-answer.openai-compatible.deepseek",
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "Tell me something helpful.",
+        },
+      }),
+    );
+    const brain = BrainCommandResultSchema.parse(
+      result.ok
+        ? (result.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+
+    expect(brain.dispatchStatus).toBe("running");
+    await waitForSnapshot(
+      runtime,
+      (snapshot) =>
+        snapshot.assistantTurn?.status === "failed" &&
+        snapshot.assistantTurn.failure?.reasonCode === "UNSUPPORTED_TOOL_CALL",
+    );
+    expect(
+      runtime
+        .getSnapshot()
+        .messages
+        .filter((message) => message.role === "assistant"),
+    ).toHaveLength(0);
+  });
+
+  it("classifies non-streaming providers without faking deltas", async () => {
+    const provider = new CapturingChatAnswerProvider();
+    const { runtime } = createRuntimeWithChatAnswer(provider, {
+      enabled: true,
+      providerId: "chat-answer.fixture",
+    });
+
+    const result = await runtime.handle(
+      createCommandEnvelope({
+        type: "agent.runBrainCommand",
+        payload: {
+          source: "text",
+          text: "Explain a simple idea.",
+        },
+      }),
+    );
+    const brain = BrainCommandResultSchema.parse(
+      result.ok
+        ? (result.data as { brain?: unknown } | undefined)?.brain
+        : undefined,
+    );
+
+    expect(brain.dispatchStatus).toBe("completed");
+    expect(brain.chatAnswer?.status).toBe("answered");
+    expect(runtime.getSnapshot().assistantTurn).toBeUndefined();
+    expect(provider.lastRequest?.utterance).toBe("Explain a simple idea.");
+  });
+
   it("projects saved response-language preference into chat.answer without exposing raw memory", async () => {
     const provider = new CapturingChatAnswerProvider();
     const preferenceRepository = new InMemoryUserPreferenceMemoryRepository();
@@ -10146,3 +10564,38 @@ describe("CoreRuntime", () => {
     ).toBe(true);
   });
 });
+
+function delta(text: string): AssistantModelAdapterEvent {
+  return { type: "delta", delta: { kind: "text", text } };
+}
+
+function final(text: string): AssistantModelAdapterEvent {
+  return { type: "final", text };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+async function waitForSnapshot(
+  runtime: CoreRuntime,
+  predicate: (snapshot: CoreSnapshot) => boolean,
+): Promise<CoreSnapshot> {
+  for (let index = 0; index < 100; index += 1) {
+    const snapshot = runtime.getSnapshot();
+    if (predicate(snapshot)) {
+      return snapshot;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for runtime snapshot.");
+}

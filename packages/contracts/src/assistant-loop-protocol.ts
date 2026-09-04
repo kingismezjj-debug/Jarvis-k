@@ -98,6 +98,7 @@ export const AssistantProviderFailureReasonSchema = z.enum([
   "access_forbidden",
   "rate_limited",
   "provider_unavailable",
+  "streaming_not_supported",
   "provider_timeout",
   "malformed_response",
   "unsupported_tool_call",
