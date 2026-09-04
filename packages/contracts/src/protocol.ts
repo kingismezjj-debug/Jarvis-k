@@ -84,6 +84,18 @@ export const IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL =
   "jarvis-k:chat-answer-product-mode-status";
 export const IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL =
   "jarvis-k:chat-answer-product-mode-set";
+export const IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_STATUS_CHANNEL =
+  "jarvis-k:chat-answer-provider-configuration-status";
+export const IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL =
+  "jarvis-k:chat-answer-provider-configuration-save";
+export const IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL =
+  "jarvis-k:chat-answer-provider-credential-replace";
+export const IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL =
+  "jarvis-k:chat-answer-provider-connection-test";
+export const IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_ENABLE_CHANNEL =
+  "jarvis-k:chat-answer-provider-configuration-enable";
+export const IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL =
+  "jarvis-k:chat-answer-provider-configuration-remove";
 export const IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL =
   "jarvis-k:command-router-product-mode-status";
 export const IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL =
@@ -341,6 +353,173 @@ export const ChatAnswerProductModeSetResultSchema = z
   .strict();
 export type ChatAnswerProductModeSetResult = z.infer<
   typeof ChatAnswerProductModeSetResultSchema
+>;
+
+export const ChatAnswerProviderIdSchema = z.literal(
+  "chat-answer.openai-compatible.deepseek",
+);
+export type ChatAnswerProviderId = z.infer<typeof ChatAnswerProviderIdSchema>;
+
+export const ChatAnswerProviderConnectionTestStatusSchema = z.enum([
+  "not_tested",
+  "testing",
+  "success",
+  "authentication_failed",
+  "access_forbidden",
+  "rate_limited",
+  "model_not_found",
+  "endpoint_unreachable",
+  "provider_timeout",
+  "malformed_response",
+  "tls_or_certificate_error",
+  "unknown_failure",
+]);
+export type ChatAnswerProviderConnectionTestStatus = z.infer<
+  typeof ChatAnswerProviderConnectionTestStatusSchema
+>;
+
+export const ChatAnswerProviderPublicConfigurationSchema = z
+  .object({
+    providerId: ChatAnswerProviderIdSchema,
+    serviceUrl: z
+      .string()
+      .trim()
+      .min(1)
+      .max(512)
+      .superRefine((value, context) => {
+        try {
+          const url = new URL(value);
+          if (
+            url.protocol !== "https:" ||
+            url.username ||
+            url.password ||
+            url.search ||
+            url.hash
+          ) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Invalid service address.",
+            });
+          }
+        } catch {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Invalid service address.",
+          });
+        }
+      }),
+    modelId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(96)
+      .regex(/^[A-Za-z0-9._:-]+$/u)
+      .refine((value) => !value.includes(".."), {
+        message: "Invalid model name.",
+      }),
+  })
+  .strict();
+export type ChatAnswerProviderPublicConfiguration = z.infer<
+  typeof ChatAnswerProviderPublicConfigurationSchema
+>;
+
+export const ChatAnswerProviderConfigurationStatusSchema = z
+  .object({
+    providerId: ChatAnswerProviderIdSchema,
+    providerLabel: z.literal("DeepSeek"),
+    protocolLabel: z.literal("OpenAI-compatible"),
+    configured: z.boolean(),
+    enabled: z.boolean(),
+    runtimeArmed: z.boolean(),
+    secureStorageAvailable: z.boolean(),
+    credentialConfigured: z.boolean(),
+    credentialExposed: z.literal(false),
+    publicConfiguration: ChatAnswerProviderPublicConfigurationSchema.optional(),
+    connectionTestStatus: ChatAnswerProviderConnectionTestStatusSchema,
+    connectionTestedAt: z.string().datetime().optional(),
+    networkRequestRequiredForTest: z.literal(true),
+    lastOperationMessage: z.string().min(1).max(500).optional(),
+    reasonCodes: z
+      .array(
+        z
+          .string()
+          .regex(/^[A-Z0-9_]+$/u)
+          .max(128),
+      )
+      .max(12),
+  })
+  .strict();
+export type ChatAnswerProviderConfigurationStatus = z.infer<
+  typeof ChatAnswerProviderConfigurationStatusSchema
+>;
+
+export const ChatAnswerProviderConfigurationCommandResultSchema = z
+  .object({
+    ok: z.boolean(),
+    status: ChatAnswerProviderConfigurationStatusSchema,
+    message: z.string().min(1).max(500).optional(),
+  })
+  .strict();
+export type ChatAnswerProviderConfigurationCommandResult = z.infer<
+  typeof ChatAnswerProviderConfigurationCommandResultSchema
+>;
+
+export const ChatAnswerProviderConfigurationSaveRequestSchema =
+  ChatAnswerProviderPublicConfigurationSchema;
+export type ChatAnswerProviderConfigurationSaveRequest = z.infer<
+  typeof ChatAnswerProviderConfigurationSaveRequestSchema
+>;
+
+export const ChatAnswerProviderCredentialReplaceRequestSchema = z
+  .object({
+    providerId: ChatAnswerProviderIdSchema,
+    apiKey: z.string().trim().min(8).max(512),
+  })
+  .strict()
+  .superRefine((request, context) => {
+    if (/[\p{C}\r\n]/u.test(request.apiKey)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["apiKey"],
+        message: "Invalid credential value.",
+      });
+    }
+  });
+export type ChatAnswerProviderCredentialReplaceRequest = z.infer<
+  typeof ChatAnswerProviderCredentialReplaceRequestSchema
+>;
+
+export const ChatAnswerProviderConnectionTestRequestSchema = z
+  .object({
+    providerId: ChatAnswerProviderIdSchema,
+    userConfirmedNetworkRequest: z.literal(true),
+  })
+  .strict();
+export type ChatAnswerProviderConnectionTestRequest = z.infer<
+  typeof ChatAnswerProviderConnectionTestRequestSchema
+>;
+
+export const ChatAnswerProviderConfigurationEnableRequestSchema = z
+  .object({
+    providerId: ChatAnswerProviderIdSchema,
+    enabled: z.boolean(),
+    requireRecentSuccessfulTest: z.literal(true),
+  })
+  .strict();
+export type ChatAnswerProviderConfigurationEnableRequest = z.infer<
+  typeof ChatAnswerProviderConfigurationEnableRequestSchema
+>;
+
+export const ChatAnswerProviderConfigurationRemoveRequestSchema = z
+  .object({
+    providerId: ChatAnswerProviderIdSchema,
+    confirmRemove: z.literal(
+      "remove_current_chat_answer_provider_configuration",
+    ),
+  })
+  .strict();
+export type ChatAnswerProviderConfigurationRemoveRequest = z.infer<
+  typeof ChatAnswerProviderConfigurationRemoveRequestSchema
 >;
 
 export const CommandRouterQwenFastRouterBindingSchema = z
@@ -3920,6 +4099,22 @@ export interface JarvisBridge {
   setChatAnswerProductModeEnabled(
     enabled: boolean,
   ): Promise<ChatAnswerProductModeSetResult>;
+  getChatAnswerProviderConfigurationStatus(): Promise<ChatAnswerProviderConfigurationStatus>;
+  saveChatAnswerProviderConfiguration(
+    request: ChatAnswerProviderConfigurationSaveRequest,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult>;
+  replaceChatAnswerProviderCredential(
+    request: ChatAnswerProviderCredentialReplaceRequest,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult>;
+  testChatAnswerProviderConnection(
+    request: ChatAnswerProviderConnectionTestRequest,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult>;
+  setChatAnswerProviderConfigurationEnabled(
+    request: ChatAnswerProviderConfigurationEnableRequest,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult>;
+  removeChatAnswerProviderConfiguration(
+    request: ChatAnswerProviderConfigurationRemoveRequest,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult>;
   getUiSurfaceCapabilityStatus(): Promise<UiSurfaceCapabilityStatus>;
   reportUiSurfaceHealth(
     report: UiSurfaceHealthReport,

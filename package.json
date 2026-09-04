@@ -142,6 +142,7 @@
     "smoke:desktop:skin-theme": "npm run build && node tests/desktop-skin-theme-smoke.mjs",
     "smoke:desktop:chat-answer": "npm run build && node tests/desktop-chat-answer-smoke.mjs answered",
     "smoke:desktop:chat-answer-unavailable": "npm run build && node tests/desktop-chat-answer-smoke.mjs unavailable",
+    "smoke:desktop:chat-answer-provider-configuration": "npm run build && node tests/desktop-chat-answer-provider-configuration-smoke.mjs",
     "smoke:desktop:chat-answer-real-provider-ui": "npm run build && node tests/desktop-chat-answer-real-provider-ui-smoke.mjs",
     "smoke:desktop:local-embedding-composition": "npm run build && node tests/desktop-local-embedding-composition-smoke.mjs",
     "smoke:runtime-transformers": "npm run build:inference-runtime-transformers-local && node tests/runtime-helper-python-smoke.mjs",

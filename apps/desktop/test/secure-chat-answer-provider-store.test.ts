@@ -46,6 +46,8 @@ describe("SecureChatAnswerProviderStore", () => {
     expect(await readFile(filePath, "utf8")).not.toContain("test-glm-key");
     await expect(store.load()).resolves.toEqual({
       provider: "chat-answer.openai-compatible.glm",
+      endpoint: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      modelId: "glm-4.7",
       credentials: { apiKey: "test-glm-key" }
     });
     await expect(store.status()).resolves.toMatchObject({
@@ -91,8 +93,100 @@ describe("SecureChatAnswerProviderStore", () => {
       status: "configured",
       credentialConfigured: true
     });
-    await expect(glmStore.load()).rejects.toThrow(
-      "Chat Answer configuration is invalid."
+    await expect(glmStore.load()).resolves.toMatchObject({
+      provider: "chat-answer.openai-compatible.deepseek",
+      endpoint: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash"
+    });
+    await expect(glmStore.status()).rejects.toThrow(
+      "Invalid Chat Answer configuration."
     );
+  });
+
+  it("keeps public DeepSeek configuration separate from the encrypted credential", async () => {
+    const { filePath } = await createStore();
+    const store = new SecureChatAnswerProviderStore(
+      filePath,
+      fakeEncryption(),
+      "chat-answer.openai-compatible.deepseek"
+    );
+
+    await store.savePublicConfiguration({
+      provider: "chat-answer.openai-compatible.deepseek",
+      endpoint: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash"
+    });
+    await store.replaceCredential("test-deepseek-key");
+
+    const stored = await readFile(filePath, "utf8");
+    expect(stored).toContain("https://api.deepseek.com/chat/completions");
+    expect(stored).toContain("deepseek-v4-flash");
+    expect(stored).not.toContain("test-deepseek-key");
+    await expect(store.loadPublicConfiguration()).resolves.toEqual({
+      provider: "chat-answer.openai-compatible.deepseek",
+      endpoint: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash"
+    });
+    await expect(store.load()).resolves.toMatchObject({
+      provider: "chat-answer.openai-compatible.deepseek",
+      endpoint: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash",
+      credentials: { apiKey: "test-deepseek-key" }
+    });
+  });
+
+  it("does not overwrite an existing credential when only public fields are saved", async () => {
+    const { filePath } = await createStore();
+    const store = new SecureChatAnswerProviderStore(
+      filePath,
+      fakeEncryption(),
+      "chat-answer.openai-compatible.deepseek"
+    );
+
+    await store.replaceCredential("test-deepseek-key");
+    await store.savePublicConfiguration({
+      provider: "chat-answer.openai-compatible.deepseek",
+      endpoint: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash"
+    });
+
+    await expect(store.load()).resolves.toMatchObject({
+      credentials: { apiKey: "test-deepseek-key" }
+    });
+  });
+
+  it("rejects unsafe URL, model, provider, and credential values", async () => {
+    const { filePath } = await createStore(fakeEncryption());
+    const deepseekStore = new SecureChatAnswerProviderStore(
+      filePath,
+      fakeEncryption(),
+      "chat-answer.openai-compatible.deepseek"
+    );
+
+    await expect(
+      deepseekStore.savePublicConfiguration({
+        provider: "chat-answer.openai-compatible.deepseek",
+        endpoint: "http://api.deepseek.com/chat/completions",
+        modelId: "deepseek-v4-flash"
+      })
+    ).rejects.toThrow("Invalid Chat Answer configuration.");
+    await expect(
+      deepseekStore.savePublicConfiguration({
+        provider: "chat-answer.openai-compatible.deepseek",
+        endpoint:
+          "https://api.deepseek.com/chat/completions?token=not-a-credential",
+        modelId: "deepseek-v4-flash"
+      })
+    ).rejects.toThrow("Invalid Chat Answer configuration.");
+    await expect(
+      deepseekStore.savePublicConfiguration({
+        provider: "chat-answer.openai-compatible.deepseek",
+        endpoint: "https://api.deepseek.com/chat/completions",
+        modelId: "../deepseek"
+      })
+    ).rejects.toThrow("Invalid Chat Answer configuration.");
+    await expect(
+      deepseekStore.replaceCredential("bad\nkey")
+    ).rejects.toThrow("Invalid credential value.");
   });
 });

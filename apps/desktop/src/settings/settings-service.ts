@@ -1,4 +1,12 @@
 import {
+  ChatAnswerProviderConfigurationCommandResult,
+  ChatAnswerProviderConfigurationEnableRequestSchema,
+  ChatAnswerProviderConfigurationRemoveRequestSchema,
+  ChatAnswerProviderConfigurationSaveRequestSchema,
+  ChatAnswerProviderConfigurationStatus,
+  ChatAnswerProviderConnectionTestRequestSchema,
+  ChatAnswerProviderConnectionTestStatus,
+  ChatAnswerProviderCredentialReplaceRequestSchema,
   ChatAnswerProductModeStatus,
   CommandRouterProductModeStatus,
   createCommandRouterQwenProductRoutingActivationStatus,
@@ -26,11 +34,26 @@ import type {
 } from "@jarvis-k/contracts";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { ChatAnswerProviderConfiguration } from "../secure-chat-answer-provider-store";
+import {
+  CHAT_ANSWER_DEEPSEEK_ENDPOINT,
+  CHAT_ANSWER_DEEPSEEK_MODEL_ID,
+  CHAT_ANSWER_DEEPSEEK_PROVIDER_ID,
+  type ChatAnswerProviderConfiguration,
+  type ChatAnswerProviderPublicConfiguration,
+} from "../secure-chat-answer-provider-store";
 import type { LoginItemController } from "../login-item/login-item-controller";
 
 export interface SettingsServiceOptions {
   loadChatAnswerProviderConfiguration: () => Promise<ChatAnswerProviderConfiguration | null>;
+  loadChatAnswerProviderPublicConfiguration?: () => Promise<ChatAnswerProviderPublicConfiguration | null>;
+  saveChatAnswerProviderPublicConfiguration?: (
+    configuration: ChatAnswerProviderPublicConfiguration,
+  ) => Promise<void>;
+  replaceChatAnswerProviderCredential?: (apiKey: string) => Promise<void>;
+  clearChatAnswerProviderConfiguration?: () => Promise<void>;
+  testChatAnswerProviderConnection?: (
+    configuration: ChatAnswerProviderConfiguration,
+  ) => Promise<ChatAnswerProviderConnectionTestStatus>;
   getChatAnswerCredentialStatus: () => Promise<{
     secureStorageAvailable: boolean;
     credentialConfigured: boolean;
@@ -72,6 +95,10 @@ export class SettingsService {
   private commandRouterProductModeEnabled = false;
   private chatAnswerProductModeEnabled = false;
   private chatAnswerProductModeRuntimeArmed = false;
+  private chatAnswerProviderConnectionTest: {
+    status: ChatAnswerProviderConnectionTestStatus;
+    testedAt?: string;
+  } = { status: "not_tested" };
   private desktopSettings: DesktopSettings;
   private settingsSurfaceHealth: UiSurfaceCapabilityStatus["settingsSurfaceHealth"] =
     "not_started";
@@ -574,7 +601,7 @@ export class SettingsService {
   }
 
   public async getChatAnswerProductModeStatus(): Promise<ChatAnswerProductModeStatus> {
-    const providerId = "chat-answer.openai-compatible.deepseek" as const;
+    const providerId = CHAT_ANSWER_DEEPSEEK_PROVIDER_ID;
     const credentialStatus = await this.options.getChatAnswerCredentialStatus();
     const status = !credentialStatus.secureStorageAvailable
       ? "secure_store_unavailable"
@@ -623,20 +650,298 @@ export class SettingsService {
     status: ChatAnswerProductModeStatus;
   }> {
     const raw = asRecord(rawInput);
-    this.chatAnswerProductModeEnabled = raw.enabled === true;
-    const configuration = this.chatAnswerProductModeEnabled
+    const requestedEnabled = raw.enabled === true;
+    if (
+      requestedEnabled &&
+      this.chatAnswerProviderConnectionTest.status !== "success"
+    ) {
+      this.disarmChatAnswerProviderRuntime();
+      return {
+        ok: false,
+        status: await this.getChatAnswerProductModeStatus(),
+      };
+    }
+    this.chatAnswerProductModeEnabled = requestedEnabled;
+    const configuration = requestedEnabled
       ? await this.options.loadChatAnswerProviderConfiguration()
       : null;
     this.chatAnswerProductModeRuntimeArmed =
-      this.chatAnswerProductModeEnabled && configuration !== null;
+      requestedEnabled && configuration !== null;
     this.options.configureChatAnswerProductMode({
-      enabled: this.chatAnswerProductModeEnabled,
+      enabled: requestedEnabled,
       ...(configuration ? { configuration } : {}),
     });
     return {
       ok: true,
       status: await this.getChatAnswerProductModeStatus(),
     };
+  }
+
+  public async getChatAnswerProviderConfigurationStatus(): Promise<ChatAnswerProviderConfigurationStatus> {
+    return this.buildChatAnswerProviderConfigurationStatus();
+  }
+
+  public async saveChatAnswerProviderConfiguration(
+    rawInput: unknown,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult> {
+    if (!this.options.saveChatAnswerProviderPublicConfiguration) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer configuration cannot be saved in this build.",
+      );
+    }
+    const parsed =
+      ChatAnswerProviderConfigurationSaveRequestSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer configuration was not accepted.",
+      );
+    }
+    try {
+      const publicConfiguration = parseChatAnswerPublicConfigurationInput(
+        parsed.data,
+      );
+      await this.options.saveChatAnswerProviderPublicConfiguration(
+        publicConfiguration,
+      );
+      this.resetChatAnswerProviderTestState();
+      this.disarmChatAnswerProviderRuntime();
+      return {
+        ok: true,
+        status: await this.buildChatAnswerProviderConfigurationStatus(
+          "Online answer configuration saved locally.",
+        ),
+      };
+    } catch {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer configuration could not be saved.",
+      );
+    }
+  }
+
+  public async replaceChatAnswerProviderCredential(
+    rawInput: unknown,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult> {
+    if (!this.options.replaceChatAnswerProviderCredential) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer credential cannot be saved in this build.",
+      );
+    }
+    const parsed =
+      ChatAnswerProviderCredentialReplaceRequestSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer credential was not accepted.",
+      );
+    }
+    try {
+      await this.options.replaceChatAnswerProviderCredential(parsed.data.apiKey);
+      this.resetChatAnswerProviderTestState();
+      this.disarmChatAnswerProviderRuntime();
+      return {
+        ok: true,
+        status: await this.buildChatAnswerProviderConfigurationStatus(
+          "Online answer key saved securely.",
+        ),
+      };
+    } catch {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer credential could not be saved.",
+      );
+    }
+  }
+
+  public async testChatAnswerProviderConnection(
+    rawInput: unknown,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult> {
+    if (!this.options.testChatAnswerProviderConnection) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer connection test is unavailable.",
+      );
+    }
+    const parsed = ChatAnswerProviderConnectionTestRequestSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer connection test was not confirmed.",
+      );
+    }
+    const configuration = await this.options.loadChatAnswerProviderConfiguration();
+    if (!configuration) {
+      this.resetChatAnswerProviderTestState();
+      return this.chatAnswerProviderCommandFailure(
+        "Save the online answer service and key before testing.",
+      );
+    }
+    this.chatAnswerProviderConnectionTest = { status: "testing" };
+    try {
+      const status =
+        await this.options.testChatAnswerProviderConnection(configuration);
+      this.chatAnswerProviderConnectionTest = {
+        status,
+        ...(status === "success" ? { testedAt: new Date().toISOString() } : {}),
+      };
+      return {
+        ok: status === "success",
+        status: await this.buildChatAnswerProviderConfigurationStatus(
+          status === "success"
+            ? "Connection test completed."
+            : "Connection test failed without exposing provider details.",
+        ),
+      };
+    } catch {
+      this.chatAnswerProviderConnectionTest = { status: "unknown_failure" };
+      return {
+        ok: false,
+        status: await this.buildChatAnswerProviderConfigurationStatus(
+          "Connection test failed without exposing provider details.",
+        ),
+      };
+    }
+  }
+
+  public async setChatAnswerProviderConfigurationEnabled(
+    rawInput: unknown,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult> {
+    const parsed =
+      ChatAnswerProviderConfigurationEnableRequestSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer service setting was not accepted.",
+      );
+    }
+    if (!parsed.data.enabled) {
+      this.disarmChatAnswerProviderRuntime();
+      return {
+        ok: true,
+        status: await this.buildChatAnswerProviderConfigurationStatus(
+          "Online answer service turned off.",
+        ),
+      };
+    }
+    if (this.chatAnswerProviderConnectionTest.status !== "success") {
+      this.disarmChatAnswerProviderRuntime();
+      return this.chatAnswerProviderCommandFailure(
+        "Test the connection successfully before enabling online answers.",
+      );
+    }
+    const configuration = await this.options.loadChatAnswerProviderConfiguration();
+    if (!configuration) {
+      this.disarmChatAnswerProviderRuntime();
+      return this.chatAnswerProviderCommandFailure(
+        "Save the online answer service and key before enabling.",
+      );
+    }
+    this.chatAnswerProductModeEnabled = true;
+    this.chatAnswerProductModeRuntimeArmed = true;
+    this.options.configureChatAnswerProductMode({
+      enabled: true,
+      configuration,
+    });
+    return {
+      ok: true,
+      status: await this.buildChatAnswerProviderConfigurationStatus(
+        "Online answer service enabled.",
+      ),
+    };
+  }
+
+  public async removeChatAnswerProviderConfiguration(
+    rawInput: unknown,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult> {
+    if (!this.options.clearChatAnswerProviderConfiguration) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer configuration cannot be removed in this build.",
+      );
+    }
+    const parsed =
+      ChatAnswerProviderConfigurationRemoveRequestSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer configuration removal was not confirmed.",
+      );
+    }
+    try {
+      await this.options.clearChatAnswerProviderConfiguration();
+      this.resetChatAnswerProviderTestState();
+      this.disarmChatAnswerProviderRuntime();
+      return {
+        ok: true,
+        status: await this.buildChatAnswerProviderConfigurationStatus(
+          "Online answer configuration removed from this profile.",
+        ),
+      };
+    } catch {
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer configuration could not be removed.",
+      );
+    }
+  }
+
+  private async buildChatAnswerProviderConfigurationStatus(
+    lastOperationMessage?: string,
+  ): Promise<ChatAnswerProviderConfigurationStatus> {
+    const credentialStatus = await this.options.getChatAnswerCredentialStatus();
+    const publicConfiguration =
+      (await this.options.loadChatAnswerProviderPublicConfiguration?.()) ?? null;
+    const configured =
+      publicConfiguration !== null && credentialStatus.credentialConfigured;
+    const reasonCodes = !credentialStatus.secureStorageAvailable
+      ? ["CHAT_ANSWER_PROVIDER_SECURE_STORE_UNAVAILABLE"]
+      : !publicConfiguration
+        ? ["CHAT_ANSWER_PROVIDER_CONFIGURATION_MISSING"]
+        : !credentialStatus.credentialConfigured
+          ? ["CHAT_ANSWER_PROVIDER_CREDENTIAL_MISSING"]
+          : this.chatAnswerProductModeRuntimeArmed
+            ? ["CHAT_ANSWER_PROVIDER_RUNTIME_ARMED"]
+            : this.chatAnswerProviderConnectionTest.status === "success"
+              ? ["CHAT_ANSWER_PROVIDER_CONNECTION_TESTED"]
+              : ["CHAT_ANSWER_PROVIDER_CONFIGURED_UNTESTED"];
+    return {
+      providerId: CHAT_ANSWER_DEEPSEEK_PROVIDER_ID,
+      providerLabel: "DeepSeek",
+      protocolLabel: "OpenAI-compatible",
+      configured,
+      enabled: this.chatAnswerProductModeEnabled,
+      runtimeArmed: this.chatAnswerProductModeRuntimeArmed,
+      secureStorageAvailable: credentialStatus.secureStorageAvailable,
+      credentialConfigured: credentialStatus.credentialConfigured,
+      credentialExposed: false,
+      ...(publicConfiguration
+        ? {
+            publicConfiguration: {
+              providerId: CHAT_ANSWER_DEEPSEEK_PROVIDER_ID,
+              serviceUrl: publicConfiguration.endpoint,
+              modelId: publicConfiguration.modelId,
+            },
+          }
+        : {}),
+      connectionTestStatus: this.chatAnswerProviderConnectionTest.status,
+      ...(this.chatAnswerProviderConnectionTest.testedAt
+        ? { connectionTestedAt: this.chatAnswerProviderConnectionTest.testedAt }
+        : {}),
+      networkRequestRequiredForTest: true,
+      ...(lastOperationMessage ? { lastOperationMessage } : {}),
+      reasonCodes,
+    };
+  }
+
+  private async chatAnswerProviderCommandFailure(
+    message: string,
+  ): Promise<ChatAnswerProviderConfigurationCommandResult> {
+    return {
+      ok: false,
+      status: await this.buildChatAnswerProviderConfigurationStatus(message),
+      message,
+    };
+  }
+
+  private resetChatAnswerProviderTestState(): void {
+    this.chatAnswerProviderConnectionTest = { status: "not_tested" };
+  }
+
+  private disarmChatAnswerProviderRuntime(): void {
+    this.chatAnswerProductModeEnabled = false;
+    this.chatAnswerProductModeRuntimeArmed = false;
+    this.options.configureChatAnswerProductMode({ enabled: false });
   }
 
   private loadDesktopSettings(): DesktopSettings {
@@ -876,6 +1181,57 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function parseChatAnswerPublicConfigurationInput(input: {
+  readonly providerId: typeof CHAT_ANSWER_DEEPSEEK_PROVIDER_ID;
+  readonly serviceUrl: string;
+  readonly modelId: string;
+}): ChatAnswerProviderPublicConfiguration {
+  const serviceUrl = normalizeChatAnswerServiceUrl(input.serviceUrl);
+  const modelId = normalizeChatAnswerModelId(input.modelId);
+  if (
+    input.providerId !== CHAT_ANSWER_DEEPSEEK_PROVIDER_ID ||
+    serviceUrl !== CHAT_ANSWER_DEEPSEEK_ENDPOINT ||
+    modelId !== CHAT_ANSWER_DEEPSEEK_MODEL_ID
+  ) {
+    throw new Error("Invalid Chat Answer configuration.");
+  }
+  return {
+    provider: CHAT_ANSWER_DEEPSEEK_PROVIDER_ID,
+    endpoint: serviceUrl,
+    modelId,
+  };
+}
+
+function normalizeChatAnswerServiceUrl(value: string): string {
+  if (value.length > 512) {
+    throw new Error("Invalid Chat Answer configuration.");
+  }
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw new Error("Invalid Chat Answer configuration.");
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("Invalid Chat Answer configuration.");
+  }
+  return url.toString().replace(/\/$/u, "");
+}
+
+function normalizeChatAnswerModelId(value: string): string {
+  const trimmed = value.trim();
+  if (!/^[A-Za-z0-9._:-]{1,96}$/u.test(trimmed) || trimmed.includes("..")) {
+    throw new Error("Invalid Chat Answer configuration.");
+  }
+  return trimmed;
 }
 
 function createUnavailableLaunchAtLoginStatus(

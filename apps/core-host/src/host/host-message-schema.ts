@@ -4,6 +4,8 @@ import {
 } from "@jarvis-k/contracts";
 import {
   DEEPSEEK_CHAT_ANSWER_RUNTIME_256_PROFILE_ID,
+  DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT,
+  DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
   DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
   type OpenAiCompatibleChatAnswerRuntimeCredential,
 } from "@jarvis-k/inference-adapter-glm-chat-answer-runtime";
@@ -57,6 +59,8 @@ export interface CoreHostChatAnswerProductModeConfiguration {
 
 export interface CoreHostChatAnswerProviderConfiguration {
   readonly provider: typeof DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID;
+  readonly endpoint?: typeof DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT;
+  readonly modelId?: typeof DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID;
   readonly credentials: OpenAiCompatibleChatAnswerRuntimeCredential;
 }
 
@@ -214,6 +218,10 @@ export function parseChatAnswerProductModeConfigurationMessage(
     isRecord(message.configuration) &&
     message.configuration.provider ===
       DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID &&
+    (message.configuration.endpoint === undefined ||
+      message.configuration.endpoint === DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT) &&
+    (message.configuration.modelId === undefined ||
+      message.configuration.modelId === DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID) &&
     isRecord(message.configuration.credentials)
   ) {
     const apiKey = message.configuration.credentials.apiKey;
@@ -248,6 +256,10 @@ export function parseChatAnswerProviderConfigurationMessage(
     !isRecord(message.configuration) ||
     message.configuration.provider !==
       DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID ||
+    (message.configuration.endpoint !== undefined &&
+      message.configuration.endpoint !== DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT) ||
+    (message.configuration.modelId !== undefined &&
+      message.configuration.modelId !== DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID) ||
     !isRecord(message.configuration.credentials)
   ) {
     return null;
@@ -262,6 +274,12 @@ export function parseChatAnswerProviderConfigurationMessage(
   }
   return {
     provider: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+    ...(message.configuration.endpoint === DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT
+      ? { endpoint: DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT }
+      : {}),
+    ...(message.configuration.modelId === DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID
+      ? { modelId: DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID }
+      : {}),
     credentials: {
       apiKey: apiKey.trim(),
     },

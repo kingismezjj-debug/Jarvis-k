@@ -57,4 +57,28 @@ describe("Chat Answer product mode desktop wiring", () => {
       'supervisor?.restart("chat-answer-product-mode'
     );
   });
+
+  it("exposes only dedicated Chat Answer provider configuration IPC", () => {
+    for (const symbol of [
+      "getChatAnswerProviderConfigurationStatus",
+      "saveChatAnswerProviderConfiguration",
+      "replaceChatAnswerProviderCredential",
+      "testChatAnswerProviderConnection",
+      "setChatAnswerProviderConfigurationEnabled",
+      "removeChatAnswerProviderConfiguration",
+      "IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL",
+      "IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL",
+      "IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL",
+      "IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL",
+    ]) {
+      expect(preloadSource + settingsIpcSource).toContain(symbol);
+    }
+    expect(preloadSource).not.toContain("safeStorage");
+    expect(preloadSource).not.toContain("readFile");
+    expect(preloadSource).not.toContain("writeFile");
+    expect(preloadSource).not.toContain("localStorage");
+    expect(settingsIpcSource).toContain("isMainWindowSender");
+    expect(settingsIpcSource).not.toContain("secureStorePath");
+    expect(settingsIpcSource).not.toContain("credentialStorePath");
+  });
 });

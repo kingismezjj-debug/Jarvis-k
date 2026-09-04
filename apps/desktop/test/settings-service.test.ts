@@ -3,6 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
@@ -14,13 +16,21 @@ import {
 } from "@jarvis-k/contracts";
 import { registerSettingsIpc } from "../src/ipc/register-settings-ipc";
 import { SettingsService } from "../src/settings/settings-service";
-import type { ChatAnswerProviderConfiguration } from "../src/secure-chat-answer-provider-store";
+import type {
+  ChatAnswerProviderConfiguration,
+  ChatAnswerProviderPublicConfiguration,
+} from "../src/secure-chat-answer-provider-store";
 import { LoginItemController } from "../src/login-item/login-item-controller";
 
 function createSettingsService(input: {
   credentialConfigured?: boolean;
   secureStorageAvailable?: boolean;
   configuration?: ChatAnswerProviderConfiguration | null;
+  publicConfiguration?: ChatAnswerProviderPublicConfiguration | null;
+  testConnectionResult?:
+    | "success"
+    | "authentication_failed"
+    | "endpoint_unreachable";
   evaluationCapabilityAvailable?: boolean;
   cloudProviderAcceptanceCapabilityAvailable?: boolean;
   desktopSettingsPath?: string;
@@ -39,12 +49,58 @@ function createSettingsService(input: {
 } = {}) {
   const configureCommandRouterProductMode = vi.fn();
   const configureChatAnswerProductMode = vi.fn();
+  let publicConfiguration =
+    input.publicConfiguration ??
+    (input.configuration
+      ? {
+          provider: input.configuration.provider,
+          endpoint:
+            input.configuration.endpoint ??
+            "https://api.deepseek.com/chat/completions",
+          modelId: input.configuration.modelId ?? "deepseek-v4-flash",
+        }
+      : null);
+  let configuration = input.configuration ?? null;
+  let credentialConfigured = input.credentialConfigured ?? configuration !== null;
   const service = new SettingsService({
-    loadChatAnswerProviderConfiguration: async () =>
-      input.configuration === undefined ? null : input.configuration,
+    loadChatAnswerProviderConfiguration: async () => configuration,
+    loadChatAnswerProviderPublicConfiguration: async () => publicConfiguration,
+    saveChatAnswerProviderPublicConfiguration: async (next) => {
+      publicConfiguration = next;
+      configuration = configuration
+        ? {
+            ...configuration,
+            provider: next.provider,
+            endpoint: next.endpoint,
+            modelId: next.modelId,
+          }
+        : null;
+    },
+    replaceChatAnswerProviderCredential: async (apiKey) => {
+      const publicPart =
+        publicConfiguration ??
+        ({
+          provider: "chat-answer.openai-compatible.deepseek",
+          endpoint: "https://api.deepseek.com/chat/completions",
+          modelId: "deepseek-v4-flash",
+        } satisfies ChatAnswerProviderPublicConfiguration);
+      publicConfiguration = publicPart;
+      configuration = {
+        ...publicPart,
+        credentials: { apiKey },
+      };
+      credentialConfigured = true;
+    },
+    clearChatAnswerProviderConfiguration: async () => {
+      publicConfiguration = null;
+      configuration = null;
+      credentialConfigured = false;
+    },
+    testChatAnswerProviderConnection: async () =>
+      input.testConnectionResult ?? "success",
     getChatAnswerCredentialStatus: async () => ({
       secureStorageAvailable: input.secureStorageAvailable ?? true,
-      credentialConfigured: input.credentialConfigured ?? false,
+      credentialConfigured,
     }),
     configureCommandRouterProductMode,
     configureChatAnswerProductMode,
@@ -114,6 +170,133 @@ describe("SettingsService", () => {
       firstRunOnboardingState: "pending",
       persistedLocally: true,
       syncedToCloud: false,
+    });
+  });
+
+  it("saves Chat Answer public configuration without enabling or testing", async () => {
+    const { configureChatAnswerProductMode, service } = createSettingsService();
+
+    const result = await service.saveChatAnswerProviderConfiguration({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      serviceUrl: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash",
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: {
+        configured: false,
+        enabled: false,
+        runtimeArmed: false,
+        credentialConfigured: false,
+        credentialExposed: false,
+        connectionTestStatus: "not_tested",
+        publicConfiguration: {
+          providerId: "chat-answer.openai-compatible.deepseek",
+          serviceUrl: "https://api.deepseek.com/chat/completions",
+          modelId: "deepseek-v4-flash",
+        },
+      },
+    });
+    expect(configureChatAnswerProductMode).toHaveBeenCalledWith({
+      enabled: false,
+    });
+  });
+
+  it("separates Chat Answer credential replacement, connection test, and runtime enablement", async () => {
+    const { configureChatAnswerProductMode, service } = createSettingsService();
+
+    await service.saveChatAnswerProviderConfiguration({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      serviceUrl: "https://api.deepseek.com/chat/completions",
+      modelId: "deepseek-v4-flash",
+    });
+    const credentialResult = await service.replaceChatAnswerProviderCredential({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      apiKey: "test-deepseek-key",
+    });
+    expect(JSON.stringify(credentialResult)).not.toContain("test-deepseek-key");
+
+    await expect(
+      service.setChatAnswerProviderConfigurationEnabled({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        enabled: true,
+        requireRecentSuccessfulTest: true,
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      status: { enabled: false, runtimeArmed: false },
+    });
+
+    await expect(
+      service.testChatAnswerProviderConnection({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        userConfirmedNetworkRequest: true,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      status: { connectionTestStatus: "success" },
+    });
+
+    await expect(
+      service.setChatAnswerProviderConfigurationEnabled({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        enabled: true,
+        requireRecentSuccessfulTest: true,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      status: {
+        configured: true,
+        enabled: true,
+        runtimeArmed: true,
+        credentialExposed: false,
+      },
+    });
+    expect(configureChatAnswerProductMode).toHaveBeenLastCalledWith({
+      enabled: true,
+      configuration: expect.objectContaining({
+        provider: "chat-answer.openai-compatible.deepseek",
+        credentials: { apiKey: "test-deepseek-key" },
+      }),
+    });
+  });
+
+  it("removes Chat Answer configuration and clears the active runtime", async () => {
+    const { configureChatAnswerProductMode, service } = createSettingsService({
+      configuration: {
+        provider: "chat-answer.openai-compatible.deepseek",
+        endpoint: "https://api.deepseek.com/chat/completions",
+        modelId: "deepseek-v4-flash",
+        credentials: { apiKey: "test-deepseek-key" },
+      },
+    });
+
+    await service.testChatAnswerProviderConnection({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      userConfirmedNetworkRequest: true,
+    });
+    await service.setChatAnswerProviderConfigurationEnabled({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      enabled: true,
+      requireRecentSuccessfulTest: true,
+    });
+    const result = await service.removeChatAnswerProviderConfiguration({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      confirmRemove: "remove_current_chat_answer_provider_configuration",
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: {
+        configured: false,
+        enabled: false,
+        runtimeArmed: false,
+        credentialConfigured: false,
+      },
+    });
+    expect(configureChatAnswerProductMode).toHaveBeenLastCalledWith({
+      enabled: false,
     });
   });
 
@@ -1234,6 +1417,10 @@ describe("SettingsService", () => {
       credentialConfigured: true,
       configuration,
     });
+    await service.testChatAnswerProviderConnection({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      userConfirmedNetworkRequest: true,
+    });
     const result = await service.setChatAnswerProductModeEnabled({
       enabled: true,
     });
@@ -1264,7 +1451,7 @@ describe("registerSettingsIpc", () => {
       settingsService: service,
     });
 
-    expect(ipcMain.handle).toHaveBeenCalledTimes(12);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(18);
     expect(handlers.has(IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL)).toBe(true);
     expect(handlers.has(IPC_UI_SURFACE_HEALTH_REPORT_CHANNEL)).toBe(true);
     expect(
@@ -1291,8 +1478,8 @@ describe("registerSettingsIpc", () => {
       getMainWindow: () => null,
       settingsService: service,
     });
-    expect(ipcMain.handle).toHaveBeenCalledTimes(24);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(24);
+    expect(ipcMain.handle).toHaveBeenCalledTimes(36);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(36);
   });
 
   it("rejects settings updates from non-main-window senders", async () => {
@@ -1316,6 +1503,12 @@ describe("registerSettingsIpc", () => {
     const chatAnswerHandler = handlers.get(
       IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
     );
+    const chatAnswerProviderSaveHandler = handlers.get(
+      IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
+    );
+    const chatAnswerProviderRemoveHandler = handlers.get(
+      IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
+    );
     const desktopSettingsHandler = handlers.get(IPC_DESKTOP_SETTINGS_SET_CHANNEL);
     const launchAtLoginHandler = handlers.get(
       IPC_DESKTOP_LAUNCH_AT_LOGIN_SET_CHANNEL,
@@ -1334,6 +1527,29 @@ describe("registerSettingsIpc", () => {
     await expect(
       Promise.resolve(
         chatAnswerHandler?.({ sender: { id: 8 } }, { enabled: true }),
+      ),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      Promise.resolve(
+        chatAnswerProviderSaveHandler?.(
+          { sender: { id: 8 } },
+          {
+            providerId: "chat-answer.openai-compatible.deepseek",
+            serviceUrl: "https://api.deepseek.com/chat/completions",
+            modelId: "deepseek-v4-flash",
+          },
+        ),
+      ),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      Promise.resolve(
+        chatAnswerProviderRemoveHandler?.(
+          { sender: { id: 8 } },
+          {
+            providerId: "chat-answer.openai-compatible.deepseek",
+            confirmRemove: "remove_current_chat_answer_provider_configuration",
+          },
+        ),
       ),
     ).resolves.toMatchObject({ ok: false });
     await expect(

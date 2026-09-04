@@ -1,5 +1,16 @@
 import type { BrowserWindow, IpcMain } from "electron";
 import {
+  ChatAnswerProviderConfigurationEnableRequestSchema,
+  ChatAnswerProviderConfigurationRemoveRequestSchema,
+  ChatAnswerProviderConfigurationSaveRequestSchema,
+  ChatAnswerProviderConnectionTestRequestSchema,
+  ChatAnswerProviderCredentialReplaceRequestSchema,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_ENABLE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_STATUS_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL,
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
@@ -24,6 +35,12 @@ export interface RegisterSettingsIpcOptions {
 const SETTINGS_CHANNELS = [
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_STATUS_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_ENABLE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_UI_SURFACE_CAPABILITY_STATUS_CHANNEL,
@@ -44,6 +61,10 @@ export function registerSettingsIpc(
     options.settingsService.getChatAnswerProductModeStatus(),
   );
   options.ipcMain.handle(
+    IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_STATUS_CHANNEL,
+    () => options.settingsService.getChatAnswerProviderConfigurationStatus(),
+  );
+  options.ipcMain.handle(
     IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
     async (event, rawInput: unknown) => {
       if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
@@ -54,6 +75,61 @@ export function registerSettingsIpc(
         };
       }
       return options.settingsService.setChatAnswerProductModeEnabled(rawInput);
+    },
+  );
+  options.ipcMain.handle(
+    IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
+    async (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return rejectedChatAnswerProviderCommand(options);
+      }
+      return options.settingsService.saveChatAnswerProviderConfiguration(
+        ChatAnswerProviderConfigurationSaveRequestSchema.parse(rawInput),
+      );
+    },
+  );
+  options.ipcMain.handle(
+    IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL,
+    async (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return rejectedChatAnswerProviderCommand(options);
+      }
+      return options.settingsService.replaceChatAnswerProviderCredential(
+        ChatAnswerProviderCredentialReplaceRequestSchema.parse(rawInput),
+      );
+    },
+  );
+  options.ipcMain.handle(
+    IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL,
+    async (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return rejectedChatAnswerProviderCommand(options);
+      }
+      return options.settingsService.testChatAnswerProviderConnection(
+        ChatAnswerProviderConnectionTestRequestSchema.parse(rawInput),
+      );
+    },
+  );
+  options.ipcMain.handle(
+    IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_ENABLE_CHANNEL,
+    async (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return rejectedChatAnswerProviderCommand(options);
+      }
+      return options.settingsService.setChatAnswerProviderConfigurationEnabled(
+        ChatAnswerProviderConfigurationEnableRequestSchema.parse(rawInput),
+      );
+    },
+  );
+  options.ipcMain.handle(
+    IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
+    async (event, rawInput: unknown) => {
+      if (!isMainWindowSender(options.getMainWindow(), event.sender.id)) {
+        return rejectedChatAnswerProviderCommand(options);
+      }
+      return options.settingsService.removeChatAnswerProviderConfiguration(
+        ChatAnswerProviderConfigurationRemoveRequestSchema.parse(rawInput),
+      );
     },
   );
   options.ipcMain.handle(IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL, () =>
@@ -162,4 +238,14 @@ function isMainWindowSender(
   senderId: number,
 ): boolean {
   return mainWindow !== null && mainWindow.webContents.id === senderId;
+}
+
+async function rejectedChatAnswerProviderCommand(
+  options: RegisterSettingsIpcOptions,
+) {
+  return {
+    ok: false,
+    status: await options.settingsService.getChatAnswerProviderConfigurationStatus(),
+    message: "Online answer service settings are unavailable.",
+  };
 }

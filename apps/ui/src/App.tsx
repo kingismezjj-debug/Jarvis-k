@@ -140,6 +140,7 @@ export default function App() {
   const uiSurfaceMode = useUiSurfaceMode();
   const {
     brainResult,
+    chatAnswerProviderConfigurationStatus,
     chatAnswerProductModeStatus,
     commandRouterLocalAppLaunchResult,
     commandRouterProductModeStatus,
@@ -202,6 +203,7 @@ export default function App() {
     refreshCapabilities,
     refreshCloudProviderAcceptanceStatus,
     refreshGlmAdvancedBrainAcceptanceStatus,
+    refreshChatAnswerProviderConfigurationStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshDesktopSettings,
@@ -231,7 +233,11 @@ export default function App() {
     runCloudProviderRealAcceptance,
     sendCommand,
     selectConversation,
+    removeChatAnswerProviderConfiguration,
+    replaceChatAnswerProviderCredential,
+    saveChatAnswerProviderConfiguration,
     setChatAnswerProductModeEnabled,
+    setChatAnswerProviderConfigurationEnabled,
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopFirstRunOnboardingState,
@@ -250,6 +256,7 @@ export default function App() {
     setDesktopPetReducedMotion,
     setLocalPluginEnabledState,
     setQwenRuntimeControlAction,
+    testChatAnswerProviderConnection,
     saveVoiceRegressionPendingSample,
     startPilotPrompt,
     setVoiceRegressionLocalTextCollection,
@@ -2663,6 +2670,9 @@ export default function App() {
                       "Desktop Pet motion updated",
                     );
                   }}
+                  chatAnswerProviderConfigurationStatus={
+                    chatAnswerProviderConfigurationStatus
+                  }
                   chatAnswerProductModeStatus={chatAnswerProductModeStatus}
                   commandRouterProductModeStatus={commandRouterProductModeStatus}
                   inferenceProviderRequirements={inferenceProviderRequirements}
@@ -2676,8 +2686,45 @@ export default function App() {
                   onRefreshModelStatus={() => {
                     void trackAction(
                       "Refresh model status",
-                      refreshModelGovernance,
+                      async () => {
+                        await refreshModelGovernance();
+                        await refreshChatAnswerProviderConfigurationStatus();
+                      },
                       "Model status refreshed",
+                    );
+                  }}
+                  onRemoveChatAnswerProviderConfiguration={() => {
+                    return trackAction(
+                      "Remove online answer service configuration",
+                      removeChatAnswerProviderConfiguration,
+                      "Online answer service configuration removed",
+                    );
+                  }}
+                  onReplaceChatAnswerProviderCredential={(apiKey) => {
+                    return trackAction(
+                      "Save online answer service key",
+                      async () => replaceChatAnswerProviderCredential(apiKey),
+                      "Online answer service key saved",
+                    );
+                  }}
+                  onSaveChatAnswerProviderConfiguration={(configuration) => {
+                    return trackAction(
+                      "Save online answer service configuration",
+                      async () =>
+                        saveChatAnswerProviderConfiguration(configuration),
+                      "Online answer service configuration saved",
+                    );
+                  }}
+                  onSetChatAnswerProviderConfigurationEnabled={(enabled) => {
+                    return trackAction(
+                      enabled
+                        ? "Enable online answer service"
+                        : "Disable online answer service",
+                      async () =>
+                        setChatAnswerProviderConfigurationEnabled(enabled),
+                      enabled
+                        ? "Online answer service enabled"
+                        : "Online answer service disabled",
                     );
                   }}
                   onSetChatAnswerProductModeEnabled={(enabled) => {
@@ -2700,6 +2747,13 @@ export default function App() {
                       enabled
                         ? "Command understanding enabled"
                         : "Command understanding disabled",
+                    );
+                  }}
+                  onTestChatAnswerProviderConnection={() => {
+                    return trackAction(
+                      "Test online answer service connection",
+                      testChatAnswerProviderConnection,
+                      "Online answer service connection tested",
                     );
                   }}
                   pluginManagementStatus={pluginManagementStatus}

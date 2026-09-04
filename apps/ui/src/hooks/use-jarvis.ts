@@ -7,6 +7,7 @@ import {
   GLM_ADVANCED_BRAIN_ACCEPTANCE_CREDENTIAL_TYPE,
   type AppCommand,
   type BrainCommandResult,
+  type ChatAnswerProviderConfigurationStatus,
   type ChatAnswerProductModeStatus,
   type CommandRouterLocalAppLaunchResult,
   type CommandRouterProductModeStatus,
@@ -170,6 +171,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     ttsServiceStatus,
   } = voiceState;
   const {
+    chatAnswerProviderConfigurationStatus,
     chatAnswerProductModeStatus,
     commandRouterProductModeStatus,
     qwenRuntimeControlStatus,
@@ -251,6 +253,15 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     (status: ChatAnswerProductModeStatus | null) => {
       dispatchDiagnosticsState({
         type: "chatAnswerProductModeStatus.set",
+        status,
+      });
+    },
+    [],
+  );
+  const setChatAnswerProviderConfigurationStatus = useCallback(
+    (status: ChatAnswerProviderConfigurationStatus | null) => {
+      dispatchDiagnosticsState({
+        type: "chatAnswerProviderConfigurationStatus.set",
         status,
       });
     },
@@ -990,17 +1001,24 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     confirmCommandRouterLocalAppLaunch,
     probeCore,
     refreshCapabilities,
+    refreshChatAnswerProviderConfigurationStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshQwenRuntimeControlStatus,
+    removeChatAnswerProviderConfiguration,
+    replaceChatAnswerProviderCredential,
+    saveChatAnswerProviderConfiguration,
     setChatAnswerProductModeEnabled,
+    setChatAnswerProviderConfigurationEnabled,
     setCommandRouterProductModeEnabled,
     setQwenRuntimeControlAction,
+    testChatAnswerProviderConnection,
   } = useJarvisDiagnosticsActions({
     setError,
     setSending,
     sendCommand,
     setChatAnswerProductModeStatus,
+    setChatAnswerProviderConfigurationStatus,
     setCommandRouterProductModeStatus,
     setQwenRuntimeControlStatus,
     setCommandRouterLocalAppLaunchResult,
@@ -1099,6 +1117,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       setTtsServiceStatus(null);
       void refreshDesktopSettings();
       void refreshProductAboutInfo();
+      void refreshChatAnswerProviderConfigurationStatus();
       void refreshChatAnswerProductModeStatus();
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
@@ -1124,6 +1143,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
       void refreshTtsServiceStatus();
       void refreshDesktopSettings();
       void refreshProductAboutInfo();
+      void refreshChatAnswerProviderConfigurationStatus();
       void refreshChatAnswerProductModeStatus();
       void refreshCommandRouterProductModeStatus();
       void refreshPlugins();
@@ -1147,6 +1167,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     void refreshTtsServiceStatus();
     void refreshDesktopSettings();
     void refreshProductAboutInfo();
+    void refreshChatAnswerProviderConfigurationStatus();
     void refreshChatAnswerProductModeStatus();
     void refreshCommandRouterProductModeStatus();
     void refreshPlugins();
@@ -1170,6 +1191,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     };
   }, [
     cloudProviderAcceptanceSurfaceEnabled,
+    refreshChatAnswerProviderConfigurationStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshCloudProviderAcceptancePreflightProjection,
@@ -1193,6 +1215,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
   return {
     connection,
     brainResult,
+    chatAnswerProviderConfigurationStatus,
     chatAnswerProductModeStatus,
     cloudProviderAcceptancePreflight,
     cloudProviderAcceptanceReport,
@@ -1240,6 +1263,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     refreshGlmAdvancedBrainAcceptanceStatus,
     refreshDesktopSettings,
     refreshProductAboutInfo,
+    refreshChatAnswerProviderConfigurationStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshLocalPluginManifestDeveloperStatus,
@@ -1262,6 +1286,8 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     confirmUserRouteAlias,
     cancelPilotSession,
     deleteCloudProviderAcceptanceCredential,
+    removeChatAnswerProviderConfiguration,
+    replaceChatAnswerProviderCredential,
     deleteUserControlledMemory,
     discardVoiceRegressionPendingSample,
     markPilotNoFinalTranscript,
@@ -1286,6 +1312,8 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     sendMessage,
     selectConversation,
     setChatAnswerProductModeEnabled,
+    saveChatAnswerProviderConfiguration,
+    setChatAnswerProviderConfigurationEnabled,
     setCommandRouterProductModeEnabled,
     setDesktopCloseButtonBehavior,
     setDesktopLaunchAtLoginEnabled,
@@ -1303,6 +1331,7 @@ export function useJarvis(options: UseJarvisOptions = {}) {
     runGlmAdvancedBrainAcceptanceDiagnostic,
     resetDesktopPetPosition,
     setQwenRuntimeControlAction,
+    testChatAnswerProviderConnection,
     saveVoiceRegressionPendingSample,
     startPilotPrompt,
     setVoiceRegressionLocalTextCollection,

@@ -11,6 +11,7 @@ import {
   shell
 } from "electron";
 import {
+  type ChatAnswerProviderConnectionTestStatus,
   PET_SKIN_INSTALLED_PROTOCOL,
   PET_SKIN_PREVIEW_PROTOCOL,
   IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL
@@ -21,8 +22,12 @@ import {
   type HeavyPlannerProviderName
 } from "./secure-heavy-planner-provider-store";
 import {
+  CHAT_ANSWER_DEEPSEEK_ENDPOINT,
+  CHAT_ANSWER_DEEPSEEK_MODEL_ID,
+  CHAT_ANSWER_DEEPSEEK_PROVIDER_ID,
   SecureChatAnswerProviderStore,
-  type ChatAnswerProviderConfiguration
+  type ChatAnswerProviderConfiguration,
+  type ChatAnswerProviderPublicConfiguration
 } from "./secure-chat-answer-provider-store";
 import {
   isStage5LocalAcceptanceNoSecureStore,
@@ -250,6 +255,137 @@ async function getChatAnswerProviderConfiguration(): Promise<ChatAnswerProviderC
   }
 }
 
+async function getChatAnswerProviderPublicConfiguration(): Promise<ChatAnswerProviderPublicConfiguration | null> {
+  try {
+    return await getChatAnswerProviderStore(
+      CHAT_ANSWER_DEEPSEEK_PROVIDER_ID
+    ).loadPublicConfiguration();
+  } catch {
+    return null;
+  }
+}
+
+async function testChatAnswerProviderConnection(
+  configuration: ChatAnswerProviderConfiguration
+): Promise<ChatAnswerProviderConnectionTestStatus> {
+  if (
+    configuration.provider !== CHAT_ANSWER_DEEPSEEK_PROVIDER_ID ||
+    (configuration.endpoint ?? CHAT_ANSWER_DEEPSEEK_ENDPOINT) !==
+      CHAT_ANSWER_DEEPSEEK_ENDPOINT ||
+    (configuration.modelId ?? CHAT_ANSWER_DEEPSEEK_MODEL_ID) !==
+      CHAT_ANSWER_DEEPSEEK_MODEL_ID
+  ) {
+    return "malformed_response";
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(CHAT_ANSWER_DEEPSEEK_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${configuration.credentials.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: CHAT_ANSWER_DEEPSEEK_MODEL_ID,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are validating an online answer connection. Return JSON only."
+          },
+          {
+            role: "user",
+            content:
+              'Return exactly one JSON object like {"status":"answered","answer":"ready"}.'
+          }
+        ],
+        response_format: { type: "json_object" },
+        stream: false,
+        temperature: 0,
+        max_tokens: 32
+      }),
+      signal: controller.signal
+    });
+    if (response.status >= 200 && response.status < 300) {
+      const body = await response.json().catch(() => undefined);
+      return isUsableOpenAiCompatibleAnswerResponse(body)
+        ? "success"
+        : "malformed_response";
+    }
+    if (response.status === 401) {
+      return "authentication_failed";
+    }
+    if (response.status === 403) {
+      return "access_forbidden";
+    }
+    if (response.status === 404) {
+      return "model_not_found";
+    }
+    if (response.status === 429) {
+      return "rate_limited";
+    }
+    if (response.status >= 500 && response.status < 600) {
+      return "endpoint_unreachable";
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    ) {
+      return "provider_timeout";
+    }
+    if (isTlsOrCertificateError(error)) {
+      return "tls_or_certificate_error";
+    }
+    return "endpoint_unreachable";
+  } finally {
+    clearTimeout(timeout);
+  }
+  return "unknown_failure";
+}
+
+function isUsableOpenAiCompatibleAnswerResponse(body: unknown): boolean {
+  if (!isRecord(body) || !Array.isArray(body.choices)) {
+    return false;
+  }
+  const choice = body.choices[0];
+  if (!isRecord(choice) || !isRecord(choice.message)) {
+    return false;
+  }
+  if (choice.message.role !== "assistant") {
+    return false;
+  }
+  const content = choice.message.content;
+  if (typeof content !== "string" || content.trim().length === 0) {
+    return false;
+  }
+  try {
+    const parsed = JSON.parse(content);
+    return (
+      isRecord(parsed) &&
+      parsed.status === "answered" &&
+      typeof parsed.answer === "string" &&
+      parsed.answer.trim().length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isTlsOrCertificateError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const cause =
+    error instanceof Error && error.cause !== undefined
+      ? String(error.cause)
+      : "";
+  return /(?:cert|certificate|tls|ssl)/iu.test(`${message} ${cause}`);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
@@ -354,6 +490,24 @@ if (!hasSingleInstanceLock) {
           return null;
         }
       },
+      loadChatAnswerProviderPublicConfiguration:
+        getChatAnswerProviderPublicConfiguration,
+      saveChatAnswerProviderPublicConfiguration: async (configuration) => {
+        await getChatAnswerProviderStore(
+          CHAT_ANSWER_DEEPSEEK_PROVIDER_ID
+        ).savePublicConfiguration(configuration);
+      },
+      replaceChatAnswerProviderCredential: async (apiKey) => {
+        await getChatAnswerProviderStore(
+          CHAT_ANSWER_DEEPSEEK_PROVIDER_ID
+        ).replaceCredential(apiKey);
+      },
+      clearChatAnswerProviderConfiguration: async () => {
+        await getChatAnswerProviderStore(
+          CHAT_ANSWER_DEEPSEEK_PROVIDER_ID
+        ).clear();
+      },
+      testChatAnswerProviderConnection,
       getChatAnswerCredentialStatus: async () => {
         try {
           const status = await getChatAnswerProviderStore(

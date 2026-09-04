@@ -1,5 +1,7 @@
 import * as React from "react";
 import type {
+  ChatAnswerProviderConfigurationSaveRequest,
+  ChatAnswerProviderConfigurationStatus,
   ChatAnswerProductModeStatus,
   CommandRouterProductModeStatus,
   DesktopCloseButtonBehavior,
@@ -91,6 +93,7 @@ export type SettingsV2GeneralViewProps = {
   onOpenTtsSettings?: () => void;
   commandRouterProductModeStatus?: CommandRouterProductModeStatus | null;
   chatAnswerProductModeStatus?: ChatAnswerProductModeStatus | null;
+  chatAnswerProviderConfigurationStatus?: ChatAnswerProviderConfigurationStatus | null;
   inferenceProviders?: InferenceProviderDescriptor[];
   inferenceProviderRequirements?: InferenceProviderConfigurationReport[];
   modelInventory?: ModelInventoryItem[];
@@ -101,6 +104,19 @@ export type SettingsV2GeneralViewProps = {
   onOpenModelOperations?: () => void;
   onSetCommandRouterProductModeEnabled?: (enabled: boolean) => void;
   onSetChatAnswerProductModeEnabled?: (enabled: boolean) => void;
+  onSaveChatAnswerProviderConfiguration?: (
+    configuration: ChatAnswerProviderConfigurationSaveRequest,
+  ) => Promise<boolean | string | null | void> | boolean | string | null | void;
+  onReplaceChatAnswerProviderCredential?: (
+    apiKey: string,
+  ) => Promise<boolean | string | null | void> | boolean | string | null | void;
+  onTestChatAnswerProviderConnection?:
+    () => Promise<boolean | string | null | void> | boolean | string | null | void;
+  onSetChatAnswerProviderConfigurationEnabled?: (
+    enabled: boolean,
+  ) => Promise<boolean | string | null | void> | boolean | string | null | void;
+  onRemoveChatAnswerProviderConfiguration?:
+    () => Promise<boolean | string | null | void> | boolean | string | null | void;
   pluginManagementStatus?: PluginManagementStatusResult | null;
   onOpenPluginManagement?: () => void;
   memoryAlphaStatus?: MemoryAlphaStatus | null;
@@ -108,6 +124,7 @@ export type SettingsV2GeneralViewProps = {
   productAboutInfo?: ProductAboutInfo | null;
   onUseClassicSettings?: () => void;
   initialCategoryId?: SettingsV2CategoryId;
+  initialAnswerProviderConfigurationOpen?: boolean;
 };
 
 const defaultCategoryId: SettingsV2CategoryId = "general";
@@ -701,13 +718,20 @@ export function SettingsV2GeneralView({
   onRefreshModelStatus,
   onOpenModelOperations,
   onSetCommandRouterProductModeEnabled,
+  chatAnswerProviderConfigurationStatus,
   onSetChatAnswerProductModeEnabled,
+  onSaveChatAnswerProviderConfiguration,
+  onReplaceChatAnswerProviderCredential,
+  onTestChatAnswerProviderConnection,
+  onSetChatAnswerProviderConfigurationEnabled,
+  onRemoveChatAnswerProviderConfiguration,
   pluginManagementStatus,
   memoryAlphaStatus,
   onOpenMemoryCenter,
   productAboutInfo,
   onUseClassicSettings,
   initialCategoryId,
+  initialAnswerProviderConfigurationOpen,
 }: SettingsV2GeneralViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] =
     React.useState<SettingsV2CategoryId>(initialCategoryId ?? defaultCategoryId);
@@ -715,6 +739,27 @@ export function SettingsV2GeneralView({
   const [languageDialogOpen, setLanguageDialogOpen] = React.useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = React.useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
+  const [answerConfigOpen, setAnswerConfigOpen] = React.useState(
+    initialAnswerProviderConfigurationOpen === true,
+  );
+  const [answerDeleteConfirmOpen, setAnswerDeleteConfirmOpen] =
+    React.useState(false);
+  const [answerServiceUrl, setAnswerServiceUrl] = React.useState(
+    "https://api.deepseek.com/chat/completions",
+  );
+  const [answerModelId, setAnswerModelId] =
+    React.useState("deepseek-v4-flash");
+  const [answerApiKey, setAnswerApiKey] = React.useState("");
+
+  React.useEffect(() => {
+    const configuration =
+      chatAnswerProviderConfigurationStatus?.publicConfiguration;
+    if (!configuration) {
+      return;
+    }
+    setAnswerServiceUrl(configuration.serviceUrl);
+    setAnswerModelId(configuration.modelId);
+  }, [chatAnswerProviderConfigurationStatus?.publicConfiguration]);
 
   const categories = React.useMemo(
     () =>
@@ -814,6 +859,76 @@ export function SettingsV2GeneralView({
     modelOperations,
     resourceDiagnostics,
   });
+  const answerProviderConfigured =
+    chatAnswerProviderConfigurationStatus?.configured === true;
+  const answerProviderCredentialConfigured =
+    chatAnswerProviderConfigurationStatus?.credentialConfigured === true;
+  const answerConnectionTestStatus =
+    chatAnswerProviderConfigurationStatus?.connectionTestStatus ?? "not_tested";
+  const answerConnectionTestLabel = getAnswerConnectionTestLabel(
+    locale,
+    answerConnectionTestStatus,
+  );
+  const answerServiceUrlValid =
+    normalizeAnswerServiceUrl(answerServiceUrl) ===
+    "https://api.deepseek.com/chat/completions";
+  const answerModelIdValid =
+    normalizeAnswerModelId(answerModelId) === "deepseek-v4-flash";
+  const answerApiKeyValid = isAnswerApiKeyCandidate(answerApiKey);
+  const answerCanSave =
+    Boolean(onSaveChatAnswerProviderConfiguration) &&
+    answerServiceUrlValid &&
+    answerModelIdValid &&
+    (answerApiKey.trim().length === 0 || answerApiKeyValid) &&
+    !sending;
+  const answerCanReplaceKey =
+    Boolean(onReplaceChatAnswerProviderCredential) &&
+    answerApiKeyValid &&
+    !sending;
+  const answerCanTest =
+    Boolean(onTestChatAnswerProviderConnection) &&
+    answerProviderConfigured &&
+    answerProviderCredentialConfigured &&
+    answerConnectionTestStatus !== "testing" &&
+    !sending;
+  const answerCanEnable =
+    Boolean(onSetChatAnswerProviderConfigurationEnabled) &&
+    answerProviderConfigured &&
+    answerConnectionTestStatus === "success" &&
+    !sending;
+  const answerCanToggle =
+    Boolean(onSetChatAnswerProviderConfigurationEnabled) &&
+    !sending &&
+    (chatAnswerProviderConfigurationStatus?.enabled === true || answerCanEnable);
+  const handleSaveAnswerConfiguration = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!answerCanSave || !onSaveChatAnswerProviderConfiguration) {
+      return;
+    }
+    const result = await onSaveChatAnswerProviderConfiguration({
+      providerId: "chat-answer.openai-compatible.deepseek",
+      serviceUrl: answerServiceUrl,
+      modelId: answerModelId,
+    });
+    if (result !== false && answerApiKey.trim().length > 0) {
+      const credentialResult =
+        await onReplaceChatAnswerProviderCredential?.(answerApiKey);
+      if (credentialResult !== false) {
+        setAnswerApiKey("");
+      }
+    }
+  };
+  const handleReplaceAnswerCredential = async () => {
+    if (!answerCanReplaceKey || !onReplaceChatAnswerProviderCredential) {
+      return;
+    }
+    const result = await onReplaceChatAnswerProviderCredential(answerApiKey);
+    if (result !== false) {
+      setAnswerApiKey("");
+    }
+  };
   const toolsViewModel = buildSettingsV2ToolsPluginsProductViewModel({
     locale,
     pluginManagementStatus,
@@ -1349,9 +1464,15 @@ export function SettingsV2GeneralView({
                   disabled={
                     sending ||
                     !chatAnswerProductModeStatus ||
-                    !onSetChatAnswerProductModeEnabled
+                    !(
+                      onSetChatAnswerProviderConfigurationEnabled ??
+                      onSetChatAnswerProductModeEnabled
+                    )
                   }
-                  onCheckedChange={onSetChatAnswerProductModeEnabled}
+                  onCheckedChange={
+                    onSetChatAnswerProviderConfigurationEnabled ??
+                    onSetChatAnswerProductModeEnabled
+                  }
                   title={tSettingsV2(locale, "settings.models.answerProvider.label")}
                 />
                 <div
@@ -1363,7 +1484,218 @@ export function SettingsV2GeneralView({
                     {modelsViewModel.answer.value}
                   </span>
                   <span>{modelsViewModel.answer.detail}</span>
+                  <span>{answerConnectionTestLabel}</span>
                 </div>
+                <div className="settings-v2-status-row">
+                  <span>
+                    {answerProviderCredentialConfigured
+                      ? tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.keySaved",
+                        )
+                      : tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.keyMissing",
+                        )}
+                  </span>
+                  <Button
+                    disabled={sending}
+                    onClick={() => setAnswerConfigOpen((open) => !open)}
+                    variant="secondary"
+                  >
+                    {tSettingsV2(
+                      locale,
+                      "settings.models.answerProvider.configureAction",
+                    )}
+                  </Button>
+                </div>
+                {answerConfigOpen ? (
+                  <form
+                    className="settings-v2-answer-provider-form"
+                    data-testid="settings-v2-answer-provider-form"
+                    onSubmit={(event) => {
+                      void handleSaveAnswerConfiguration(event);
+                    }}
+                  >
+                    <label>
+                      <span>
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.providerType",
+                        )}
+                      </span>
+                      <select
+                        disabled={sending}
+                        value="chat-answer.openai-compatible.deepseek"
+                        onChange={() => undefined}
+                      >
+                        <option value="chat-answer.openai-compatible.deepseek">
+                          {tSettingsV2(
+                            locale,
+                            "settings.models.answerProvider.deepseekCompatible",
+                          )}
+                        </option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.serviceUrl",
+                        )}
+                      </span>
+                      <input
+                        data-testid="settings-v2-answer-provider-service-url"
+                        disabled={sending}
+                        onChange={(event) =>
+                          setAnswerServiceUrl(event.currentTarget.value)
+                        }
+                        type="url"
+                        value={answerServiceUrl}
+                      />
+                    </label>
+                    {!answerServiceUrlValid ? (
+                      <span className="settings-v2-field-error">
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.validationServiceUrl",
+                        )}
+                      </span>
+                    ) : null}
+                    <label>
+                      <span>
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.modelId",
+                        )}
+                      </span>
+                      <input
+                        data-testid="settings-v2-answer-provider-model-id"
+                        disabled={sending}
+                        onChange={(event) =>
+                          setAnswerModelId(event.currentTarget.value)
+                        }
+                        value={answerModelId}
+                      />
+                    </label>
+                    {!answerModelIdValid ? (
+                      <span className="settings-v2-field-error">
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.validationModelId",
+                        )}
+                      </span>
+                    ) : null}
+                    <label>
+                      <span>
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.apiKey",
+                        )}
+                      </span>
+                      <input
+                        autoComplete="off"
+                        data-testid="settings-v2-answer-provider-api-key"
+                        disabled={sending}
+                        onChange={(event) =>
+                          setAnswerApiKey(event.currentTarget.value)
+                        }
+                        placeholder={tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.apiKeyPlaceholder",
+                        )}
+                        type="password"
+                        value={answerApiKey}
+                      />
+                    </label>
+                    {answerApiKey.length > 0 && !answerApiKeyValid ? (
+                      <span className="settings-v2-field-error">
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.validationApiKey",
+                        )}
+                      </span>
+                    ) : null}
+                    <InlineNotice
+                      title={tSettingsV2(
+                        locale,
+                        "settings.models.answerProvider.saveNoNetwork",
+                      )}
+                    >
+                      {tSettingsV2(
+                        locale,
+                        "settings.models.answerProvider.testNotice",
+                      )}
+                    </InlineNotice>
+                    <div className="settings-v2-dialog-actions">
+                      <Button disabled={!answerCanSave} type="submit">
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.save",
+                        )}
+                      </Button>
+                      <Button
+                        disabled={!answerCanReplaceKey}
+                        onClick={() => {
+                          void handleReplaceAnswerCredential();
+                        }}
+                        type="button"
+                        variant="secondary"
+                      >
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.replaceKey",
+                        )}
+                      </Button>
+                      <Button
+                        disabled={!answerCanTest}
+                        onClick={onTestChatAnswerProviderConnection}
+                        type="button"
+                        variant="secondary"
+                      >
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.test",
+                        )}
+                      </Button>
+                      <Button
+                        disabled={!answerCanToggle}
+                        onClick={() =>
+                          onSetChatAnswerProviderConfigurationEnabled?.(
+                            !chatAnswerProviderConfigurationStatus?.enabled,
+                          )
+                        }
+                        type="button"
+                        variant="secondary"
+                      >
+                        {chatAnswerProviderConfigurationStatus?.enabled
+                          ? tSettingsV2(
+                              locale,
+                              "settings.models.answerProvider.disable",
+                            )
+                          : tSettingsV2(
+                              locale,
+                              "settings.models.answerProvider.enable",
+                            )}
+                      </Button>
+                      <Button
+                        disabled={
+                          sending ||
+                          !answerProviderConfigured ||
+                          !onRemoveChatAnswerProviderConfiguration
+                        }
+                        onClick={() => setAnswerDeleteConfirmOpen(true)}
+                        type="button"
+                        variant="ghost"
+                      >
+                        {tSettingsV2(
+                          locale,
+                          "settings.models.answerProvider.delete",
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                ) : null}
               </SettingsSection>
 
               <SettingsSection
@@ -1912,6 +2244,44 @@ export function SettingsV2GeneralView({
         </div>
       </Dialog>
 
+      <Dialog
+        description={tSettingsV2(
+          locale,
+          "settings.models.answerProvider.deleteDescription",
+        )}
+        onClose={() => setAnswerDeleteConfirmOpen(false)}
+        open={answerDeleteConfirmOpen}
+        title={tSettingsV2(
+          locale,
+          "settings.models.answerProvider.deleteTitle",
+        )}
+      >
+        <div
+          className="settings-v2-dialog-actions"
+          data-testid="settings-v2-answer-provider-delete-dialog"
+        >
+          <Button
+            onClick={() => setAnswerDeleteConfirmOpen(false)}
+            variant="secondary"
+          >
+            {tSettingsV2(locale, "settings.models.answerProvider.cancel")}
+          </Button>
+          <Button
+            disabled={sending}
+            onClick={() => {
+              void onRemoveChatAnswerProviderConfiguration?.();
+              setAnswerDeleteConfirmOpen(false);
+            }}
+            variant="primary"
+          >
+            {tSettingsV2(
+              locale,
+              "settings.models.answerProvider.deleteConfirm",
+            )}
+          </Button>
+        </div>
+      </Dialog>
+
     </div>
   );
 }
@@ -2024,5 +2394,71 @@ function SkinSummaryCard({
         </div>
       </dl>
     </article>
+  );
+}
+
+function getAnswerConnectionTestLabel(
+  locale: SettingsV2Locale,
+  status: ChatAnswerProviderConfigurationStatus["connectionTestStatus"],
+): string {
+  const keyByStatus = {
+    not_tested: "settings.models.answerProvider.test.not_tested",
+    testing: "settings.models.answerProvider.test.testing",
+    success: "settings.models.answerProvider.test.success",
+    authentication_failed:
+      "settings.models.answerProvider.test.authentication_failed",
+    access_forbidden: "settings.models.answerProvider.test.access_forbidden",
+    rate_limited: "settings.models.answerProvider.test.rate_limited",
+    model_not_found: "settings.models.answerProvider.test.model_not_found",
+    endpoint_unreachable:
+      "settings.models.answerProvider.test.endpoint_unreachable",
+    provider_timeout: "settings.models.answerProvider.test.provider_timeout",
+    malformed_response:
+      "settings.models.answerProvider.test.malformed_response",
+    tls_or_certificate_error:
+      "settings.models.answerProvider.test.tls_or_certificate_error",
+    unknown_failure: "settings.models.answerProvider.test.unknown_failure",
+  } satisfies Record<
+    ChatAnswerProviderConfigurationStatus["connectionTestStatus"],
+    SettingsV2CopyKey
+  >;
+  return tSettingsV2(locale, keyByStatus[status]);
+}
+
+function normalizeAnswerServiceUrl(value: string): string | null {
+  if (value.length > 512) {
+    return null;
+  }
+  try {
+    const url = new URL(value.trim());
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+    return url.toString().replace(/\/$/u, "");
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAnswerModelId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!/^[A-Za-z0-9._:-]{1,96}$/u.test(trimmed) || trimmed.includes("..")) {
+    return null;
+  }
+  return trimmed;
+}
+
+function isAnswerApiKeyCandidate(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    trimmed.length >= 8 &&
+    trimmed.length <= 512 &&
+    !/[\p{C}\r\n]/u.test(value)
   );
 }

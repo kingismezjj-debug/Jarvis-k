@@ -1,4 +1,5 @@
 import type {
+  ChatAnswerProviderConfigurationStatus,
   ChatAnswerProductModeStatus,
   CommandRouterLocalAppLaunchResult,
   CommandRouterProductModeStatus,
@@ -6,6 +7,7 @@ import type {
 } from "@jarvis-k/contracts";
 
 export interface JarvisDiagnosticsState {
+  chatAnswerProviderConfigurationStatus: ChatAnswerProviderConfigurationStatus | null;
   chatAnswerProductModeStatus: ChatAnswerProductModeStatus | null;
   commandRouterProductModeStatus: CommandRouterProductModeStatus | null;
   qwenRuntimeControlStatus: QwenRuntimeControlStatus | null;
@@ -13,6 +15,7 @@ export interface JarvisDiagnosticsState {
 }
 
 export const initialJarvisDiagnosticsState: JarvisDiagnosticsState = {
+  chatAnswerProviderConfigurationStatus: null,
   chatAnswerProductModeStatus: null,
   commandRouterProductModeStatus: null,
   qwenRuntimeControlStatus: null,
@@ -20,6 +23,10 @@ export const initialJarvisDiagnosticsState: JarvisDiagnosticsState = {
 };
 
 export type JarvisDiagnosticsAction =
+  | {
+      type: "chatAnswerProviderConfigurationStatus.set";
+      status: ChatAnswerProviderConfigurationStatus | null;
+    }
   | {
       type: "chatAnswerProductModeStatus.set";
       status: ChatAnswerProductModeStatus | null;
@@ -44,6 +51,8 @@ export function jarvisDiagnosticsReducer(
   action: JarvisDiagnosticsAction,
 ): JarvisDiagnosticsState {
   switch (action.type) {
+    case "chatAnswerProviderConfigurationStatus.set":
+      return { ...state, chatAnswerProviderConfigurationStatus: action.status };
     case "chatAnswerProductModeStatus.set":
       return { ...state, chatAnswerProductModeStatus: action.status };
     case "commandRouterProductModeStatus.set":

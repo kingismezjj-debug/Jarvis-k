@@ -316,6 +316,40 @@
   gap: var(--jk-spacing-2);
 }
 
+.settings-v2-answer-provider-form {
+  border-top: 1px solid var(--jk-color-border-subtle);
+  display: grid;
+  gap: var(--jk-spacing-3);
+  padding: var(--jk-spacing-4) var(--jk-density-row-padding-inline);
+}
+
+.settings-v2-answer-provider-form label {
+  display: grid;
+  gap: var(--jk-spacing-2);
+}
+
+.settings-v2-answer-provider-form label > span {
+  color: var(--jk-color-text-secondary);
+  font-size: var(--jk-typography-font-size-sm);
+}
+
+.settings-v2-answer-provider-form input,
+.settings-v2-answer-provider-form select {
+  background: var(--jk-color-background-elevated);
+  border: 1px solid var(--jk-color-border-default);
+  border-radius: var(--jk-radius-sm);
+  color: var(--jk-color-text-primary);
+  min-height: var(--jk-layout-touch-target-min);
+  min-width: 0;
+  padding: var(--jk-spacing-2) var(--jk-spacing-3);
+  width: 100%;
+}
+
+.settings-v2-field-error {
+  color: var(--jk-color-status-warning);
+  font-size: var(--jk-typography-font-size-sm);
+}
+
 @media (max-width: 900px) {
   .settings-v2-shell {
     padding: var(--jk-spacing-3);

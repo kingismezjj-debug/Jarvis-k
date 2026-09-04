@@ -25,6 +25,7 @@ const scenarios = [
   ["en-models-narrow", 390, 980, "en", "harbor", "models_intelligence"],
   ["zh-models-narrow", 390, 980, "zh", "harbor", "models_intelligence"],
   ["provider-not-configured", 1440, 940, "en", "harbor", "models_intelligence"],
+  ["provider-config-surface", 1440, 1180, "en", "harbor", "models_intelligence", "", "provider-config-surface"],
   ["local-model-missing", 1440, 940, "en", "harbor", "models_intelligence"],
   ["model-operations-entry", 1440, 940, "en", "harbor", "models_intelligence"],
   ["models-search-en", 1440, 940, "en", "harbor", "models_intelligence", "model"],
@@ -227,6 +228,7 @@ async function captureScenario([
   theme,
   category,
   search,
+  mode,
 ]) {
   const run = await launchApp({ theme, locale });
   try {
@@ -234,6 +236,63 @@ async function captureScenario([
     await openSettings(run.page);
     if (category === "models_intelligence") {
       await setModelsCategory(run.page);
+    }
+    if (mode === "provider-config-surface") {
+      await run.page.evaluate(async () => {
+        await window.jarvis.saveChatAnswerProviderConfiguration({
+          providerId: "chat-answer.openai-compatible.deepseek",
+          serviceUrl: "https://api.deepseek.com/chat/completions",
+          modelId: "deepseek-v4-flash",
+        });
+      });
+      await run.page.reload();
+      await openSettings(run.page);
+      await setModelsCategory(run.page);
+      await run.page.getByRole("button", { name: "Configure" }).click();
+      await run.page.getByTestId("settings-v2-answer-provider-form").waitFor({
+        timeout: 5_000,
+      });
+      const configSurface = await run.page.evaluate(async () => {
+        const text = document.body.innerText;
+        const serviceUrl = document.querySelector(
+          '[data-testid="settings-v2-answer-provider-service-url"]',
+        )?.value;
+        const modelId = document.querySelector(
+          '[data-testid="settings-v2-answer-provider-model-id"]',
+        )?.value;
+        const status = await window.jarvis.getChatAnswerProviderConfigurationStatus();
+        return {
+          formVisible: Boolean(
+            document.querySelector(
+              '[data-testid="settings-v2-answer-provider-form"]',
+            ),
+          ),
+          hasExpectedEndpoint:
+            serviceUrl === "https://api.deepseek.com/chat/completions",
+          hasExpectedModel: modelId === "deepseek-v4-flash",
+          credentialMissing: text.includes("Key not saved"),
+          testStatusNotTested: status.connectionTestStatus === "not_tested",
+          secretLikeVisible: /sk-[A-Za-z0-9_-]{8,}|Bearer\s+/u.test(text),
+          fetchCalls: window.__jarvisUi2dFetchCalls ?? 0,
+          mediaCalls: window.__jarvisUi2dMediaCalls ?? 0,
+        };
+      });
+      if (
+        !configSurface.formVisible ||
+        !configSurface.hasExpectedEndpoint ||
+        !configSurface.hasExpectedModel ||
+        !configSurface.credentialMissing ||
+        !configSurface.testStatusNotTested ||
+        configSurface.secretLikeVisible ||
+        configSurface.fetchCalls !== 0 ||
+        configSurface.mediaCalls !== 0
+      ) {
+        throw new Error(
+          `Settings V2 provider configuration capture guard failed for ${name}: ${JSON.stringify(
+            configSurface,
+          )}`,
+        );
+      }
     }
     if (search) {
       await run.page.getByTestId("settings-v2-search").fill(search);

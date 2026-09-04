@@ -160,6 +160,42 @@ export type SettingsV2CopyKey =
   | "settings.models.answerProvider.configuredOff"
   | "settings.models.answerProvider.savedOff"
   | "settings.models.answerProvider.statusUnknown"
+  | "settings.models.answerProvider.configureAction"
+  | "settings.models.answerProvider.providerType"
+  | "settings.models.answerProvider.deepseekCompatible"
+  | "settings.models.answerProvider.serviceUrl"
+  | "settings.models.answerProvider.modelId"
+  | "settings.models.answerProvider.apiKey"
+  | "settings.models.answerProvider.apiKeyPlaceholder"
+  | "settings.models.answerProvider.keySaved"
+  | "settings.models.answerProvider.keyMissing"
+  | "settings.models.answerProvider.save"
+  | "settings.models.answerProvider.test"
+  | "settings.models.answerProvider.enable"
+  | "settings.models.answerProvider.disable"
+  | "settings.models.answerProvider.replaceKey"
+  | "settings.models.answerProvider.delete"
+  | "settings.models.answerProvider.deleteTitle"
+  | "settings.models.answerProvider.deleteDescription"
+  | "settings.models.answerProvider.deleteConfirm"
+  | "settings.models.answerProvider.cancel"
+  | "settings.models.answerProvider.testNotice"
+  | "settings.models.answerProvider.saveNoNetwork"
+  | "settings.models.answerProvider.validationServiceUrl"
+  | "settings.models.answerProvider.validationModelId"
+  | "settings.models.answerProvider.validationApiKey"
+  | "settings.models.answerProvider.test.not_tested"
+  | "settings.models.answerProvider.test.testing"
+  | "settings.models.answerProvider.test.success"
+  | "settings.models.answerProvider.test.authentication_failed"
+  | "settings.models.answerProvider.test.access_forbidden"
+  | "settings.models.answerProvider.test.rate_limited"
+  | "settings.models.answerProvider.test.model_not_found"
+  | "settings.models.answerProvider.test.endpoint_unreachable"
+  | "settings.models.answerProvider.test.provider_timeout"
+  | "settings.models.answerProvider.test.malformed_response"
+  | "settings.models.answerProvider.test.tls_or_certificate_error"
+  | "settings.models.answerProvider.test.unknown_failure"
   | "settings.models.localModels.label"
   | "settings.models.localModels.description"
   | "settings.models.localModels.refresh"
@@ -572,6 +608,57 @@ export const settingsV2Copy: Record<
       "Saved configuration is kept locally and will not be used while off.",
     "settings.models.answerProvider.statusUnknown":
       "Jarvis has not reported answer service status yet.",
+    "settings.models.answerProvider.configureAction":
+      "Configure online answer service",
+    "settings.models.answerProvider.providerType": "Service type",
+    "settings.models.answerProvider.deepseekCompatible":
+      "DeepSeek, compatible with OpenAI API format",
+    "settings.models.answerProvider.serviceUrl": "Service address",
+    "settings.models.answerProvider.modelId": "Model name",
+    "settings.models.answerProvider.apiKey": "API key",
+    "settings.models.answerProvider.apiKeyPlaceholder":
+      "Enter a new key to save or replace it",
+    "settings.models.answerProvider.keySaved": "Key saved securely",
+    "settings.models.answerProvider.keyMissing": "Key not saved",
+    "settings.models.answerProvider.save": "Save configuration",
+    "settings.models.answerProvider.test": "Test connection",
+    "settings.models.answerProvider.enable": "Enable",
+    "settings.models.answerProvider.disable": "Turn off",
+    "settings.models.answerProvider.replaceKey": "Replace key",
+    "settings.models.answerProvider.delete": "Delete configuration",
+    "settings.models.answerProvider.deleteTitle":
+      "Delete online answer service?",
+    "settings.models.answerProvider.deleteDescription":
+      "This only removes the online answer service configuration and key for this profile.",
+    "settings.models.answerProvider.deleteConfirm": "Delete",
+    "settings.models.answerProvider.cancel": "Cancel",
+    "settings.models.answerProvider.testNotice":
+      "Testing sends one minimal request to the configured service.",
+    "settings.models.answerProvider.saveNoNetwork":
+      "Saving does not test the connection or send a request.",
+    "settings.models.answerProvider.validationServiceUrl":
+      "Use the supported HTTPS service address without query or fragment.",
+    "settings.models.answerProvider.validationModelId":
+      "Use the supported model name without spaces or control characters.",
+    "settings.models.answerProvider.validationApiKey":
+      "Enter the new API key before saving or replacing it.",
+    "settings.models.answerProvider.test.not_tested": "Not tested",
+    "settings.models.answerProvider.test.testing": "Testing",
+    "settings.models.answerProvider.test.success": "Connection verified",
+    "settings.models.answerProvider.test.authentication_failed":
+      "Authentication failed",
+    "settings.models.answerProvider.test.access_forbidden": "Access forbidden",
+    "settings.models.answerProvider.test.rate_limited": "Rate limited",
+    "settings.models.answerProvider.test.model_not_found": "Model not found",
+    "settings.models.answerProvider.test.endpoint_unreachable":
+      "Service unreachable",
+    "settings.models.answerProvider.test.provider_timeout": "Timed out",
+    "settings.models.answerProvider.test.malformed_response":
+      "Unexpected response",
+    "settings.models.answerProvider.test.tls_or_certificate_error":
+      "Secure connection failed",
+    "settings.models.answerProvider.test.unknown_failure":
+      "Could not verify connection",
     "settings.models.localModels.label": "Local models",
     "settings.models.localModels.description":
       "Shows installed, selected, and ready local model states from the existing model service.",
@@ -1015,6 +1102,51 @@ export const settingsV2Copy: Record<
     "settings.models.answerProvider.configuredOff": "已保存配置，服务关闭",
     "settings.models.answerProvider.savedOff": "配置保存在本机，关闭时不会被使用。",
     "settings.models.answerProvider.statusUnknown": "Jarvis 尚未报告回答服务状态。",
+    "settings.models.answerProvider.configureAction": "配置在线回答服务",
+    "settings.models.answerProvider.providerType": "服务类型",
+    "settings.models.answerProvider.deepseekCompatible":
+      "DeepSeek，兼容 OpenAI 接口格式",
+    "settings.models.answerProvider.serviceUrl": "服务地址",
+    "settings.models.answerProvider.modelId": "模型名称",
+    "settings.models.answerProvider.apiKey": "API 密钥",
+    "settings.models.answerProvider.apiKeyPlaceholder":
+      "输入新密钥以保存或替换",
+    "settings.models.answerProvider.keySaved": "密钥已安全保存",
+    "settings.models.answerProvider.keyMissing": "尚未保存密钥",
+    "settings.models.answerProvider.save": "保存配置",
+    "settings.models.answerProvider.test": "测试连接",
+    "settings.models.answerProvider.enable": "启用",
+    "settings.models.answerProvider.disable": "停用",
+    "settings.models.answerProvider.replaceKey": "替换密钥",
+    "settings.models.answerProvider.delete": "删除配置",
+    "settings.models.answerProvider.deleteTitle": "删除在线回答服务？",
+    "settings.models.answerProvider.deleteDescription":
+      "只会删除当前配置档中的在线回答服务配置和密钥，不会删除对话、记忆、插件或其他服务数据。",
+    "settings.models.answerProvider.deleteConfirm": "删除",
+    "settings.models.answerProvider.cancel": "取消",
+    "settings.models.answerProvider.testNotice":
+      "测试连接会向所配置的服务发送一次最小请求。",
+    "settings.models.answerProvider.saveNoNetwork":
+      "保存配置不会测试连接，也不会发送请求。",
+    "settings.models.answerProvider.validationServiceUrl":
+      "请输入受支持的 HTTPS 服务地址，不带查询或片段。",
+    "settings.models.answerProvider.validationModelId":
+      "请输入受支持的模型名称，不包含空格或控制字符。",
+    "settings.models.answerProvider.validationApiKey":
+      "请先输入新的 API 密钥。",
+    "settings.models.answerProvider.test.not_tested": "尚未测试",
+    "settings.models.answerProvider.test.testing": "测试中",
+    "settings.models.answerProvider.test.success": "连接已验证",
+    "settings.models.answerProvider.test.authentication_failed": "认证失败",
+    "settings.models.answerProvider.test.access_forbidden": "无权访问",
+    "settings.models.answerProvider.test.rate_limited": "请求受限",
+    "settings.models.answerProvider.test.model_not_found": "未找到模型",
+    "settings.models.answerProvider.test.endpoint_unreachable": "服务无法连接",
+    "settings.models.answerProvider.test.provider_timeout": "连接超时",
+    "settings.models.answerProvider.test.malformed_response": "响应格式异常",
+    "settings.models.answerProvider.test.tls_or_certificate_error":
+      "安全连接失败",
+    "settings.models.answerProvider.test.unknown_failure": "无法验证连接",
     "settings.models.localModels.label": "本地模型",
     "settings.models.localModels.description":
       "从现有模型服务读取本机安装、已选择和当前就绪状态。",

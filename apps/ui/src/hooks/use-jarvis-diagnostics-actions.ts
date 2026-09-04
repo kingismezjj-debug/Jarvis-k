@@ -1,11 +1,14 @@
 import { useCallback } from "react";
 import {
+  ChatAnswerProviderConfigurationStatusSchema,
   ChatAnswerProductModeStatusSchema,
   CommandRouterLocalAppLaunchResultSchema,
   CommandRouterProductModeStatusSchema,
   QwenRuntimeControlStatusSchema,
   type AppCommand,
   type ChatAnswerProductModeStatus,
+  type ChatAnswerProviderConfigurationSaveRequest,
+  type ChatAnswerProviderConfigurationStatus,
   type CommandRouterLocalAppLaunchResult,
   type CommandRouterProductModeStatus,
   type QwenRuntimeControlAction,
@@ -18,6 +21,9 @@ interface UseJarvisDiagnosticsActionsOptions {
   sendCommand(command: AppCommand): Promise<boolean>;
   setChatAnswerProductModeStatus(
     status: ChatAnswerProductModeStatus | null,
+  ): void;
+  setChatAnswerProviderConfigurationStatus(
+    status: ChatAnswerProviderConfigurationStatus | null,
   ): void;
   setCommandRouterProductModeStatus(
     status: CommandRouterProductModeStatus | null,
@@ -33,6 +39,7 @@ export function useJarvisDiagnosticsActions({
   setSending,
   sendCommand,
   setChatAnswerProductModeStatus,
+  setChatAnswerProviderConfigurationStatus,
   setCommandRouterProductModeStatus,
   setQwenRuntimeControlStatus,
   setCommandRouterLocalAppLaunchResult,
@@ -72,6 +79,126 @@ export function useJarvisDiagnosticsActions({
       return false;
     }
   }, [setChatAnswerProductModeStatus, setError]);
+
+  const refreshChatAnswerProviderConfigurationStatus =
+    useCallback(async () => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      try {
+        const status = ChatAnswerProviderConfigurationStatusSchema.parse(
+          await window.jarvis.getChatAnswerProviderConfigurationStatus(),
+        );
+        setChatAnswerProviderConfigurationStatus(status);
+        setError(null);
+        return true;
+      } catch {
+        setError("Online answer service settings could not be read.");
+        return false;
+      }
+    }, [setChatAnswerProviderConfigurationStatus, setError]);
+
+  const applyChatAnswerProviderConfigurationResult = useCallback(
+    async (
+      action: () => Promise<{
+        ok: boolean;
+        status: ChatAnswerProviderConfigurationStatus;
+        message?: string;
+      }>,
+      failureMessage: string,
+    ) => {
+      if (!window.jarvis) {
+        setError("Desktop bridge unavailable.");
+        return false;
+      }
+      setSending(true);
+      try {
+        const result = await action();
+        setChatAnswerProviderConfigurationStatus(result.status);
+        await refreshChatAnswerProductModeStatus();
+        if (!result.ok) {
+          setError(result.message ?? failureMessage);
+          return false;
+        }
+        setError(null);
+        return true;
+      } catch {
+        setError(failureMessage);
+        return false;
+      } finally {
+        setSending(false);
+      }
+    },
+    [
+      refreshChatAnswerProductModeStatus,
+      setChatAnswerProviderConfigurationStatus,
+      setError,
+      setSending,
+    ],
+  );
+
+  const saveChatAnswerProviderConfiguration = useCallback(
+    async (request: ChatAnswerProviderConfigurationSaveRequest) =>
+      applyChatAnswerProviderConfigurationResult(
+        () => window.jarvis.saveChatAnswerProviderConfiguration(request),
+        "Online answer service configuration could not be saved.",
+      ),
+    [applyChatAnswerProviderConfigurationResult],
+  );
+
+  const replaceChatAnswerProviderCredential = useCallback(
+    async (apiKey: string) =>
+      applyChatAnswerProviderConfigurationResult(
+        () =>
+          window.jarvis.replaceChatAnswerProviderCredential({
+            providerId: "chat-answer.openai-compatible.deepseek",
+            apiKey,
+          }),
+        "Online answer service key could not be saved.",
+      ),
+    [applyChatAnswerProviderConfigurationResult],
+  );
+
+  const testChatAnswerProviderConnection = useCallback(
+    async () =>
+      applyChatAnswerProviderConfigurationResult(
+        () =>
+          window.jarvis.testChatAnswerProviderConnection({
+            providerId: "chat-answer.openai-compatible.deepseek",
+            userConfirmedNetworkRequest: true,
+          }),
+        "Online answer service connection test could not run.",
+      ),
+    [applyChatAnswerProviderConfigurationResult],
+  );
+
+  const setChatAnswerProviderConfigurationEnabled = useCallback(
+    async (enabled: boolean) =>
+      applyChatAnswerProviderConfigurationResult(
+        () =>
+          window.jarvis.setChatAnswerProviderConfigurationEnabled({
+            providerId: "chat-answer.openai-compatible.deepseek",
+            enabled,
+            requireRecentSuccessfulTest: true,
+          }),
+        "Online answer service could not be changed.",
+      ),
+    [applyChatAnswerProviderConfigurationResult],
+  );
+
+  const removeChatAnswerProviderConfiguration = useCallback(
+    async () =>
+      applyChatAnswerProviderConfigurationResult(
+        () =>
+          window.jarvis.removeChatAnswerProviderConfiguration({
+            providerId: "chat-answer.openai-compatible.deepseek",
+            confirmRemove: "remove_current_chat_answer_provider_configuration",
+          }),
+        "Online answer service configuration could not be removed.",
+      ),
+    [applyChatAnswerProviderConfigurationResult],
+  );
 
   const refreshCommandRouterProductModeStatus = useCallback(async () => {
     if (!window.jarvis) {
@@ -227,11 +354,17 @@ export function useJarvisDiagnosticsActions({
     confirmCommandRouterLocalAppLaunch,
     probeCore,
     refreshCapabilities,
+    refreshChatAnswerProviderConfigurationStatus,
     refreshChatAnswerProductModeStatus,
     refreshCommandRouterProductModeStatus,
     refreshQwenRuntimeControlStatus,
+    removeChatAnswerProviderConfiguration,
+    replaceChatAnswerProviderCredential,
+    saveChatAnswerProviderConfiguration,
     setChatAnswerProductModeEnabled,
+    setChatAnswerProviderConfigurationEnabled,
     setCommandRouterProductModeEnabled,
     setQwenRuntimeControlAction,
+    testChatAnswerProviderConnection,
   };
 }

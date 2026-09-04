@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type {
   ChatAnswerProductModeStatus,
+  ChatAnswerProviderConfigurationStatus,
   CommandRouterProductModeStatus,
   DesktopLaunchAtLoginStatus,
   DesktopSettings,
@@ -63,6 +64,26 @@ const answerProviderStatus = {
   secureStorageAvailable: true,
   credentialConfigured: true,
 } as unknown as ChatAnswerProductModeStatus;
+
+const answerProviderConfigurationStatus = {
+  providerId: "chat-answer.openai-compatible.deepseek",
+  providerLabel: "DeepSeek",
+  protocolLabel: "OpenAI-compatible",
+  configured: true,
+  enabled: false,
+  runtimeArmed: false,
+  secureStorageAvailable: true,
+  credentialConfigured: true,
+  credentialExposed: false,
+  publicConfiguration: {
+    providerId: "chat-answer.openai-compatible.deepseek",
+    serviceUrl: "https://api.deepseek.com/chat/completions",
+    modelId: "deepseek-v4-flash",
+  },
+  connectionTestStatus: "not_tested",
+  networkRequestRequiredForTest: true,
+  reasonCodes: ["CHAT_ANSWER_PROVIDER_CONFIGURED_UNTESTED"],
+} as ChatAnswerProviderConfigurationStatus;
 
 const modelManifest = {
   id: "Qwen/Qwen3-0.6B",
@@ -1183,6 +1204,71 @@ describe("Settings V2 General view", () => {
     expect(html).not.toContain("Connected");
     expect(html).not.toContain("Ready to use");
     expect(html).not.toContain("Current value: Available");
+  });
+
+  it("renders the Chat Answer provider configuration entry without exposing credentials", () => {
+    const html = renderView({
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: answerProviderStatus,
+      chatAnswerProviderConfigurationStatus: answerProviderConfigurationStatus,
+      commandRouterProductModeStatus: commandRouterStatus,
+      initialAnswerProviderConfigurationOpen: true,
+    });
+
+    expect(html).toContain("Configure online answer service");
+    expect(html).toContain("Service type");
+    expect(html).toContain("DeepSeek, compatible with OpenAI API format");
+    expect(html).toContain("Service address");
+    expect(html).toContain("Model name");
+    expect(html).toContain("API key");
+    expect(html).toContain("Key saved securely");
+    expect(html).toContain("Save configuration");
+    expect(html).toContain("Test connection");
+    expect(html).toContain("Enable");
+    expect(html).toContain("Delete configuration");
+    expect(html).toContain("Saving does not test the connection");
+    expect(html).toContain("Testing sends one minimal request");
+    for (const forbidden of [
+      "test-deepseek-key",
+      "Authorization",
+      "Bearer",
+      "secure store",
+      "CoreHost",
+      "ChatAnswerProvider",
+      "startTextTurn",
+      "raw response",
+      "stack trace",
+      "localStorage",
+    ]) {
+      expect(html).not.toContain(forbidden);
+    }
+  });
+
+  it("renders productized zh-CN Chat Answer configuration copy", () => {
+    const html = renderView({
+      locale: "zh",
+      initialCategoryId: "models_intelligence",
+      chatAnswerProductModeStatus: answerProviderStatus,
+      chatAnswerProviderConfigurationStatus: {
+        ...answerProviderConfigurationStatus,
+        connectionTestStatus: "success",
+      },
+      commandRouterProductModeStatus: commandRouterStatus,
+      initialAnswerProviderConfigurationOpen: true,
+    });
+
+    expect(html).toContain("配置在线回答服务");
+    expect(html).toContain("服务类型");
+    expect(html).toContain("DeepSeek，兼容 OpenAI 接口格式");
+    expect(html).toContain("服务地址");
+    expect(html).toContain("模型名称");
+    expect(html).toContain("API 密钥");
+    expect(html).toContain("密钥已安全保存");
+    expect(html).toContain("连接已验证");
+    expect(html).toContain("测试连接会向所配置的服务发送一次最小请求。");
+    expect(html).not.toContain("ChatAnswerProvider");
+    expect(html).not.toContain("CoreHost");
+    expect(html).not.toContain("startTextTurn");
   });
 
   it("includes Models & Intelligence in product search results with current values", () => {

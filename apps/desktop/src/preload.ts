@@ -2,6 +2,18 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   AppCommand,
   AppCommandSchema,
+  ChatAnswerProviderConfigurationCommandResultSchema,
+  ChatAnswerProviderConfigurationEnableRequest,
+  ChatAnswerProviderConfigurationEnableRequestSchema,
+  ChatAnswerProviderConfigurationRemoveRequest,
+  ChatAnswerProviderConfigurationRemoveRequestSchema,
+  ChatAnswerProviderConfigurationSaveRequest,
+  ChatAnswerProviderConfigurationSaveRequestSchema,
+  ChatAnswerProviderConfigurationStatusSchema,
+  ChatAnswerProviderConnectionTestRequest,
+  ChatAnswerProviderConnectionTestRequestSchema,
+  ChatAnswerProviderCredentialReplaceRequest,
+  ChatAnswerProviderCredentialReplaceRequestSchema,
   ChatAnswerProductModeSetResultSchema,
   ChatAnswerProductModeStatusSchema,
   CommandRouterProductModeSetResultSchema,
@@ -13,6 +25,12 @@ import {
   EventEnvelopeSchema,
   IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL,
   IPC_CHAT_ANSWER_PRODUCT_MODE_STATUS_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_ENABLE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_STATUS_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL,
+  IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL,
   IPC_COMMAND_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_SET_CHANNEL,
   IPC_COMMAND_ROUTER_PRODUCT_MODE_STATUS_CHANNEL,
@@ -163,6 +181,57 @@ const bridge: JarvisBridge = {
       await ipcRenderer.invoke(IPC_CHAT_ANSWER_PRODUCT_MODE_SET_CHANNEL, {
         enabled
       })
+    ),
+  getChatAnswerProviderConfigurationStatus: async () =>
+    ChatAnswerProviderConfigurationStatusSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_STATUS_CHANNEL
+      )
+    ),
+  saveChatAnswerProviderConfiguration: async (
+    request: ChatAnswerProviderConfigurationSaveRequest
+  ) =>
+    ChatAnswerProviderConfigurationCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_SAVE_CHANNEL,
+        ChatAnswerProviderConfigurationSaveRequestSchema.parse(request)
+      )
+    ),
+  replaceChatAnswerProviderCredential: async (
+    request: ChatAnswerProviderCredentialReplaceRequest
+  ) =>
+    ChatAnswerProviderConfigurationCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CHAT_ANSWER_PROVIDER_CREDENTIAL_REPLACE_CHANNEL,
+        ChatAnswerProviderCredentialReplaceRequestSchema.parse(request)
+      )
+    ),
+  testChatAnswerProviderConnection: async (
+    request: ChatAnswerProviderConnectionTestRequest
+  ) =>
+    ChatAnswerProviderConfigurationCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CHAT_ANSWER_PROVIDER_CONNECTION_TEST_CHANNEL,
+        ChatAnswerProviderConnectionTestRequestSchema.parse(request)
+      )
+    ),
+  setChatAnswerProviderConfigurationEnabled: async (
+    request: ChatAnswerProviderConfigurationEnableRequest
+  ) =>
+    ChatAnswerProviderConfigurationCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_ENABLE_CHANNEL,
+        ChatAnswerProviderConfigurationEnableRequestSchema.parse(request)
+      )
+    ),
+  removeChatAnswerProviderConfiguration: async (
+    request: ChatAnswerProviderConfigurationRemoveRequest
+  ) =>
+    ChatAnswerProviderConfigurationCommandResultSchema.parse(
+      await ipcRenderer.invoke(
+        IPC_CHAT_ANSWER_PROVIDER_CONFIGURATION_REMOVE_CHANNEL,
+        ChatAnswerProviderConfigurationRemoveRequestSchema.parse(request)
+      )
     ),
   getDesktopSettings: async () =>
     DesktopSettingsSchema.parse(
