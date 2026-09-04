@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-const ToolIdSchema = z
+export const ToolIdSchema = z
   .string()
   .regex(/^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$/u)
   .max(128);
+export type ToolId = z.infer<typeof ToolIdSchema>;
 
 const ToolVersionSchema = z
   .string()

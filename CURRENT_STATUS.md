@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-08-31
+Updated: 2026-09-04
 
 ## Current Product Phase
 
@@ -70,6 +70,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase UI-3G-1 Packaged Alpha Settings V2 default-on rollout is implemented: development and packaged Alpha now mount Settings V2 by default, `JARVIS_K_ENABLE_SETTINGS_V2=0` remains the trusted Legacy rollback, invalid values fail closed to Legacy, and Stable/Test continue to mount Legacy.
 - Phase UI-3G-2A installed Settings V2 acceptance evidence is recorded for RC5: user-observed packaged Alpha default V2 entry, eight-category navigation, session-only classic-settings rollback, V2/Legacy mutual exclusion, and restart retry are captured in `artifacts/ui-3g/installed-v2-acceptance/installed-v2-acceptance.json`; installed render-failure/timeout fault injection and upgrade/downgrade remain incomplete, and unsigned external distribution remains blocked.
 - Phase UI-3G-2D installed fallback evidence is recorded for internal RC6: render-failure final Legacy fallback is user-attested PASS, recovery copy was not human-observed, installed real timeout fallback is user-attested PASS after approximately five seconds, and normal restart without the fault flag returned to Settings V2; upgrade/downgrade remains incomplete and RC6 remains an internal fault build only, not for external distribution.
+- Phase UI-3K-2A Assistant Core Loop foundation is implemented: provider-neutral contracts now define bounded text input, turn/event IDs, stream deltas, tool proposals, policy decisions, approval correlation, execution requests, tool results, final answers, cancellation, failure, and append-only causality metadata; Core now exposes a pure event reducer and invariant tests without changing persistence, providers, tool execution, executor ownership, IPC, Renderer UI, Settings, Gate, installer, signing, or publishing behavior.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
