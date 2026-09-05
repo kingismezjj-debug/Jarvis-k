@@ -313,6 +313,25 @@ describe("GLM Chat Answer runtime provider", () => {
     expect(JSON.stringify(events)).not.toContain("test-deepseek-key");
   });
 
+  it("suppresses DeepSeek reasoning deltas from user-visible streaming output", async () => {
+    const events = await collectStream(
+      streamingProvider([
+        { choices: [{ delta: { reasoning_content: "hidden reasoning" } }] },
+        streamingChunk("最终"),
+        streamingChunk("回答"),
+      ])
+    );
+
+    expect(events).toEqual([
+      { type: "delta", delta: { kind: "text", text: "最终" } },
+      { type: "delta", delta: { kind: "text", text: "回答" } },
+      { type: "final", text: "最终回答" }
+    ]);
+    expect(JSON.stringify(events)).not.toContain("hidden reasoning");
+    expect(JSON.stringify(events)).not.toContain("reasoning_content");
+    expect(JSON.stringify(events)).not.toContain("test-deepseek-key");
+  });
+
   it("fails closed for malformed chunks, tool calls, and partial disconnects", async () => {
     await expect(
       collectStream(

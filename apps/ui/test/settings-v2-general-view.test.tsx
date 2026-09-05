@@ -122,6 +122,11 @@ const answerProviderConnectionMessages = [
     zh: "在线服务响应超时，请稍后重试。",
   },
   {
+    status: "incomplete_response",
+    en: "The online service test response was incomplete. Try again later.",
+    zh: "在线服务的测试响应未完成，请稍后重试。",
+  },
+  {
     status: "malformed_response",
     en: "The online service returned a response Jarvis-K could not recognize.",
     zh: "在线服务返回了无法识别的响应。",
@@ -1364,6 +1369,7 @@ describe("Settings V2 General view", () => {
         "connectionTestStatus",
         "authentication_failed",
         "endpoint_unreachable",
+        "incomplete_response",
       ]) {
         expect(english).not.toContain(forbidden);
         expect(chinese).not.toContain(forbidden);

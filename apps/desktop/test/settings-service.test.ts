@@ -35,6 +35,7 @@ function createSettingsService(input: {
     | "model_not_found"
     | "endpoint_unreachable"
     | "provider_timeout"
+    | "incomplete_response"
     | "malformed_response"
     | "tls_or_certificate_error"
     | "unknown_failure";
@@ -280,6 +281,7 @@ describe("SettingsService", () => {
     "model_not_found",
     "endpoint_unreachable",
     "provider_timeout",
+    "incomplete_response",
     "malformed_response",
     "tls_or_certificate_error",
     "unknown_failure",

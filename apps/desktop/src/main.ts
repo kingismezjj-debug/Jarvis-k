@@ -17,6 +17,11 @@ import {
   IPC_UI_SURFACE_CAPABILITY_UPDATED_CHANNEL
 } from "@jarvis-k/contracts";
 import {
+  classifyDeepSeekChatAnswerConnectionTestResponse,
+  createDeepSeekChatAnswerConnectionTestHeaders,
+  createDeepSeekChatAnswerConnectionTestRequestBody
+} from "./chat-answer-connection-test";
+import {
   SecureHeavyPlannerProviderStore,
   type HeavyPlannerProviderConfiguration,
   type HeavyPlannerProviderName
@@ -282,36 +287,13 @@ async function testChatAnswerProviderConnection(
   try {
     const response = await fetch(CHAT_ANSWER_DEEPSEEK_ENDPOINT, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${configuration.credentials.apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: CHAT_ANSWER_DEEPSEEK_MODEL_ID,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are validating an online answer connection. Return JSON only."
-          },
-          {
-            role: "user",
-            content:
-              'Return exactly one JSON object like {"status":"answered","answer":"ready"}.'
-          }
-        ],
-        response_format: { type: "json_object" },
-        stream: false,
-        temperature: 0,
-        max_tokens: 32
-      }),
+      headers: createDeepSeekChatAnswerConnectionTestHeaders(configuration),
+      body: JSON.stringify(createDeepSeekChatAnswerConnectionTestRequestBody()),
       signal: controller.signal
     });
     if (response.status >= 200 && response.status < 300) {
       const body = await response.json().catch(() => undefined);
-      return isUsableOpenAiCompatibleAnswerResponse(body)
-        ? "success"
-        : "malformed_response";
+      return classifyDeepSeekChatAnswerConnectionTestResponse(body);
     }
     if (response.status === 401) {
       return "authentication_failed";
@@ -343,34 +325,6 @@ async function testChatAnswerProviderConnection(
     clearTimeout(timeout);
   }
   return "unknown_failure";
-}
-
-function isUsableOpenAiCompatibleAnswerResponse(body: unknown): boolean {
-  if (!isRecord(body) || !Array.isArray(body.choices)) {
-    return false;
-  }
-  const choice = body.choices[0];
-  if (!isRecord(choice) || !isRecord(choice.message)) {
-    return false;
-  }
-  if (choice.message.role !== "assistant") {
-    return false;
-  }
-  const content = choice.message.content;
-  if (typeof content !== "string" || content.trim().length === 0) {
-    return false;
-  }
-  try {
-    const parsed = JSON.parse(content);
-    return (
-      isRecord(parsed) &&
-      parsed.status === "answered" &&
-      typeof parsed.answer === "string" &&
-      parsed.answer.trim().length > 0
-    );
-  } catch {
-    return false;
-  }
 }
 
 function isTlsOrCertificateError(error: unknown): boolean {

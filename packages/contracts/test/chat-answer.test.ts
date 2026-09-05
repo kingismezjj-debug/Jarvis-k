@@ -205,6 +205,22 @@ describe("Chat Answer contracts", () => {
         reasonCodes: ["CHAT_ANSWER_PROVIDER_CONFIGURED_UNTESTED"]
       })
     ).toThrow();
+    expect(
+      ChatAnswerProviderConfigurationStatusSchema.parse({
+        providerId: "chat-answer.openai-compatible.deepseek",
+        providerLabel: "DeepSeek",
+        protocolLabel: "OpenAI-compatible",
+        configured: true,
+        enabled: false,
+        runtimeArmed: false,
+        secureStorageAvailable: true,
+        credentialConfigured: true,
+        credentialExposed: false,
+        connectionTestStatus: "incomplete_response",
+        networkRequestRequiredForTest: true,
+        reasonCodes: ["CHAT_ANSWER_PROVIDER_CONNECTION_TESTED"]
+      }).connectionTestStatus
+    ).toBe("incomplete_response");
   });
 
   it("rejects unknown fields and unsupported Chat Answer provider inputs", () => {

@@ -2426,6 +2426,8 @@ function getAnswerConnectionTestLabel(
     endpoint_unreachable:
       "settings.models.answerProvider.test.endpoint_unreachable",
     provider_timeout: "settings.models.answerProvider.test.provider_timeout",
+    incomplete_response:
+      "settings.models.answerProvider.test.incomplete_response",
     malformed_response:
       "settings.models.answerProvider.test.malformed_response",
     tls_or_certificate_error:
@@ -2457,6 +2459,8 @@ function getAnswerConnectionTestMessage(
       "settings.models.answerProvider.testMessage.endpoint_unreachable",
     provider_timeout:
       "settings.models.answerProvider.testMessage.provider_timeout",
+    incomplete_response:
+      "settings.models.answerProvider.testMessage.incomplete_response",
     malformed_response:
       "settings.models.answerProvider.testMessage.malformed_response",
     tls_or_certificate_error:

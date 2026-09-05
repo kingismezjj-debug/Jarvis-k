@@ -193,6 +193,7 @@ export type SettingsV2CopyKey =
   | "settings.models.answerProvider.test.model_not_found"
   | "settings.models.answerProvider.test.endpoint_unreachable"
   | "settings.models.answerProvider.test.provider_timeout"
+  | "settings.models.answerProvider.test.incomplete_response"
   | "settings.models.answerProvider.test.malformed_response"
   | "settings.models.answerProvider.test.tls_or_certificate_error"
   | "settings.models.answerProvider.test.unknown_failure"
@@ -205,6 +206,7 @@ export type SettingsV2CopyKey =
   | "settings.models.answerProvider.testMessage.model_not_found"
   | "settings.models.answerProvider.testMessage.endpoint_unreachable"
   | "settings.models.answerProvider.testMessage.provider_timeout"
+  | "settings.models.answerProvider.testMessage.incomplete_response"
   | "settings.models.answerProvider.testMessage.malformed_response"
   | "settings.models.answerProvider.testMessage.tls_or_certificate_error"
   | "settings.models.answerProvider.testMessage.unknown_failure"
@@ -665,6 +667,8 @@ export const settingsV2Copy: Record<
     "settings.models.answerProvider.test.endpoint_unreachable":
       "Service unreachable",
     "settings.models.answerProvider.test.provider_timeout": "Timed out",
+    "settings.models.answerProvider.test.incomplete_response":
+      "Incomplete response",
     "settings.models.answerProvider.test.malformed_response":
       "Unexpected response",
     "settings.models.answerProvider.test.tls_or_certificate_error":
@@ -689,6 +693,8 @@ export const settingsV2Copy: Record<
       "Cannot reach the online service. Check the service address and network.",
     "settings.models.answerProvider.testMessage.provider_timeout":
       "The online service timed out. Try again later.",
+    "settings.models.answerProvider.testMessage.incomplete_response":
+      "The online service test response was incomplete. Try again later.",
     "settings.models.answerProvider.testMessage.malformed_response":
       "The online service returned a response Jarvis-K could not recognize.",
     "settings.models.answerProvider.testMessage.tls_or_certificate_error":
@@ -1179,6 +1185,7 @@ export const settingsV2Copy: Record<
     "settings.models.answerProvider.test.model_not_found": "未找到模型",
     "settings.models.answerProvider.test.endpoint_unreachable": "服务无法连接",
     "settings.models.answerProvider.test.provider_timeout": "连接超时",
+    "settings.models.answerProvider.test.incomplete_response": "响应未完成",
     "settings.models.answerProvider.test.malformed_response": "响应格式异常",
     "settings.models.answerProvider.test.tls_or_certificate_error":
       "安全连接失败",
@@ -1201,6 +1208,8 @@ export const settingsV2Copy: Record<
       "无法连接在线服务，请检查服务地址和网络。",
     "settings.models.answerProvider.testMessage.provider_timeout":
       "在线服务响应超时，请稍后重试。",
+    "settings.models.answerProvider.testMessage.incomplete_response":
+      "在线服务的测试响应未完成，请稍后重试。",
     "settings.models.answerProvider.testMessage.malformed_response":
       "在线服务返回了无法识别的响应。",
     "settings.models.answerProvider.testMessage.tls_or_certificate_error":
