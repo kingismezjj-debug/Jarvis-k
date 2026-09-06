@@ -10,7 +10,7 @@ import type { PlannerApprovalService } from "./planner/planner-approval-service"
 type ExecuteArguments = Parameters<NonNullable<AssistantRuntimeOptions["executeTool"]>>;
 type Work = { controller: AbortController; timer: ReturnType<typeof setTimeout>;
   started: boolean; resolve: (verified: boolean) => void; done: Promise<boolean>;
-  onStart?: () => void; };
+  denied?: boolean; onStart?: () => void; };
 
 // Coordination only: registry policy, persisted tasks, digest validation and approval
 // remain owned by the existing services used by deterministic/planner commands.
@@ -63,7 +63,7 @@ export class BoundedNotepadTaskService {
   }
   public async cancel(taskId: string): Promise<void> {
     const work = this.work.get(taskId);
-    if (!work) return;
+    if (!work || work.denied) return;
     work.controller.abort();
     clearTimeout(work.timer);
     if (!work.started) {
@@ -73,9 +73,29 @@ export class BoundedNotepadTaskService {
       await this.options.progress();
     }
   }
+  public async deny(taskId: string): Promise<boolean> {
+    const work = this.work.get(taskId);
+    if (work?.denied) return true;
+    if (!work || work.started || work.denied || work.controller.signal.aborted) return false;
+    // Consume before awaiting persistence, so an overlapping approval cannot launch.
+    work.denied = true;
+    clearTimeout(work.timer);
+    try {
+      const cancelled = await this.options.approvals.cancel({ taskId, reason: "User denied opening Notepad; no action was executed." });
+      if (!cancelled.ok) throw new Error("ACTION_DENIAL_UNAVAILABLE");
+    } catch (error) {
+      work.controller.abort();
+      throw error;
+    } finally {
+      this.work.delete(taskId);
+      work.resolve(false);
+    }
+    await this.options.progress();
+    return true;
+  }
   public async approve(taskId: string, approvalCommandId: string) {
     const work = this.work.get(taskId);
-    if (!work || work.started || work.controller.signal.aborted) return { ok: false as const,
+    if (!work || work.started || work.denied || work.controller.signal.aborted) return { ok: false as const,
       code: "TASK_APPROVAL_NOT_ALLOWED", message: "This desktop action is no longer awaiting approval.", retryable: false };
     work.started = true;
     clearTimeout(work.timer);
@@ -130,6 +150,13 @@ export class BoundedNotepadTaskService {
     await this.options.progress();
     const verified = await work.done;
     if (signal.aborted || work.controller.signal.aborted) throw new Error("CANCELLED");
+    if (work.denied) {
+      publish({ type: "approval.resolved", approval: { approvalRequestId, proposalId: proposal.proposalId,
+        resolution: "denied", resolvedAt: this.options.now().toISOString(), reasonCode: "USER_DENIED" } });
+      return ToolResultSchema.parse({ taskId, executionId, turnId: proposal.turnId, proposalId: proposal.proposalId,
+        toolId: "localApp.open", resultedAt: this.options.now().toISOString(), status: "blocked", resultClass: "failure",
+        failure: { reasonCode: "USER_DENIED", safeMessage: "The user declined. Notepad was not opened.", retryable: false } });
+    }
     return ToolResultSchema.parse({ taskId, executionId, turnId: proposal.turnId, proposalId: proposal.proposalId,
       toolId: "localApp.open", resultedAt: this.options.now().toISOString(),
       ...(verified ? { status: "completed", resultClass: "structured", structuredResult: {

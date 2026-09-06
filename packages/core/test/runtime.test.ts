@@ -9616,19 +9616,23 @@ describe("CoreRuntime", () => {
     expect(brain.chatAnswer?.directActionAttempted).toBe(false);
   });
 
-  it.each(["verified", "failed", "cancelled", "cancel_during_execution"])("governs a formal Assistant Notepad request through explicit Task approval: %s", async outcome => {
+  it.each(["verified", "failed", "denied", "cancelled", "cancel_during_execution"].flatMap(outcome =>
+    ["打开记事本", "我想临时记录一点内容，请帮我准备一个合适的系统应用。"].map(text => [outcome, text])))
+  ("governs a formal Assistant Notepad request through explicit Task approval: %s / %s", async (outcome, text) => {
     const continuations: import("@jarvis-k/contracts").AssistantToolContinuation[] = [];
     const calls: Parameters<CoreBrainActionExecutorPort["openLocalApp"]>[0][] = [];
     const provider: ChatAnswerProvider = {
       answer: async () => { throw new Error("Streaming only"); },
       startTextTurn: async function* (_request, context) {
+        expect(_request.routerDecision.intent).toBe(text === "打开记事本" ? "localApp.open" : "chat.answer");
+        expect(context.tool?.toolIds).toEqual(text === "打开记事本" ? ["localApp.open"] : ["model.status", "localApp.open"]);
         yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: {
-          ...context.tool, toolId: "localApp.open", risk: "mutating", arguments: { app: "notepad" },
+          turnId: context.tool!.turnId, proposalId: context.tool!.proposalId, toolId: "localApp.open", risk: "mutating", arguments: { app: "notepad" },
           proposedAt: new Date().toISOString(), safeSummary: "Request opening Notepad." } });
       },
       continueTextTurn: async function* (continuation) {
         continuations.push(continuation);
-        yield final(continuation.result.status === "completed" ? "Notepad opened." : "Launch not verified.");
+        yield final(continuation.result.status === "blocked" ? "Notepad was not opened." : continuation.result.status === "completed" ? "Notepad opened." : "Launch not verified.");
       },
     };
     const repository = new InMemoryTaskRepository();
@@ -9647,14 +9651,28 @@ describe("CoreRuntime", () => {
           verificationStatus: outcome === "verified" ? "verified" : "verification_failed" };
       },
     });
-    await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand", payload: { source: "text", text: "打开记事本" } }));
+    await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand", payload: { source: "text", text } }));
     await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "awaiting_approval");
     const task = (await repository.listTasks())[0]!;
     expect(task.state).toBe("awaiting_confirmation");
     expect(calls).toHaveLength(0);
     expect(continuations).toHaveLength(0);
-    if (outcome === "cancelled") {
-      await runtime.handle(createCommandEnvelope({ type: "agent.cancelTask", payload: { taskId: task.id } }));
+    if (outcome === "denied") {
+      const denying = runtime.handle(createCommandEnvelope({ type: "agent.cancelTask", payload: { taskId: task.id } }));
+      const racingApproval = runtime.handle(createCommandEnvelope({ type: "agent.approveTask", payload: { taskId: task.id, confirmation: "explicit_ui_confirmation" } }));
+      expect((await racingApproval).ok).toBe(false);
+      await denying;
+      await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "completed");
+      expect(calls).toHaveLength(0);
+      expect(continuations).toHaveLength(1);
+      expect(continuations[0]?.result).toMatchObject({ status: "blocked", failure: { reasonCode: "USER_DENIED" } });
+      expect(runtime.getSnapshot().assistantTurn?.proposals[0]?.approvalStatus).toBe("denied");
+      expect((await repository.listTasks())[0]?.state).toBe("cancelled");
+      expect(runtime.getSnapshot().messages.filter(message => message.role === "assistant").map(message => message.text)).toEqual(["Notepad was not opened."]);
+      expect((await runtime.handle(createCommandEnvelope({ type: "agent.approveTask", payload: { taskId: task.id, confirmation: "explicit_ui_confirmation" } }))).ok).toBe(false);
+      expect(calls).toHaveLength(0);
+    } else if (outcome === "cancelled") {
+      await runtime.handle(createCommandEnvelope({ type: "agent.cancelAssistantTurn", payload: { turnId: runtime.getSnapshot().assistantTurn!.turnId } }));
       await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "cancelled");
       expect(calls).toHaveLength(0);
       expect(continuations).toHaveLength(0);
@@ -9689,7 +9707,7 @@ describe("CoreRuntime", () => {
       answer: async () => { throw new Error("Unexpected non-stream path"); },
       startTextTurn: async function* (_request, context) {
         yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: {
-          ...context.tool, toolId: "model.status", risk: "read_only", arguments: {},
+          turnId: context.tool!.turnId, proposalId: context.tool!.proposalId, toolId: "model.status", risk: "read_only", arguments: {},
           proposedAt: "2026-09-06T00:00:00.000Z", safeSummary: "Check model status." } });
       },
       continueTextTurn: async function* (continuation) {

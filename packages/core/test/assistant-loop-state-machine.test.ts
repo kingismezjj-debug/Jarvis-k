@@ -170,6 +170,28 @@ function withAllowedProposal(): AssistantTurnProjection {
 }
 
 describe("assistant loop state machine", () => {
+  it("accepts a correlated denial result without starting an execution, once only", () => {
+    let pending = applyOk(accepted(), event(1, "tool.proposed", { proposal: {
+      ...proposal(), toolId: "localApp.open", arguments: { app: "notepad" }, risk: "mutating" } }));
+    pending = applyOk(pending, event(2, "tool.decided", { decision: { ...decision("requires_approval"), taskId: "task-notepad" } }));
+    const deniedResult = { ...result(), turnId, taskId: "task-notepad", toolId: "localApp.open",
+      resultClass: "failure", safeSummary: undefined, status: "blocked",
+      failure: { reasonCode: "USER_DENIED", safeMessage: "Not opened.", retryable: false } };
+    expectRejected(pending, event(3, "tool.resulted", { result: deniedResult }), "RESULT_WITHOUT_EXECUTION");
+    const denied = applyOk(pending, event(3, "approval.resolved", { approval: {
+      approvalRequestId: "approval-1", proposalId, resolution: "denied", resolvedAt: now, reasonCode: "USER_DENIED" } }));
+    expectRejected(denied, event(4, "execution.started", { request: { ...execution(), toolId: "localApp.open" } }), "EXECUTION_NOT_ALLOWED");
+    for (const change of [{ taskId: "task-other" }, { turnId: otherTurnId }, { toolId: "model.status" },
+      { status: "completed" }, { failure: { reasonCode: "SOME_ERROR", safeMessage: "Failure.", retryable: false } }]) {
+      expectRejected(denied, event(4, "tool.resulted", { result: { ...deniedResult, ...change } }), "RESULT_WITHOUT_EXECUTION");
+    }
+    let completed = applyOk(denied, event(4, "tool.resulted", { result: deniedResult }));
+    expect(completed.executions).toEqual([{ executionId, proposalId, toolId: "localApp.open", status: "blocked", resulted: true }]);
+    expectRejected(completed, event(5, "tool.resulted", { result: deniedResult }), "EXECUTION_ALREADY_RESULTED");
+    expectRejected(completed, event(5, "tool.resulted", { result: { ...deniedResult, executionId: "texec-other" } }), "RESULT_WITHOUT_EXECUTION");
+    completed = applyOk(completed, event(5, "provider.continued", { adapterId: "chat-answer.openai-compatible.deepseek", toolResultExecutionIds: [executionId] }));
+    expect(completed.status).toBe("synthesizing");
+  });
   it("runs the text-only final answer happy path", () => {
     let projection = accepted();
     projection = applyOk(

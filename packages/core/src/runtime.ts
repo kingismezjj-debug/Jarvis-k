@@ -5479,9 +5479,10 @@ export class CoreRuntime {
       reason?: string;
     };
     if (this.boundedNotepad.owns(taskId)) {
-      await this.boundedNotepad.cancel(taskId);
+      const denied = await this.boundedNotepad.deny(taskId);
+      if (!denied) await this.boundedNotepad.cancel(taskId);
       const activeTurn = this.assistantRuntime.getProjection();
-      if (activeTurn?.proposals.some(item => item.taskId === taskId)) this.assistantRuntime.cancel(activeTurn.turnId);
+      if (!denied && activeTurn?.proposals.some(item => item.taskId === taskId)) this.assistantRuntime.cancel(activeTurn.turnId);
       await this.refreshTasksFromRepository();
       this.publishSnapshot(envelope.correlationId);
       const task = this.tasks.find(item => item.id === taskId);

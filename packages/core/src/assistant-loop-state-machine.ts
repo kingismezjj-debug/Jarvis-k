@@ -404,6 +404,20 @@ function applyToolResult(
     (candidate) => candidate.executionId === result.executionId,
   );
   if (!execution) {
+    const proposal = current.proposals.find(candidate => candidate.proposalId === result.proposalId);
+    if (proposal?.toolId === "localApp.open" && proposal.risk === "mutating" && typeof proposal.taskId === "string" && result.toolId === proposal.toolId &&
+      result.turnId === current.turnId && result.taskId === proposal.taskId &&
+      proposal.decisionStatus === "requires_approval" && proposal.approvalStatus === "denied" &&
+      !proposal.executionId && result.status === "blocked" && result.resultClass === "failure" &&
+      result.failure?.reasonCode === "USER_DENIED" && !result.structuredResult && !result.safeSummary) {
+      // Record a terminal result correlation, never an execution.started event or a running action.
+      return acceptNext(current, event, { status: "thinking",
+        proposals: current.proposals.map(candidate => candidate.proposalId === result.proposalId
+          ? { ...candidate, executionId: result.executionId, resultStatus: result.status } : candidate),
+        executions: [...current.executions, { executionId: result.executionId, proposalId: result.proposalId,
+          toolId: result.toolId, status: "blocked", resulted: true }],
+      });
+    }
     return reject("RESULT_WITHOUT_EXECUTION", "Tool result references no known execution.");
   }
   if (execution.resulted) {

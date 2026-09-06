@@ -21,7 +21,7 @@ function harness(phase: Phase, duplicate = false, secondProposal = false, staleR
       if (++calls > 1) { yield { type: "final", text: "Retry done." }; return; }
       stage = "before_provider";
       if (phase === stage) await gate.promise;
-      const event = AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: { ...context.tool,
+      const event = AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: { turnId: context.tool!.turnId, proposalId: context.tool!.proposalId,
         toolId: "model.status", risk: "read_only", arguments: {}, proposedAt: now().toISOString(), safeSummary: "Check status." } });
       if (event.type !== "tool_proposal") throw new Error("test proposal");
       lastProposal = event.proposal;

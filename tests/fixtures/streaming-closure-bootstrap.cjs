@@ -35,12 +35,14 @@ globalThis.fetch = async (url, options) => {
   const body = JSON.parse(options.body);
   assert.equal(body.thinking.type, "disabled");
   if (body.stream) {
-    assert.equal(body.tools.length, 1);
-    if (boundedAction && body.tools[0].function.name === "local_app_open") {
-      assert.deepEqual(body.tools[0].function.parameters, { type: "object", properties: { app: { type: "string", enum: ["notepad"] } }, required: ["app"], additionalProperties: false });
-    } else {
-      assert.equal(body.tools[0].function.name, "model_status");
-      assert.deepEqual(body.tools[0].function.parameters, { type: "object", properties: {}, required: [], additionalProperties: false });
+    assert.ok(body.tools.length >= 1 && body.tools.length <= 2);
+    for (const tool of body.tools) {
+      if (tool.function.name === "local_app_open") {
+        assert.deepEqual(tool.function.parameters, { type: "object", properties: { app: { type: "string", enum: ["notepad"] } }, required: ["app"], additionalProperties: false });
+      } else {
+        assert.equal(tool.function.name, "model_status");
+        assert.deepEqual(tool.function.parameters, { type: "object", properties: {}, required: [], additionalProperties: false });
+      }
     }
     assert.equal(body.parallel_tool_calls, false);
   } else assert.equal(body.tools, undefined);
@@ -52,7 +54,8 @@ globalThis.fetch = async (url, options) => {
   assert.equal(body.max_tokens, 2048);
   const question = body.messages[1].content;
   const toolResult = body.messages.find(message => message.role === "tool");
-  const actionQuestion = boundedAction && question.includes("记事本");
+  const actionQuestion = boundedAction && question === "我想临时记录一点内容，请帮我准备一个合适的系统应用。";
+  if (actionQuestion && !toolResult) assert.deepEqual(body.tools.map(tool => tool.function.name), ["model_status", "local_app_open"]);
   const statusQuestion = question.includes("模型状态") || actionQuestion;
   if (toolResult) {
     assert.equal(body.tool_choice, "none");
@@ -60,12 +63,17 @@ globalThis.fetch = async (url, options) => {
     assert.equal(toolResult.tool_call_id, "call_status_smoke");
     assert.equal(body.messages[2].tool_calls[0].function.name, actionQuestion ? "local_app_open" : "model_status");
     const status = JSON.parse(toolResult.content);
-    assert.equal(status.status, "completed");
-    assert.deepEqual(Object.keys(status.data).sort(), actionQuestion ? ["app", "launched", "reason", "verified"] : ["activeOperationCount", "operationCount", "runtimeMode"]);
+    if (status.status === "denied") {
+      assert.equal(actionQuestion, true);
+      assert.deepEqual(status, { status: "denied", app: "notepad", launched: false, reason: "USER_DENIED" });
+    } else {
+      assert.equal(status.status, "completed");
+      assert.deepEqual(Object.keys(status.data).sort(), actionQuestion ? ["app", "launched", "reason", "verified"] : ["activeOperationCount", "operationCount", "runtimeMode"]);
+    }
     record({ type: "tool_result_received", realNetworkRequestSent: false });
   }
   const fragments = question.includes("十点") ? Array(40).fill("历史介绍。")
-    : actionQuestion ? ["记事本启动已验证。"] : statusQuestion ? ["模型状态已查询。", "当前没有正在进行的模型操作。"]
+    : actionQuestion ? [toolResult && JSON.parse(toolResult.content).status === "denied" ? "已取消，未打开记事本。" : "记事本启动已验证。"] : statusQuestion ? ["模型状态已查询。", "当前没有正在进行的模型操作。"]
     : question.includes("只回答") ? ["取消后", "重试正常。"] : ["流式 ", "中文", "回答。"];
   let timer;
   let stopped = false;
