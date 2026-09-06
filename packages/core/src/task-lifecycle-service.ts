@@ -226,6 +226,18 @@ export class TaskLifecycleService {
     });
   }
 
+  public async cancel(input: { taskId: string; stepId: string }): Promise<void> {
+    const task = (await this.repository.listTasks()).find(value => value.id === input.taskId);
+    if (!task || !["queued", "running"].includes(task.state)) return;
+    this.assertTransition(task.state, "cancelled");
+    const completedAt = this.now().toISOString();
+    await this.repository.updateStep({ id: input.stepId, taskId: input.taskId, state: "blocked",
+      verificationStatus: "not_applicable", completedAt, resultSummary: "Status check cancelled." });
+    await this.repository.updateTask({ id: input.taskId, state: "cancelled", updatedAt: completedAt, completedAt });
+    await this.repository.createEvent({ id: createId("task-event"), taskId: input.taskId, stepId: input.stepId,
+      type: "cancelled", message: "Status check cancelled.", createdAt: completedAt });
+  }
+
   public async blockBeforeExecutor(
     input: BlockTaskBeforeExecutorInput,
   ): Promise<{

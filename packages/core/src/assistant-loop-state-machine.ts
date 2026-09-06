@@ -202,6 +202,7 @@ function applyToolProposed(
   return acceptNext(current, event, {
     status: "thinking",
     toolIterationCount: current.toolIterationCount + 1,
+    streamText: "",
     proposals: [
       ...current.proposals,
       {
@@ -244,6 +245,7 @@ function applyToolDecision(
         ? {
             ...candidate,
             decisionStatus: decision.decision,
+            ...(decision.taskId ? { taskId: decision.taskId } : {}),
             approvalStatus,
             ...(decision.approvalRequestId
               ? { approvalRequestId: decision.approvalRequestId }
@@ -455,7 +457,7 @@ function applyProviderContinued(
     );
   }
   return acceptNext(current, event, {
-    status: "thinking",
+    status: "synthesizing",
     activeProviderAdapterId: event.payload.adapterId,
   });
 }

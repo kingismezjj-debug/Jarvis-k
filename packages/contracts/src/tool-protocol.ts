@@ -50,6 +50,7 @@ export const ToolRiskSchema = z.enum([
 export type ToolRisk = z.infer<typeof ToolRiskSchema>;
 
 export const ToolExecutionModeSchema = z.enum([
+  "core_read_only",
   "fixture",
   "windows",
   "disabled"

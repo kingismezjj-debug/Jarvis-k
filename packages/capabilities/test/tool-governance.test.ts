@@ -69,6 +69,21 @@ function expectSanitizedResult(result: unknown) {
 }
 
 describe("tool governance", () => {
+  it("shares model.status policy decisions with fixture replay and keeps the core exception narrow", async () => {
+    const descriptor: ToolDescriptor = { ...readOnlyDescriptor, id: "model.status", execution: "core_read_only",
+      requiredPermissions: [], inputSchemaId: "tool.model.status.input" };
+    const policy: ToolPolicy = { ...readOnlyPolicy, allowedToolIds: ["model.status"], fixtureExecutionEnabled: false };
+    const request: ToolInvocationRequest = { ...readOnlyRequest, toolId: "model.status", input: {}, dryRun: false };
+    const decide = (changes: Partial<Parameters<typeof decideToolInvocation>[0]> = {}) => decideToolInvocation({
+      descriptor, policy, request, evaluatedAt: "2026-09-06T00:00:00.000Z", ...changes });
+    expect(decide()).toMatchObject({ allowed: true, confirmationRequired: false, audit: { confirmationGranted: false } });
+    expect((await executeFixture({ descriptors: [descriptor], policy, request: { ...request, dryRun: true } })).audit.decision).toBe(decide().audit.decision);
+    expect(decide({ request: { ...request, input: { extra: true } } }).allowed).toBe(false);
+    expect(decide({ descriptor: { ...descriptor, inputSchemaId: "tool.other.input" } }).allowed).toBe(false);
+    expect(decide({ policy: { ...policy, blockedToolIds: ["model.status"] } }).allowed).toBe(false);
+    expect(decide({ descriptor: { ...descriptor, execution: "windows" } }).allowed).toBe(false);
+    expect(decide({ descriptor: { ...descriptor, requiresConfirmation: true } })).toMatchObject({ allowed: false, status: "needs_confirmation" });
+  });
   it("allows an allowlisted read-only fixture tool", () => {
     const decision = decideToolInvocation({
       policy: readOnlyPolicy,

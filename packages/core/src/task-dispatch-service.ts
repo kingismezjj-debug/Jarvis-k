@@ -25,6 +25,10 @@ export class TaskDispatchService {
     return this.lifecycle.createQueuedTask(input);
   }
 
+  public async cancel(input: { taskId: string; stepId: string }): Promise<void> {
+    await this.lifecycle.cancel(input);
+  }
+
   public async markRunning(input: {
     taskId: string;
     stepId: string;

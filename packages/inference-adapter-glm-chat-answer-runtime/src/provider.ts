@@ -2,6 +2,14 @@ import type { ChatAnswerProvider } from "@jarvis-k/capabilities";
 import {
   ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS,
   AssistantModelAdapterEventSchema,
+  AssistantToolContextSchema,
+  AssistantToolContinuationSchema,
+  AssistantModelStatusArgumentsSchema,
+  AssistantModelStatusResultSchema,
+  ToolProposalSchema,
+  type AssistantToolContext,
+  type AssistantToolContinuation,
+  type ToolProposal,
   AssistantProviderFailureReasonSchema,
   ChatAnswerRequestSchema,
   ChatAnswerResultSchema,
@@ -15,6 +23,57 @@ import {
   parseOpenAiCompatibleChatAnswerFixtureResponse,
   type OpenAiCompatibleChatAnswerFixtureFailureClassification
 } from "@jarvis-k/inference-adapter-openai-chat-answer";
+
+const MODEL_STATUS_FUNCTION = {
+  type: "function",
+  function: { name: "model_status", description: "Read current local model runtime mode and bounded operation counts.",
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false } },
+} as const;
+
+export function providerToolId(name: string): "model.status" | undefined {
+  return name === "model_status" ? "model.status" : undefined;
+}
+export function internalToolName(id: string): "model_status" | undefined {
+  return id === "model.status" ? "model_status" : undefined;
+}
+interface ProviderToolCall {
+  readonly id: string;
+  readonly type: "function";
+  readonly function: { readonly name: "model_status"; readonly arguments: "{}" };
+}
+
+function collectProviderToolCall(chunk: unknown, state: { id: string; name: string; arguments: string; started: boolean }): "none" | "partial" | "complete" | "invalid" {
+  if (!isRecord(chunk) || !Array.isArray(chunk.choices)) return "none";
+  if (chunk.choices.length === 0) return "none";
+  if (chunk.choices.length !== 1) return "invalid";
+  const choice = chunk.choices[0];
+  if (!isRecord(choice) || !isRecord(choice.delta)) return "none";
+  if (hasOwn(choice.delta, "function_call")) return "invalid";
+  const calls = choice.delta.tool_calls;
+  if (calls !== undefined) {
+    if (!Array.isArray(calls) || calls.length !== 1) return "invalid";
+    const call = calls[0];
+    if (!isRecord(call) || call.index !== 0 ||
+      Object.keys(call).some(key => !["index", "id", "type", "function"].includes(key))) return "invalid";
+    if (call.type !== undefined && call.type !== "function") return "invalid";
+    if (call.id !== undefined) {
+      if (state.id || typeof call.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(call.id)) return "invalid";
+      state.id = call.id;
+    }
+    if (!isRecord(call.function) || Object.keys(call.function).some(key => !["name", "arguments"].includes(key))) return "invalid";
+    for (const key of ["name", "arguments"] as const) {
+      const value = call.function[key];
+      if (value !== undefined && typeof value !== "string") return "invalid";
+      state[key] += typeof value === "string" ? value : "";
+    }
+    if (state.name.length > 64 || state.arguments.length > 256 ||
+      (typeof choice.delta.content === "string" && choice.delta.content.length > 0)) return "invalid";
+    state.started = true;
+  }
+  if (choice.finish_reason === "tool_calls") return state.started ? "complete" : "invalid";
+  if (calls !== undefined) return choice.finish_reason == null ? "partial" : "invalid";
+  return "none";
+}
 
 export type OpenAiCompatibleChatAnswerRuntimeProviderFamily =
   | "glm"
@@ -158,10 +217,12 @@ export interface OpenAiCompatibleChatAnswerRuntimeCompletionRequest {
 
 export interface OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
   readonly model: OpenAiCompatibleChatAnswerRuntimeProfile["modelId"];
-  readonly messages: readonly [
-    OpenAiCompatibleChatAnswerRuntimeCompletionMessage,
-    OpenAiCompatibleChatAnswerRuntimeCompletionMessage
-  ];
+  readonly messages: readonly (OpenAiCompatibleChatAnswerRuntimeCompletionMessage |
+    { readonly role: "assistant"; readonly content: string | null; readonly tool_calls: readonly ProviderToolCall[] } |
+    { readonly role: "tool"; readonly tool_call_id: string; readonly content: string })[];
+  readonly tools?: readonly [typeof MODEL_STATUS_FUNCTION];
+  readonly parallel_tool_calls?: false;
+  readonly tool_choice?: "auto" | "none";
   readonly stream: true;
   readonly temperature: 0;
   readonly max_tokens: 2048;
@@ -180,6 +241,9 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
 {
   private readonly now: () => Date;
   private readonly profile: OpenAiCompatibleChatAnswerRuntimeProfile;
+  private readonly pendingTools = new WeakMap<AbortSignal, {
+    request: ChatAnswerRequest; proposal: ToolProposal; call: ProviderToolCall; content: string;
+  }>();
 
   public constructor(
     private readonly options: OpenAiCompatibleChatAnswerRuntimeProviderOptions
@@ -259,8 +323,44 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
 
   public async *startTextTurn(
     request: ChatAnswerRequest,
-    _context: Record<string, never>,
+    context: AssistantToolContext,
     signal: AbortSignal
+  ): AsyncIterable<AssistantModelAdapterEvent> {
+    yield* this.streamTurn(request, AssistantToolContextSchema.parse(context), signal);
+  }
+
+  public async *continueTextTurn(
+    input: AssistantToolContinuation,
+    signal: AbortSignal,
+  ): AsyncIterable<AssistantModelAdapterEvent> {
+    const continuation = AssistantToolContinuationSchema.parse(input);
+    const pending = this.pendingTools.get(signal);
+    this.pendingTools.delete(signal);
+    if (signal.aborted || !pending || pending.proposal.proposalId !== continuation.proposal.proposalId ||
+      pending.proposal.turnId !== continuation.turnId || continuation.proposal.toolId !== "model.status" ||
+      continuation.result.toolId !== "model.status") {
+      yield adapterFailure("unsupported_tool_call", "The status result does not match this answer.", false);
+      return;
+    }
+    AssistantModelStatusArgumentsSchema.parse(continuation.proposal.arguments);
+    const result = continuation.result;
+    const safeResult = result.status === "completed"
+      ? { status: "completed", data: AssistantModelStatusResultSchema.parse(result.structuredResult) }
+      : { status: "failed", reason: "MODEL_STATUS_UNAVAILABLE" };
+    const body = createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(pending.request, this.profile.profileId, true);
+    yield* this.streamTurn(pending.request, {}, signal, {
+      ...body, tool_choice: "none",
+      messages: [...body.messages,
+        { role: "assistant", content: pending.content || null, tool_calls: [pending.call] },
+        { role: "tool", tool_call_id: pending.call.id, content: JSON.stringify(safeResult) }],
+    });
+  }
+
+  private async *streamTurn(
+    request: ChatAnswerRequest,
+    context: AssistantToolContext,
+    signal: AbortSignal,
+    continuationBody?: OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest,
   ): AsyncIterable<AssistantModelAdapterEvent> {
     const parsedRequest = ChatAnswerRequestSchema.parse(request);
     if (parsedRequest.providerId !== this.profile.providerId) {
@@ -279,6 +379,9 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
 
     let accumulated = "";
     let completed = false;
+    const toolEnabled = context.tool !== undefined && this.profile.family === "deepseek";
+    const toolCall = { id: "", name: "", arguments: "", started: false };
+    let chunkCount = 0;
     try {
       const chunks = this.options.transport.stream({
         profileId: this.profile.profileId,
@@ -287,9 +390,10 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
           Authorization: `Bearer ${this.options.credential.apiKey}`,
           "Content-Type": "application/json"
         },
-        body: createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
+        body: continuationBody ?? createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
           parsedRequest,
-          this.profile.profileId
+          this.profile.profileId,
+          toolEnabled
         ),
         timeoutMs: this.profile.timeoutMs,
         signal
@@ -297,6 +401,33 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
       for await (const chunk of chunks) {
         if (signal.aborted) {
           yield adapterFailure("cancelled", "The answer was cancelled.", false);
+          return;
+        }
+        if (++chunkCount > 2048) throw new Error("STREAM_LIMIT");
+        const toolChunk = collectProviderToolCall(chunk, toolCall);
+        if (toolChunk !== "none") {
+          if (!toolEnabled || toolChunk === "invalid") {
+            yield adapterFailure("unsupported_tool_call", "The provider attempted an unsupported tool call.", false);
+            return;
+          }
+          if (toolChunk === "complete") {
+            if (!context.tool || !toolCall.id || providerToolId(toolCall.name) !== "model.status" ||
+              !AssistantModelStatusArgumentsSchema.safeParse(JSON.parse(toolCall.arguments)).success) {
+              yield adapterFailure("unsupported_tool_call", "The status request was invalid.", false);
+              return;
+            }
+            const proposal = ToolProposalSchema.parse({ ...context.tool, toolId: "model.status", risk: "read_only",
+              arguments: {}, proposedAt: this.now().toISOString(), safeSummary: "Check current model status." });
+            this.pendingTools.set(signal, { request: parsedRequest, proposal, content: accumulated,
+              call: { id: toolCall.id, type: "function", function: { name: internalToolName(proposal.toolId)!, arguments: "{}" } } });
+            signal.addEventListener("abort", () => this.pendingTools.delete(signal), { once: true });
+            yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal });
+            return;
+          }
+          continue;
+        }
+        if (toolCall.started) {
+          yield adapterFailure("unsupported_tool_call", "The status request ended incorrectly.", false);
           return;
         }
         const parsedChunk = parseOpenAiCompatibleStreamingChunk(chunk);
@@ -667,7 +798,8 @@ export function createOpenAiCompatibleChatAnswerRuntimeCompletionRequest(
 
 export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
   request: ChatAnswerRequest,
-  profileId: OpenAiCompatibleChatAnswerRuntimeProfileId
+  profileId: OpenAiCompatibleChatAnswerRuntimeProfileId,
+  enableModelStatus = false,
 ): OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
   const parsed = ChatAnswerRequestSchema.parse(request);
   const profile = getOpenAiCompatibleChatAnswerRuntimeProfile(profileId);
@@ -684,9 +816,9 @@ export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionReques
         role: "system",
         content: [
           "Answer the user's benign question directly as plain text.",
-          "Do not call tools, functions, plugins, or actions.",
+          ...(enableModelStatus ? ["Only use model_status when the user asks about current local model status. Its arguments must be an empty object. Use at most one call. For ordinary knowledge questions, answer directly without tools. Never invent status values. After a tool result, explain it concisely without internal identifiers. A failed result means status is unavailable."] : ["Do not call tools, functions, plugins, or actions."]),
           "Do not include credentials, URLs with query strings, command lines, or raw provider metadata.",
-          "If a tool call would be needed, answer that the request is unsupported in this text-only streaming path.",
+          "Other operations are unsupported.",
           "Keep the answer concise and user-facing.",
           ...(profile.family === "deepseek"
             ? ["Put final answer text in delta.content only; do not use reasoning_content."]
@@ -712,6 +844,7 @@ export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionReques
     stream: true,
     temperature: 0,
     max_tokens: 2048,
+    ...(enableModelStatus ? { tools: [MODEL_STATUS_FUNCTION] as const, parallel_tool_calls: false as const, tool_choice: "auto" as const } : {}),
     ...(profile.family === "deepseek" ? { thinking: { type: "disabled" as const } } : {})
   };
 }
@@ -867,7 +1000,8 @@ function classifyStreamingProviderFailure(
 }
 
 function isUnsafeStreamText(value: string): boolean {
-  return SECRET_PATTERN.test(value) || EXECUTION_SHAPED_OUTPUT_PATTERN.test(value);
+  return SECRET_PATTERN.test(value) || EXECUTION_SHAPED_OUTPUT_PATTERN.test(value) ||
+    /(?:ToolProposal|ToolResult|CoreHost|[A-Za-z]:[\\/]|\\\\)/iu.test(value);
 }
 
 function failureResult(

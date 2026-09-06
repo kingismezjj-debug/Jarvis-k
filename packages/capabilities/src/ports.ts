@@ -4,6 +4,8 @@ import type {
   BrainPlannerRequest,
   BrainPlannerResult,
   AssistantModelAdapterEvent,
+  AssistantToolContext,
+  AssistantToolContinuation,
   ChatAnswerRequest,
   ChatAnswerResult,
   EmbeddingGenerationRequest,
@@ -193,7 +195,11 @@ export interface ChatAnswerProvider {
   answer(request: ChatAnswerRequest): Promise<ChatAnswerResult>;
   startTextTurn?(
     request: ChatAnswerRequest,
-    context: Record<string, never>,
+    context: AssistantToolContext,
+    signal: AbortSignal,
+  ): AsyncIterable<AssistantModelAdapterEvent>;
+  continueTextTurn?(
+    continuation: AssistantToolContinuation,
     signal: AbortSignal,
   ): AsyncIterable<AssistantModelAdapterEvent>;
 }

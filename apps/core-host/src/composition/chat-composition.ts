@@ -7,6 +7,7 @@ import {
 
 export class ConfigurableChatAnswerProvider implements ChatAnswerProvider {
   private current: ChatAnswerProvider | undefined;
+  private readonly turnProviders = new WeakMap<AbortSignal, ChatAnswerProvider>();
 
   public constructor(private readonly providerId: string) {}
 
@@ -60,7 +61,23 @@ export class ConfigurableChatAnswerProvider implements ChatAnswerProvider {
       });
       return;
     }
-    yield* this.current.startTextTurn(request, context, signal);
+    const provider = this.current;
+    this.turnProviders.set(signal, provider);
+    yield* provider.startTextTurn!(request, context, signal);
+  }
+
+  public async *continueTextTurn(
+    continuation: Parameters<NonNullable<ChatAnswerProvider["continueTextTurn"]>>[0],
+    signal: AbortSignal,
+  ): ReturnType<NonNullable<ChatAnswerProvider["continueTextTurn"]>> {
+    const provider = this.turnProviders.get(signal);
+    this.turnProviders.delete(signal);
+    if (signal.aborted || !provider?.continueTextTurn || provider !== this.current) {
+      yield AssistantModelAdapterEventSchema.parse({ type: "failure", reason: "provider_unavailable",
+        safeMessage: "The answer service changed during this request.", retryable: false });
+      return;
+    }
+    yield* provider.continueTextTurn(continuation, signal);
   }
 }
 

@@ -1,6 +1,5 @@
 import {
   ASSISTANT_LOOP_CONTRACT_VERSION,
-  ASSISTANT_LOOP_MAX_TOOL_ITERATIONS,
   AssistantTurnIdSchema,
   AssistantEventSchema,
   AssistantFailureSchema,
@@ -9,6 +8,17 @@ import {
   AssistantModelAdapterEventSchema,
   AssistantTurnProjectionSchema,
   ChatAnswerRequestSchema,
+  AssistantToolContinuationSchema,
+  AssistantModelStatusArgumentsSchema,
+  ToolProposalIdSchema,
+  ToolResultSchema,
+  ToolExecutionIdSchema,
+  type ToolProposal,
+  type ToolResult,
+  type ToolDecision,
+  type ToolExecutionRequest,
+  type AssistantToolContext,
+  type AssistantToolContinuation,
   type AssistantEvent,
   type AssistantInput,
   type AssistantModelAdapterEvent,
@@ -25,9 +35,10 @@ import { reduceAssistantTurnProjection } from "./assistant-loop-state-machine";
 export interface AssistantTextModelAdapter {
   startTextTurn(
     request: ChatAnswerRequest,
-    context: Record<string, never>,
+    context: AssistantToolContext,
     signal: AbortSignal,
   ): AsyncIterable<AssistantModelAdapterEvent>;
+  continueTextTurn?(continuation: AssistantToolContinuation, signal: AbortSignal): AsyncIterable<AssistantModelAdapterEvent>;
 }
 
 export interface AssistantRuntimeScheduler {
@@ -36,6 +47,9 @@ export interface AssistantRuntimeScheduler {
 }
 
 export interface AssistantRuntimeOptions {
+  readonly executeTool?: (proposal: ToolProposal, executionId: ToolExecutionRequest["executionId"], signal: AbortSignal,
+    publish: (event: { type: "tool.decided"; decision: ToolDecision } | { type: "execution.started"; request: ToolExecutionRequest }) => void,
+  ) => Promise<ToolResult>;
   readonly getProviderId: () => string;
   readonly getModelAdapter: () => AssistantTextModelAdapter | undefined;
   readonly persistFinalMessage: (
@@ -192,7 +206,7 @@ export class AssistantRuntime {
       type: "turn.accepted",
       payload: {
         input: parsedInput.data,
-        maxToolIterations: ASSISTANT_LOOP_MAX_TOOL_ITERATIONS,
+        maxToolIterations: 1,
       },
       correlationId: input.correlationId,
       flush: "immediate",
@@ -289,12 +303,13 @@ export class AssistantRuntime {
     conversationId: string;
     correlationId: string;
     request: ChatAnswerRequest;
+    continuation?: AssistantToolContinuation;
   }): Promise<void> {
     const active = this.active;
     if (!active || active.runId !== input.runId) {
       return;
     }
-    this.applyEvent({
+    if (!input.continuation) this.applyEvent({
       type: "provider.started",
       payload: {
         adapterId: input.request.providerId,
@@ -303,15 +318,56 @@ export class AssistantRuntime {
       flush: "batched",
     });
     try {
-      for await (const rawEvent of input.adapter.startTextTurn(
-        input.request,
-        {},
-        active.controller.signal,
-      )) {
+      const proposalId = ToolProposalIdSchema.parse(this.options.createId("tprop"));
+      const events = input.continuation && input.adapter.continueTextTurn
+        ? input.adapter.continueTextTurn(input.continuation, active.controller.signal)
+        : input.adapter.startTextTurn(input.request,
+          this.options.executeTool && input.adapter.continueTextTurn ? { tool: { turnId: input.turnId, proposalId } } : {},
+          active.controller.signal);
+      const iterator = events[Symbol.asyncIterator]();
+      for await (const rawEvent of { [Symbol.asyncIterator]: () => iterator }) {
         if (!this.isCurrentRun(input.runId, input.turnId)) {
           return;
         }
         const event = AssistantModelAdapterEventSchema.parse(rawEvent);
+        if (event.type === "tool_proposal") {
+          const proposal = event.proposal;
+          if (input.continuation || this.projection!.toolIterationCount >= 1 ||
+            !this.options.executeTool || !input.adapter.continueTextTurn ||
+            proposal.turnId !== input.turnId || proposal.proposalId !== proposalId ||
+            proposal.toolId !== "model.status" || proposal.risk !== "read_only" ||
+            !AssistantModelStatusArgumentsSchema.safeParse(proposal.arguments).success) {
+            this.failTurn(input, "unsupported_tool_call", "This operation is unsupported.", false);
+            return;
+          }
+          // Do not execute until the adapter has ended its proposal response.
+          // A duplicate proposal or mixed final in that response fails closed.
+          const afterProposal = await iterator.next();
+          if (!this.isCurrentRun(input.runId, input.turnId)) return;
+          if (!afterProposal.done) {
+            this.failTurn(input, "unsupported_tool_call", "Multiple operations are unsupported.", false);
+            return;
+          }
+          this.requireEvent({ type: "tool.proposed", payload: { proposal }, correlationId: input.correlationId, flush: "immediate" });
+          const executionId = ToolExecutionIdSchema.parse(this.options.createId("texec"));
+          const result = ToolResultSchema.parse(await this.waitForTool(this.options.executeTool(proposal, executionId, active.controller.signal, update => {
+            if (!this.isCurrentRun(input.runId, input.turnId)) return;
+            this.requireEvent({ type: update.type,
+              payload: update.type === "tool.decided" ? { decision: update.decision } : { request: update.request },
+              correlationId: input.correlationId, flush: "immediate" });
+          }), active.controller));
+          if (!this.isCurrentRun(input.runId, input.turnId)) return;
+          const continuation = AssistantToolContinuationSchema.parse({ turnId: input.turnId, proposal, result });
+          if (result.executionId !== executionId ||
+            result.taskId !== this.projection?.proposals.find(item => item.proposalId === proposal.proposalId)?.taskId) {
+            throw new Error("RESULT_CORRELATION");
+          }
+          this.requireEvent({ type: "tool.resulted", payload: { result }, correlationId: input.correlationId, flush: "immediate" });
+          this.requireEvent({ type: "provider.continued", payload: { adapterId: input.request.providerId,
+            toolResultExecutionIds: [executionId] }, correlationId: input.correlationId, flush: "immediate" });
+          await this.runProvider({ ...input, continuation });
+          return;
+        }
         if (event.type === "delta") {
           if (event.delta.kind !== "text" || event.delta.text.length === 0) {
             continue;
@@ -344,8 +400,12 @@ export class AssistantRuntime {
         "The provider disconnected before producing a final answer.",
         true,
       );
-    } catch {
+    } catch (error) {
       if (!this.isCurrentRun(input.runId, input.turnId)) {
+        return;
+      }
+      if (error instanceof Error && error.message === "MODEL_STATUS_TIMEOUT") {
+        this.failTurn(input, "provider_timeout", "The status check timed out.", false);
         return;
       }
       this.failTurn(
@@ -401,7 +461,7 @@ export class AssistantRuntime {
             text: finalText,
             messageId: message.id,
             completedAt: this.options.now().toISOString(),
-            usedToolIterations: 0,
+            usedToolIterations: this.projection?.toolIterationCount ?? 0,
             rawProviderResponsePersisted: false,
             providerRawPayloadExposed: false,
           }),
@@ -424,6 +484,22 @@ export class AssistantRuntime {
     }
   }
 
+  private async waitForTool(work: Promise<ToolResult>, controller: AbortController): Promise<ToolResult> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let abort: () => void = () => undefined;
+    const limit = new Promise<never>((_resolve, reject) => {
+      abort = () => reject(new Error("CANCELLED"));
+      if (controller.signal.aborted) { abort(); return; }
+      controller.signal.addEventListener("abort", abort, { once: true });
+      timer = setTimeout(() => { reject(new Error("MODEL_STATUS_TIMEOUT")); controller.abort(); }, 1000);
+    });
+    try { return await Promise.race([work, limit]); }
+    finally {
+      clearTimeout(timer);
+      controller.signal.removeEventListener("abort", abort);
+    }
+  }
+
   private failTurn(
     input: {
       runId: number;
@@ -437,6 +513,7 @@ export class AssistantRuntime {
     if (!this.isCurrentRun(input.runId, input.turnId)) {
       return;
     }
+    this.active?.controller.abort();
     this.applyEvent({
       type: reason === "cancelled" ? "turn.cancelled" : "turn.failed",
       payload:
@@ -498,6 +575,10 @@ export class AssistantRuntime {
       this.scheduleFlush(input.correlationId);
     }
     return { ok: true, projection: reduced.projection };
+  }
+
+  private requireEvent(input: Parameters<AssistantRuntime["applyEvent"]>[0]): void {
+    if (!this.applyEvent(input).ok) throw new Error("ASSISTANT_EVENT_REJECTED");
   }
 
   private scheduleFlush(correlationId: string): void {

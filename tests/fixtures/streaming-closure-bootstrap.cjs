@@ -18,7 +18,12 @@ globalThis.fetch = async (url, options) => {
   assert.equal(options.headers.Authorization, "Bearer not-a-credential-local-smoke-key");
   const body = JSON.parse(options.body);
   assert.equal(body.thinking.type, "disabled");
-  assert.equal(body.tools, undefined);
+  if (body.stream) {
+    assert.equal(body.tools.length, 1);
+    assert.equal(body.tools[0].function.name, "model_status");
+    assert.deepEqual(body.tools[0].function.parameters, { type: "object", properties: {}, required: [], additionalProperties: false });
+    assert.equal(body.parallel_tool_calls, false);
+  } else assert.equal(body.tools, undefined);
   record({ type: body.stream ? "stream" : "connection_test", realNetworkRequestSent: false });
   if (!body.stream) {
     assert.equal(body.max_tokens, 128);
@@ -26,7 +31,20 @@ globalThis.fetch = async (url, options) => {
   }
   assert.equal(body.max_tokens, 2048);
   const question = body.messages[1].content;
+  const toolResult = body.messages.find(message => message.role === "tool");
+  const statusQuestion = question.includes("模型状态");
+  if (toolResult) {
+    assert.equal(body.tool_choice, "none");
+    assert.equal(body.messages.length, 4);
+    assert.equal(toolResult.tool_call_id, "call_status_smoke");
+    assert.equal(body.messages[2].tool_calls[0].function.name, "model_status");
+    const status = JSON.parse(toolResult.content);
+    assert.equal(status.status, "completed");
+    assert.deepEqual(Object.keys(status.data).sort(), ["activeOperationCount", "operationCount", "runtimeMode"]);
+    record({ type: "tool_result_received", realNetworkRequestSent: false });
+  }
   const fragments = question.includes("十点") ? Array(40).fill("历史介绍。")
+    : statusQuestion ? ["模型状态已查询。", "当前没有正在进行的模型操作。"]
     : question.includes("只回答") ? ["取消后", "重试正常。"] : ["流式 ", "中文", "回答。"];
   let timer;
   let stopped = false;
@@ -44,7 +62,10 @@ globalThis.fetch = async (url, options) => {
       options.signal.addEventListener("abort", abort, { once: true });
       const send = () => {
         if (stopped) return;
-        const chunk = index < 0
+        const chunk = statusQuestion && !toolResult
+          ? index < 0 ? { choices: [{ delta: { tool_calls: [{ index: 0, id: "call_status_smoke", type: "function", function: { name: "model_status", arguments: "{}" } }] }, finish_reason: null }] }
+            : { choices: [{ delta: {}, finish_reason: "tool_calls" }] }
+          : index < 0
           ? { choices: [{ delta: { reasoning_content: "hidden fixture reasoning" }, finish_reason: null }] }
           : index < fragments.length
             ? { choices: [{ delta: { content: fragments[index] }, finish_reason: null }] }
@@ -53,7 +74,7 @@ globalThis.fetch = async (url, options) => {
         const split = bytes.findIndex(byte => byte > 127) + 1;
         controller.enqueue(bytes.slice(0, split || 7));
         controller.enqueue(bytes.slice(split || 7));
-        if (index++ >= fragments.length) {
+        if (index++ >= (statusQuestion && !toolResult ? 0 : fragments.length)) {
           stopped = true;
           options.signal.removeEventListener("abort", abort);
           controller.close();

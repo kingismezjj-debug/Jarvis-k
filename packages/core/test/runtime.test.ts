@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BrainCommandResultSchema,
+  AssistantModelAdapterEventSchema,
   ChatAnswerResultSchema,
   CommandRouterLocalAppLaunchResultSchema,
   type AssistantModelAdapterEvent,
@@ -2123,6 +2124,7 @@ function createRuntimeWithChatAnswer(
   chatAnswerProvider: ChatAnswerProvider | undefined,
   chatAnswer: CoreChatAnswerOptions,
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
+  taskRepository?: TaskRepository,
 ) {
   return createRuntime(
     undefined,
@@ -2151,7 +2153,7 @@ function createRuntimeWithChatAnswer(
     chatAnswerProvider,
     chatAnswer,
     undefined,
-    undefined,
+    taskRepository,
     undefined,
     undefined,
     undefined,
@@ -9711,6 +9713,52 @@ describe("CoreRuntime", () => {
     expect(brain.chatAnswer?.status).toBe("answered");
     expect(brain.summary).toContain("Fixture answer");
     expect(brain.chatAnswer?.directActionAttempted).toBe(false);
+  });
+
+  it.each([false, true])("runs the single status tool through the formal command and shared Task governance (failure=%s)", async fail => {
+    const continuations: import("@jarvis-k/contracts").AssistantToolContinuation[] = [];
+    const provider: ChatAnswerProvider = {
+      answer: async () => { throw new Error("Unexpected non-stream path"); },
+      startTextTurn: async function* (_request, context) {
+        yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: {
+          ...context.tool, toolId: "model.status", risk: "read_only", arguments: {},
+          proposedAt: "2026-09-06T00:00:00.000Z", safeSummary: "Check model status." } });
+      },
+      continueTextTurn: async function* (continuation) {
+        continuations.push(continuation);
+        const text = continuation.result.status === "completed" ? "Status checked." : "Status unavailable.";
+        yield delta(text);
+        yield final(text);
+        yield final("Duplicate must be ignored.");
+      },
+    };
+    const repository = new InMemoryTaskRepository();
+    const { runtime } = createRuntimeWithChatAnswer(provider, { enabled: true,
+      providerId: "chat-answer.openai-compatible.deepseek" }, undefined, repository);
+    const statusSpy = fail ? vi.spyOn(runtime as unknown as { readModelStatus(): unknown }, "readModelStatus")
+      .mockImplementation(() => { throw new Error("fixture private details must not escape"); }) : undefined;
+    const result = await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand",
+      payload: { source: "text", text: "请查询当前模型状态并解释结果。" } }));
+    expect(result.ok).toBe(true);
+    expect(result).toMatchObject({ data: { brain: { dispatchStatus: "running" } } });
+    await waitForSnapshot(runtime, snapshot => ["completed", "failed"].includes(snapshot.assistantTurn?.status ?? ""));
+    const snapshot = runtime.getSnapshot();
+    expect(snapshot.assistantTurn?.failure).toBeUndefined();
+    const tasks = await repository.listTasks();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.state).toBe(fail ? "failed" : "completed");
+    expect(tasks[0]?.events.some(event => event.message.includes("Policy ALLOWED"))).toBe(true);
+    expect(continuations).toHaveLength(1);
+    const continuation = continuations[0]!;
+    expect(continuation.result.taskId).toBe(tasks[0]?.id);
+    expect(continuation.result.turnId).toBe(snapshot.assistantTurn?.turnId);
+    expect(continuation.result.proposalId).toBe(continuation.proposal.proposalId);
+    expect(snapshot.assistantTurn?.executions[0]?.executionId).toBe(continuation.result.executionId);
+    expect(snapshot.assistantTurn?.finalAnswer?.usedToolIterations).toBe(1);
+    expect(snapshot.messages.filter(message => message.role === "assistant")).toHaveLength(1);
+    expect(snapshot.assistantTurn?.proposals[0]).toMatchObject({ decisionStatus: "allowed", approvalStatus: "not_required" });
+    expect(JSON.stringify(snapshot)).not.toContain("fixture private details");
+    statusSpy?.mockRestore();
   });
 
   it.each([

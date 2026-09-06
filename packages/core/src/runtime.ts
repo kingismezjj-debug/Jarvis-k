@@ -1,5 +1,10 @@
 import {
   AppEvent,
+  AssistantModelStatusArgumentsSchema,
+  AssistantModelStatusResultSchema,
+  ToolDecisionSchema,
+  ToolExecutionRequestSchema,
+  ToolResultSchema,
   AssistantTurnProjection,
   BrainAlphaHardening,
   BrainAlphaHardeningSchema,
@@ -330,7 +335,7 @@ const BRAIN_TOOL_REGISTRY_DESCRIPTORS = [
     version: BRAIN_TOOL_REGISTRY_VERSION,
     description: "Project a model lifecycle status route.",
     risk: "read_only",
-    execution: "fixture",
+    execution: "core_read_only",
     requiredPermissions: [],
     requiresConfirmation: false,
     inputSchemaId: "tool.model.status.input",
@@ -612,6 +617,8 @@ export class CoreRuntime {
       now: this.now,
     });
     this.assistantRuntime = new AssistantRuntime({
+      executeTool: (proposal, executionId, signal, publish) =>
+        this.executeAssistantModelStatus(proposal, executionId, signal, publish),
       getProviderId: () =>
         this.chatAnswer?.providerId ?? "chat-answer.unconfigured",
       getModelAdapter: () =>
@@ -2013,6 +2020,7 @@ export class CoreRuntime {
         this.brainPlan(routing.decision.intent),
       );
       const toolProductLoop = await this.createBrainToolProductLoop({
+        assistantOwned: true,
         source: payload.source,
         decision: routing.decision,
         planning,
@@ -4029,7 +4037,7 @@ export class CoreRuntime {
     if (
       /状态|健康|诊断|检查|observability|status|health|diagnostic/u.test(
         normalized,
-      )
+      ) && !/模型|model/u.test(normalized)
     ) {
       return this.brainDecision({
         intent: "observability.status",
@@ -4136,7 +4144,7 @@ export class CoreRuntime {
     if (
       /状态|健康|诊断|检查|observability|status|health|diagnostic/u.test(
         normalized,
-      )
+      ) && !/模型|model/u.test(normalized)
     ) {
       return this.brainDecision({
         intent: "observability.status",
@@ -4338,12 +4346,14 @@ export class CoreRuntime {
           summary: `Brain Alpha routed this as observability.status. Core ${this.health}; sequence ${this.sequenceId}; voice ${this.voiceEngine.getSnapshot().state}; Memory ${this.memoryHealth?.status ?? "unknown"}.`,
         };
 
-      case "model.status":
+      case "model.status": {
+        const status = this.readModelStatus();
         return {
           dispatchStatus: "completed",
           plan: this.completeBrainPlan(basePlan),
-          summary: `Brain Alpha routed this as model.status. Runtime ${this.capabilities?.runtimeMode ?? "unknown"}; model operations ${this.modelOperations.length}; active operations ${this.modelOperations.filter((operation) => operation.phase !== "completed").length}.`,
+          summary: `Brain Alpha routed this as model.status. Runtime ${status.runtimeMode}; model operations ${status.operationCount}; active operations ${status.activeOperationCount}.`,
         };
+      }
 
       case "coding.task":
         return {
@@ -4569,10 +4579,88 @@ export class CoreRuntime {
   ): boolean {
     return (
       source === "text" &&
-      decision.intent === "chat.answer" &&
+      (decision.intent === "chat.answer" || decision.intent === "model.status") &&
       this.chatAnswer?.enabled === true &&
       isAssistantTextModelAdapter(this.chatAnswerProvider)
     );
+  }
+
+  private async executeAssistantModelStatus(
+    ...[proposal, executionId, signal, publish]: Parameters<NonNullable<import("./assistant-runtime").AssistantRuntimeOptions["executeTool"]>>
+  ): Promise<import("@jarvis-k/contracts").ToolResult> {
+    const dispatch = this.taskDispatchService;
+    const repository = this.taskRepository;
+    const descriptor = BRAIN_TOOL_REGISTRY_DESCRIPTORS.find(value => value.id === proposal.toolId);
+    if (signal.aborted || !dispatch || !repository || !descriptor || proposal.toolId !== "model.status") {
+      throw new Error("MODEL_STATUS_UNAVAILABLE");
+    }
+    const args = AssistantModelStatusArgumentsSchema.parse(proposal.arguments);
+    const safety = decideToolInvocation({ descriptor, policy: BRAIN_TOOL_REGISTRY_POLICY,
+      request: { requestId: proposal.proposalId, toolId: descriptor.id, input: args, dryRun: false },
+      evaluatedAt: this.now().toISOString() });
+    // This registered read-only capability requires no approval under the shared policy.
+    // Any policy change is fail-closed; the provider cannot grant confirmation.
+    if (!safety.allowed || safety.confirmationRequired || descriptor.risk !== "read_only") {
+      publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId,
+        decision: "denied", decidedAt: this.now().toISOString(), policyVersion: safety.audit.policyVersion,
+        reasonCode: safety.reasonCode }) });
+      throw new Error("MODEL_STATUS_DENIED");
+    }
+    const task = await dispatch.createQueuedTask({ title: "Check model status", source: "text", intent: "model.status",
+      routeSource: "unknown", stepTitle: "Read current model status", createdMessage: "Assistant requested a read-only status check." });
+    try {
+      await repository.createEvent({ id: createId("task-event"), ...task, type: "state_changed",
+        message: `Policy ${safety.reasonCode}; read-only model status check.`,
+        createdAt: this.now().toISOString() });
+      await this.refreshTasksFromRepository();
+      if (signal.aborted) throw new Error("CANCELLED");
+      publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId,
+        decision: "allowed", taskId: task.taskId, policyVersion: safety.audit.policyVersion,
+        reasonCode: safety.reasonCode, decidedAt: this.now().toISOString() }) });
+      // Yield to cancellation after policy evaluation and before starting the task.
+      await Promise.resolve();
+      if (signal.aborted) throw new Error("CANCELLED");
+      await dispatch.markRunning({ ...task, message: "Reading current model status." });
+      await this.refreshTasksFromRepository();
+      if (signal.aborted) throw new Error("CANCELLED");
+      publish({ type: "execution.started", request: ToolExecutionRequestSchema.parse({
+        executionId, taskId: task.taskId, proposalId: proposal.proposalId, turnId: proposal.turnId, toolId: descriptor.id,
+        arguments: args, owner: "core", timeoutMs: 1000, requestedAt: this.now().toISOString(),
+      }) });
+      if (signal.aborted) throw new Error("CANCELLED");
+      let result: import("@jarvis-k/contracts").ToolResult;
+      const correlation = { executionId, proposalId: proposal.proposalId, turnId: proposal.turnId,
+        taskId: task.taskId, toolId: descriptor.id, resultedAt: this.now().toISOString() };
+      try {
+        const status = this.readModelStatus();
+        result = ToolResultSchema.parse({ ...correlation, status: "completed", resultClass: "structured", structuredResult: status });
+      } catch {
+        result = ToolResultSchema.parse({ ...correlation, status: "failed", resultClass: "failure",
+          failure: { reasonCode: "MODEL_STATUS_UNAVAILABLE", safeMessage: "Model status is unavailable.", retryable: false } });
+      }
+      if (signal.aborted) throw new Error("CANCELLED");
+      await dispatch.completeVerification({ ...task,
+        verificationStatus: result.status === "completed" ? "verified" : "verification_failed",
+        resultSummary: result.status === "completed" ? "Current model status checked." : "Model status is unavailable." });
+      await this.refreshTasksFromRepository();
+      return result;
+    } catch {
+      await dispatch.cancel(task);
+      await this.refreshTasksFromRepository();
+      throw new Error("MODEL_STATUS_UNAVAILABLE");
+    } finally {
+      if (signal.aborted) {
+        await dispatch.cancel(task);
+        await this.refreshTasksFromRepository();
+        this.publishSnapshot(proposal.turnId);
+      }
+    }
+  }
+
+  private readModelStatus() {
+    return AssistantModelStatusResultSchema.parse({ runtimeMode: this.capabilities?.runtimeMode ?? "unknown",
+      operationCount: Math.min(this.modelOperations.length, 1024),
+      activeOperationCount: Math.min(this.modelOperations.filter(operation => operation.phase !== "completed").length, 1024) });
   }
 
   private async cancelAssistantTurn(
@@ -4603,12 +4691,13 @@ export class CoreRuntime {
   }
 
   private async createBrainToolProductLoop(input: {
+    assistantOwned?: boolean;
     source: "text" | "voice";
     decision: BrainRouterDecision;
     planning: CoreBrainPlanningOutcome;
     dispatchStatus: BrainCommandResult["dispatchStatus"];
   }): Promise<BrainToolProductLoop> {
-    const selectedToolId = this.selectBrainToolId(input);
+    const selectedToolId = input.assistantOwned ? undefined : this.selectBrainToolId(input);
     const descriptors = this.brainToolRegistryDescriptors(input.decision);
     const descriptor = selectedToolId
       ? descriptors.find((candidate) => candidate.id === selectedToolId)
@@ -5742,7 +5831,7 @@ export class CoreRuntime {
     return {
       requestId: createId("tool-loop"),
       toolId: input.toolId,
-      input: {
+      input: input.toolId === "model.status" ? {} : {
         origin: input.source,
         intent: input.decision.intent,
         confidence: Number(input.decision.confidence.toFixed(3)),

@@ -75,11 +75,14 @@ function AssistantStreamingTurn({
     return null;
   }
   const terminal = ["cancelled", "failed", "interrupted"].includes(turn.status);
+  const copy = viewModel.copy.assistantProgress;
+  const statusText = turn.status === "thinking" && turn.proposals.some(proposal => proposal.decisionStatus === "pending")
+    ? copy.checking : copy[turn.status];
   const text =
     turn.streamText.trim() ||
     turn.failure?.safeMessage ||
     turn.cancellationReason?.safeMessage ||
-    (turn.status === "thinking" ? "Generating answer..." : turn.status);
+    statusText;
 
   return (
     <div className="flex gap-3.5" data-testid="assistant-streaming-turn">
@@ -89,11 +92,11 @@ function AssistantStreamingTurn({
       <div className="min-w-0 max-w-[760px] flex-1 space-y-2">
         <div className="flex items-center gap-2">
           <p className="text-xs font-medium text-muted-foreground">
-            {turn.status}
+            {statusText}
           </p>
           {!terminal && (
             <Button
-              aria-label="Cancel assistant answer"
+              aria-label={copy.cancel}
               className="size-7"
               data-testid="assistant-stream-cancel"
               onClick={() => actions.cancelAssistantTurn(turn.turnId)}

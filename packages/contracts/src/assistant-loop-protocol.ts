@@ -193,7 +193,7 @@ export const AssistantTurnSchema = z
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
     maxToolIterations: z
-      .literal(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS)
+      .union([z.literal(1), z.literal(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS)])
       .default(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS),
   })
   .strict();
@@ -227,6 +227,17 @@ export const ToolProposalSchema = z
   })
   .strict();
 export type ToolProposal = z.infer<typeof ToolProposalSchema>;
+
+export const AssistantModelStatusArgumentsSchema = z.object({}).strict();
+export const AssistantModelStatusResultSchema = z.object({
+  runtimeMode: z.enum(["lite", "standard", "local_enhanced", "private_offline", "unknown"]),
+  operationCount: z.number().int().min(0).max(1024),
+  activeOperationCount: z.number().int().min(0).max(1024),
+}).strict().refine(value => value.activeOperationCount <= value.operationCount);
+export const AssistantToolContextSchema = z.object({
+  tool: z.object({ turnId: AssistantTurnIdSchema, proposalId: ToolProposalIdSchema }).strict().optional(),
+}).strict();
+export type AssistantToolContext = z.infer<typeof AssistantToolContextSchema>;
 
 export const ToolDecisionSchema = z
   .object({
@@ -286,6 +297,7 @@ export type AssistantApprovalResolution = z.infer<
 
 export const ToolExecutionRequestSchema = z
   .object({
+    taskId: ReferenceIdSchema.optional(),
     executionId: ToolExecutionIdSchema,
     proposalId: ToolProposalIdSchema,
     turnId: AssistantTurnIdSchema,
@@ -293,7 +305,7 @@ export const ToolExecutionRequestSchema = z
     arguments: AssistantJsonObjectSchema,
     requestedAt: z.string().datetime(),
     timeoutMs: z.number().int().min(1_000).max(300_000),
-    owner: z.enum(["desktop_host", "core_host_fixture", "plugin_runtime"]),
+    owner: z.enum(["desktop_host", "core_host_fixture", "core", "plugin_runtime"]),
   })
   .strict();
 export type ToolExecutionRequest = z.infer<typeof ToolExecutionRequestSchema>;
@@ -309,6 +321,8 @@ export type ToolResultFailure = z.infer<typeof ToolResultFailureSchema>;
 
 export const ToolResultSchema = z
   .object({
+    turnId: AssistantTurnIdSchema.optional(),
+    taskId: ReferenceIdSchema.optional(),
     executionId: ToolExecutionIdSchema,
     proposalId: ToolProposalIdSchema,
     toolId: ToolIdSchema,
@@ -344,6 +358,16 @@ export const ToolResultSchema = z
     }
   });
 export type ToolResult = z.infer<typeof ToolResultSchema>;
+
+export const AssistantToolContinuationSchema = z.object({
+  turnId: AssistantTurnIdSchema,
+  proposal: ToolProposalSchema,
+  result: ToolResultSchema,
+}).strict().refine(value => value.proposal.turnId === value.turnId &&
+  value.result.turnId === value.turnId && value.result.taskId !== undefined &&
+  value.proposal.proposalId === value.result.proposalId &&
+  value.proposal.toolId === value.result.toolId);
+export type AssistantToolContinuation = z.infer<typeof AssistantToolContinuationSchema>;
 
 export const AssistantFinalAnswerSchema = z
   .object({
@@ -397,6 +421,7 @@ export const CancellationReasonSchema = z
 export type CancellationReason = z.infer<typeof CancellationReasonSchema>;
 
 export const AssistantModelAdapterEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("tool_proposal"), proposal: ToolProposalSchema }).strict(),
   z
     .object({
       type: z.literal("delta"),
@@ -443,7 +468,7 @@ export const AssistantEventSchema = z.discriminatedUnion("type", [
       .object({
         input: AssistantInputSchema,
         maxToolIterations: z
-          .literal(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS)
+          .union([z.literal(1), z.literal(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS)])
           .default(ASSISTANT_LOOP_MAX_TOOL_ITERATIONS),
       })
       .strict(),
@@ -558,6 +583,7 @@ export type AssistantEvent = z.infer<typeof AssistantEventSchema>;
 
 const ProposalProjectionSchema = z
   .object({
+    taskId: ReferenceIdSchema.optional(),
     proposalId: ToolProposalIdSchema,
     toolId: ToolIdSchema,
     risk: ToolRiskSchema,

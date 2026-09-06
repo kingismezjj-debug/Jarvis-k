@@ -113,6 +113,24 @@ try {
   const terminalIndex = projections.findIndex(s => s.assistantTurn?.turnId === active.assistantTurn.turnId && s.assistantTurn.status === "cancelled");
   assert.ok(terminalIndex >= 0);
   assert.ok(projections.slice(terminalIndex).filter(s => s.assistantTurn?.turnId === active.assistantTurn.turnId).every(s => s.assistantTurn.status === "cancelled" && s.assistantTurn.streamText === cancelled.assistantTurn.streamText));
+  await send(page, "请查询当前模型状态并解释结果。");
+  await waitSnapshot(page, state => state?.assistantTurn?.turnId !== retried.assistantTurn.turnId && state?.assistantTurn?.status === "completed");
+  const statusAnswer = await snapshot(page);
+  assert.equal(statusAnswer.assistantTurn.finalAnswer.usedToolIterations, 1);
+  assert.equal(statusAnswer.assistantTurn.proposals.length, 1);
+  assert.equal(statusAnswer.assistantTurn.proposals[0].toolId, "model.status");
+  assert.equal(statusAnswer.assistantTurn.proposals[0].decisionStatus, "allowed");
+  assert.equal(statusAnswer.assistantTurn.executions.length, 1);
+  assert.equal(statusAnswer.assistantTurn.executions[0].status, "completed");
+  assert.equal(statusAnswer.tasks.length, baseline.tasks.length + 1);
+  assert.equal(statusAnswer.tasks.find(task => task.id === statusAnswer.assistantTurn.proposals[0].taskId)?.state, "completed");
+  assert.equal(statusAnswer.messages.filter(message => message.role === "assistant" && message.text.startsWith("模型状态已查询。")).length, 1);
+  const statusProjections = await page.evaluate(() => window.__closureSnapshots.map(state => state.assistantTurn).filter(Boolean));
+  assert.ok(statusProjections.some(turn => turn.turnId === statusAnswer.assistantTurn.turnId && turn.status === "executing"));
+  assert.ok(statusProjections.some(turn => turn.turnId === statusAnswer.assistantTurn.turnId && turn.status === "synthesizing"));
+  assert.ok(!JSON.stringify(statusProjections).includes("call_status_smoke"));
+  assert.ok(!JSON.stringify(statusProjections).includes("hidden fixture reasoning"));
+  assert.ok(!JSON.stringify(statusProjections).includes("not-a-credential-local-smoke-key"));
   await quit();
   page = await launch();
   const restored = await page.evaluate(() => window.jarvis.getChatAnswerProviderConfigurationStatus());
@@ -122,9 +140,10 @@ try {
   await quit();
   const calls = (await readFile(path.join(profile, "fake-network.ndjson"), "utf8")).trim().split("\n").map(line => JSON.parse(line));
   assert.equal(calls.filter(call => call.type === "connection_test").length, 1);
-  assert.equal(calls.filter(call => call.type === "stream").length, 3);
+  assert.equal(calls.filter(call => call.type === "stream").length, 5);
+  assert.equal(calls.filter(call => call.type === "tool_result_received").length, 1);
   assert.equal(calls.filter(call => call.type === "aborted").length, 1);
-  console.log(JSON.stringify({ status: "PASS", realNetworkRequestSent: false, officialEntry: true, normalStreaming: true, singleFinal: true, handoff, cancellation: true, abortSignal: true, staleSuppression: true, retry: true, restartPersistence: true, noTaskDelta: true, noCredentialOrReasoningProjection: true }));
+  console.log(JSON.stringify({ status: "PASS", realNetworkRequestSent: false, officialEntry: true, normalStreaming: true, singleFinal: true, handoff, cancellation: true, abortSignal: true, staleSuppression: true, retry: true, restartPersistence: true, normalQuestionNoTaskDelta: true, singleToolTaskAndContinuation: true, noCredentialOrReasoningProjection: true }));
 } finally {
   if (app) await quit();
   assert.equal(path.dirname(path.resolve(profile)).toLowerCase(), path.resolve(os.tmpdir()).toLowerCase());

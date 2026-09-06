@@ -170,9 +170,14 @@ export function decideToolInvocation(
       evaluatedAt
     });
   }
+  const coreReadOnly = descriptor.execution === "core_read_only" &&
+    descriptor.id === "model.status" && descriptor.inputSchemaId === "tool.model.status.input" &&
+    descriptor.risk === "read_only" && descriptor.requiredPermissions.length === 0 &&
+    Object.keys(request.input).length === 0;
   if (
     descriptor.execution === "disabled" ||
-    !policy.fixtureExecutionEnabled
+    (descriptor.execution === "core_read_only" && !coreReadOnly) ||
+    (!coreReadOnly && !policy.fixtureExecutionEnabled)
   ) {
     return createDecision({
       policy,
