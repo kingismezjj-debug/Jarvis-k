@@ -22,7 +22,7 @@ async function harness() {
     encrypt: value => Buffer.from(value, "utf8"),
     decrypt,
   }, providerId);
-  await store.save({ provider: providerId, credentials: { apiKey: "fake-local-credential" } });
+  await store.save({ provider: providerId, credentials: { apiKey: "fixture-local-key" } });
   const testConnection = vi.fn(async () => "success" as const);
   const configure = vi.fn();
   const makeService = () => new SettingsService({
@@ -75,7 +75,7 @@ describe("configured streaming provider persistence through SettingsService", ()
     await h.store.savePublicConfiguration(publicConfig!);
     expect(await h.store.loadEnabled()).toBe(false);
     await h.store.setEnabled(true);
-    await h.store.replaceCredential("fake-replacement-credential");
+    await h.store.replaceCredential("fixture-replacement-key");
     expect(await h.store.loadEnabled()).toBe(false);
     h.decrypt.mockClear();
     await h.store.setEnabled(true);
@@ -91,7 +91,7 @@ describe("configured streaming provider persistence through SettingsService", ()
     const pending = service.testChatAnswerProviderConnection(testRequest);
     await vi.waitFor(() => expect(h.testConnection).toHaveBeenCalledTimes(1));
     expect((await service.testChatAnswerProviderConnection(testRequest)).ok).toBe(false);
-    await service.replaceChatAnswerProviderCredential({ providerId, apiKey: "fake-updated-credential" });
+    await service.replaceChatAnswerProviderCredential({ providerId, apiKey: "fixture-updated-key" });
     finish("success");
     expect((await pending).ok).toBe(false);
     expect((await service.setChatAnswerProviderConfigurationEnabled(enable)).ok).toBe(false);
