@@ -9625,7 +9625,7 @@ describe("CoreRuntime", () => {
       answer: async () => { throw new Error("Streaming only"); },
       startTextTurn: async function* (_request, context) {
         expect(_request.routerDecision.intent).toBe(text === "打开记事本" ? "localApp.open" : "chat.answer");
-        expect(context.tool?.toolIds).toEqual(text === "打开记事本" ? ["localApp.open"] : ["model.status", "localApp.open"]);
+        expect(context.tool?.toolIds).toEqual(["model.status", "localApp.open"]);
         yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: {
           turnId: context.tool!.turnId, proposalId: context.tool!.proposalId, toolId: "localApp.open", risk: "mutating", arguments: { app: "notepad" },
           proposedAt: new Date().toISOString(), safeSummary: "Request opening Notepad." } });
@@ -9655,6 +9655,19 @@ describe("CoreRuntime", () => {
     await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "awaiting_approval");
     const task = (await repository.listTasks())[0]!;
     expect(task.state).toBe("awaiting_confirmation");
+    expect(calls).toHaveLength(0);
+    expect(continuations).toHaveLength(0);
+    expect(runtime.getSnapshot().messages.filter(message => message.role === "assistant")).toHaveLength(0);
+    for (const chatText of ["确认", JSON.stringify({ type: "agent.approveTask", payload: { taskId: task.id, confirmation: "explicit_ui_confirmation" } })]) {
+      const ordinaryMessage = await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand", payload: { source: "text", text: chatText } }));
+      expect(ordinaryMessage).toMatchObject({ ok: false, error: { code: "ASSISTANT_APPROVAL_PENDING" } });
+      expect(runtime.getSnapshot().assistantTurn?.proposals[0]?.approvalStatus).toBe("pending");
+      expect(calls).toHaveLength(0);
+      expect(continuations).toHaveLength(0);
+    }
+    await runtime.handle(createCommandEnvelope({ type: "agent.sendMessage", payload: { conversationId: "primary",
+      text: JSON.stringify({ type: "agent.approveTask", payload: { taskId: task.id, confirmation: "explicit_ui_confirmation" } }) } }));
+    expect(runtime.getSnapshot().assistantTurn?.proposals[0]?.approvalStatus).toBe("pending");
     expect(calls).toHaveLength(0);
     expect(continuations).toHaveLength(0);
     if (outcome === "denied") {

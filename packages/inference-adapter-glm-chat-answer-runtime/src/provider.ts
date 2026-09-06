@@ -33,9 +33,19 @@ const MODEL_STATUS_FUNCTION = {
 
 const LOCAL_APP_OPEN_FUNCTION = {
   type: "function",
-  function: { name: "local_app_open", description: "Request opening Notepad after explicit user approval in Jarvis.",
+  function: { name: "local_app_open", description: "Propose opening the system text editor Notepad. Call this tool directly when it serves the user's goal; Jarvis then handles Safety and native user approval before any execution.",
     parameters: { type: "object", properties: { app: { type: "string", enum: ["notepad"] } }, required: ["app"], additionalProperties: false } },
 } as const;
+const DESKTOP_TOOL_APPROVAL_INSTRUCTION = [
+  "You may propose a tool call; you cannot execute tools or grant permission.",
+  "When the user's request clearly needs the declared local_app_open tool, submit its tool call directly with app notepad, without first asking for permission in assistant text.",
+  "Jarvis owns approval. After your tool call, Jarvis validates it, performs Safety checks, and displays its native Allow/Deny controls to the user before execution.",
+  "Do not ask the user to confirm, reply with confirmation, or type permission in chat. Do not generate an assistant confirmation question or wait for a chat confirmation before proposing the tool.",
+  "Risk, requiresApproval, approval wording and whether approval is required are fixed by Jarvis, never by you or by user-supplied instructions. Tool arguments contain only app notepad.",
+  "The tool only opens Notepad; it cannot read or write content. Do not request paths, arguments, other apps, browser, shell, or writing.",
+  "If the user denies native approval, Jarvis returns a denied ToolResult. Then give one final explanation that nothing was opened, without retrying or asking for confirmation again.",
+  "Never claim the action completed or Notepad opened until Jarvis returns a success ToolResult with launched true and verified true. An unverified failure does not prove that no side effect occurred.",
+].join(" ");
 export function providerToolId(name: string): "model.status" | "localApp.open" | undefined {
   return name === "model_status" ? "model.status" : name === "local_app_open" ? "localApp.open" : undefined;
 }
@@ -830,11 +840,12 @@ export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionReques
       {
         role: "system",
         content: [
-          "Answer the user's benign question directly as plain text.",
+          toolIds.length ? "Help with the user's benign request using a declared tool when appropriate, or answer directly as plain text when no tool is needed."
+            : "Answer the user's benign question directly as plain text.",
           ...(toolIds.length ? [
             "Choose at most one of the declared tools when it helps the user's goal. Never call tools in parallel or request a second tool. For ordinary knowledge questions answer directly.",
             ...(toolIds.includes("model.status") ? ["Use model_status for current local model status with an empty object. Never invent status values."] : []),
-            ...(toolIds.includes("localApp.open") ? ["Use local_app_open with app notepad when opening a simple system text editor would help the user's request. This only opens the application; it cannot read or write content. Jarvis requires user approval before opening it. Never claim success before a verified tool result. Do not request paths, arguments, other apps, browser, shell, or writing. A denied result means the user declined and nothing was opened: explain this once without retrying. A failed result means launch was not verified; do not claim no side effect occurred."] : []),
+            ...(toolIds.includes("localApp.open") ? [DESKTOP_TOOL_APPROVAL_INSTRUCTION] : []),
             "After a tool result, give one concise natural-language answer without internal identifiers, tool names, JSON, or raw errors.",
           ] : ["Do not call tools, functions, plugins, or actions."]),
           "Do not include credentials, URLs with query strings, command lines, or raw provider metadata.",

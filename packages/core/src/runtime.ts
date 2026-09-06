@@ -1873,6 +1873,13 @@ export class CoreRuntime {
     }
 
     const payload = envelope.command.payload;
+    if (this.assistantRuntime.getProjection()?.status === "awaiting_approval") {
+      return this.failure(envelope, {
+        code: "ASSISTANT_APPROVAL_PENDING",
+        message: "请使用当前审批卡片的允许或拒绝按钮。聊天文字不能授权执行。",
+        retryable: false,
+      });
+    }
     let voiceResolverLatencyMs: number | undefined;
     const voiceCorrectionStartedAt = Date.now();
     const voiceCorrection =

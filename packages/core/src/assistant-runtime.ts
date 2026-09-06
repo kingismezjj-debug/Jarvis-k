@@ -324,8 +324,7 @@ export class AssistantRuntime {
         ? input.adapter.continueTextTurn(input.continuation, active.controller.signal)
         : input.adapter.startTextTurn(input.request,
           this.options.executeTool && input.adapter.continueTextTurn ? { tool: { turnId: input.turnId, proposalId,
-            toolIds: input.request.routerDecision.intent === "chat.answer" ? ["model.status", "localApp.open"]
-              : input.request.routerDecision.intent === "localApp.open" ? ["localApp.open"] : ["model.status"] } } : {},
+            toolIds: ["model.status", "localApp.open"] } } : {},
           active.controller.signal);
       const iterator = events[Symbol.asyncIterator]();
       for await (const rawEvent of { [Symbol.asyncIterator]: () => iterator }) {
@@ -338,9 +337,8 @@ export class AssistantRuntime {
           if (input.continuation || this.projection!.toolIterationCount >= 1 ||
             !this.options.executeTool || !input.adapter.continueTextTurn ||
             proposal.turnId !== input.turnId || proposal.proposalId !== proposalId ||
-            !((input.request.routerDecision.intent === "chat.answer" || input.request.routerDecision.intent === "localApp.open") &&
-                proposal.toolId === "localApp.open" && proposal.risk === "mutating" && LocalAppOpenArgumentsSchema.safeParse(proposal.arguments).success ||
-              input.request.routerDecision.intent !== "localApp.open" && proposal.toolId === "model.status" &&
+            !(proposal.toolId === "localApp.open" && proposal.risk === "mutating" && LocalAppOpenArgumentsSchema.safeParse(proposal.arguments).success ||
+              proposal.toolId === "model.status" &&
                 proposal.risk === "read_only" && AssistantModelStatusArgumentsSchema.safeParse(proposal.arguments).success)) {
             this.failTurn(input, "unsupported_tool_call", "This operation is unsupported.", false);
             return;

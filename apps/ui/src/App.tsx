@@ -2057,6 +2057,12 @@ export default function App() {
                 cancelAssistantTurn: (turnId) => {
                   void cancelAssistantTurn(turnId);
                 },
+                resolveAssistantToolApproval: (taskId, allow) => {
+                  if (assistantTurn?.status !== "awaiting_approval" || !assistantTurn.proposals.some(proposal =>
+                    proposal.taskId === taskId && proposal.toolId === "localApp.open" && proposal.approvalStatus === "pending")) return;
+                  void trackAction(allow ? copy.assistantProgress.allow : copy.assistantProgress.deny,
+                    () => allow ? approveTask(taskId) : cancelTask(taskId), copy.assistantProgress.approvalPending);
+                },
                 confirmUserRouteAlias: (proposal) => {
                   void handleConfirmUserRouteAlias(proposal);
                 },
@@ -2085,6 +2091,7 @@ export default function App() {
                 events,
                 messages: visibleMessages,
                 sending: sending || assistantTurnActive,
+                approvalSubmitting: sending,
                 sessionHistory,
                 tts: {
                   displayedStatus: displayedLocalTtsStatus,

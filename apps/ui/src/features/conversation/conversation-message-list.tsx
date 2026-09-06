@@ -76,7 +76,10 @@ function AssistantStreamingTurn({
   }
   const terminal = ["cancelled", "failed", "interrupted"].includes(turn.status);
   const copy = viewModel.copy.assistantProgress;
-  const statusText = turn.status === "thinking" && turn.proposals.some(proposal => proposal.decisionStatus === "pending")
+  const approval = turn.status === "awaiting_approval" ? turn.proposals.find(proposal =>
+    proposal.toolId === "localApp.open" && proposal.decisionStatus === "requires_approval" &&
+    proposal.approvalStatus === "pending" && proposal.taskId) : undefined;
+  const statusText = approval ? copy.approvalPending : turn.status === "thinking" && turn.proposals.some(proposal => proposal.decisionStatus === "pending")
     ? copy.checking : turn.status === "executing" && turn.proposals.some(item => item.toolId === "localApp.open") ? copy.openingNotepad : copy[turn.status];
   const text =
     turn.streamText.trim() ||
@@ -94,7 +97,7 @@ function AssistantStreamingTurn({
           <p className="text-xs font-medium text-muted-foreground">
             {statusText}
           </p>
-          {!terminal && (
+          {!terminal && !approval && (
             <Button
               aria-label={copy.cancel}
               className="size-7"
@@ -108,7 +111,18 @@ function AssistantStreamingTurn({
             </Button>
           )}
         </div>
-        <p className="whitespace-pre-wrap text-sm leading-6">{text}</p>
+        {approval ? (
+          <div className="space-y-3 rounded-md border bg-card p-4" data-testid="assistant-native-approval">
+            <p className="font-medium">{copy.approvalTitle}</p>
+            <p className="text-sm text-muted-foreground">{copy.approvalDetail}</p>
+            <div className="flex gap-2">
+              <Button type="button" data-testid="assistant-tool-deny" disabled={viewModel.approvalSubmitting} variant="outline"
+                onClick={() => actions.resolveAssistantToolApproval(approval.taskId!, false)}>{copy.deny}</Button>
+              <Button type="button" data-testid="assistant-tool-allow" disabled={viewModel.approvalSubmitting}
+                onClick={() => actions.resolveAssistantToolApproval(approval.taskId!, true)}>{copy.allow}</Button>
+            </div>
+          </div>
+        ) : <p className="whitespace-pre-wrap text-sm leading-6">{text}</p>}
       </div>
     </div>
   );

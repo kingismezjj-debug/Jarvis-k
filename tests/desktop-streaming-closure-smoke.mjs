@@ -143,9 +143,15 @@ try {
     const deniedTaskId = denyPending.assistantTurn.proposals[0].taskId;
     assert.equal(denyPending.assistantTurn.executions.length, 0);
     assert.ok(!(await readFile(path.join(profile, "fake-network.ndjson"), "utf8")).includes('"desktop_action"'));
-    await page.getByTestId("nav-tasks").click();
-    page.once("dialog", dialog => { assert.ok(dialog.message().includes("是否允许打开记事本")); void dialog.dismiss(); });
-    await page.getByTestId("task-approve").click();
+    await page.getByTestId("assistant-native-approval").waitFor();
+    assert.match(await page.getByTestId("assistant-native-approval").innerText(), /Jarvis.*(?:记事本|Notepad)/);
+    assert.equal(denyPending.messages.filter(message => message.role === "assistant").length, statusAnswer.messages.filter(message => message.role === "assistant").length);
+    for (const text of ["确认", JSON.stringify({ type: "agent.approveTask", payload: { taskId: deniedTaskId, confirmation: "explicit_ui_confirmation" } })]) {
+      const attempt = await page.evaluate(text => window.jarvis.sendCommand({ type: "agent.runBrainCommand", payload: { source: "text", text } }), text);
+      assert.equal(attempt.ok, false);
+      assert.equal(attempt.error.code, "ASSISTANT_APPROVAL_PENDING");
+    }
+    await page.getByTestId("assistant-tool-deny").click();
     const denied = await waitStatus(page, "completed");
     assert.equal(denied.assistantTurn.turnId, denyPending.assistantTurn.turnId);
     assert.equal(denied.assistantTurn.finalAnswer.text, "已取消，未打开记事本。");
@@ -153,12 +159,11 @@ try {
     assert.equal(denied.assistantTurn.executions[0].status, "blocked");
     assert.equal(denied.tasks.find(task => task.id === deniedTaskId).state, "cancelled");
     assert.equal(denied.messages.filter(message => message.text === "已取消，未打开记事本。").length, 1);
-    assert.equal(await page.getByTestId("task-approve").count(), 0);
-    assert.equal(await page.getByTestId("task-cancel").count(), 0);
+    assert.equal(await page.getByTestId("assistant-tool-allow").count(), 0);
+    assert.equal(await page.getByTestId("assistant-tool-deny").count(), 0);
     const staleApproval = await page.evaluate(taskId => window.jarvis.sendCommand({ type: "agent.approveTask", payload: { taskId, confirmation: "explicit_ui_confirmation" } }), deniedTaskId);
     assert.equal(staleApproval.ok, false);
     assert.ok(!(await readFile(path.join(profile, "fake-network.ndjson"), "utf8")).includes('"desktop_action"'));
-    await page.getByTestId("nav-conversation").click();
     await send(page, "我想临时记录一点内容，请帮我准备一个合适的系统应用。");
     const pending = await waitStatus(page, "awaiting_approval");
     const taskId = pending.assistantTurn.proposals[0].taskId;
@@ -166,16 +171,14 @@ try {
     assert.equal(pending.assistantTurn.executions.length, 0);
     const beforeApproval = (await readFile(path.join(profile, "fake-network.ndjson"), "utf8"));
     assert.ok(!beforeApproval.includes('"desktop_action"'));
-    await page.getByTestId("nav-tasks").click();
-    page.once("dialog", dialog => { assert.ok(dialog.message().includes("是否允许打开记事本")); void dialog.accept(); });
-    await page.getByTestId("task-approve").click();
+    await page.getByTestId("assistant-native-approval").waitFor();
+    await page.getByTestId("assistant-tool-allow").click();
     const finished = await waitStatus(page, "completed");
     assert.equal(finished.assistantTurn.finalAnswer.text, "记事本启动已验证。");
     assert.equal(finished.assistantTurn.executions.length, 1);
     assert.equal(finished.tasks.find(task => task.id === taskId).state, "completed");
     assert.equal(finished.messages.filter(message => message.text === "记事本启动已验证。").length, 1);
     assert.equal(finished.assistantTurn.proposals[0].approvalStatus, "approved");
-    await page.getByTestId("nav-conversation").click();
     await page.getByText("记事本启动已验证。", { exact: true }).waitFor();
   }
   await quit();

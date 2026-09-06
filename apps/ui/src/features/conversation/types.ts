@@ -41,6 +41,7 @@ export type ConversationViewModel = {
   events: EventEnvelope[];
   messages: Message[];
   sending: boolean;
+  approvalSubmitting: boolean;
   sessionHistory: SessionHistoryEntry[];
   tts: ConversationTtsProjection;
   voiceProjection: ConversationVoiceProjection;
@@ -49,6 +50,7 @@ export type ConversationViewModel = {
 export type ConversationActions = {
   clearSessionHistory(): void;
   cancelAssistantTurn(turnId: AssistantTurnId): void;
+  resolveAssistantToolApproval(taskId: string, allow: boolean): void;
   confirmUserRouteAlias(proposal: UserRouteAliasLearningProposal): void;
   confirmVoiceCommandCorrection(
     candidate: VoiceCommandCorrectionCandidate,
