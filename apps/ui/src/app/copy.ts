@@ -1,7 +1,7 @@
 export const uiCopy = {
   en: {
-    assistantProgress: { idle: "Ready", thinking: "Thinking…", checking: "Checking…", executing: "Checking model status…",
-      synthesizing: "Preparing the answer…", streaming: "Answering…", awaiting_approval: "Waiting for confirmation",
+    assistantProgress: { openingNotepad: "Opening Notepad…", idle: "Ready", thinking: "Thinking…", checking: "Checking…", executing: "Checking model status…",
+      synthesizing: "Preparing the answer…", streaming: "Answering…", awaiting_approval: "Confirm in Tasks",
       completed: "Completed", failed: "Could not complete the answer", cancelled: "Cancelled · answer incomplete",
       interrupted: "Interrupted", cancel: "Cancel answer" },
     appSubtitle: "PHASE 1 / SUPERVISED RUNTIME",
@@ -243,8 +243,8 @@ export const uiCopy = {
     },
   },
   zh: {
-    assistantProgress: { idle: "就绪", thinking: "正在思考…", checking: "正在检查…", executing: "正在查询模型状态…",
-      synthesizing: "正在整理结果…", streaming: "正在回答…", awaiting_approval: "等待确认",
+    assistantProgress: { openingNotepad: "正在打开记事本…", idle: "就绪", thinking: "正在思考…", checking: "正在检查…", executing: "正在查询模型状态…",
+      synthesizing: "正在整理结果…", streaming: "正在回答…", awaiting_approval: "请在任务中确认",
       completed: "已完成", failed: "未能完成回答", cancelled: "已取消 · 回答未完成",
       interrupted: "已中断", cancel: "取消回答" },
     appSubtitle: "阶段 1 / 受监督本地运行时",

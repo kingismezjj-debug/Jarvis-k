@@ -77,7 +77,7 @@ function AssistantStreamingTurn({
   const terminal = ["cancelled", "failed", "interrupted"].includes(turn.status);
   const copy = viewModel.copy.assistantProgress;
   const statusText = turn.status === "thinking" && turn.proposals.some(proposal => proposal.decisionStatus === "pending")
-    ? copy.checking : copy[turn.status];
+    ? copy.checking : turn.status === "executing" && turn.proposals.some(item => item.toolId === "localApp.open") ? copy.openingNotepad : copy[turn.status];
   const text =
     turn.streamText.trim() ||
     turn.failure?.safeMessage ||

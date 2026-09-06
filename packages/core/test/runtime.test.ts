@@ -2076,7 +2076,7 @@ function createRuntimeWithBrainActionExecutorAndTasks(
     userRouteAliasRepository,
     undefined,
     voiceRegressionRepository,
-    runtimeSafety,
+    runtimeSafety ?? { realWindowsExecutionEnabled: true, brainOpenActionsDisabled: false },
     voicePilot,
   );
 }
@@ -2125,8 +2125,9 @@ function createRuntimeWithChatAnswer(
   chatAnswer: CoreChatAnswerOptions,
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
   taskRepository?: TaskRepository,
+  brainActionExecutor?: CoreBrainActionExecutorPort,
 ) {
-  return createRuntime(
+  return createRuntime(undefined,
     undefined,
     undefined,
     undefined,
@@ -2145,8 +2146,7 @@ function createRuntimeWithChatAnswer(
     undefined,
     undefined,
     undefined,
-    undefined,
-    undefined,
+    brainActionExecutor,
     undefined,
     undefined,
     undefined,
@@ -2161,6 +2161,8 @@ function createRuntimeWithChatAnswer(
     undefined,
     undefined,
     userPreferenceMemoryRepository,
+    undefined,
+    { realWindowsExecutionEnabled: brainActionExecutor !== undefined, brainOpenActionsDisabled: false },
   );
 }
 
@@ -4973,67 +4975,27 @@ describe("CoreRuntime", () => {
     expect(runtime.getSnapshot().tasks).toHaveLength(0);
   });
 
-  it("runs explicit Notepad opens through Task Runtime with verified results", async () => {
-    const taskRepository = new InMemoryTaskRepository();
-    let actionCalls = 0;
-    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
-      {
-        async openBrowser() {
-          throw new Error("browser should not be opened");
-        },
-        async openLocalApp() {
-          actionCalls += 1;
-          return {
-            status: "completed",
-            reasonCode: "ALLOWLISTED_TARGET_OPENED",
-            label: "notepad",
-            verificationStatus: "verified",
-            verificationSummary: "notepad process verification passed",
-          };
-        },
+  it.each([
+    ["text", "打开记事本"], ["voice", "打开记事本。"], ["voice", "打开记事簿。"],
+  ] as const)("requires approval for deterministic %s Notepad request %s", async (source, text) => {
+    let calls = 0;
+    const repository = new InMemoryTaskRepository();
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks({
+      openBrowser: async () => { throw new Error("Out of scope"); },
+      openLocalApp: async request => {
+        expect(request.desktopApproval).toBeDefined(); calls++;
+        return { status: "completed", reasonCode: "ALLOWLISTED_TARGET_OPENED", label: "notepad", verificationStatus: "verified" };
       },
-      taskRepository,
-    );
-    await runtime.hydrateTasks();
-
-    const result = await runtime.handle(
-      createCommandEnvelope({
-        type: "agent.runBrainCommand",
-        payload: {
-          source: "text",
-          text: "打开记事本",
-        },
-      }),
-    );
-
-    expect(result.ok).toBe(true);
-    const brain = BrainCommandResultSchema.parse(
-      result.ok
-        ? (result.data as { brain?: unknown } | undefined)?.brain
-        : undefined,
-    );
-    expect(actionCalls).toBe(1);
-    expect(brain.decision.intent).toBe("localApp.open");
-    expect(brain.decision.requiresApproval).toBe(false);
-    expect(brain.dispatchStatus).toBe("completed");
-    expect(brain.summary).toContain("Task Runtime opened Notepad");
-    expect(brain.toolProductLoop?.selectedToolId).toBeUndefined();
-
-    const [task] = runtime.getSnapshot().tasks;
-    expect(task).toMatchObject({
-      title: "Open Notepad",
-      state: "completed",
-      intent: "localApp.open",
-      routeSource: "intent-router.deterministic.rules",
-      verificationSummary: "notepad process verification passed",
-    });
-    expect(task?.steps[0]).toMatchObject({
-      state: "completed",
-      verificationStatus: "verified",
-    });
-    expect(task?.events.map((event) => event.type)).toContain(
-      "verification_completed",
-    );
+    }, repository);
+    const response = await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand", payload: { source, text } }));
+    expect(response).toMatchObject({ ok: true, data: { brain: { dispatchStatus: "needs_approval" } } });
+    expect(calls).toBe(0);
+    const task = (await repository.listTasks())[0]!;
+    expect(task).toMatchObject({ state: "awaiting_confirmation", title: "打开记事本" });
+    const approved = await runtime.handle(createCommandEnvelope({ type: "agent.approveTask", payload: { taskId: task.id, confirmation: "explicit_ui_confirmation" } }));
+    expect(approved.ok).toBe(true);
+    expect(calls).toBe(1);
+    expect((await repository.listTasks())[0]).toMatchObject({ state: "completed", steps: [expect.objectContaining({ verificationStatus: "verified" })] });
   });
 
   it("does not report task runtime success when repository completion writes fail", async () => {
@@ -5058,9 +5020,9 @@ describe("CoreRuntime", () => {
           return {
             status: "completed",
             reasonCode: "ALLOWLISTED_TARGET_OPENED",
-            label: "notepad",
+            label: "calculator",
             verificationStatus: "verified",
-            verificationSummary: "notepad process verification passed",
+            verificationSummary: "calculator process verification passed",
           };
         },
       },
@@ -5074,7 +5036,7 @@ describe("CoreRuntime", () => {
           type: "agent.runBrainCommand",
           payload: {
             source: "text",
-            text: "open notepad",
+            text: "open calculator",
           },
         }),
       ),
@@ -5084,74 +5046,17 @@ describe("CoreRuntime", () => {
     expect(task?.state).toBe("running");
   });
 
-  it("runs voice-sourced Notepad opens through Task Runtime without confirmation", async () => {
-    const taskRepository = new InMemoryTaskRepository();
-    const actionCalls: string[] = [];
-    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
-      {
-        async openBrowser() {
-          throw new Error("browser should not be opened");
-        },
-        async openLocalApp(request) {
-          actionCalls.push(request.target);
-          return {
-            status: "completed",
-            reasonCode: "ALLOWLISTED_TARGET_OPENED",
-            label: "notepad",
-            verificationStatus: "verified",
-            verificationSummary: "notepad process verification passed",
-          };
-        },
-      },
-      taskRepository,
-    );
-    await runtime.hydrateTasks();
-    runtime.configureCommandRouterProductMode({
-      enabled: true,
-      providerId: "intent-router.deterministic.fixture",
-      mode: "fixture_only",
-      fixtureExecutionEnabled: true,
-    });
-
-    const result = await runtime.handle(
-      createCommandEnvelope({
-        type: "agent.runBrainCommand",
-        payload: {
-          source: "voice",
-          text: "\u6253\u5f00\u8bb0\u4e8b\u672c\u3002",
-        },
-      }),
-    );
-
-    expect(result.ok).toBe(true);
-    const brain = BrainCommandResultSchema.parse(
-      result.ok
-        ? (result.data as { brain?: unknown } | undefined)?.brain
-        : undefined,
-    );
-    expect(actionCalls).toEqual(["notepad"]);
-    expect(brain.source).toBe("voice");
-    expect(brain.decision.intent).toBe("localApp.open");
-    expect(brain.decision.requiresApproval).toBe(false);
-    expect(brain.dispatchStatus).toBe("completed");
-    expect(brain.summary).toContain("Task Runtime opened Notepad");
-    expect(brain.alphaHardening?.tts.status).toBe("eligible");
-    expect(brain.toolProductLoop?.selectedToolId).toBeUndefined();
-
-    const [task] = runtime.getSnapshot().tasks;
-    expect(task).toMatchObject({
-      title: "Open Notepad",
-      state: "completed",
-      source: "voice",
-      intent: "localApp.open",
-      routeSource: "intent-router.deterministic.rules",
-      verificationSummary: "notepad process verification passed",
-    });
-    expect(task?.steps[0]).toMatchObject({
-      title: "Launch known local app: notepad",
-      state: "completed",
-      verificationStatus: "verified",
-    });
+  it("keeps voice Notepad fixture replay free of executor calls and real Task verification", async () => {
+    let calls = 0;
+    const { runtime } = createRuntimeWithBrainActionExecutorAndTasks({
+      openBrowser: async () => { throw new Error("Out of scope"); },
+      openLocalApp: async () => { calls++; throw new Error("Fixture must not execute"); },
+    }, new InMemoryTaskRepository());
+    runtime.configureCommandRouterProductMode({ enabled: true, providerId: "intent-router.deterministic.fixture", mode: "fixture_only", fixtureExecutionEnabled: true });
+    const response = await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand", payload: { source: "voice", text: "打开记事本。" } }));
+    expect(response).toMatchObject({ ok: true, data: { brain: { dispatchStatus: "completed" } } });
+    expect(calls).toBe(0);
+    expect(runtime.getSnapshot().tasks).toHaveLength(0);
   });
 
   it.each([
@@ -5235,12 +5140,6 @@ describe("CoreRuntime", () => {
   );
 
   it.each([
-    {
-      text: "\u6253\u5f00\u8bb0\u4e8b\u7c3f\u3002",
-      label: "notepad",
-      title: "Open Notepad",
-      summary: "Task Runtime opened Notepad",
-    },
     {
       text: "\u6253\u5f00\u8ba1\u7b97\u6c14\u3002",
       label: "calculator",
@@ -7568,9 +7467,11 @@ describe("CoreRuntime", () => {
       },
     });
     const tasks = runtime.getSnapshot().tasks;
-    expect(tasks).toHaveLength(routedInputs.length);
+    const taskInputs = routedInputs.filter(input => input.intent !== "localApp.open");
+    expect(tasks.some(task => task.intent === "localApp.open")).toBe(false);
+    expect(tasks).toHaveLength(taskInputs.length);
     for (const [index, task] of tasks.entries()) {
-      const input = routedInputs[index];
+      const input = taskInputs[index];
       expect(task.state).toBe("failed");
       expect(task.verificationSummary).toContain("before");
       expect(task.verificationSummary?.toLowerCase()).not.toContain(
@@ -9715,6 +9616,73 @@ describe("CoreRuntime", () => {
     expect(brain.chatAnswer?.directActionAttempted).toBe(false);
   });
 
+  it.each(["verified", "failed", "cancelled", "cancel_during_execution"])("governs a formal Assistant Notepad request through explicit Task approval: %s", async outcome => {
+    const continuations: import("@jarvis-k/contracts").AssistantToolContinuation[] = [];
+    const calls: Parameters<CoreBrainActionExecutorPort["openLocalApp"]>[0][] = [];
+    const provider: ChatAnswerProvider = {
+      answer: async () => { throw new Error("Streaming only"); },
+      startTextTurn: async function* (_request, context) {
+        yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal: {
+          ...context.tool, toolId: "localApp.open", risk: "mutating", arguments: { app: "notepad" },
+          proposedAt: new Date().toISOString(), safeSummary: "Request opening Notepad." } });
+      },
+      continueTextTurn: async function* (continuation) {
+        continuations.push(continuation);
+        yield final(continuation.result.status === "completed" ? "Notepad opened." : "Launch not verified.");
+      },
+    };
+    const repository = new InMemoryTaskRepository();
+    const { runtime } = createRuntimeWithChatAnswer(provider, { enabled: true,
+      providerId: "chat-answer.openai-compatible.deepseek" }, undefined, repository, {
+      openBrowser: async () => { throw new Error("Out of scope"); },
+      openLocalApp: async request => {
+        calls.push(request);
+        expect(request.target).toBe("notepad");
+        expect(request.desktopApproval?.signal.aborted).toBe(false);
+        if (outcome === "cancel_during_execution") {
+          await new Promise<void>(resolve => request.desktopApproval!.signal.addEventListener("abort", () => resolve(), { once: true }));
+        }
+        return { status: outcome === "verified" ? "completed" : "blocked", label: "notepad",
+          reasonCode: outcome === "verified" ? "ALLOWLISTED_TARGET_OPENED" : "OPEN_FAILED",
+          verificationStatus: outcome === "verified" ? "verified" : "verification_failed" };
+      },
+    });
+    await runtime.handle(createCommandEnvelope({ type: "agent.runBrainCommand", payload: { source: "text", text: "打开记事本" } }));
+    await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "awaiting_approval");
+    const task = (await repository.listTasks())[0]!;
+    expect(task.state).toBe("awaiting_confirmation");
+    expect(calls).toHaveLength(0);
+    expect(continuations).toHaveLength(0);
+    if (outcome === "cancelled") {
+      await runtime.handle(createCommandEnvelope({ type: "agent.cancelTask", payload: { taskId: task.id } }));
+      await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "cancelled");
+      expect(calls).toHaveLength(0);
+      expect(continuations).toHaveLength(0);
+    } else {
+      const command = createCommandEnvelope({ type: "agent.approveTask", payload: { taskId: task.id, confirmation: "explicit_ui_confirmation" } });
+      const approving = runtime.handle(command);
+      if (outcome === "cancel_during_execution") {
+        await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "executing");
+        await runtime.handle(createCommandEnvelope({ type: "agent.cancelTask", payload: { taskId: task.id } }));
+        expect((await approving).ok).toBe(false);
+        await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "cancelled");
+        expect((await repository.listTasks())[0]?.state).toBe("cancelled");
+        expect(calls).toHaveLength(1);
+        expect(continuations).toHaveLength(0);
+        return;
+      }
+      expect((await approving).ok).toBe(true);
+      await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "completed");
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.desktopApproval).toMatchObject({ taskId: task.id, approvalCommandId: command.commandId });
+      expect(continuations).toHaveLength(1);
+      expect(continuations[0]?.result).toMatchObject({ taskId: task.id, toolId: "localApp.open", status: outcome === "verified" ? "completed" : "failed" });
+      expect(runtime.getSnapshot().messages.filter(message => message.role === "assistant")).toHaveLength(1);
+      expect((await runtime.handle(command)).ok).toBe(false);
+      expect(calls).toHaveLength(1);
+    }
+  });
+
   it.each([false, true])("runs the single status tool through the formal command and shared Task governance (failure=%s)", async fail => {
     const continuations: import("@jarvis-k/contracts").AssistantToolContinuation[] = [];
     const provider: ChatAnswerProvider = {
@@ -9906,7 +9874,7 @@ describe("CoreRuntime", () => {
     ).toHaveLength(1);
   });
 
-  it("keeps explicit deterministic commands out of chat streaming", async () => {
+  it("rejects an ungrounded Notepad final without executing or displaying success", async () => {
     let opened = false;
     const provider = new StreamingChatAnswerProvider([
       delta("should not stream"),
@@ -9979,9 +9947,12 @@ describe("CoreRuntime", () => {
     );
 
     expect(brain.decision.intent).toBe("localApp.open");
-    expect(opened).toBe(true);
-    expect(provider.requests).toHaveLength(0);
-    expect(runtime.getSnapshot().assistantTurn).toBeUndefined();
+    expect(opened).toBe(false);
+    await waitForSnapshot(runtime, snapshot => snapshot.assistantTurn?.status === "failed");
+    expect(provider.requests).toHaveLength(1);
+    expect(runtime.getSnapshot().assistantTurn?.status).toBe("failed");
+    expect(runtime.getSnapshot().messages.filter(message => message.role === "assistant")).toHaveLength(0);
+    expect(runtime.getSnapshot().assistantTurn?.streamText ?? "").toBe("");
   });
 
   it("routes harmless ambiguous conversation to chat streaming without Windows execution", async () => {

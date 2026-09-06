@@ -1789,7 +1789,7 @@ export default function App() {
 
   async function handleApproveTask(taskId: string, title: string) {
     const confirmed = window.confirm(
-      `Approve and execute planner draft "${title}"? Only bounded L3 planner steps can run.`,
+      title === "打开记事本" ? "是否允许打开记事本？这不会写入文件。" : `Approve and execute planner draft "${title}"? Only bounded L3 planner steps can run.`,
     );
     if (!confirmed) {
       notifyAction("Planner approval cancelled", "warning");

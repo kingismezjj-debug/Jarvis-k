@@ -1,3 +1,4 @@
+import { ToolInvocationRequestSchema } from "@jarvis-k/contracts";
 import { describe, expect, it } from "vitest";
 import {
   decideToolInvocation,
@@ -41,6 +42,26 @@ const readOnlyRequest: ToolInvocationRequest = {
   },
   dryRun: true
 };
+
+describe("bounded Notepad policy extension", () => {
+  const descriptor: ToolDescriptor = { id: "localApp.open", version: "1.0.0", description: "Open approved Notepad.",
+    risk: "mutating", execution: "bounded_desktop", requiredPermissions: [], requiresConfirmation: true, inputSchemaId: "tool.localapp.open.input" };
+  const policy: ToolPolicy = { ...readOnlyPolicy, allowedToolIds: ["localApp.open"], fixtureExecutionEnabled: false, boundedNotepadExecutionEnabled: true };
+  const request: ToolInvocationRequest = { requestId: "request-notepad", toolId: "localApp.open", input: { app: "notepad" }, dryRun: false };
+  it("requires approval and keeps generic Windows and shell authority disabled", () => {
+    const input = { descriptor, policy, request, evaluatedAt: "2026-09-06T00:00:00.000Z" };
+    expect(decideToolInvocation(input).status).toBe("needs_confirmation");
+    expect(decideToolInvocation({ ...input, confirmationGranted: true }).allowed).toBe(true);
+    expect(decideToolInvocation({ ...input, descriptor: { ...descriptor, execution: "windows" }, confirmationGranted: true }).allowed).toBe(false);
+    expect(decideToolInvocation({ ...input, policy: { ...policy, boundedNotepadExecutionEnabled: false }, confirmationGranted: true }).allowed).toBe(false);
+  });
+  it.each([{ app: "calculator" }, { app: "notepad", args: [] }, { app: "notepad", path: "fake" }, {}])("rejects expanded input %j even after approval", input => {
+    const parsed = ToolInvocationRequestSchema.safeParse({ ...request, input });
+    if (!parsed.success) { expect(() => ToolInvocationRequestSchema.parse({ ...request, input })).toThrow(); return; }
+    expect(decideToolInvocation({ descriptor, policy, request: parsed.data, confirmationGranted: true,
+      evaluatedAt: "2026-09-06T00:00:00.000Z" }).allowed).toBe(false);
+  });
+});
 
 async function executeFixture(options?: {
   fixtureImplementationAvailable?: boolean;

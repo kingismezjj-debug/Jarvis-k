@@ -1,3 +1,4 @@
+import { LocalAppOpenArgumentsSchema, LocalAppOpenResultSchema } from "@jarvis-k/contracts";
 import type { ChatAnswerProvider } from "@jarvis-k/capabilities";
 import {
   ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS,
@@ -30,16 +31,21 @@ const MODEL_STATUS_FUNCTION = {
     parameters: { type: "object", properties: {}, required: [], additionalProperties: false } },
 } as const;
 
-export function providerToolId(name: string): "model.status" | undefined {
-  return name === "model_status" ? "model.status" : undefined;
+const LOCAL_APP_OPEN_FUNCTION = {
+  type: "function",
+  function: { name: "local_app_open", description: "Request opening Notepad after explicit user approval in Jarvis.",
+    parameters: { type: "object", properties: { app: { type: "string", enum: ["notepad"] } }, required: ["app"], additionalProperties: false } },
+} as const;
+export function providerToolId(name: string): "model.status" | "localApp.open" | undefined {
+  return name === "model_status" ? "model.status" : name === "local_app_open" ? "localApp.open" : undefined;
 }
-export function internalToolName(id: string): "model_status" | undefined {
-  return id === "model.status" ? "model_status" : undefined;
+export function internalToolName(id: string): "model_status" | "local_app_open" | undefined {
+  return id === "model.status" ? "model_status" : id === "localApp.open" ? "local_app_open" : undefined;
 }
 interface ProviderToolCall {
   readonly id: string;
   readonly type: "function";
-  readonly function: { readonly name: "model_status"; readonly arguments: "{}" };
+  readonly function: { readonly name: "model_status" | "local_app_open"; readonly arguments: string };
 }
 
 function collectProviderToolCall(chunk: unknown, state: { id: string; name: string; arguments: string; started: boolean }): "none" | "partial" | "complete" | "invalid" {
@@ -220,7 +226,7 @@ export interface OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
   readonly messages: readonly (OpenAiCompatibleChatAnswerRuntimeCompletionMessage |
     { readonly role: "assistant"; readonly content: string | null; readonly tool_calls: readonly ProviderToolCall[] } |
     { readonly role: "tool"; readonly tool_call_id: string; readonly content: string })[];
-  readonly tools?: readonly [typeof MODEL_STATUS_FUNCTION];
+  readonly tools?: readonly [typeof MODEL_STATUS_FUNCTION | typeof LOCAL_APP_OPEN_FUNCTION];
   readonly parallel_tool_calls?: false;
   readonly tool_choice?: "auto" | "none";
   readonly stream: true;
@@ -337,17 +343,18 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
     const pending = this.pendingTools.get(signal);
     this.pendingTools.delete(signal);
     if (signal.aborted || !pending || pending.proposal.proposalId !== continuation.proposal.proposalId ||
-      pending.proposal.turnId !== continuation.turnId || continuation.proposal.toolId !== "model.status" ||
-      continuation.result.toolId !== "model.status") {
+      pending.proposal.turnId !== continuation.turnId || continuation.proposal.toolId !== pending.proposal.toolId ||
+      continuation.result.toolId !== pending.proposal.toolId) {
       yield adapterFailure("unsupported_tool_call", "The status result does not match this answer.", false);
       return;
     }
-    AssistantModelStatusArgumentsSchema.parse(continuation.proposal.arguments);
+    const action = pending.proposal.toolId === "localApp.open";
+    (action ? LocalAppOpenArgumentsSchema : AssistantModelStatusArgumentsSchema).parse(continuation.proposal.arguments);
     const result = continuation.result;
     const safeResult = result.status === "completed"
-      ? { status: "completed", data: AssistantModelStatusResultSchema.parse(result.structuredResult) }
-      : { status: "failed", reason: "MODEL_STATUS_UNAVAILABLE" };
-    const body = createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(pending.request, this.profile.profileId, true);
+      ? { status: "completed", data: (action ? LocalAppOpenResultSchema : AssistantModelStatusResultSchema).parse(result.structuredResult) }
+      : { status: "failed", reason: action ? "NOTEPAD_LAUNCH_NOT_VERIFIED" : "MODEL_STATUS_UNAVAILABLE" };
+    const body = createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(pending.request, this.profile.profileId, action ? "localApp.open" : true);
     yield* this.streamTurn(pending.request, {}, signal, {
       ...body, tool_choice: "none",
       messages: [...body.messages,
@@ -393,7 +400,7 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
         body: continuationBody ?? createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
           parsedRequest,
           this.profile.profileId,
-          toolEnabled
+          toolEnabled ? (context.tool?.toolId === "localApp.open" ? "localApp.open" : true) : false
         ),
         timeoutMs: this.profile.timeoutMs,
         signal
@@ -411,15 +418,17 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
             return;
           }
           if (toolChunk === "complete") {
-            if (!context.tool || !toolCall.id || providerToolId(toolCall.name) !== "model.status" ||
-              !AssistantModelStatusArgumentsSchema.safeParse(JSON.parse(toolCall.arguments)).success) {
+            const expected = context.tool?.toolId ?? "model.status";
+            const action = expected === "localApp.open";
+            const args = (action ? LocalAppOpenArgumentsSchema : AssistantModelStatusArgumentsSchema).safeParse(JSON.parse(toolCall.arguments));
+            if (!context.tool || !toolCall.id || providerToolId(toolCall.name) !== expected || !args.success) {
               yield adapterFailure("unsupported_tool_call", "The status request was invalid.", false);
               return;
             }
-            const proposal = ToolProposalSchema.parse({ ...context.tool, toolId: "model.status", risk: "read_only",
-              arguments: {}, proposedAt: this.now().toISOString(), safeSummary: "Check current model status." });
+            const proposal = ToolProposalSchema.parse({ turnId: context.tool.turnId, proposalId: context.tool.proposalId, toolId: expected, risk: action ? "mutating" : "read_only",
+              arguments: args.data, proposedAt: this.now().toISOString(), safeSummary: action ? "Request opening Notepad with user approval." : "Check current model status." });
             this.pendingTools.set(signal, { request: parsedRequest, proposal, content: accumulated,
-              call: { id: toolCall.id, type: "function", function: { name: internalToolName(proposal.toolId)!, arguments: "{}" } } });
+              call: { id: toolCall.id, type: "function", function: { name: internalToolName(proposal.toolId)!, arguments: JSON.stringify(args.data) } } });
             signal.addEventListener("abort", () => this.pendingTools.delete(signal), { once: true });
             yield AssistantModelAdapterEventSchema.parse({ type: "tool_proposal", proposal });
             return;
@@ -799,7 +808,7 @@ export function createOpenAiCompatibleChatAnswerRuntimeCompletionRequest(
 export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest(
   request: ChatAnswerRequest,
   profileId: OpenAiCompatibleChatAnswerRuntimeProfileId,
-  enableModelStatus = false,
+  enableModelStatus: boolean | "localApp.open" = false,
 ): OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
   const parsed = ChatAnswerRequestSchema.parse(request);
   const profile = getOpenAiCompatibleChatAnswerRuntimeProfile(profileId);
@@ -816,7 +825,7 @@ export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionReques
         role: "system",
         content: [
           "Answer the user's benign question directly as plain text.",
-          ...(enableModelStatus ? ["Only use model_status when the user asks about current local model status. Its arguments must be an empty object. Use at most one call. For ordinary knowledge questions, answer directly without tools. Never invent status values. After a tool result, explain it concisely without internal identifiers. A failed result means status is unavailable."] : ["Do not call tools, functions, plugins, or actions."]),
+          ...(enableModelStatus === "localApp.open" ? ["Only request local_app_open with app notepad. Jarvis requires user approval before opening it. Never claim success before a verified tool result. Do not request paths, arguments, other apps, browser, shell, or writing. After a failed result explain that the launch was not verified."] : enableModelStatus ? ["Only use model_status when the user asks about current local model status. Its arguments must be an empty object. Use at most one call. For ordinary knowledge questions, answer directly without tools. Never invent status values. After a tool result, explain it concisely without internal identifiers. A failed result means status is unavailable."] : ["Do not call tools, functions, plugins, or actions."]),
           "Do not include credentials, URLs with query strings, command lines, or raw provider metadata.",
           "Other operations are unsupported.",
           "Keep the answer concise and user-facing.",
@@ -844,7 +853,7 @@ export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionReques
     stream: true,
     temperature: 0,
     max_tokens: 2048,
-    ...(enableModelStatus ? { tools: [MODEL_STATUS_FUNCTION] as const, parallel_tool_calls: false as const, tool_choice: "auto" as const } : {}),
+    ...(enableModelStatus ? { tools: [enableModelStatus === "localApp.open" ? LOCAL_APP_OPEN_FUNCTION : MODEL_STATUS_FUNCTION] as const, parallel_tool_calls: false as const, tool_choice: "auto" as const } : {}),
     ...(profile.family === "deepseek" ? { thinking: { type: "disabled" as const } } : {})
   };
 }

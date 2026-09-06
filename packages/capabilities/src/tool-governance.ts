@@ -170,14 +170,19 @@ export function decideToolInvocation(
       evaluatedAt
     });
   }
+  const boundedDesktop = policy.boundedNotepadExecutionEnabled === true && descriptor.execution === "bounded_desktop" &&
+    descriptor.id === "localApp.open" && descriptor.inputSchemaId === "tool.localapp.open.input" &&
+    descriptor.risk === "mutating" && descriptor.requiresConfirmation && descriptor.requiredPermissions.length === 0 &&
+    Object.keys(request.input).length === 1 && request.input.app === "notepad";
   const coreReadOnly = descriptor.execution === "core_read_only" &&
     descriptor.id === "model.status" && descriptor.inputSchemaId === "tool.model.status.input" &&
     descriptor.risk === "read_only" && descriptor.requiredPermissions.length === 0 &&
     Object.keys(request.input).length === 0;
   if (
     descriptor.execution === "disabled" ||
+    (descriptor.execution === "bounded_desktop" && !boundedDesktop) ||
     (descriptor.execution === "core_read_only" && !coreReadOnly) ||
-    (!coreReadOnly && !policy.fixtureExecutionEnabled)
+    (!coreReadOnly && !boundedDesktop && !policy.fixtureExecutionEnabled)
   ) {
     return createDecision({
       policy,

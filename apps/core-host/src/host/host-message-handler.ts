@@ -22,6 +22,7 @@ export interface RuntimeConfigurationControllerPort {
 }
 
 export interface CoreHostMessageHandlerInput {
+  readonly handleInternalMessage?: (message: unknown) => boolean;
   readonly runtime: CoreHostRuntimePort;
   readonly voiceEngine: Pick<VoiceEngine, "acceptAudioFrame">;
   readonly runtimeConfigurationController: RuntimeConfigurationControllerPort;
@@ -54,12 +55,18 @@ export class CoreHostMessageHandler {
       return;
     }
 
+    if (this.input.handleInternalMessage?.(message)) return;
     const parsedMessage = parseCoreHostMessage(message);
     if (!parsedMessage.accepted) {
       this.logger.error("[core-host] Rejected invalid supervisor message.");
       return;
     }
 
+    if (parsedMessage.message.kind === "core-inbound" && parsedMessage.message.message.kind === "command" &&
+      ["agent.cancelTask", "agent.cancelAssistantTurn"].includes(parsedMessage.message.message.envelope.command.type)) {
+      void this.handleCoreInbound(parsedMessage.message.message).catch(() => this.logger.error("[core-host] Cancellation failed."));
+      return;
+    }
     this.enqueue(async () => {
       if (parsedMessage.message.kind !== "core-inbound") {
         const applied =

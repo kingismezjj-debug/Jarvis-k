@@ -1,3 +1,4 @@
+import { BoundedNotepadTaskService } from "./bounded-notepad-task-service";
 import {
   AppEvent,
   AssistantModelStatusArgumentsSchema,
@@ -379,6 +380,7 @@ export interface CoreMemoryAlphaSessionPort {
 }
 
 export interface CoreBrainActionRequest {
+  desktopApproval?: { taskId: string; approvalCommandId: string; signal: AbortSignal };
   target: string;
   text?: string;
   action?: "focus" | "minimize" | "restore";
@@ -516,6 +518,7 @@ export class CoreRuntime {
   private readonly deterministicPlannerService: DeterministicPlannerService;
   private readonly providerPlannerService: ProviderPlannerService;
   private readonly plannerDraftService: PlannerDraftService;
+  private readonly boundedNotepad: BoundedNotepadTaskService;
   private readonly plannerApprovalService: PlannerApprovalService;
   private readonly plannerExecutionCoordinator: PlannerExecutionCoordinator;
   private readonly plannerStatusProjector: PlannerStatusProjector;
@@ -618,7 +621,8 @@ export class CoreRuntime {
     });
     this.assistantRuntime = new AssistantRuntime({
       executeTool: (proposal, executionId, signal, publish) =>
-        this.executeAssistantModelStatus(proposal, executionId, signal, publish),
+        proposal.toolId === "localApp.open" ? this.boundedNotepad.execute(proposal, executionId, signal, publish) :
+          this.executeAssistantModelStatus(proposal, executionId, signal, publish),
       getProviderId: () =>
         this.chatAnswer?.providerId ?? "chat-answer.unconfigured",
       getModelAdapter: () =>
@@ -695,6 +699,16 @@ export class CoreRuntime {
     this.plannerApprovalService = new PlannerApprovalService({
       repository: this.taskRepository,
       now: this.now,
+    });
+    this.boundedNotepad = new BoundedNotepadTaskService({
+      enabled: runtimeSafety?.realWindowsExecutionEnabled === true,
+      onExecute: () => this.recordWindowsExecutorInvocation(),
+      descriptor: { ...BRAIN_TOOL_REGISTRY_DESCRIPTORS.find(item => item.id === "localApp.open")!, execution: "bounded_desktop" },
+      policy: { ...BRAIN_TOOL_REGISTRY_POLICY, boundedNotepadExecutionEnabled: runtimeSafety?.realWindowsExecutionEnabled === true }, drafts: this.plannerDraftService, approvals: this.plannerApprovalService,
+      ...(this.taskRepository ? { repository: this.taskRepository } : {}),
+      ...(this.taskDispatchService ? { dispatch: this.taskDispatchService } : {}),
+      ...(this.brainActionExecutor ? { executor: this.brainActionExecutor } : {}), now: this.now,
+      progress: async () => { await this.refreshTasksFromRepository(); this.publishSnapshot(createId("notepad-progress")); },
     });
     this.plannerExecutionCoordinator = new PlannerExecutionCoordinator({
       actionExecutor: this.brainActionExecutor,
@@ -3570,7 +3584,7 @@ export class CoreRuntime {
       });
     }
 
-    if (!this.brainActionExecutor) {
+    if (target === "notepad" || !this.brainActionExecutor) {
       return this.success(envelope, {
         launch: CommandRouterLocalAppLaunchResultSchema.parse({
           status: "blocked",
@@ -4437,6 +4451,19 @@ export class CoreRuntime {
       case "browser.open":
       case "localApp.open": {
         const target = String(input.decision.slots.target ?? "").trim();
+        if (input.decision.intent === "localApp.open" && this.commandRouterRealLocalAppLaunchLabel(target) === "notepad" && this.isCommandRouterFixtureReplayEnabled()) {
+          return { dispatchStatus: "completed", plan: this.completeBrainPlan(basePlan), summary: "Command Router product mode fixture accepted localApp.open for notepad. No Windows process was launched." };
+        }
+        if (input.decision.intent === "localApp.open" && this.commandRouterRealLocalAppLaunchLabel(target) === "notepad" && !this.isCommandRouterFixtureReplayEnabled()) {
+          try {
+            await this.boundedNotepad.create(input.envelope.command.type === "agent.runBrainCommand" ? input.envelope.command.payload.source : "text");
+            return { dispatchStatus: "needs_approval", plan: basePlan, summary: "请在任务中确认打开记事本。" };
+          } catch {
+            const blocked = this.shouldBlockBeforeWindowsExecutor("localApp.open");
+            if (blocked) this.effectfulActionAuditService.recordBlockedBeforeExecutor(blocked);
+            return { dispatchStatus: "blocked", plan: this.blockFinalBrainPlan(basePlan), summary: "Notepad action was blocked before execution; fixture replay is disabled." };
+          }
+        }
         if (
           input.decision.intent === "browser.open" &&
           this.shouldRunTaskRuntimeBrowserOpen(target)
@@ -4579,7 +4606,7 @@ export class CoreRuntime {
   ): boolean {
     return (
       source === "text" &&
-      (decision.intent === "chat.answer" || decision.intent === "model.status") &&
+      (decision.intent === "chat.answer" || decision.intent === "model.status" || (decision.intent === "localApp.open" && this.commandRouterRealLocalAppLaunchLabel(String(decision.slots.target ?? "")) === "notepad")) &&
       this.chatAnswer?.enabled === true &&
       isAssistantTextModelAdapter(this.chatAnswerProvider)
     );
@@ -5451,6 +5478,15 @@ export class CoreRuntime {
       taskId: string;
       reason?: string;
     };
+    if (this.boundedNotepad.owns(taskId)) {
+      await this.boundedNotepad.cancel(taskId);
+      const activeTurn = this.assistantRuntime.getProjection();
+      if (activeTurn?.proposals.some(item => item.taskId === taskId)) this.assistantRuntime.cancel(activeTurn.turnId);
+      await this.refreshTasksFromRepository();
+      this.publishSnapshot(envelope.correlationId);
+      const task = this.tasks.find(item => item.id === taskId);
+      return this.success(envelope, { task, cancelled: true, directActionAttempted: false });
+    }
     const result = await this.plannerApprovalService.cancel({
       taskId,
       reason: requestedReason,
@@ -5486,7 +5522,9 @@ export class CoreRuntime {
       taskId: string;
       confirmation: "explicit_ui_confirmation";
     };
-    const result = await this.plannerApprovalService.approve({
+    const result = this.boundedNotepad.owns(taskId)
+      ? await this.boundedNotepad.approve(taskId, envelope.commandId)
+      : await this.plannerApprovalService.approve({
       taskId,
       executeStep: (step, toolId) =>
         this.plannerExecutionCoordinator.executeStep(step, toolId),

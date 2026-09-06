@@ -10,6 +10,7 @@ import type {
 } from "@jarvis-k/core";
 
 export interface BrainActionAllowlistAdapterOptions {
+  openBoundedNotepad?: (input: NonNullable<CoreBrainActionRequest["desktopApproval"]>) => Promise<import("@jarvis-k/contracts").LocalAppOpenResult>;
   disabled?: boolean;
   env?: NodeJS.ProcessEnv;
   exists?: (filePath: string) => boolean;
@@ -117,6 +118,7 @@ const localApps: readonly LocalAppDefinition[] = [
 export class BrainActionAllowlistAdapter
   implements CoreBrainActionExecutorPort
 {
+  private readonly boundedNotepad: BrainActionAllowlistAdapterOptions["openBoundedNotepad"];
   private readonly disabled: boolean;
   private readonly env: NodeJS.ProcessEnv;
   private readonly exists: (filePath: string) => boolean;
@@ -134,6 +136,7 @@ export class BrainActionAllowlistAdapter
   ) => Promise<void>;
 
   public constructor(options: BrainActionAllowlistAdapterOptions = {}) {
+    this.boundedNotepad = options.openBoundedNotepad;
     this.disabled = options.disabled ?? false;
     this.env = options.env ?? process.env;
     this.exists = options.exists ?? existsSync;
@@ -173,6 +176,14 @@ export class BrainActionAllowlistAdapter
   public async openLocalApp(
     request: CoreBrainActionRequest
   ): Promise<CoreBrainActionResult> {
+    if (normalizeTarget(request.target) === "notepad" || normalizeTarget(request.target) === "记事本") {
+      if (!request.desktopApproval || !this.boundedNotepad) return blocked("BRAIN_ACTIONS_DISABLED", "notepad");
+      const result = await this.boundedNotepad(request.desktopApproval);
+      return { status: result.verified ? "completed" : "blocked", label: "notepad",
+        reasonCode: result.verified ? "ALLOWLISTED_TARGET_OPENED" : "OPEN_FAILED",
+        verificationStatus: result.verified ? "verified" : "verification_failed",
+        verificationSummary: result.verified ? "Notepad launch verified." : "Notepad launch was not verified." };
+    }
     if (this.disabled) {
       return blocked("BRAIN_ACTIONS_DISABLED", "app");
     }

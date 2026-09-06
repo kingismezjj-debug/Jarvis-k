@@ -138,6 +138,7 @@ export class PlannerApprovalService {
   }
 
   public async approve(input: {
+    signal?: AbortSignal;
     taskId: string;
     executeStep: (
       step: TaskStep,
@@ -191,6 +192,7 @@ export class PlannerApprovalService {
       };
     }
 
+    if (input.signal?.aborted) return { ok: false, code: "CANCELLED", message: "Task approval cancelled.", retryable: false };
     const startedAt = this.options.now().toISOString();
     this.lifecycle?.assertTransition("awaiting_confirmation", "running");
     await repository.updateTask({
@@ -235,7 +237,16 @@ export class PlannerApprovalService {
         createdAt: runningAt,
       });
 
+      if (input.signal?.aborted) {
+        await this.lifecycle?.cancel({ taskId: task.id, stepId: step.id });
+        return { ok: false, code: "CANCELLED", message: "Task cancelled before execution.", retryable: false };
+      }
       const result = await input.executeStep(step, toolId);
+      if (input.signal?.aborted) {
+        await this.lifecycle?.cancel({ taskId: task.id, stepId: step.id });
+        await input.onProgress?.();
+        return { ok: false, code: "CANCELLED", message: "Task cancelled; an already started action cannot be undone.", retryable: false };
+      }
       const completedAt = this.options.now().toISOString();
       await repository.updateStep({
         id: step.id,

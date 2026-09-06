@@ -177,32 +177,24 @@ describe("BrainActionAllowlistAdapter", () => {
     expect(launches).toEqual([]);
   });
 
-  it("opens allowlisted built-in local applications", async () => {
-    const launches: Array<{
-      command: string;
-      args: readonly string[];
-      windowsHide: boolean;
-    }> = [];
-    const adapter = new BrainActionAllowlistAdapter({
-      launch: async (command, args, options) => {
-        launches.push({ command, args, windowsHide: options.windowsHide });
-      }
-    });
+  it("blocks the old direct Notepad launch before the local spawn port", async () => {
+    let launches = 0;
+    const adapter = new BrainActionAllowlistAdapter({ launch: async () => { launches++; } });
+    expect(await adapter.openLocalApp({ target: "记事本" })).toMatchObject({ status: "blocked", label: "notepad" });
+    expect(launches).toBe(0);
+  });
 
-    const result = await adapter.openLocalApp({ target: "记事本" });
-
-    expect(result).toMatchObject({
-      status: "completed",
-      reasonCode: "ALLOWLISTED_TARGET_OPENED",
-      label: "notepad"
-    });
-    expect(launches).toEqual([
-      {
-        command: "notepad.exe",
-        args: [],
-        windowsHide: false
-      }
-    ]);
+  it("delegates approved Notepad to the bounded Desktop port only", async () => {
+    let legacyLaunches = 0;
+    const signal = new AbortController().signal;
+    const adapter = new BrainActionAllowlistAdapter({ disabled: true,
+      launch: async () => { legacyLaunches++; }, openBoundedNotepad: async input => {
+        expect(input).toEqual({ taskId: "task-test", approvalCommandId: "command-test", signal });
+        return { app: "notepad", launched: true, verified: true, reason: "verified" };
+      } });
+    expect(await adapter.openLocalApp({ target: "notepad", desktopApproval: { taskId: "task-test", approvalCommandId: "command-test", signal } }))
+      .toMatchObject({ status: "completed", verificationStatus: "verified" });
+    expect(legacyLaunches).toBe(0);
   });
 
   it("opens allowlisted installed applications only when the candidate path exists", async () => {

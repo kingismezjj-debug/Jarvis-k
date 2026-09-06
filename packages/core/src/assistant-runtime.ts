@@ -1,3 +1,4 @@
+import { LocalAppOpenArgumentsSchema } from "@jarvis-k/contracts";
 import {
   ASSISTANT_LOOP_CONTRACT_VERSION,
   AssistantTurnIdSchema,
@@ -48,7 +49,7 @@ export interface AssistantRuntimeScheduler {
 
 export interface AssistantRuntimeOptions {
   readonly executeTool?: (proposal: ToolProposal, executionId: ToolExecutionRequest["executionId"], signal: AbortSignal,
-    publish: (event: { type: "tool.decided"; decision: ToolDecision } | { type: "execution.started"; request: ToolExecutionRequest }) => void,
+    publish: (event: { type: "tool.decided"; decision: ToolDecision } | { type: "execution.started"; request: ToolExecutionRequest } | { type: "approval.resolved"; approval: import("@jarvis-k/contracts").AssistantApprovalResolution }) => void,
   ) => Promise<ToolResult>;
   readonly getProviderId: () => string;
   readonly getModelAdapter: () => AssistantTextModelAdapter | undefined;
@@ -322,7 +323,7 @@ export class AssistantRuntime {
       const events = input.continuation && input.adapter.continueTextTurn
         ? input.adapter.continueTextTurn(input.continuation, active.controller.signal)
         : input.adapter.startTextTurn(input.request,
-          this.options.executeTool && input.adapter.continueTextTurn ? { tool: { turnId: input.turnId, proposalId } } : {},
+          this.options.executeTool && input.adapter.continueTextTurn ? { tool: { turnId: input.turnId, proposalId, ...(input.request.routerDecision.intent === "localApp.open" ? { toolId: "localApp.open" as const } : {}) } } : {},
           active.controller.signal);
       const iterator = events[Symbol.asyncIterator]();
       for await (const rawEvent of { [Symbol.asyncIterator]: () => iterator }) {
@@ -335,8 +336,9 @@ export class AssistantRuntime {
           if (input.continuation || this.projection!.toolIterationCount >= 1 ||
             !this.options.executeTool || !input.adapter.continueTextTurn ||
             proposal.turnId !== input.turnId || proposal.proposalId !== proposalId ||
-            proposal.toolId !== "model.status" || proposal.risk !== "read_only" ||
-            !AssistantModelStatusArgumentsSchema.safeParse(proposal.arguments).success) {
+            !(input.request.routerDecision.intent === "localApp.open"
+              ? proposal.toolId === "localApp.open" && proposal.risk === "mutating" && LocalAppOpenArgumentsSchema.safeParse(proposal.arguments).success
+              : proposal.toolId === "model.status" && proposal.risk === "read_only" && AssistantModelStatusArgumentsSchema.safeParse(proposal.arguments).success)) {
             this.failTurn(input, "unsupported_tool_call", "This operation is unsupported.", false);
             return;
           }
@@ -353,9 +355,9 @@ export class AssistantRuntime {
           const result = ToolResultSchema.parse(await this.waitForTool(this.options.executeTool(proposal, executionId, active.controller.signal, update => {
             if (!this.isCurrentRun(input.runId, input.turnId)) return;
             this.requireEvent({ type: update.type,
-              payload: update.type === "tool.decided" ? { decision: update.decision } : { request: update.request },
+              payload: update.type === "tool.decided" ? { decision: update.decision } : update.type === "approval.resolved" ? { approval: update.approval } : { request: update.request },
               correlationId: input.correlationId, flush: "immediate" });
-          }), active.controller));
+          }), active.controller, proposal.toolId === "localApp.open" ? 130000 : 1000));
           if (!this.isCurrentRun(input.runId, input.turnId)) return;
           const continuation = AssistantToolContinuationSchema.parse({ turnId: input.turnId, proposal, result });
           if (result.executionId !== executionId ||
@@ -369,6 +371,8 @@ export class AssistantRuntime {
           return;
         }
         if (event.type === "delta") {
+          // An action preamble is not evidence of execution. Keep it private until the tool round-trip.
+          if (!input.continuation && input.request.routerDecision.intent === "localApp.open") continue;
           if (event.delta.kind !== "text" || event.delta.text.length === 0) {
             continue;
           }
@@ -388,6 +392,10 @@ export class AssistantRuntime {
           this.failTurn(input, event.reason, event.safeMessage, event.retryable);
           return;
         }
+        if (!input.continuation && input.request.routerDecision.intent === "localApp.open") {
+          this.failTurn(input, "unsupported_tool_call", "The action was not executed. No approved tool result was received.", false);
+          return;
+        }
         await this.completeTurn(input, event.text);
         return;
       }
@@ -404,8 +412,12 @@ export class AssistantRuntime {
       if (!this.isCurrentRun(input.runId, input.turnId)) {
         return;
       }
+      if (error instanceof Error && error.message === "CANCELLED") {
+        this.cancel(input.turnId);
+        return;
+      }
       if (error instanceof Error && error.message === "MODEL_STATUS_TIMEOUT") {
-        this.failTurn(input, "provider_timeout", "The status check timed out.", false);
+        this.failTurn(input, "provider_timeout", "The operation timed out.", false);
         return;
       }
       this.failTurn(
@@ -484,14 +496,14 @@ export class AssistantRuntime {
     }
   }
 
-  private async waitForTool(work: Promise<ToolResult>, controller: AbortController): Promise<ToolResult> {
+  private async waitForTool(work: Promise<ToolResult>, controller: AbortController, timeoutMs: number): Promise<ToolResult> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let abort: () => void = () => undefined;
     const limit = new Promise<never>((_resolve, reject) => {
       abort = () => reject(new Error("CANCELLED"));
       if (controller.signal.aborted) { abort(); return; }
       controller.signal.addEventListener("abort", abort, { once: true });
-      timer = setTimeout(() => { reject(new Error("MODEL_STATUS_TIMEOUT")); controller.abort(); }, 1000);
+      timer = setTimeout(() => { reject(new Error("MODEL_STATUS_TIMEOUT")); controller.abort(); }, timeoutMs);
     });
     try { return await Promise.race([work, limit]); }
     finally {

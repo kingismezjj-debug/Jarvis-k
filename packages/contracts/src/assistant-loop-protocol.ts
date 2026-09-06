@@ -235,7 +235,7 @@ export const AssistantModelStatusResultSchema = z.object({
   activeOperationCount: z.number().int().min(0).max(1024),
 }).strict().refine(value => value.activeOperationCount <= value.operationCount);
 export const AssistantToolContextSchema = z.object({
-  tool: z.object({ turnId: AssistantTurnIdSchema, proposalId: ToolProposalIdSchema }).strict().optional(),
+  tool: z.object({ turnId: AssistantTurnIdSchema, proposalId: ToolProposalIdSchema, toolId: z.enum(["model.status", "localApp.open"]).optional() }).strict().optional(),
 }).strict();
 export type AssistantToolContext = z.infer<typeof AssistantToolContextSchema>;
 

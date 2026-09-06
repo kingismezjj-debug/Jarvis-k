@@ -1,3 +1,4 @@
+import { BoundedDesktopActionPort } from "./bounded-desktop-action-port";
 import path from "node:path";
 import { type CoreOutboundMessage } from "@jarvis-k/contracts";
 import {
@@ -349,7 +350,9 @@ const voiceComposition = createCoreHostVoiceComposition({
   scheduler,
 });
 const voiceEngine = voiceComposition.voiceEngine;
+const boundedDesktop = new BoundedDesktopActionPort(message => { if (!process.connected || !process.send) throw new Error("DISCONNECTED"); process.send(message); });
 const brainActionExecutor = new BrainActionAllowlistAdapter({
+  openBoundedNotepad: input => boundedDesktop.open(input),
   disabled: runtimeConfig.brainOpenActionsDisabled,
 });
 const brainRouterOptions: CoreBrainRouterOptions | undefined =
@@ -454,6 +457,7 @@ const runtimeConfigurationController = new RuntimeConfigurationController({
   voiceComposition,
 });
 const messageHandler = new CoreHostMessageHandler({
+  handleInternalMessage: message => boundedDesktop.receive(message),
   runtime,
   voiceEngine,
   runtimeConfigurationController,

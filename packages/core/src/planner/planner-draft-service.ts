@@ -17,6 +17,8 @@ export interface PlannerDraftServiceOptions {
 }
 
 export interface PlannerDraftCreateInput {
+  deduplicate?: boolean;
+  title?: string;
   source: "text" | "voice";
   intent: BrainIntent;
   plannerResult: BrainPlannerResult;
@@ -107,7 +109,7 @@ export class PlannerDraftService {
           persisted.digest === digest
         );
       });
-      if (existing) {
+      if (existing && input.deduplicate !== false) {
         return {
           ok: true,
           task: existing,
@@ -121,7 +123,7 @@ export class PlannerDraftService {
 
       await repository.createTask({
         id: taskId,
-        title: "Review Minimal Plan",
+        title: input.title ?? "Review Minimal Plan",
         state: "planning",
         createdAt,
         updatedAt: createdAt,

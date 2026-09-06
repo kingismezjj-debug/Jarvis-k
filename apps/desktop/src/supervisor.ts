@@ -1,3 +1,4 @@
+import { BoundedDesktopActionBroker } from "./bounded-desktop-action-broker";
 import { EventEmitter } from "node:events";
 import { ChildProcess, fork, spawn } from "node:child_process";
 import {
@@ -42,6 +43,7 @@ export interface CoreSupervisorOptions {
 }
 
 export class CoreSupervisor {
+  private readonly desktopActions: BoundedDesktopActionBroker;
   private readonly emitter = new EventEmitter();
   private readonly pending = new Map<string, PendingRequest>();
   private readonly requestTimeoutMs: number;
@@ -61,6 +63,7 @@ export class CoreSupervisor {
   private commandRouterProductMode = { enabled: false };
 
   public constructor(private readonly options: CoreSupervisorOptions) {
+    this.desktopActions = new BoundedDesktopActionBroker((options.env?.JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION ?? process.env.JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION) === "1");
     this.requestTimeoutMs = options.requestTimeoutMs ?? 5_000;
     this.brainCommandRequestTimeoutMs =
       options.brainCommandRequestTimeoutMs ?? 60_000;
@@ -97,6 +100,7 @@ export class CoreSupervisor {
 
   public stop(): void {
     this.stopping = true;
+    this.desktopActions.reset();
     if (this.healthTimer) {
       clearInterval(this.healthTimer);
       this.healthTimer = null;
@@ -254,6 +258,7 @@ export class CoreSupervisor {
         );
       }, requestTimeoutMs);
 
+      this.desktopActions.observeCommand(envelope);
       this.pending.set(envelope.commandId, {
         resolve,
         timer,
@@ -288,6 +293,7 @@ export class CoreSupervisor {
   }
 
   private timeoutForRequest(envelope: CommandEnvelope): number {
+    if (envelope.command.type === "agent.approveTask") return 10000;
     if (envelope.command.type === "agent.runBrainCommand") {
       return this.brainCommandRequestTimeoutMs;
     }
@@ -326,7 +332,10 @@ export class CoreSupervisor {
       process.stderr.write(`[core] ${chunk.toString()}`);
     });
     child.on("message", (message: unknown) => {
-      this.handleCoreMessage(message);
+      if (this.child !== child || this.stopping) return;
+      void this.desktopActions.handle(message, response => {
+        if (this.child === child && child.connected && !this.stopping) child.send(response as object);
+      }).then(handled => { if (!handled && this.child === child) this.handleCoreMessage(message); });
     });
     child.on("error", (error) => {
       process.stderr.write(`[supervisor] Core process error: ${error.message}\n`);
@@ -334,6 +343,7 @@ export class CoreSupervisor {
     child.on("exit", (code, signal) => {
       if (this.child === child) {
         this.child = null;
+        this.desktopActions.reset();
       }
       this.rejectPending({
         code: "CORE_EXITED",
@@ -475,6 +485,7 @@ export class CoreSupervisor {
   }
 
   private forwardEvent(event: EventEnvelope): EventEnvelope {
+    if (event.event.type === "state.snapshot") this.desktopActions.observeTasks(event.event.payload.tasks, event.event.payload.assistantTurn);
     this.transportSequenceId += 1;
     const forwarded = EventEnvelopeSchema.parse({
       ...event,

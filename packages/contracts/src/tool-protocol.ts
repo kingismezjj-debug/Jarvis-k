@@ -50,7 +50,7 @@ export const ToolRiskSchema = z.enum([
 export type ToolRisk = z.infer<typeof ToolRiskSchema>;
 
 export const ToolExecutionModeSchema = z.enum([
-  "core_read_only",
+  "core_read_only", "bounded_desktop",
   "fixture",
   "windows",
   "disabled"
@@ -278,6 +278,7 @@ export const ToolPolicySchema = z
         (risks) => new Set(risks).size === risks.length,
         "Confirmation risks must be unique."
       ),
+    boundedNotepadExecutionEnabled: z.boolean().optional(),
     fixtureExecutionEnabled: z.boolean(),
     windowsExecutionEnabled: z.literal(false),
     networkAccessAllowed: z.literal(false),

@@ -15,6 +15,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+const isBoundedNotepad = (task: Task) => task.steps.length === 1 && task.steps[0]?.toolId === "localApp.open" && task.steps[0]?.toolInput?.app === "notepad";
+
 type Copy = (typeof uiCopy)["en"];
 
 export type TaskTimelineViewModel = {
@@ -61,9 +63,9 @@ export function TaskTimeline({
                 <div className="min-w-0">
                   <div className="truncate font-medium">{task.title}</div>
                   <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                    <span>{task.routeSource}</span>
-                    {task.intent ? <span>{task.intent}</span> : null}
-                    {task.verificationSummary ? (
+                    {!isBoundedNotepad(task) ? <span>{task.routeSource}</span> : null}
+                    {!isBoundedNotepad(task) && task.intent ? <span>{task.intent}</span> : null}
+                    {!isBoundedNotepad(task) && task.verificationSummary ? (
                       <span>{task.verificationSummary}</span>
                     ) : null}
                   </div>
@@ -94,7 +96,7 @@ export function TaskTimeline({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        Approve and execute planner draft
+                        {isBoundedNotepad(task) ? copy.assistantProgress.awaiting_approval : "Approve and execute planner draft"}
                       </TooltipContent>
                     </Tooltip>
                   ) : null}
@@ -128,7 +130,7 @@ export function TaskTimeline({
                       data-testid="task-step"
                       key={step.id}
                     >
-                      <span className="truncate">{step.title}</span>
+                      <span className="truncate">{isBoundedNotepad(task) ? task.title : step.title}</span>
                       <span className="truncate text-muted-foreground">
                         {step.state}
                       </span>
@@ -140,7 +142,7 @@ export function TaskTimeline({
                 </div>
               ) : null}
 
-              {task.events.length > 0 ? (
+              {task.events.length > 0 && !isBoundedNotepad(task) ? (
                 <div className="mt-3 grid gap-1 border-t pt-3">
                   {task.events.slice(-5).map((event) => (
                     <div

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { _electron } from "playwright";
 
+const boundedAction = process.argv.includes("--bounded-desktop");
 const root = path.resolve(import.meta.dirname, "..");
 const profile = await mkdtemp(path.join(os.tmpdir(), "jarvis-streaming-closure-"));
 const allowed = /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|APPDATA|LOCALAPPDATA|USERPROFILE|PROGRAMFILES|PROGRAMFILES\(X86\)|PROGRAMW6432|SYSTEMDRIVE|NUMBER_OF_PROCESSORS|PROCESSOR_ARCHITECTURE|OS)$/i;
@@ -13,7 +14,8 @@ const env = {
   JARVIS_K_USER_DATA_PATH: profile,
   JARVIS_K_LOCAL_DATA_PATH: profile,
   JARVIS_K_DISABLE_BRAIN_OPEN_ACTIONS: "1",
-  JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION: "0",
+  JARVIS_K_ALLOW_REAL_WINDOWS_EXECUTION: boundedAction ? "1" : "0",
+  JARVIS_K_BOUNDED_DESKTOP_SMOKE: boundedAction ? "1" : "0",
   JARVIS_K_ENABLE_LOCAL_PLUGIN_MANIFESTS: "0",
 };
 await writeFile(path.join(profile, "jarvis-k-desktop-settings.json"), JSON.stringify({ firstRunOnboardingVersion: 1, firstRunOnboardingState: "completed", desktopPetEnabled: false, closeButtonBehavior: "quit", launchAtLoginEnabled: false }));
@@ -44,7 +46,11 @@ async function waitSnapshot(page, predicate) {
     if (predicate(state)) return state;
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  throw new Error("Expected safe snapshot state did not arrive");
+  const last = await snapshot(page);
+  throw new Error(JSON.stringify({ status: last?.assistantTurn?.status, reason: last?.assistantTurn?.failure?.reasonCode,
+    tasks: last?.tasks.map(task => ({ state: task.state, stepStates: task.steps.map(step => step.verificationStatus) })),
+    executions: last?.assistantTurn?.executions.map(execution => execution.status),
+    fakeEvents: (await readFile(path.join(profile, "fake-network.ndjson"), "utf8")).trim().split("\n").map(line => JSON.parse(line).type) }));
 }
 async function waitStatus(page, status) {
   return waitSnapshot(page, state => state?.assistantTurn?.status === status);
@@ -131,6 +137,24 @@ try {
   assert.ok(!JSON.stringify(statusProjections).includes("call_status_smoke"));
   assert.ok(!JSON.stringify(statusProjections).includes("hidden fixture reasoning"));
   assert.ok(!JSON.stringify(statusProjections).includes("not-a-credential-local-smoke-key"));
+  if (boundedAction) {
+    await send(page, "打开记事本");
+    const pending = await waitStatus(page, "awaiting_approval");
+    const taskId = pending.assistantTurn.proposals[0].taskId;
+    assert.equal(pending.tasks.find(task => task.id === taskId).state, "awaiting_confirmation");
+    assert.equal(pending.assistantTurn.executions.length, 0);
+    const beforeApproval = (await readFile(path.join(profile, "fake-network.ndjson"), "utf8"));
+    assert.ok(!beforeApproval.includes('"desktop_action"'));
+    const approval = await page.evaluate(taskId => window.jarvis.sendCommand({ type: "agent.approveTask", payload: { taskId, confirmation: "explicit_ui_confirmation" } }), taskId);
+    assert.equal(approval.ok, true);
+    const finished = await waitStatus(page, "completed");
+    assert.equal(finished.assistantTurn.finalAnswer.text, "记事本启动已验证。");
+    assert.equal(finished.assistantTurn.executions.length, 1);
+    assert.equal(finished.tasks.find(task => task.id === taskId).state, "completed");
+    assert.equal(finished.messages.filter(message => message.text === "记事本启动已验证。").length, 1);
+    assert.equal(finished.assistantTurn.proposals[0].approvalStatus, "approved");
+    await page.getByText("记事本启动已验证。", { exact: true }).waitFor();
+  }
   await quit();
   page = await launch();
   const restored = await page.evaluate(() => window.jarvis.getChatAnswerProviderConfigurationStatus());
@@ -140,10 +164,11 @@ try {
   await quit();
   const calls = (await readFile(path.join(profile, "fake-network.ndjson"), "utf8")).trim().split("\n").map(line => JSON.parse(line));
   assert.equal(calls.filter(call => call.type === "connection_test").length, 1);
-  assert.equal(calls.filter(call => call.type === "stream").length, 5);
-  assert.equal(calls.filter(call => call.type === "tool_result_received").length, 1);
+  assert.equal(calls.filter(call => call.type === "stream").length, boundedAction ? 7 : 5);
+  assert.equal(calls.filter(call => call.type === "tool_result_received").length, boundedAction ? 2 : 1);
   assert.equal(calls.filter(call => call.type === "aborted").length, 1);
-  console.log(JSON.stringify({ status: "PASS", realNetworkRequestSent: false, officialEntry: true, normalStreaming: true, singleFinal: true, handoff, cancellation: true, abortSignal: true, staleSuppression: true, retry: true, restartPersistence: true, normalQuestionNoTaskDelta: true, singleToolTaskAndContinuation: true, noCredentialOrReasoningProjection: true }));
+  if (boundedAction) assert.equal(calls.filter(call => call.type === "desktop_action").length, 1);
+  console.log(JSON.stringify({ boundedDesktopApprovalAndReentry: boundedAction, realWindowsAction: false, status: "PASS", realNetworkRequestSent: false, officialEntry: true, normalStreaming: true, singleFinal: true, handoff, cancellation: true, abortSignal: true, staleSuppression: true, retry: true, restartPersistence: true, normalQuestionNoTaskDelta: true, singleToolTaskAndContinuation: true, noCredentialOrReasoningProjection: true }));
 } finally {
   if (app) await quit();
   assert.equal(path.dirname(path.resolve(profile)).toLowerCase(), path.resolve(os.tmpdir()).toLowerCase());
