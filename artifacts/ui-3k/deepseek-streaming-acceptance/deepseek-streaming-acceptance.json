@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3K-2B-G",
+  "recordedDate": "2026-09-06",
+  "completionLevel": "L4",
+  "baselineCommit": "d2fd0a55fd1513db631c80c48376b7823b732466",
+  "implementationCommit": "8e263283bbb5065a721ff38b2ab2db69b4d23eb9",
+  "userObserved": {
+    "incrementalDisplay": true,
+    "noFlicker": true,
+    "noEmptyBubble": true,
+    "cancelQuickStop": true,
+    "cancelInputRecovered": true,
+    "postCancelRetrySucceeded": true,
+    "finalExplicitExitConfirmed": true
+  },
+  "userProvidedSafeStatus": {
+    "connectionTestBeforeFix": "success",
+    "connectionTestAfterFix": "success",
+    "enabledAfterFix": true,
+    "specifiedRetryAnswerMatched": true
+  },
+  "sourceAndTestInference": {
+    "basis": "read_only_formal_bridge_projections_during_user_operations_and_source_plus_fake_local_tests",
+    "provider": {
+      "configured": true,
+      "enabled": true,
+      "available": true,
+      "armedWithoutRestart": true,
+      "singleConfiguredProvider": true,
+      "enableAddedMessages": 0
+    },
+    "normalStreaming": {
+      "ordinaryQuestionAccepted": true,
+      "distinctIncreasingProjections": 22,
+      "canonicalFinalMessages": 1,
+      "transientRemoved": true,
+      "inputAndSendRecovered": true,
+      "chineseChunking": "pass"
+    },
+    "cancellation": {
+      "observedCancelledTurns": 2,
+      "finalMessagesForCancelledTurns": 0,
+      "lateDeltaOrFinalObserved": false,
+      "turnScopedAbortSignal": "source_and_fake_formal_entry_smoke",
+      "partialOutput": "cancelled_projection_safely_replaced_by_subsequent_turn",
+      "partialOutputBasis": "source_and_fake_smoke_plus_safe_projection_replacement",
+      "otherConversationIsolation": "source_and_tests"
+    },
+    "retry": {
+      "completed": true,
+      "newTurnAfterCancel": true,
+      "streamingProjectionPresent": true,
+      "canonicalFinalMessages": 1,
+      "cancelledStateLeaked": false,
+      "inputAndSendRecovered": true
+    },
+    "restart": {
+      "sameDevelopmentProfile": true,
+      "configured": true,
+      "enabled": true,
+      "available": true,
+      "armed": true,
+      "coreHealth": "ready",
+      "activeTurnPresent": false,
+      "newCredentialInput": false,
+      "newConnectionTestAttempt": false,
+      "newQuestion": false,
+      "availabilityBasis": "safe_status_and_production_composition_plus_fake_restart_smoke"
+    },
+    "safety": {
+      "credentialExposureObserved": false,
+      "reasoningExposure": "absent_by_source_and_tests",
+      "rawProviderExposure": "absent_by_source_and_tests",
+      "taskDelta": 0,
+      "approvalDelta": 0,
+      "toolProposalCount": 0,
+      "executionCount": 0,
+      "windowsActionReachable": false,
+      "enableAndRestartModelRequests": "zero_by_source_and_fake_smoke"
+    },
+    "realRequests": {
+      "countBasis": "user_confirmed_tests_and_distinct_observed_turns_with_single_attempt_source",
+      "wireCountMeasured": false,
+      "successfulConnectionTests": 2,
+      "observedTurns": [
+        "normal_completed",
+        "history_cancelled",
+        "additional_history_completed",
+        "repeated_history_cancelled",
+        "specified_retry_completed"
+      ],
+      "inferredUserInitiatedRequests": 7,
+      "automatedRealRequests": 0
+    },
+    "implementationValidation": {
+      "focusedTestsPassed": 108,
+      "fullTestFilesPassed": 319,
+      "fullTestsPassed": 2262,
+      "cleanEnvironmentVerify": "pass",
+      "uiStringAudit": "pass",
+      "boundaries": "pass",
+      "sensitiveArtifacts": "pass",
+      "fakeFormalEntryDesktopSmoke": "pass",
+      "automatedRealNetworkRequestSent": false
+    },
+    "finalExitSafeStatus": {
+      "jarvisAndCoreHostProcessCount": 0,
+      "hkcuRunJarvisIdentities": 0,
+      "hklmRunJarvisIdentities": 0,
+      "hkcuWow6432RunJarvisIdentities": 0,
+      "hklmWow6432RunJarvisIdentities": 0
+    }
+  },
+  "decision": {
+    "ui3k2bFullyAccepted": true,
+    "ui3k2cAllowed": true,
+    "ui3k2cStarted": false,
+    "releaseReady": false
+  }
+}

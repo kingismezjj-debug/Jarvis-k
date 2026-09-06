@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-09-04
+Updated: 2026-09-06
 
 ## Current Product Phase
 
@@ -75,6 +75,7 @@ Jarvis-K is in Desktop Alpha daily-use and release-readiness stabilization.
 - Phase UI-3K-2B-E Chat Answer Provider Configuration Surface is implemented in Settings V2: development users can configure the DeepSeek OpenAI-compatible answer service for the current profile through a Main-owned secure-store flow, save/test/enable remain separate, Renderer never reads plaintext credentials, runtime arming happens without Electron restart after successful user-confirmed validation, and fake/local tests and capture keep `realNetworkRequestSent=false`.
 - Phase UI-3K-2B-E-C Safe Connection Test Failure Classification UI Repair is implemented: Settings V2 now shows backend safe `connectionTestStatus` classifications as localized, actionable connection-test messages, correlates test attempts with a bounded attempt id to ignore stale results, keeps command transport failures separate from provider test failures, preserves success-only enablement, and remains fake/local with `realNetworkRequestSent=false`.
 - Phase UI-3K-2B-E-F Official DeepSeek Connection-Test Compatibility Fix is implemented: the DeepSeek connection-test request now explicitly disables thinking, uses a bounded 128-token JSON validation budget, classifies official reasoning-only or length-truncated 2xx envelopes as safe `incomplete_response`, and keeps raw/reasoning/credential content out of UI and snapshots.
+- Phase UI-3K-2B-G DeepSeek End-to-End Streaming Closure is accepted at L4 on implementation `8e26328`: user-operated connection test, enable without restart, ordinary incremental answer, single final handoff without flicker or empty bubbles, cancellation, late-data suppression, explicit retry, and same-development-profile restart persistence passed. Sanitized evidence in `artifacts/ui-3k/deepseek-streaming-acceptance/deepseek-streaming-acceptance.json` distinguishes human observations, safe runtime projections, and source/test inference; seven user-initiated requests are inferred (two connection tests and five turns), with zero automated real requests. Final Jarvis/CoreHost processes and all four Run identity counts are zero. UI-3K-2B is fully accepted; UI-3K-2C is allowed but not started. This is not L5 release readiness.
 - Windows unsigned Alpha packaging is configured for x64 NSIS and isolated packaged runtime verification; `0.1.0-alpha.3` adds user-controlled launch at login on top of the `0.1.0-alpha.2` packaged runtime dependency closure fix.
 - Packaged Alpha now uses an isolated release-channel identity and storage namespace: `Jarvis-K Alpha`, `com.jarvis-k.desktop.alpha`, `%APPDATA%\Jarvis-K-Alpha`, and `%LOCALAPPDATA%\Jarvis-K-Alpha`.
 - First-run onboarding is implemented for ordinary product guidance without enabling microphone, upload, fixture, or real Windows execution.
