@@ -435,6 +435,10 @@ if (!hasSingleInstanceLock) {
       });
     }
     settingsService = new SettingsService({
+      loadChatAnswerProviderEnabled: () =>
+        getChatAnswerProviderStore(CHAT_ANSWER_DEEPSEEK_PROVIDER_ID).loadEnabled(),
+      saveChatAnswerProviderEnabled: (enabled) =>
+        getChatAnswerProviderStore(CHAT_ANSWER_DEEPSEEK_PROVIDER_ID).setEnabled(enabled),
       loadChatAnswerProviderConfiguration: async () => {
         try {
           return await getChatAnswerProviderStore(
@@ -505,6 +509,7 @@ if (!hasSingleInstanceLock) {
       productVersion: app.getVersion(),
       desktopSettingsPath: storageProfile.desktopSettingsPath
     });
+    await settingsService.restoreChatAnswerProviderRuntime();
     settingsUiSurfaceStatusDisposer =
       settingsService.onUiSurfaceCapabilityStatus((status) => {
         if (!mainWindow || mainWindow.isDestroyed()) {

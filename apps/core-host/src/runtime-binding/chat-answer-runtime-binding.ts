@@ -5,10 +5,10 @@ import {
   DEEPSEEK_CHAT_ANSWER_RUNTIME_ENDPOINT,
   DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
   DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+  type OpenAiCompatibleChatAnswerRuntimeTransport,
 } from "@jarvis-k/inference-adapter-glm-chat-answer-runtime";
 import {
   ConfigurableChatAnswerProvider,
-  OneShotFixedUtteranceChatAnswerProvider,
 } from "../composition/chat-composition";
 import { createCoreHostOpenAiCompatibleChatAnswerRuntimeComposition } from "../openai-compatible-chat-answer-runtime-composition";
 import type {
@@ -32,6 +32,7 @@ export interface ChatAnswerRuntimeBindingInput {
   readonly initialChatAnswerProvider: ChatAnswerProvider | undefined;
   readonly initialChatAnswerOptions: CoreChatAnswerOptions | undefined;
   readonly controlledRuntimeUtterance: string;
+  readonly transport?: OpenAiCompatibleChatAnswerRuntimeTransport;
 }
 
 export interface ChatAnswerProductModeRuntimeBinding {
@@ -82,22 +83,16 @@ export class ChatAnswerRuntimeBinding {
       ...(configuration.credential
         ? { credential: configuration.credential }
         : {}),
+      ...(this.input.transport ? { transport: this.input.transport } : {}),
     });
     this.controlledRuntimeBindingChatAnswerProvider.configure(
-      composition.provider
-        ? new OneShotFixedUtteranceChatAnswerProvider(
-            DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
-            this.input.controlledRuntimeUtterance,
-            composition.provider,
-          )
-        : undefined,
+      composition.provider,
     );
     return {
       provider: this.controlledRuntimeBindingChatAnswerProvider,
       options: {
-        enabled: true,
+        enabled: composition.provider !== undefined,
         providerId: composition.compositionReport.provider,
-        forcedChatAnswerUtterances: [this.input.controlledRuntimeUtterance],
       },
     };
   }

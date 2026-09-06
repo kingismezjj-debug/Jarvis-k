@@ -108,7 +108,8 @@ describe("Core Host provider-backed Chat Answer manual acceptance wiring", () =>
     expect(schemaSource).toContain("chat-answer-product-mode.configure");
     expect(schemaSource).toContain("parseChatAnswerProductModeConfigurationMessage");
     expect(bindingSource).toContain("controlledRuntimeBindingChatAnswerProvider");
-    expect(bindingSource).toContain("OneShotFixedUtteranceChatAnswerProvider");
+    expect(bindingSource).not.toContain("OneShotFixedUtteranceChatAnswerProvider");
+    expect(bindingSource).not.toContain("forcedChatAnswerUtterances:");
     expect(compositionSource).toContain(
       "class OneShotFixedUtteranceChatAnswerProvider"
     );

@@ -164,7 +164,8 @@ export interface OpenAiCompatibleChatAnswerRuntimeStreamingCompletionRequest {
   ];
   readonly stream: true;
   readonly temperature: 0;
-  readonly max_tokens: 128 | 256;
+  readonly max_tokens: 2048;
+  readonly thinking?: { readonly type: "disabled" };
 }
 
 export interface OpenAiCompatibleChatAnswerRuntimeProviderOptions {
@@ -277,6 +278,7 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
     }
 
     let accumulated = "";
+    let completed = false;
     try {
       const chunks = this.options.transport.stream({
         profileId: this.profile.profileId,
@@ -298,6 +300,10 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
           return;
         }
         const parsedChunk = parseOpenAiCompatibleStreamingChunk(chunk);
+        if (parsedChunk.type === "finished") {
+          completed = true;
+          break;
+        }
         if (parsedChunk.type === "empty") {
           continue;
         }
@@ -337,6 +343,10 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
               text: parsedChunk.text
             }
           });
+          if (parsedChunk.finished) {
+            completed = true;
+            break;
+          }
         }
       }
     } catch (error) {
@@ -350,6 +360,14 @@ export class OpenAiCompatibleChatAnswerRuntimeProvider
       return;
     }
 
+    if (signal.aborted) {
+      yield adapterFailure("cancelled", "The answer was cancelled.", false);
+      return;
+    }
+    if (!completed) {
+      yield adapterFailure("malformed_response", "The answer ended before completion.", true);
+      return;
+    }
     const finalText = accumulated.trim();
     if (finalText.length === 0) {
       yield adapterFailure(
@@ -435,6 +453,7 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
       request.signal,
       request.timeoutMs
     );
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
       const response = await fetch(request.url, {
         method: "POST",
@@ -448,7 +467,7 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
       if (!response.body) {
         throw new OpenAiCompatibleChatAnswerRuntimeTransportFailure("connection");
       }
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       while (true) {
@@ -457,6 +476,9 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
           break;
         }
         buffer += decoder.decode(value, { stream: true });
+        if (buffer.length > 65_536) {
+          throw new OpenAiCompatibleChatAnswerRuntimeTransportFailure("connection");
+        }
         const events = drainSseEvents(buffer);
         buffer = events.remainder;
         for (const eventText of events.events) {
@@ -487,6 +509,8 @@ export class FetchOpenAiCompatibleChatAnswerRuntimeTransport
         )
       );
     } finally {
+      await reader?.cancel().catch(() => undefined);
+      reader?.releaseLock();
       abortScope.dispose();
     }
   }
@@ -687,7 +711,8 @@ export function createOpenAiCompatibleChatAnswerRuntimeStreamingCompletionReques
     ],
     stream: true,
     temperature: 0,
-    max_tokens: profile.maxOutputTokens
+    max_tokens: 2048,
+    ...(profile.family === "deepseek" ? { thinking: { type: "disabled" as const } } : {})
   };
 }
 
@@ -727,7 +752,8 @@ function parseResponseBody(text: string): unknown {
 
 type StreamingChunkParseResult =
   | { readonly type: "empty" }
-  | { readonly type: "delta"; readonly text: string }
+  | { readonly type: "finished" }
+  | { readonly type: "delta"; readonly text: string; readonly finished: boolean }
   | { readonly type: "tool_call" }
   | { readonly type: "malformed" };
 
@@ -741,22 +767,31 @@ function parseOpenAiCompatibleStreamingChunk(
   if (!isRecord(choice)) {
     return { type: "empty" };
   }
+  if (choice.finish_reason === "tool_calls" || choice.finish_reason === "function_call") {
+    return { type: "tool_call" };
+  }
+  if (choice.finish_reason != null && choice.finish_reason !== "stop") {
+    return { type: "malformed" };
+  }
+  const finished = choice.finish_reason === "stop";
   const delta = choice.delta;
   if (!isRecord(delta)) {
-    return { type: "empty" };
+    return { type: "malformed" };
   }
   if (hasOwn(delta, "tool_calls") || hasOwn(delta, "function_call")) {
     return { type: "tool_call" };
   }
   const content = delta.content;
   if (typeof content !== "string") {
-    return { type: "empty" };
+    return content == null
+      ? { type: finished ? "finished" : "empty" }
+      : { type: "malformed" };
   }
   const normalized = content.replace(/\s+/gu, " ");
   if (normalized.length === 0) {
-    return { type: "empty" };
+    return { type: finished ? "finished" : "empty" };
   }
-  return { type: "delta", text: normalized };
+  return { type: "delta", text: normalized, finished };
 }
 
 function drainSseEvents(buffer: string): {

@@ -87,6 +87,7 @@ interface ActiveAssistantTurn {
   readonly correlationId: string;
   readonly controller: AbortController;
   readonly runId: number;
+  finalizing: boolean;
 }
 
 const terminalStatuses = new Set(["completed", "cancelled", "failed", "interrupted"]);
@@ -185,6 +186,7 @@ export class AssistantRuntime {
       correlationId: input.correlationId,
       controller: new AbortController(),
       runId,
+      finalizing: false,
     };
     const accepted = this.applyEvent({
       type: "turn.accepted",
@@ -246,6 +248,13 @@ export class AssistantRuntime {
         message: "Assistant cancellation turnId does not match the active turn.",
       };
     }
+    if (active.finalizing) {
+      return {
+        ok: false,
+        code: "ASSISTANT_TURN_TERMINAL",
+        message: "The answer has finished and is being saved.",
+      };
+    }
     active.controller.abort();
     const cancelled = this.applyEvent({
       type: "turn.cancelled",
@@ -304,7 +313,7 @@ export class AssistantRuntime {
         }
         const event = AssistantModelAdapterEventSchema.parse(rawEvent);
         if (event.type === "delta") {
-          if (event.delta.kind !== "text" || event.delta.text.trim().length === 0) {
+          if (event.delta.kind !== "text" || event.delta.text.length === 0) {
             continue;
           }
           this.applyEvent({
@@ -374,6 +383,9 @@ export class AssistantRuntime {
       return;
     }
     try {
+      // Completion wins before persistence starts. A later cancel must not report
+      // success while a canonical message is already being committed.
+      if (this.active) this.active.finalizing = true;
       const message = await this.options.persistFinalMessage(
         finalText,
         input.conversationId,

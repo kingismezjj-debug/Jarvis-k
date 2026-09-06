@@ -47,6 +47,7 @@ interface StoredPublicCredentialConfiguration {
   readonly endpoint: string;
   readonly modelId: string;
   readonly encryptedCredentials?: string;
+  readonly enabled?: boolean;
 }
 
 export class SecureChatAnswerProviderStore {
@@ -134,6 +135,27 @@ export class SecureChatAnswerProviderStore {
   public async loadPublicConfiguration(): Promise<ChatAnswerProviderPublicConfiguration | null> {
     const stored = await this.loadStoredSafely();
     return stored ? parseStoredPublicConfiguration(stored, this.provider) : null;
+  }
+
+  public async loadEnabled(): Promise<boolean> {
+    const stored = await this.loadStoredSafely();
+    return stored?.version === 2 && stored.provider === this.provider &&
+      stored.enabled === true && Boolean(stored.encryptedCredentials);
+  }
+
+  // Only SettingsService's successful-test enable gate writes true. Configuration
+  // and credential writes replace this record without enabled, invalidating it.
+  public async setEnabled(enabled: boolean): Promise<void> {
+    const stored = await this.loadStoredSafely();
+    if (!stored || stored.version !== 2) {
+      if (!enabled) return;
+      throw new Error("Save the provider configuration before enabling.");
+    }
+    parseStoredPublicConfiguration(stored, this.provider);
+    if (enabled && !stored.encryptedCredentials) {
+      throw new Error("Save a provider credential before enabling.");
+    }
+    await this.writeStored({ ...stored, enabled });
   }
 
   public async savePublicConfiguration(
@@ -235,11 +257,15 @@ function parseStored(
   value: unknown
 ): StoredConfiguration | StoredPublicCredentialConfiguration {
   if (isRecord(value) && value.version === 2) {
+    if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
+      throw new Error("Invalid provider enablement.");
+    }
     return {
       version: 2,
       provider: parseProvider(value.provider),
       endpoint: requireSupportedEndpoint(value.endpoint),
       modelId: requireSupportedModelId(value.modelId),
+      ...(typeof value.enabled === "boolean" ? { enabled: value.enabled } : {}),
       ...(typeof value.encryptedCredentials === "string" &&
       value.encryptedCredentials.length > 0
         ? { encryptedCredentials: value.encryptedCredentials }

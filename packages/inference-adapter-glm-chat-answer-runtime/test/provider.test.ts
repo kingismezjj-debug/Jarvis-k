@@ -278,6 +278,7 @@ describe("GLM Chat Answer runtime provider", () => {
       streamingChunk("，Jarvis"),
       streamingChunk(""),
       streamingChunk("-K"),
+      { choices: [{ delta: {}, finish_reason: "stop" }] },
     ]);
     const provider = new DeepseekChatAnswerRuntimeProvider({
       credential: { apiKey: "test-deepseek-key" },
@@ -306,7 +307,8 @@ describe("GLM Chat Answer runtime provider", () => {
       model: DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
       stream: true,
       temperature: 0,
-      max_tokens: 128
+      max_tokens: 2048,
+      thinking: { type: "disabled" },
     });
     expect(transport.lastRequest?.body).not.toHaveProperty("tools");
     expect(transport.lastRequest?.body).not.toHaveProperty("tool_choice");
@@ -319,6 +321,7 @@ describe("GLM Chat Answer runtime provider", () => {
         { choices: [{ delta: { reasoning_content: "hidden reasoning" } }] },
         streamingChunk("最终"),
         streamingChunk("回答"),
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
       ])
     );
 
@@ -377,12 +380,31 @@ describe("GLM Chat Answer runtime provider", () => {
       model: DEEPSEEK_CHAT_ANSWER_RUNTIME_MODEL_ID,
       stream: true,
       temperature: 0,
-      max_tokens: 256
+      max_tokens: 2048,
+      thinking: { type: "disabled" },
     });
     expect(request).not.toHaveProperty("response_format");
     expect(request).not.toHaveProperty("tools");
     expect(request.messages[0].content).toContain("Do not call tools");
     expect(request.messages[1].content).toBe(fixedRequest.utterance);
+  });
+
+  it.each(["length", "content_filter", "unexpected", undefined])("never fabricates a final answer for finish reason %s", async reason => {
+    const chunks: unknown[] = [streamingChunk("未完成")];
+    if (reason !== undefined) chunks.push({ choices: [{ delta: {}, finish_reason: reason }] });
+    const events = await collectStream(streamingProvider(chunks));
+    expect(events.some(event => event.type === "final")).toBe(false);
+    expect(events.at(-1)).toMatchObject({ type: "failure", reason: "malformed_response" });
+  });
+
+  it("preserves word boundaries and ignores deltas after the terminal stop", async () => {
+    const events = await collectStream(streamingProvider([
+      streamingChunk("Hello"), streamingChunk(" "), streamingChunk("世界"),
+      { choices: [{ delta: {}, finish_reason: "stop" }] },
+      streamingChunk("stale"),
+    ]));
+    expect(events.at(-1)).toEqual({ type: "final", text: "Hello 世界" });
+    expect(JSON.stringify(events)).not.toContain("stale");
   });
 
   it("classifies DeepSeek array-content response shape without persisting content", () => {

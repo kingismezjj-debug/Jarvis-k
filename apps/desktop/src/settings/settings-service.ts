@@ -44,6 +44,8 @@ import {
 import type { LoginItemController } from "../login-item/login-item-controller";
 
 export interface SettingsServiceOptions {
+  loadChatAnswerProviderEnabled?: () => Promise<boolean>;
+  saveChatAnswerProviderEnabled?: (enabled: boolean) => Promise<void>;
   loadChatAnswerProviderConfiguration: () => Promise<ChatAnswerProviderConfiguration | null>;
   loadChatAnswerProviderPublicConfiguration?: () => Promise<ChatAnswerProviderPublicConfiguration | null>;
   saveChatAnswerProviderPublicConfiguration?: (
@@ -95,6 +97,7 @@ export class SettingsService {
   private commandRouterProductModeEnabled = false;
   private chatAnswerProductModeEnabled = false;
   private chatAnswerProductModeRuntimeArmed = false;
+  private chatAnswerConfigurationRevision = 0;
   private chatAnswerProviderConnectionTest: {
     status: ChatAnswerProviderConnectionTestStatus;
     attemptId?: string;
@@ -113,6 +116,22 @@ export class SettingsService {
 
   public constructor(private readonly options: SettingsServiceOptions) {
     this.desktopSettings = this.loadDesktopSettings();
+  }
+
+  public async restoreChatAnswerProviderRuntime(): Promise<void> {
+    try {
+      if (!(await this.options.loadChatAnswerProviderEnabled?.())) return;
+      const configuration = await this.options.loadChatAnswerProviderConfiguration();
+      if (!configuration) return;
+      // The enablement receipt belongs to this unchanged secure-store record.
+      // Restoring it never tests the connection or sends a model request.
+      this.chatAnswerProviderConnectionTest = { status: "success" };
+      this.options.configureChatAnswerProductMode({ enabled: true, configuration });
+      this.chatAnswerProductModeEnabled = true;
+      this.chatAnswerProductModeRuntimeArmed = true;
+    } catch {
+      this.disarmChatAnswerProviderRuntime();
+    }
   }
 
   public getUiSurfaceCapabilityStatus(): UiSurfaceCapabilityStatus {
@@ -651,29 +670,13 @@ export class SettingsService {
     status: ChatAnswerProductModeStatus;
   }> {
     const raw = asRecord(rawInput);
-    const requestedEnabled = raw.enabled === true;
-    if (
-      requestedEnabled &&
-      this.chatAnswerProviderConnectionTest.status !== "success"
-    ) {
-      this.disarmChatAnswerProviderRuntime();
-      return {
-        ok: false,
-        status: await this.getChatAnswerProductModeStatus(),
-      };
-    }
-    this.chatAnswerProductModeEnabled = requestedEnabled;
-    const configuration = requestedEnabled
-      ? await this.options.loadChatAnswerProviderConfiguration()
-      : null;
-    this.chatAnswerProductModeRuntimeArmed =
-      requestedEnabled && configuration !== null;
-    this.options.configureChatAnswerProductMode({
-      enabled: requestedEnabled,
-      ...(configuration ? { configuration } : {}),
+    const result = await this.setChatAnswerProviderConfigurationEnabled({
+      providerId: CHAT_ANSWER_DEEPSEEK_PROVIDER_ID,
+      enabled: raw.enabled === true,
+      requireRecentSuccessfulTest: true,
     });
     return {
-      ok: true,
+      ok: result.ok,
       status: await this.getChatAnswerProductModeStatus(),
     };
   }
@@ -765,6 +768,20 @@ export class SettingsService {
         "Online answer connection test was not confirmed.",
       );
     }
+    if (this.chatAnswerProviderConnectionTest.status === "testing") {
+      return this.chatAnswerProviderCommandFailure("A connection test is already running.");
+    }
+    const revision = this.chatAnswerConfigurationRevision;
+    this.chatAnswerProviderConnectionTest = {
+      status: "testing", attemptId: parsed.data.connectionTestAttemptId,
+    };
+    this.disarmChatAnswerProviderRuntime();
+    try {
+      await this.options.saveChatAnswerProviderEnabled?.(false);
+    } catch {
+      this.resetChatAnswerProviderTestState();
+      return this.chatAnswerProviderCommandFailure("Online answer service state could not be saved.");
+    }
     const configuration = await this.options.loadChatAnswerProviderConfiguration();
     if (!configuration) {
       this.resetChatAnswerProviderTestState();
@@ -779,6 +796,9 @@ export class SettingsService {
     try {
       const status =
         await this.options.testChatAnswerProviderConnection(configuration);
+      if (revision !== this.chatAnswerConfigurationRevision) {
+        return this.chatAnswerProviderCommandFailure("Configuration changed; the old test result was ignored.");
+      }
       this.chatAnswerProviderConnectionTest = {
         status,
         attemptId: parsed.data.connectionTestAttemptId,
@@ -793,6 +813,9 @@ export class SettingsService {
         ),
       };
     } catch {
+      if (revision !== this.chatAnswerConfigurationRevision) {
+        return this.chatAnswerProviderCommandFailure("Configuration changed; the old test result was ignored.");
+      }
       this.chatAnswerProviderConnectionTest = {
         status: "unknown_failure",
         attemptId: parsed.data.connectionTestAttemptId,
@@ -818,6 +841,13 @@ export class SettingsService {
     }
     if (!parsed.data.enabled) {
       this.disarmChatAnswerProviderRuntime();
+      try {
+        await this.options.saveChatAnswerProviderEnabled?.(false);
+      } catch {
+        return this.chatAnswerProviderCommandFailure(
+          "Online answers stopped, but the saved setting could not be updated.",
+        );
+      }
       return {
         ok: true,
         status: await this.buildChatAnswerProviderConfigurationStatus(
@@ -838,12 +868,20 @@ export class SettingsService {
         "Save the online answer service and key before enabling.",
       );
     }
-    this.chatAnswerProductModeEnabled = true;
-    this.chatAnswerProductModeRuntimeArmed = true;
+    try {
+      await this.options.saveChatAnswerProviderEnabled?.(true);
+    } catch {
+      this.disarmChatAnswerProviderRuntime();
+      return this.chatAnswerProviderCommandFailure(
+        "Online answer service enablement could not be saved.",
+      );
+    }
     this.options.configureChatAnswerProductMode({
       enabled: true,
       configuration,
     });
+    this.chatAnswerProductModeEnabled = true;
+    this.chatAnswerProductModeRuntimeArmed = true;
     return {
       ok: true,
       status: await this.buildChatAnswerProviderConfigurationStatus(
@@ -949,6 +987,7 @@ export class SettingsService {
   }
 
   private resetChatAnswerProviderTestState(): void {
+    this.chatAnswerConfigurationRevision += 1;
     this.chatAnswerProviderConnectionTest = { status: "not_tested" };
   }
 

@@ -7,10 +7,8 @@ export const ASSISTANT_LOOP_STREAM_BUFFER_MAX_CHARS = 8_000 as const;
 
 const ReferenceIdSchema = z.string().trim().min(1).max(128);
 const ReasonCodeSchema = z.string().regex(/^[A-Z0-9_:. -]{1,160}$/u);
-function safePublicString(maxLength: number): z.ZodEffects<z.ZodString, string, string> {
-  return z
-    .string()
-    .trim()
+function safePublicString(maxLength: number, preserveSpaces = false): z.ZodEffects<z.ZodString, string, string> {
+  return (preserveSpaces ? z.string() : z.string().trim())
     .min(1)
     .max(maxLength)
     .superRefine((value, context) => {
@@ -205,7 +203,7 @@ export const AssistantStreamDeltaSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("text"),
-      text: safePublicString(2_000),
+      text: safePublicString(2_000, true),
     })
     .strict(),
   z

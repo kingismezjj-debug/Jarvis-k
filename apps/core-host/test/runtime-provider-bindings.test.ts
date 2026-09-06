@@ -92,11 +92,44 @@ describe("Core Host runtime provider bindings", () => {
     expect(result.options).toEqual({
       enabled: true,
       providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
-      forcedChatAnswerUtterances: ["controlled utterance"],
     });
     expect(JSON.stringify(result)).not.toContain(
       placeholderCredential.apiKey,
     );
+  });
+
+  it("arms ordinary repeated streaming questions through the product binding without a request on enable", async () => {
+    let calls = 0;
+    const binding = new ChatAnswerRuntimeBinding({
+      activeChatAnswer: undefined,
+      configurableChatAnswerProvider: undefined,
+      initialChatAnswerProvider: undefined,
+      initialChatAnswerOptions: undefined,
+      controlledRuntimeUtterance: "legacy acceptance only",
+      transport: {
+        send: async () => { throw new Error("Unexpected non-stream request"); },
+        async *stream(request) {
+          calls += 1;
+          expect(request.body).toMatchObject({ stream: true, thinking: { type: "disabled" } });
+          yield { choices: [{ delta: { content: "普通 " }, finish_reason: null }] };
+          yield { choices: [{ delta: { content: "回答" }, finish_reason: "stop" }] };
+        },
+      },
+    });
+    const result = binding.applyProductModeConfiguration({ enabled: true, credential: placeholderCredential });
+    expect(calls).toBe(0);
+    expect(result.options?.forcedChatAnswerUtterances).toBeUndefined();
+    for (const utterance of ["请解释流式回答", "取消后重试正常"]) {
+      const events = await collectEvents(result.provider!.startTextTurn!({
+        providerId: DEEPSEEK_CHAT_ANSWER_RUNTIME_PROVIDER_ID,
+        utterance, source: "text", routedAt: "2026-09-06T00:00:00.000Z",
+        routerDecision: { intent: "chat.answer", confidence: 0.8, requiresApproval: false, slots: {}, reason: "Conversational question" },
+      }, {}, new AbortController().signal));
+      expect(events.at(-1)).toEqual({ type: "final", text: "普通 回答" });
+    }
+    expect(calls).toBe(2);
+    binding.applyProductModeConfiguration({ enabled: false });
+    expect(JSON.stringify(result.provider)).toContain('"configured":false');
   });
 
   it("forwards configured chat answer streaming capability and abort signals", async () => {

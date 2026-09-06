@@ -24,7 +24,8 @@ const preferenceProjection = ChatAnswerPreferenceProjectionSchema.parse({
 describe("assistant runtime streaming loop", () => {
   it("projects multi-delta streaming and persists one canonical final message", async () => {
     const harness = createHarness([
-      delta("Hello "),
+      delta("Hello"),
+      delta(" "),
       delta("世界"),
       final("Hello 世界"),
       final("ignored duplicate"),
@@ -35,10 +36,10 @@ describe("assistant runtime streaming loop", () => {
     await harness.waitForStatus("completed");
 
     expect(harness.persistedMessages).toHaveLength(1);
-    expect(harness.persistedMessages[0]?.text).toBe("Hello世界");
+    expect(harness.persistedMessages[0]?.text).toBe("Hello 世界");
     expect(harness.lastProjection()?.status).toBe("completed");
-    expect(harness.lastProjection()?.streamText).toBe("Hello世界");
-    expect(harness.lastProjection()?.finalAnswer?.text).toBe("Hello世界");
+    expect(harness.lastProjection()?.streamText).toBe("Hello 世界");
+    expect(harness.lastProjection()?.finalAnswer?.text).toBe("Hello 世界");
   });
 
   it("flushes the first text projection immediately and batches later deltas", async () => {
@@ -64,6 +65,24 @@ describe("assistant runtime streaming loop", () => {
     expect(publishCountAfterFirstToken).toBeGreaterThanOrEqual(2);
     expect(harness.scheduler.pendingCount()).toBeLessThanOrEqual(1);
     expect(harness.lastProjection()?.streamText).toBe("ABC");
+  });
+
+  it("does not accept cancellation once the completed answer is committing", async () => {
+    const saving = createDeferred<void>();
+    let committing = false;
+    const harness = createHarness([delta("finished"), final("finished")], async () => {
+      committing = true;
+      await saving.promise;
+    });
+    const started = harness.start();
+    if (!started.ok) throw new Error("Turn did not start");
+    for (let index = 0; index < 20 && !committing; index += 1) await Promise.resolve();
+    expect(committing).toBe(true);
+    expect(harness.runtime.cancel(started.turnId)).toMatchObject({ ok: false, code: "ASSISTANT_TURN_TERMINAL" });
+    expect(harness.start()).toMatchObject({ ok: false, code: "ASSISTANT_TURN_ALREADY_ACTIVE" });
+    saving.resolve();
+    await harness.waitForStatus("completed");
+    expect(harness.persistedMessages).toHaveLength(1);
   });
 
   it("ignores empty deltas and accepts a no-delta final replacement", async () => {
@@ -193,6 +212,7 @@ function createHarness(
   events: Array<
     AssistantModelAdapterEvent | (() => Promise<AssistantModelAdapterEvent>)
   >,
+  beforePersist?: () => Promise<void>,
 ) {
   const adapter = new FakeStreamingAdapter(events);
   const scheduler = new FakeScheduler();
@@ -203,6 +223,7 @@ function createHarness(
     getProviderId: () => "chat-answer.openai-compatible.deepseek",
     getModelAdapter: () => adapter,
     persistFinalMessage: async (text, conversationId) => {
+      await beforePersist?.();
       const message: Message = {
         id: `msg-${idCounter}`,
         conversationId,
