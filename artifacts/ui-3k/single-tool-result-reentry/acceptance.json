@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "phase": "UI-3K-2C",
+  "recordedDate": "2026-09-06",
+  "completionLevel": "L4",
+  "baselineCommit": "77e2d70f43b0b1ad8e9e26e570a199e07414731b",
+  "implementationCommit": "c4a0d2eb67c4bb75857308a2ae7e46ed6dbae8e8",
+  "baseline": {
+    "headMatchedOrigin": true,
+    "worktreeClean": true,
+    "jarvisAndCoreHostProcessCount": 0,
+    "runIdentityCounts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "deepseekStreamingFullyAccepted": true
+  },
+  "tool": {
+    "internalId": "model.status",
+    "providerName": "model_status",
+    "fixedBidirectionalMapping": true,
+    "argumentsSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "executionOwner": "core",
+    "classification": "read_only_idempotent",
+    "source": "in_memory_model_status",
+    "maxToolIterations": 1,
+    "maxToolsPerIteration": 1,
+    "timeoutMs": 1000
+  },
+  "userObserved": {
+    "naturalLanguageStatusAnswer": true,
+    "visibleProgress": true,
+    "singleFinalBubble": true,
+    "finalExplicitExitConfirmed": true
+  },
+  "safeRuntimeObservations": {
+    "basis": "read_only_formal_bridge_projections_during_user_operated_turn",
+    "observedTurns": 1,
+    "completed": true,
+    "proposalCount": 1,
+    "allowedOnlyModelStatus": true,
+    "executionCount": 1,
+    "executionCompleted": true,
+    "taskCorrelationCorrect": true,
+    "taskCompleted": true,
+    "policyAllowed": true,
+    "tasksCreatedSinceTurn": 1,
+    "onlyStatusTaskSinceTurn": true,
+    "otherTaskStatesChanged": false,
+    "canonicalFinalCount": 1,
+    "usedToolIterations": 1,
+    "states": [
+      "thinking",
+      "streaming",
+      "executing",
+      "synthesizing",
+      "completed"
+    ],
+    "incrementalProjectionCount": 11,
+    "inputAndSendRecovered": true,
+    "transientRemoved": true,
+    "countBasis": "first_to_last_snapshot_of_same_turn_and_task_creation_time_excluding_historical_hydration"
+  },
+  "sourceAndTestInference": {
+    "governance": {
+      "registryLookup": true,
+      "strictArguments": true,
+      "sharedFixtureAndRealPolicy": true,
+      "existingTaskLifecycle": true,
+      "explicitPolicyDecision": true,
+      "approvalBypass": false,
+      "providerControlsRiskOrAuthority": false
+    },
+    "normalization": {
+      "rawCallIdAdapterPrivate": true,
+      "unknownMalformedDuplicateAndMultipleCallsRejected": true,
+      "parallelToolsAllowed": false,
+      "secondIterationRejected": true
+    },
+    "result": {
+      "strictStructuredStatusOnly": true,
+      "runtimeModeEnum": true,
+      "operationCountsMax": 1024,
+      "activeCountAtMostTotal": true,
+      "turnProposalExecutionTaskCorrelated": true,
+      "safeFailureContinuation": true,
+      "rawOutputAllowed": false
+    },
+    "continuation": {
+      "sameTurn": true,
+      "samePinnedProvider": true,
+      "officialAssistantToolCallsAndToolRole": true,
+      "adapterPrivateToolCallId": true,
+      "finalOwner": "assistant_runtime",
+      "finalPersistenceCount": 1
+    },
+    "cancellation": {
+      "basis": "source_and_controlled_tests",
+      "beforeFirstOutput": true,
+      "afterProposalBeforeExecution": true,
+      "duringExecution": true,
+      "duringContinuation": true,
+      "lateToolResultIgnored": true,
+      "lateProviderFinalIgnored": true,
+      "unstartedToolNotExecuted": true,
+      "postCancelContinuationNotStarted": true,
+      "retryPassed": true,
+      "realCancellationRetestedThisPhase": false
+    },
+    "safety": {
+      "credentialExposureObserved": false,
+      "reasoningExposure": "absent_by_source_and_tests",
+      "rawProviderExposure": "absent_by_source_and_tests",
+      "userFileContentRead": false,
+      "userDirectorySearch": false,
+      "rawUserPathInToolResult": false,
+      "windowsActionReachable": false,
+      "additionalToolAdded": false
+    },
+    "validation": {
+      "implementationFullTestFilesPassed": 322,
+      "implementationFullTestsPassed": 2292,
+      "focusedTests": "pass",
+      "formalAgentRunBrainCommandSuccessAndFailure": "pass",
+      "cleanEnvironmentVerify": "pass",
+      "uiStringAudit": "pass",
+      "boundaries": "pass",
+      "sensitiveArtifacts": "pass",
+      "fakeFormalEntryDesktopSmoke": "pass",
+      "automatedRealNetworkRequestSent": false
+    }
+  },
+  "realRequests": {
+    "userInitiatedTurns": 1,
+    "newConnectionTests": 0,
+    "inferredUserInitiatedProviderRequests": 2,
+    "countBasis": "one_initial_proposal_request_and_one_result_continuation_inferred_from_source_and_safe_turn_states",
+    "wireCountMeasured": false,
+    "automatedRealRequests": 0
+  },
+  "finalExitSafeStatus": {
+    "jarvisAndCoreHostProcessCount": 0,
+    "hkcuRunJarvisIdentities": 0,
+    "hklmRunJarvisIdentities": 0,
+    "hkcuWow6432RunJarvisIdentities": 0,
+    "hklmWow6432RunJarvisIdentities": 0
+  },
+  "decision": {
+    "ui3k2cFullyAccepted": true,
+    "nextPhaseStarted": false,
+    "effectfulToolsAllowed": false,
+    "releaseReady": false
+  }
+}
