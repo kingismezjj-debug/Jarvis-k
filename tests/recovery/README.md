@@ -10,6 +10,7 @@ Commands (run from the repository):
 npm run recovery:harness -- prepare --scenario A
 npm run recovery:harness -- launch --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename>
+npm run recovery:harness -- inspect --scenario <returned-profile-basename> --stage first_exit
 npm run recovery:harness -- resolve-crash-targets --scenario <returned-profile-basename>
 npm run recovery:harness -- cleanup --scenario <returned-profile-basename>
 npm run test:recovery-harness
@@ -78,3 +79,65 @@ fails before identity capture, retain it rather than guessing ownership of proce
 Production exclusion is checked by scanning source imports and compiled product
 files, checking source build roots and electron-builder exclusions. No production
 source imports this directory; no packaged crash switch or IPC route is added.
+
+## Safe inspection diagnostics (H1, L2 automated testing)
+
+`inspect` is now a **test-profile write operation**: it reads the synthetic state and
+atomically records a bounded inspection result in the owned control directory.
+Do not run it on a retained profile that is under a no-modification restriction.
+The earlier D profile remains untouched; H1 does not recover its lost exception.
+No manual acceptance or product recovery behavior is changed by these helpers.
+
+`recoveryRuns` has exactly one meaning: **recovery startup attempts**, incremented
+once when the startup recovery barrier is entered (including repeat starts), not
+the number of recovery records inserted. B preparation is excluded. First recovery
+expects 1; second expects 2. Inspection and normal exit never increment this counter.
+
+Stages are `prepare`, `launch` (B preparation), `first_recovery`, `first_exit`,
+`second_recovery`, `second_exit`, and `cleanup`. An explicit `--stage` is preferred
+for manual inspection. Without it, inspect selects prepare for zero attempts,
+first_exit for one, and second_exit otherwise; stage expectations still reject
+excess attempts. Active recovery inspection verifies the captured process identity;
+exit inspection requires the captured instance to be fully gone.
+
+The authoritative assertion catalog is `diagnostics.cjs` (`CATALOG`). It covers
+scenario classification, terminal projection/event counts, journal event counts,
+Task interruption, canonical/all-final message counts, quarantine, tool-result and
+continuation counts, recovery attempts, all provider/executor/Notepad counters,
+profile ownership, process exit/identity, journal integrity, native/stale approval,
+recovery UI/editor/send/alternate-submit states, result integrity/write, stage,
+seed, cleanup, startup/barrier, and repeated-recovery idempotency.
+
+Every failure contains exactly `assertion`, `expected`, `actual`, `stage`, and
+`classification`. Values are booleans, fixed enum strings, or integers 0–4096.
+Unreadable values use `unavailable`; arbitrary values never reach output.
+`assertion_failed` means a fact was read successfully but differed from its expected
+value. `inspection_error` means the checker could not complete; persistence and
+process readers instead report `persistence_unavailable` and
+`process_state_unavailable`. Original exceptions, stacks, identities and free text
+are never serialized. The CLI preserves these failures instead of collapsing them.
+
+Each result has schemaVersion 1, scenario, stage, PASS/FAIL verdict, assertion count,
+optional firstFailure, safeCounters, and generatedAt=`stage_completed` (a relative
+phase marker). A stage-specific pending file is exclusively created, flushed and
+closed before rename. Pending, truncated, oversized, wrong-stage/scenario, unknown
+schema, unknown fields and corrupt prior results fail closed. There is no fallback
+to a partially written result. Safe failure artifacts use the same restricted
+envelope; no raw diagnostic file is collected into acceptance evidence.
+
+Formal D expectations, shared by CLI, Desktop exit checks and smoke:
+
+| Fact | First recovery/exit | Second recovery/exit |
+|---|---|---|
+| Recovery classification | interrupted_after_tool_result | unchanged |
+| Terminal projection / terminal event | 1 / 1 | 1 / 1 |
+| Assistant events / Task interruption | 7 / 1 | 7 / 1 |
+| Canonical messages / final messages | 0 / 0 | 0 / 0 |
+| Recorded tool results / continuation | 1 / 0 | 1 / 0 |
+| recoveryRuns (attempts) | 1 | 2 |
+| Provider / executor / Notepad counts | all 0 | all 0 |
+
+Second exit also reads the first_exit PASS artifact and compares all safe logical
+counts except recoveryRuns. Missing or invalid first results never certify
+idempotency. Existing A–F expectations remain enforced, including F quarantine and
+disabled inputs, E one canonical final message, and B's one fake preparation call.

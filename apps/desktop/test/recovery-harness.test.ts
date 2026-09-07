@@ -104,7 +104,7 @@ describe('isolated recovery harness boundaries', () => {
     const { main } = await import('../../../tests/recovery/cli.mjs');
     const p = make('A'); await S.seed(p);
     const result = await main(['inspect', '--scenario', p.id]);
-    expect(Object.keys(result).sort()).toEqual(['classification', 'counts', 'pass', 'profile', 'scenario']);
+    expect(result).toMatchObject({ schemaVersion: 1, scenario: 'A', stage: 'prepare', verdict: 'PASS' });
     expect(JSON.stringify(result)).not.toMatch(/Authorization|credential|payload|synthetic-final|[A-Z]:\\|"pid"/i);
     await expect(main(['inspect', '--scenario', p.root])).rejects.toThrow();
   });

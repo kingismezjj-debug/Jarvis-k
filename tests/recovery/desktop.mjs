@@ -1,67 +1,84 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import assert from 'node:assert/strict';
 import { _electron } from 'playwright';
 import P from './profile.cjs';
 import processes from './processes.cjs';
 import state from './state.cjs';
+import D from './diagnostics.cjs';
+import I from './inspection.cjs';
 
 export async function launch(p, phase) {
-  p = P.validateTree(p); assert.ok(processes.inactive(p), 'PROFILE_BUSY');
-  assert.ok(fs.existsSync(path.join(p.control, 'seeded')));
-  if (phase === 'preparation') { assert.equal(p.scenario, 'B'); assert.equal(P.counts(p).preparationFakeProviderCalls, 0); }
-  else if (p.scenario === 'B') assert.equal(P.counts(p).preparationFakeProviderCalls, 1);
+  const ctx = D.context('launch');
+  try {
+    p = await ctx.read('profile_ownership', 'inspection_error', () => P.validateTree(p));
+    const c = await ctx.read('recovery_run_count', 'persistence_unavailable', () => P.counts(p));
+    return await launchOwned(p, phase, D.context(phase === 'preparation' ? 'launch' : c.recoveryRuns === 0 ? 'first_recovery' : 'second_recovery'));
+  } catch (error) { throw new D.SafeFailure(D.safeFailure(error, ctx.stage)); }
+}
+async function launchOwned(p, phase, ctx) {
+  let app;
+  let stage = 'profile_ownership';
+  try {
+  ctx.check('process_exit_state', true, await ctx.read('process_exit_state', 'process_state_unavailable', () => processes.inactive(p)));
+  ctx.check('profile_seed', true, fs.existsSync(path.join(p.control, 'seeded')));
+  const initialCounts = await ctx.read('preparation_provider_count', 'persistence_unavailable', () => P.counts(p));
+  ctx.check('preparation_provider_count', phase === 'preparation' ? 0 : p.scenario === 'B' ? 1 : 0, initialCounts.preparationFakeProviderCalls);
+  ctx.check('recovery_run_count', ctx.stage === 'second_recovery' ? 1 : 0, initialCounts.recoveryRuns);
   for (const name of ['core-attestation.json', 'recovery-ready.json']) {
     const file = path.join(p.control, name); if (fs.existsSync(file)) fs.unlinkSync(P.canonical(file));
   }
   fs.writeFileSync(path.join(p.control, 'launch.lock'), p.nonce, { flag: 'wx' });
   fs.writeFileSync(path.join(p.control, 'ever-launched'), 'yes');
-  let app;
-  let stage = 'electron_start';
-  try {
+    stage = 'desktop_start';
     app = await _electron.launch({ cwd: P.REPO, args: ['tests/recovery/bootstrap.cjs', `--jarvis-recovery-nonce=${p.nonce}`], env: P.environment(p, phase), timeout: 30000 });
-    stage = 'first_window'; const page = await app.firstWindow(); page.setDefaultTimeout(15000);
-    stage = 'ui_ready';
+    const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     await page.getByTestId('jarvis-app').waitFor();
-    stage = 'snapshot_ready';
+    stage = 'recovery_barrier';
     await page.waitForFunction(async () => {
       const r = await window.jarvis.getSnapshot(); return r.ok && (r.data.health === 'ready' || r.data.assistantRecoveryBlocked === true);
     });
-    stage = 'durable_ready';
     // Wait for the durable startup barrier, including the intentionally blocked F state.
     for (let n = 0; !fs.existsSync(path.join(p.control, 'recovery-ready.json')); n++) {
-      assert.ok(n < 200, 'RECOVERY_TIMEOUT'); await new Promise(resolve => setTimeout(resolve, 50));
+      ctx.check('recovery_barrier', true, n < 200); await new Promise(resolve => setTimeout(resolve, 50));
     }
     if (phase === 'preparation') {
-      stage = 'native_approval';
+      stage = 'native_approval_projection';
       await page.getByTestId('assistant-native-approval').waitFor();
-      assert.equal(await page.getByTestId('assistant-tool-allow').isEnabled(), true);
-      assert.equal(await page.getByTestId('assistant-tool-deny').isEnabled(), true);
+      ctx.check('native_approval_projection', true, await page.getByTestId('assistant-tool-allow').isEnabled());
+      ctx.check('native_approval_projection', true, await page.getByTestId('assistant-tool-deny').isEnabled());
       const native = await page.evaluate(async () => {
         const snapshot = (await window.jarvis.getSnapshot()).data;
         return { proposals: snapshot.assistantTurn?.proposals?.length,
           awaitingApproval: snapshot.assistantTurn?.status === 'awaiting_approval',
           pendingTasks: snapshot.tasks.filter(task => task.state === 'awaiting_confirmation').length };
       });
-      assert.deepEqual(native, { proposals: 1, awaitingApproval: true, pendingTasks: 1 });
+      ctx.check('native_approval_projection', true, native.proposals === 1 && native.awaitingApproval === true && native.pendingTasks === 1);
     } else {
-      stage = 'recovery_ui';
+      stage = 'recovery_barrier';
       await page.waitForFunction(async () => {
         const r = await window.jarvis.getSnapshot(); return r.ok && (r.data.assistantRecoveries?.length > 0 || r.data.assistantRecoveryBlocked || r.data.health === 'ready');
       });
-      assert.equal(await page.getByTestId('assistant-native-approval').count(), 0);
-      assert.equal(await page.getByTestId('assistant-streaming-turn').count(), 0);
+      ctx.check('native_approval_projection', 0, await page.getByTestId('assistant-native-approval').count());
+      ctx.check('streaming_bubble_count', 0, await page.getByTestId('assistant-streaming-turn').count());
       const expected = ['A', 'B', 'C', 'D'].includes(p.scenario) ? 1 : 0;
-      await page.waitForFunction(expected => document.querySelectorAll('[data-testid="assistant-recovery-notice"]').length === expected, expected);
-      await page.waitForFunction(blocked => document.querySelector('[data-testid="send-command"]')?.disabled === blocked, p.scenario === 'F');
-      assert.equal(await page.getByTestId('command-input').isEditable(), p.scenario !== 'F');
+      stage = 'recovery_notice_count';
+      await page.waitForFunction(expected => document.querySelectorAll('[data-testid="assistant-recovery-notice"]').length === expected, expected)
+        .catch(error => { if (error?.name !== 'TimeoutError') throw error; });
+      ctx.check('recovery_notice_count', expected, await page.getByTestId('assistant-recovery-notice').count());
+      stage = 'send_state';
+      await page.waitForFunction(blocked => document.querySelector('[data-testid="send-command"]')?.disabled === blocked, p.scenario === 'F')
+        .catch(error => { if (error?.name !== 'TimeoutError') throw error; });
+      ctx.check('send_state', p.scenario === 'F', await page.getByTestId('send-command').isDisabled());
+      stage = 'editor_state';
+      ctx.check('editor_state', p.scenario !== 'F', await page.getByTestId('command-input').isEditable());
       if (p.scenario === 'F') {
-        assert.equal(await page.getByTestId('command-input').isDisabled(), true);
-        assert.equal(await page.getByTestId('command-input').getAttribute('aria-disabled'), 'true');
+        ctx.check('editor_state', true, await page.getByTestId('command-input').isDisabled());
+        ctx.check('editor_state', true, (await page.getByTestId('command-input').getAttribute('aria-disabled')) === 'true');
         await page.getByTestId('command-input').evaluate(input => input.focus());
-        assert.equal(await page.getByTestId('command-input').evaluate(input => input === document.activeElement), false);
+        ctx.check('editor_state', false, await page.getByTestId('command-input').evaluate(input => input === document.activeElement));
+        stage = 'alternate_submit_blocked';
         await page.keyboard.type('Synthetic blocked draft'); await page.keyboard.press('Enter'); await page.keyboard.press('Control+Enter');
-        assert.equal(await page.getByTestId('command-input').inputValue(), '');
+        ctx.check('alternate_submit_blocked', true, (await page.getByTestId('command-input').inputValue()) === '');
         await page.getByTestId('command-input').evaluate(input => input.closest('form').requestSubmit());
         // Exercise the existing bridge's alternate text and synthetic voice-submit
         // routes directly, without microphone/ASR, a provider, or any real executor.
@@ -77,72 +94,90 @@ export async function launch(p, phase) {
           return { before, after: (await window.jarvis.getSnapshot()).data.messages.length,
             blocked: results.every(r => !r.ok && r.error.code === 'ASSISTANT_RECOVERY_BLOCKED') };
         });
-        assert.deepEqual(result, { before: 0, after: 0, blocked: true });
+        ctx.check('canonical_message_count', 0, result.before);
+        ctx.check('canonical_message_count', 0, result.after);
+        ctx.check('alternate_submit_blocked', true, result.blocked);
       }
       if (p.scenario === 'C') {
         const notice = await page.getByTestId('assistant-recovery-notice').innerText();
-        assert.match(notice, /执行结果未知|execution result is unknown/i);
-        assert.doesNotMatch(notice, /启动成功|执行成功|执行失败/);
+        ctx.check('safe_recovery_wording', true, /执行结果未知|execution result is unknown/i.test(notice));
+        ctx.check('safe_recovery_wording', false, /启动成功|执行成功|执行失败/.test(notice));
       }
-      if (p.scenario === 'E') assert.equal(await page.getByText('Synthetic completed response.', { exact: true }).count(), 1);
+      if (p.scenario === 'E') ctx.check('canonical_final_message_count', 1, await page.getByText('Synthetic completed response.', { exact: true }).count());
     }
-    const core = JSON.parse(fs.readFileSync(P.canonical(path.join(p.control, 'core-attestation.json')), 'utf8'));
-    stage = 'process_capture';
-    assert.equal(core.nonce, p.nonce);
+    stage = 'process_identity';
+    const core = await ctx.read('process_identity', 'process_state_unavailable', () => JSON.parse(fs.readFileSync(P.canonical(path.join(p.control, 'core-attestation.json')), 'utf8')));
+    ctx.check('process_identity', true, core.nonce === p.nonce);
     const mainPid = await app.evaluate(() => process.pid);
     const currentProcesses = processes.rows();
-    assert.equal(currentProcesses.find(row => row.pid === core.pid)?.parent, core.parent);
+    ctx.check('process_identity', true, currentProcesses.find(row => row.pid === core.pid)?.parent === core.parent);
     const renderer = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(w => w.webContents.getOSProcessId()));
     const roles = { [core.pid]: 'core_host', ...Object.fromEntries(renderer.map(pid => [pid, 'renderer'])) };
     const captured = processes.capture(p, mainPid, roles, currentProcesses);
     processes.attestNonce(p, captured.entries);
-    P.validateZero(p);
-    return { app, page, p, phase, async close() {
-      await app.evaluate(({ app }) => app.quit()); await app.close();
+    const c = await ctx.read('recovery_run_count', 'persistence_unavailable', () => P.counts(p));
+    I.checkCounters(ctx, c, p.scenario, true);
+    const inspection = phase === 'preparation' ? D.writeResult(p, D.result(p.scenario, ctx, c)) : I.requirePass(await I.inspect(p, ctx.stage));
+    async function finishExit() {
+      const exit = D.context(phase === 'preparation' ? 'launch' : ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit');
+      try {
+      await exit.read('process_exit_state', 'process_state_unavailable', () => app.close());
       for (let i = 0; i < 100; i++) {
-        const live = processes.rows(); const manifest = JSON.parse(fs.readFileSync(path.join(p.control, 'processes.json'), 'utf8'));
+        const live = await exit.read('process_exit_state', 'process_state_unavailable', () => processes.rows());
+        const manifest = await exit.read('process_identity', 'process_state_unavailable', () => JSON.parse(fs.readFileSync(P.canonical(path.join(p.control, 'processes.json')), 'utf8')));
         if (manifest.entries.every(e => !live.some(r => r.pid === e.pid || r.parent === e.pid))) {
-          fs.unlinkSync(path.join(p.control, 'launch.lock')); assert.ok(processes.inactive(p, live)); P.validateZero(p); return;
+          fs.unlinkSync(path.join(p.control, 'launch.lock'));
+          exit.check('process_exit_state', true, processes.inactive(p, live));
+          if (phase !== 'preparation') return I.requirePass(await I.inspect(p, exit.stage));
+          const counts = P.counts(p); I.checkCounters(exit, counts, p.scenario, true);
+          return D.writeResult(p, D.result(p.scenario, exit, counts));
         }
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      throw new Error('PROCESS_REMAINS');
+      exit.check('process_exit_state', true, false);
+      } catch (error) { D.recordFailure(p, exit, error); }
+    }
+    return { app, page, p, phase, inspection, finishExit, async close() {
+      try { await app.evaluate(({ app }) => app.quit()); }
+      catch { throw D.failure('process_exit_state', ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit', 'process_state_unavailable'); }
+      return finishExit();
     } };
   } catch (error) {
-    const setup = /RECOVERY_BOOTSTRAP_FAILURE:(\{"classification":"[a-z_0-9]+"\})/.exec(error?.message || '');
-    const site = /(?:processes\.cjs|desktop\.mjs):(\d+)/.exec(error?.stack || '');
-    P.atomic(path.join(p.control, 'diagnostic.json'), { stage, classification: setup ? JSON.parse(setup[1]).classification : error?.name === 'TimeoutError' ? 'timeout' : site ? 'harness_check_' + site[1] : 'assertion_or_startup_failure' });
     // Graceful exit only; no fallback kill. Uncertain ownership/lock is retained for inspection.
     if (app) { try { await app.evaluate(({ app }) => app.quit()); await app.close(); } catch {} }
-    throw new Error('ISOLATED_DESKTOP_LAUNCH_FAILED');
+    D.recordFailure(p, ctx, new D.SafeFailure(D.safeFailure(error, ctx.stage, stage,
+      stage === 'process_identity' ? 'process_state_unavailable' : 'inspection_error')));
   }
 }
 
 export async function smoke() {
   const output = [];
   for (const scenario of ['A', 'B', 'C', 'D', 'E', 'F']) {
-    const p = P.create(scenario); await state.seed(p);
+    const prepare = D.context('prepare');
+    const p = await prepare.read('profile_ownership', 'inspection_error', () => P.create(scenario));
+    await prepare.read('profile_seed', 'persistence_unavailable', () => state.seed(p));
+    I.requirePass(await I.inspect(p, 'prepare'));
     if (scenario === 'B') { const app = await launch(p, 'preparation'); await app.close(); }
-    let first;
+    let result;
     for (let n = 0; n < 2; n++) {
-      const app = await launch(p, 'recovery'); await app.close();
-      const result = await state.inspect(p);
+      const app = await launch(p, 'recovery'); result = await app.close();
       if (scenario === 'B') {
+        const ctx = D.context(n === 0 ? 'first_exit' : 'second_exit');
+        try {
         const { tasks } = await state.repositories(p);
         const { PlannerApprovalService } = await import('../../packages/core/dist/planner/planner-approval-service.js');
-        const task = (await tasks.listTasks())[0]; assert.equal(task.state, 'interrupted');
+        const task = (await tasks.listTasks())[0]; ctx.check('stale_approval_rejected', true, task.state === 'interrupted');
         const approval = new PlannerApprovalService({ repository: tasks, now: state.now });
-        assert.equal((await approval.approve({ taskId: task.id, executeStep: async () => {
+        ctx.check('stale_approval_rejected', false, (await approval.approve({ taskId: task.id, executeStep: async () => {
           P.count(p, 'recoveryExecutorCalls'); throw new Error('STALE_APPROVAL_EXECUTION');
-        } })).ok, false);
+        } })).ok);
+        I.checkCounters(ctx, P.counts(p), scenario, true);
+        } catch (error) { D.recordFailure(p, ctx, new D.SafeFailure(D.safeFailure(error, ctx.stage, 'stale_approval_rejected'))); }
       }
-      if (first) assert.deepEqual(result, first); else first = result;
-      assert.equal(result.finalMessageCount, scenario === 'E' ? 1 : 0);
-      assert.equal(result.messageCount, scenario === 'E' ? 1 : 0);
-      assert.equal(result.quarantineCount, scenario === 'F' ? 1 : 0);
     }
-    output.push({ scenario, classification: scenario === 'F' ? 'quarantined_editor_and_submission_blocked' : first.classification, counts: P.validateZero(p), pass: true });
-    P.remove(p, processes.inactive);
+    output.push(result);
+    const cleanup = D.context('cleanup');
+    await cleanup.read('profile_cleanup', 'inspection_error', () => P.remove(p, processes.inactive));
   }
   return output;
 }

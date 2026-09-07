@@ -11,8 +11,8 @@ const p = P.load(process.env.JARVIS_RECOVERY_TEST_ID);
 // A fixture setup error must quit cleanly rather than leave Electron's error dialog open.
 setupStage = 'guards';
 function setupFailed(error) {
-  P.atomic(path.join(p.control, 'bootstrap-failure.json'), { stage: setupStage,
-    classification: ['AssertionError', 'TypeError', 'Error'].includes(error?.name) ? error.name : 'setup_error' });
+  P.atomic(path.join(p.control, 'bootstrap-failure.json'), require('./diagnostics.cjs').failure(
+    setupStage === 'profile' ? 'profile_ownership' : 'desktop_start', 'launch').failure);
   if (process.type === 'browser') require('electron').app.quit();
 }
 process.on('uncaughtException', setupFailed);
@@ -103,17 +103,9 @@ if (process.type === 'browser') {
   };
 }
 } catch (error) {
-  console.error('RECOVERY_BOOTSTRAP_FAILURE:' + JSON.stringify({
-    classification: setupStage + '_' + (error?.code === 'MODULE_NOT_FOUND' ? 'module_missing' :
-      /realpathSync/.test(error?.message || '') ? 'canonical_api_unavailable' :
-      /SCENARIO_ID/.test(error?.message || '') ? 'scenario_id_missing' :
-      /NON_CANONICAL/.test(error?.message || '') ? 'noncanonical_path' :
-      /REPARSE/.test(error?.message || '') ? 'reparse_path' :
-      /profile\.cjs:(\d+)/.test(error?.stack || '') ? 'profile_check_' + /profile\.cjs:(\d+)/.exec(error.stack)[1] :
-      /bootstrap\.cjs:(\d+)/.test(error?.stack || '') ? 'bootstrap_check_' + /bootstrap\.cjs:(\d+)/.exec(error.stack)[1] :
-      'setup_' + ['ready', 'path', 'appData', 'userData', 'protocol', 'GPU', 'module', 'file', 'access', 'Failed', 'require'].filter(word => String(error?.message || '').includes(word)).map(word => word.toLowerCase()).join('_')),
-  }));
+  console.error(JSON.stringify(require('./diagnostics.cjs').failure(
+    setupStage === 'profile' ? 'profile_ownership' : 'desktop_start', 'launch').failure));
   // Includes failures before profile loading: do not leave an Electron error dialog.
   if (process.type === 'browser') require('electron').app.quit();
-  else throw new Error('TEST_BOOTSTRAP_SETUP_FAILED');
+  else process.exitCode = 1;
 }
