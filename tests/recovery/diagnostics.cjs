@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const P = require('./profile.cjs');
+const ProcessSummary = require('./exit-summary.cjs');
 const CATALOG = Object.freeze([
   'scenario_classification_match', 'recovery_terminal_count', 'terminal_event_count',
   'recovery_event_count', 'task_interruption_count', 'canonical_message_count',
@@ -32,7 +33,10 @@ function bounded(v) {
   return 'invalid_value';
 }
 class SafeFailure extends Error {
-  constructor(failure) { super('SAFE_INSPECTION_FAILURE'); this.failure = failure; }
+  constructor(failure, summary) {
+    super('SAFE_INSPECTION_FAILURE'); this.failure = failure;
+    if (ProcessSummary.valid(summary)) this.safeProcessSummary = summary;
+  }
 }
 function failure(assertion, stage, classification = 'inspection_error', expected = true, actual = 'unavailable') {
   return new SafeFailure({ assertion: CATALOG.includes(assertion) ? assertion : 'inspection_operation',
@@ -70,16 +74,20 @@ function validCounters(c) {
 function validateResult(r) {
   const keys = ['schemaVersion', 'scenario', 'stage', 'verdict', 'assertions', 'safeCounters', 'generatedAt'];
   if (r?.verdict === 'FAIL') keys.push('firstFailure');
+  if (r?.safeProcessSummary !== undefined) keys.push('safeProcessSummary');
   if (!exact(r, keys) || r.schemaVersion !== 1 || !['A','B','C','D','E','F'].includes(r.scenario) ||
     !STAGES.includes(r.stage) || !['PASS','FAIL'].includes(r.verdict) || !Number.isInteger(r.assertions) || r.assertions < 0 || r.assertions > MAX ||
     !validCounters(r.safeCounters) || r.generatedAt !== 'stage_completed' ||
+    (r.safeProcessSummary !== undefined && !ProcessSummary.valid(r.safeProcessSummary)) ||
     (r.verdict === 'FAIL' && (!validFailure(r.firstFailure) || r.firstFailure.stage !== r.stage))) throw failure('inspection_result_integrity', r?.stage);
   return r;
 }
 function result(scenario, ctx, counters = {}, error) {
   const safeCounters = Object.fromEntries(Object.entries(counters).filter(([k,v]) => COUNTERS.includes(k) && typeof v === 'number' && bounded(v) === v));
   return validateResult({ schemaVersion: 1, scenario, stage: ctx.stage, verdict: error ? 'FAIL' : 'PASS', assertions: ctx.assertions,
-    ...(error ? { firstFailure: { ...safeFailure(error, ctx.stage), stage: ctx.stage } } : {}), safeCounters, generatedAt: 'stage_completed' });
+    ...(error ? { firstFailure: { ...safeFailure(error, ctx.stage), stage: ctx.stage } } : {}),
+    ...(ProcessSummary.valid(error?.safeProcessSummary) ? { safeProcessSummary: error.safeProcessSummary } : {}),
+    safeCounters, generatedAt: 'stage_completed' });
 }
 function resultPath(p, stage) {
   if (!STAGES.includes(stage)) throw failure('inspection_stage', 'launch');
@@ -112,10 +120,10 @@ function recordFailure(p, ctx, error, counters = {}) {
   let previous;
   try { previous = readResult(p, ctx.stage); } catch { /* writeResult still refuses corrupt/pending files. */ }
   if (previous?.verdict === 'FAIL' && JSON.stringify(previous.firstFailure) === JSON.stringify(r.firstFailure)) {
-    throw new SafeFailure(previous.firstFailure);
+    throw new SafeFailure(previous.firstFailure, previous.safeProcessSummary);
   }
   try { writeResult(p, r); } catch (writeError) { throw writeError; }
-  throw new SafeFailure(r.firstFailure);
+  throw new SafeFailure(r.firstFailure, r.safeProcessSummary);
 }
 module.exports = { CATALOG, STAGES, CLASSES, ENUMS, COUNTERS, MAX, SafeFailure, bounded, failure, context,
   safeFailure, validateResult, result, writeResult, readResult, recordFailure };

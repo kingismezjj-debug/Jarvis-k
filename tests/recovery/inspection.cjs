@@ -5,6 +5,7 @@ const P = require('./profile.cjs');
 const R = require('./processes.cjs');
 const S = require('./state.cjs');
 const D = require('./diagnostics.cjs');
+const Exit = require('./exit-verifier.cjs');
 const RECOVERY = Object.freeze({ A: 'interrupted_before_execution', B: 'interrupted_while_awaiting_approval',
   C: 'interrupted_unknown_execution_result', D: 'interrupted_after_tool_result', E: 'completed', F: 'invalid_journal' });
 const SEED_EVENTS = Object.freeze({ A: 3, B: 0, C: 5, D: 6, E: 7, F: 4 });
@@ -69,7 +70,9 @@ async function inspect(p, stage, dependencies = {}) {
     ctx.check('profile_ownership', true, true);
     const closed = ['prepare','first_exit','second_exit','cleanup'].includes(stage);
     const processFact = await ctx.read('process_exit_state', 'process_state_unavailable', () =>
-      dependencies.processState ? dependencies.processState(p, closed) : closed ? R.inactive(p) : !!R.resolve(p).length);
+      dependencies.processState ? dependencies.processState(p, closed) :
+        ['first_exit','second_exit'].includes(stage) ? Exit.consume(p,stage).verdict === 'PASS' :
+        stage === 'cleanup' ? Exit.cleanupGuard(p) : closed ? R.inactive(p) : !!R.resolve(p).length);
     ctx.check('process_exit_state', true, processFact);
     const f = await ctx.read('journal_integrity', 'persistence_unavailable', () => (dependencies.facts || facts)(p));
     const c = await ctx.read('recovery_run_count', 'persistence_unavailable', () => (dependencies.counts || P.counts)(p));
@@ -90,5 +93,5 @@ async function inspect(p, stage, dependencies = {}) {
     catch (writeError) { return D.result(p.scenario, ctx, {}, writeError); }
   }
 }
-function requirePass(result) { if (result.verdict !== 'PASS') throw new D.SafeFailure(result.firstFailure); return result; }
+function requirePass(result) { if (result.verdict !== 'PASS') throw new D.SafeFailure(result.firstFailure,result.safeProcessSummary); return result; }
 module.exports = { RECOVERY, SEED_EVENTS, facts, evaluate, checkCounters, inspect, requirePass };

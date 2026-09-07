@@ -2,7 +2,8 @@
 
 This is external test infrastructure. It does not certify manual crash recovery.
 Build the current repository before using the harness. Never use installed Alpha.
-No command here terminates a process or performs a desktop tool action.
+No command here terminates an application process or performs a desktop tool action.
+The exit verifier may cancel its own read-only process-query subprocess on timeout.
 
 Commands (run from the repository):
 
@@ -70,8 +71,8 @@ the existing trusted recovery projection; the common Core message ingress also r
 submissions before recovery completes or while recovery remains blocked.
 The smoke starts each recovery twice and compares logical journal/task/message counts.
 
-`cleanup` refuses active or uncertain ownership, unresolved launch locks, changed PID
-identity, links/junctions, and targets outside the owned scene. It validates the whole
+`cleanup` refuses active or uncertain ownership, unresolved launch locks, missing or
+invalid stable exit receipts, links/junctions, and targets outside the owned scene. It validates the whole
 tree again before deleting only that scene. Failure leaves the profile intact for
 inspection; it never resets the repository or deletes development data. If a launch
 fails before identity capture, retain it rather than guessing ownership of processes.
@@ -141,3 +142,80 @@ Second exit also reads the first_exit PASS artifact and compares all safe logica
 counts except recoveryRuns. Missing or invalid first results never certify
 idempotency. Existing A–F expectations remain enforced, including F quarantine and
 disabled inputs, E one canonical final message, and B's one fake preparation call.
+
+## Stable process exit verification (H3, L2 automated testing)
+
+`exit-verifier.cjs` is the only post-launch exit authority for `finishExit`,
+first/second exit inspection and cleanup. It does not modify Desktop Main,
+CoreHost supervision, or product shutdown. The two sealed D profiles predate this
+protocol and must remain untouched; a manual retry needs a fresh third D profile
+and separate authorization. No acceptance evidence is produced by this change.
+
+Each manifest entry is bound to the owned scenario and contains the captured role,
+PID, parent PID, creation time and executable classification. Main/CoreHost launch
+nonce attestation occurs during capture. The verifier compares the full captured
+identity to read-only live process metadata. A changed creation time or executable
+classification is `pid_reused_identity_mismatch`, not an active original process.
+Missing necessary metadata or an inconsistent parent is `identity_unavailable` and
+fails closed. A parent number alone never associates a child: the parent must match
+its full identity, or the child must have a previously captured trusted identity
+association. Newly discovered children retain that association across samples even
+after their parent exits. Safe roles are desktop_main, core_host, renderer and
+utility; exported summaries never include actual identities or executable names.
+
+Verification has a 15,000 ms monotonic deadline, including repeated queries and
+sampling waits. Each asynchronous process query receives at most the remaining
+budget, plus an abort signal and a deadline race. A hung query is cancelled; query
+timeout, query error, cancellation and total deadline exhaustion are distinct fixed
+categories. Publication is checked against the deadline before lock release as
+well. An OS operation blocking the Node event loop cannot be preempted by JavaScript;
+an over-budget operation cannot authorize successful lock release when it returns.
+PASS requires the launch process exit event and three consecutive complete zero
+identity samples at least 200 ms apart, with Notepad count zero. Any matching process
+resets the stable count. Identity uncertainty fails immediately. Role and identity
+counts describe the last complete observation; queryAttempts counts all attempts.
+
+The ordered protocol is:
+
+1. Observe launch exit (the listener is attached immediately after launch).
+2. Obtain three stable zero samples under the common deadline.
+3. Flush and exclusively atomically publish the immutable bounded stableExitResult
+   and its private ownership binding. Pending or partial publication is unusable.
+4. Release the owned launch lock; publication must succeed first.
+5. Formal inspection consumes that same result and binding, without another process
+   query. Cleanup uses the same consumer, never an independent permissive sample.
+
+The result has schemaVersion, PASS verdict, stage, launchExitObserved,
+stableSampleCount, safe roleCounts/identityCounts, bounded queryAttempts,
+timeoutClassification, launchLock=`release_authorized`, and notepadCount. The
+release_authorized classification describes the required publication-before-release
+order; consumers additionally require the launch lock to be absent. Atomic
+publication uses an exclusive pending file, fsync, and a non-replacing hard link.
+Unsupported publication leaves the lock held and fails closed.
+
+The separate restricted control binding ties the result digest to the owned
+profile, nonce, scenario, fresh launch generation, stage and manifest digest. It is
+control metadata, not safe diagnostics or acceptance evidence, and is never printed.
+Receipts expire 30 minutes after publication; a future issue time also fails closed.
+A new launch changes the generation before acquiring its lock, invalidating older
+receipts without modifying their bytes. Missing, pending, corrupt, unknown-schema,
+wrong-owner/scenario/stage/generation, changed-manifest or expired receipts fail
+closed. There is no single-sample fallback. A profile proven never launched can be
+prepared/cleaned without fabricating a receipt. Any uncertain or previously launched
+profile without this protocol's valid receipt is retained.
+
+H1 firstFailure remains exactly five fields: assertion, expected, actual, stage and
+classification. Process failures additionally carry a strictly validated bounded
+safeProcessSummary with safe role counts, identity categories, launch exit flag,
+stable sample count, query attempts, timeout category and Notepad count. No PID,
+parent, creation time, nonce, path, raw error or stack is serialized into either
+diagnostic output. Fixed categories are matching_identity_active,
+pid_reused_identity_mismatch, child_of_matching_identity_active,
+identity_unavailable and no_matching_process.
+
+Focused H3 tests use virtual monotonic time and fake process-query transports. The
+existing A–F smoke alone launches new isolated fake/local Desktop profiles and exits
+normally; it never uses retained profiles, opens Notepad, invokes an executor, or
+sends real provider requests. B retains its one synthetic preparation proposal;
+all recovery provider/executor counters remain zero. Production exclusion guards
+continue to check source imports, build roots and packaged file exclusions.

@@ -6,6 +6,7 @@ import processes from './processes.cjs';
 import state from './state.cjs';
 import D from './diagnostics.cjs';
 import I from './inspection.cjs';
+import Exit from './exit-verifier.cjs';
 
 export async function launch(p, phase) {
   const ctx = D.context('launch');
@@ -13,13 +14,13 @@ export async function launch(p, phase) {
     p = await ctx.read('profile_ownership', 'inspection_error', () => P.validateTree(p));
     const c = await ctx.read('recovery_run_count', 'persistence_unavailable', () => P.counts(p));
     return await launchOwned(p, phase, D.context(phase === 'preparation' ? 'launch' : c.recoveryRuns === 0 ? 'first_recovery' : 'second_recovery'));
-  } catch (error) { throw new D.SafeFailure(D.safeFailure(error, ctx.stage)); }
+  } catch (error) { throw new D.SafeFailure(D.safeFailure(error, ctx.stage),error?.safeProcessSummary); }
 }
 async function launchOwned(p, phase, ctx) {
   let app;
   let stage = 'profile_ownership';
   try {
-  ctx.check('process_exit_state', true, await ctx.read('process_exit_state', 'process_state_unavailable', () => processes.inactive(p)));
+  ctx.check('process_exit_state', true, await ctx.read('process_exit_state', 'process_state_unavailable', () => Exit.cleanupGuard(p)));
   ctx.check('profile_seed', true, fs.existsSync(path.join(p.control, 'seeded')));
   const initialCounts = await ctx.read('preparation_provider_count', 'persistence_unavailable', () => P.counts(p));
   ctx.check('preparation_provider_count', phase === 'preparation' ? 0 : p.scenario === 'B' ? 1 : 0, initialCounts.preparationFakeProviderCalls);
@@ -27,10 +28,15 @@ async function launchOwned(p, phase, ctx) {
   for (const name of ['core-attestation.json', 'recovery-ready.json']) {
     const file = path.join(p.control, name); if (fs.existsSync(file)) fs.unlinkSync(P.canonical(file));
   }
+  const exitStage = phase === 'preparation' ? 'launch' : ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit';
+  Exit.beginLaunch(p,exitStage);
   fs.writeFileSync(path.join(p.control, 'launch.lock'), p.nonce, { flag: 'wx' });
   fs.writeFileSync(path.join(p.control, 'ever-launched'), 'yes');
     stage = 'desktop_start';
     app = await _electron.launch({ cwd: P.REPO, args: ['tests/recovery/bootstrap.cjs', `--jarvis-recovery-nonce=${p.nonce}`], env: P.environment(p, phase), timeout: 30000 });
+    const launchProcess = app.process();
+    let launchExited = launchProcess.exitCode !== null || launchProcess.signalCode !== null;
+    const launchExit = launchExited ? Promise.resolve() : new Promise(resolve => launchProcess.once('exit', () => { launchExited = true; resolve(); }));
     const page = await app.firstWindow(); page.setDefaultTimeout(15000);
     await page.getByTestId('jarvis-app').waitFor();
     stage = 'recovery_barrier';
@@ -119,25 +125,17 @@ async function launchOwned(p, phase, ctx) {
     I.checkCounters(ctx, c, p.scenario, true);
     const inspection = phase === 'preparation' ? D.writeResult(p, D.result(p.scenario, ctx, c)) : I.requirePass(await I.inspect(p, ctx.stage));
     async function finishExit() {
-      const exit = D.context(phase === 'preparation' ? 'launch' : ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit');
+      const exit = D.context(exitStage);
       try {
-      await exit.read('process_exit_state', 'process_state_unavailable', () => app.close());
-      for (let i = 0; i < 100; i++) {
-        const live = await exit.read('process_exit_state', 'process_state_unavailable', () => processes.rows());
-        const manifest = await exit.read('process_identity', 'process_state_unavailable', () => JSON.parse(fs.readFileSync(P.canonical(path.join(p.control, 'processes.json')), 'utf8')));
-        if (manifest.entries.every(e => !live.some(r => r.pid === e.pid || r.parent === e.pid))) {
-          fs.unlinkSync(path.join(p.control, 'launch.lock'));
-          exit.check('process_exit_state', true, processes.inactive(p, live));
-          if (phase !== 'preparation') return I.requirePass(await I.inspect(p, exit.stage));
-          const counts = P.counts(p); I.checkCounters(exit, counts, p.scenario, true);
-          return D.writeResult(p, D.result(p.scenario, exit, counts));
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      exit.check('process_exit_state', true, false);
+        await Exit.verify(p,exitStage,{ launchExitObserved: () => launchExited });
+        // Only close the automation connection after the launch and captured identities exited.
+        await app.close();
+        if (phase !== 'preparation') return I.requirePass(await I.inspect(p, exit.stage));
+        const counts = P.counts(p); I.checkCounters(exit, counts, p.scenario, true);
+        return D.writeResult(p, D.result(p.scenario, exit, counts));
       } catch (error) { D.recordFailure(p, exit, error); }
     }
-    return { app, page, p, phase, inspection, finishExit, async close() {
+    return { app, page, p, phase, inspection, finishExit, waitForLaunchExit: () => launchExit, async close() {
       try { await app.evaluate(({ app }) => app.quit()); }
       catch { throw D.failure('process_exit_state', ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit', 'process_state_unavailable'); }
       return finishExit();
@@ -177,7 +175,7 @@ export async function smoke() {
     }
     output.push(result);
     const cleanup = D.context('cleanup');
-    await cleanup.read('profile_cleanup', 'inspection_error', () => P.remove(p, processes.inactive));
+    await cleanup.read('profile_cleanup', 'inspection_error', () => P.remove(p, Exit.cleanupGuard));
   }
   return output;
 }

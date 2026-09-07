@@ -4,6 +4,8 @@ import processes from './processes.cjs';
 import state from './state.cjs';
 import D from './diagnostics.cjs';
 import I from './inspection.cjs';
+import Exit from './exit-verifier.cjs';
+import ProcessSummary from './exit-summary.cjs';
 
 // Every failure has allowlisted fields; no original exception is forwarded.
 export async function main(args) {
@@ -27,7 +29,7 @@ export async function main(args) {
       const phase = p.scenario === 'B' && c.preparationFakeProviderCalls === 0 ? 'preparation' : 'recovery';
       const running = await (await import('./desktop.mjs')).launch(p, phase);
       console.log(JSON.stringify(running.inspection));
-      await new Promise(resolve => running.app.process().once('exit', resolve));
+      await running.waitForLaunchExit();
       return await running.finishExit();
     }
     if (command === 'inspect') {
@@ -41,21 +43,22 @@ export async function main(args) {
       return D.result(p.scenario, ctx);
     }
     if (command === 'cleanup') {
-      ctx.check('process_exit_state', true, await ctx.read('process_exit_state', 'process_state_unavailable', () => processes.inactive(p)));
+      ctx.check('process_exit_state', true, await ctx.read('process_exit_state', 'process_state_unavailable', () => Exit.cleanupGuard(p)));
       const result = D.writeResult(p, D.result(p.scenario, ctx));
-      await ctx.read('profile_cleanup', 'inspection_error', () => P.remove(p, processes.inactive));
+      await ctx.read('profile_cleanup', 'inspection_error', () => P.remove(p, Exit.cleanupGuard));
       return result;
     }
     throw D.failure('inspection_operation', stage);
   } catch (error) {
     if (p) D.recordFailure(p, D.context(error instanceof D.SafeFailure ? error.failure.stage : stage), error);
-    throw new D.SafeFailure(D.safeFailure(error, stage));
+    throw new D.SafeFailure(D.safeFailure(error, stage),error?.safeProcessSummary);
   }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
   main(process.argv.slice(2)).then(result => {
     console.log(JSON.stringify(result)); if (result.verdict === 'FAIL') process.exitCode = 1;
   }).catch(error => {
-    console.log(JSON.stringify(D.safeFailure(error, 'launch'))); process.exitCode = 1;
+    console.log(JSON.stringify(ProcessSummary.valid(error?.safeProcessSummary) ?
+      { firstFailure: D.safeFailure(error,'launch'), safeProcessSummary: error.safeProcessSummary } : D.safeFailure(error, 'launch'))); process.exitCode = 1;
   });
 }
