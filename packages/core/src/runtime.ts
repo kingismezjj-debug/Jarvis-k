@@ -1,3 +1,5 @@
+import { recoverAssistantTurns } from "./assistant-turn-repository";
+import type { AssistantRecoveryNotice } from "@jarvis-k/contracts";
 import { BoundedNotepadTaskService } from "./bounded-notepad-task-service";
 import {
   AppEvent,
@@ -507,6 +509,9 @@ export class CoreRuntime {
   private readonly voiceResolutionService: VoiceResolutionService;
   private readonly assistantRuntime: AssistantRuntime;
   private assistantTurn: AssistantTurnProjection | undefined;
+  private assistantRecoveries: AssistantRecoveryNotice[] = [];
+  private assistantRecoveryReady = false;
+  private taskRecoveryReady = false;
   private readonly chatDispatchService: ChatDispatchService;
   private readonly commandRoutingService: CommandRoutingService;
   private readonly memoryRecallService: MemoryRecallService;
@@ -620,6 +625,8 @@ export class CoreRuntime {
       now: this.now,
     });
     this.assistantRuntime = new AssistantRuntime({
+      ...(this.taskRepository?.assistantTurns ? { repository: this.taskRepository.assistantTurns } : {}),
+      canStart: () => !this.taskRepository?.assistantTurns || this.assistantRecoveryReady,
       executeTool: (proposal, executionId, signal, publish) =>
         proposal.toolId === "localApp.open" ? this.boundedNotepad.execute(proposal, executionId, signal, publish) :
           this.executeAssistantModelStatus(proposal, executionId, signal, publish),
@@ -629,8 +636,8 @@ export class CoreRuntime {
         isAssistantTextModelAdapter(this.chatAnswerProvider)
           ? this.chatAnswerProvider
           : undefined,
-      persistFinalMessage: (text, conversationId) =>
-        this.persistAssistantFinalMessage(text, conversationId),
+      persistFinalMessage: (text, conversationId, messageId) =>
+        this.persistAssistantFinalMessage(text, conversationId, messageId),
       publishProjection: (projection, correlationId) => {
         this.assistantTurn = projection;
         this.publishSnapshot(correlationId);
@@ -800,9 +807,32 @@ export class CoreRuntime {
       this.tasks = (await this.taskRepository.listTasks()).map((task) =>
         TaskSchema.parse(task),
       );
+      this.taskRecoveryReady = true;
     } catch {
       this.health = "degraded";
       this.tasks = [];
+    }
+  }
+
+  public async hydrateAssistantTurns(): Promise<void> {
+    const repository = this.taskRepository?.assistantTurns;
+    if (!repository) return;
+    try {
+      if (!this.taskRecoveryReady || !this.memoryRepository?.getMessage || this.memoryHealth?.status !== "ok") {
+        throw new Error("ASSISTANT_RECOVERY_STORAGE_UNAVAILABLE");
+      }
+      const recovery = await recoverAssistantTurns({ repository, now: this.now,
+        finalMessageExists: async (id, conversationId) => {
+          const message = await this.memoryRepository!.getMessage!(id);
+          if (message && (message.role !== "assistant" || message.conversationId !== conversationId)) throw new Error("ASSISTANT_MESSAGE_CONFLICT");
+          return !!message;
+        } });
+      this.assistantRecoveries = recovery.notices;
+      this.assistantRecoveryReady = !recovery.blocked;
+      if (recovery.blocked) this.health = "degraded";
+    } catch {
+      this.assistantRecoveryReady = false;
+      this.health = "degraded";
     }
   }
 
@@ -825,7 +855,7 @@ export class CoreRuntime {
       protocolVersion: PROTOCOL_VERSION,
       coreInstanceId: this.coreInstanceId,
       sequenceId: this.sequenceId,
-      health: this.health,
+      health: this.taskRepository?.assistantTurns && !this.assistantRecoveryReady ? "degraded" : this.health,
       startedAt: this.startedAt,
       updatedAt: this.now().toISOString(),
       voice: this.voiceEngine.getSnapshot(),
@@ -839,6 +869,8 @@ export class CoreRuntime {
           }
         : {}),
       messages: this.messages.map((message) => ({ ...message })),
+      assistantRecoveries: this.assistantRecoveries,
+      assistantRecoveryBlocked: !!this.taskRepository?.assistantTurns && !this.assistantRecoveryReady,
       ...(this.assistantTurn ? { assistantTurn: this.assistantTurn } : {}),
       conversations: this.conversations.map((conversation) => ({
         ...conversation,
@@ -4635,7 +4667,7 @@ export class CoreRuntime {
     // This registered read-only capability requires no approval under the shared policy.
     // Any policy change is fail-closed; the provider cannot grant confirmation.
     if (!safety.allowed || safety.confirmationRequired || descriptor.risk !== "read_only") {
-      publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId,
+      await publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId,
         decision: "denied", decidedAt: this.now().toISOString(), policyVersion: safety.audit.policyVersion,
         reasonCode: safety.reasonCode }) });
       throw new Error("MODEL_STATUS_DENIED");
@@ -4648,7 +4680,7 @@ export class CoreRuntime {
         createdAt: this.now().toISOString() });
       await this.refreshTasksFromRepository();
       if (signal.aborted) throw new Error("CANCELLED");
-      publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId,
+      await publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId,
         decision: "allowed", taskId: task.taskId, policyVersion: safety.audit.policyVersion,
         reasonCode: safety.reasonCode, decidedAt: this.now().toISOString() }) });
       // Yield to cancellation after policy evaluation and before starting the task.
@@ -4657,7 +4689,7 @@ export class CoreRuntime {
       await dispatch.markRunning({ ...task, message: "Reading current model status." });
       await this.refreshTasksFromRepository();
       if (signal.aborted) throw new Error("CANCELLED");
-      publish({ type: "execution.started", request: ToolExecutionRequestSchema.parse({
+      await publish({ type: "execution.started", request: ToolExecutionRequestSchema.parse({
         executionId, taskId: task.taskId, proposalId: proposal.proposalId, turnId: proposal.turnId, toolId: descriptor.id,
         arguments: args, owner: "core", timeoutMs: 1000, requestedAt: this.now().toISOString(),
       }) });
@@ -6623,9 +6655,16 @@ export class CoreRuntime {
   private async persistAssistantFinalMessage(
     text: string,
     conversationId: string,
+    reservedId?: string,
   ): Promise<Message> {
+    const id = reservedId ?? createId("msg");
+    const existing = await this.memoryRepository?.getMessage?.(id);
+    if (existing) {
+      if (existing.role !== "assistant" || existing.conversationId !== conversationId || existing.text !== text) throw new Error("ASSISTANT_MESSAGE_CONFLICT");
+      return existing;
+    }
     const message: Message = {
-      id: createId("msg"),
+      id,
       conversationId,
       role: "assistant",
       text,

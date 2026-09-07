@@ -51,6 +51,8 @@ export function ConversationMessageList({
           <ConversationMessage key={message.id} message={message} />
         ))}
 
+        <AssistantRecoveryNotices copy={copy.assistantRecovery} notices={viewModel.assistantRecoveries ?? []}
+          blocked={viewModel.assistantRecoveryBlocked ?? false} />
         <AssistantStreamingTurn actions={actions} viewModel={viewModel} />
 
         <VoiceCorrectionCandidates actions={actions} viewModel={viewModel} />
@@ -64,6 +66,22 @@ export function ConversationMessageList({
       </div>
     </ScrollArea>
   );
+}
+
+export function AssistantRecoveryNotices({ copy, notices, blocked }: {
+  copy: ConversationViewModel["copy"]["assistantRecovery"];
+  notices: NonNullable<ConversationViewModel["assistantRecoveries"]>;
+  blocked: boolean;
+}) {
+  return <>
+    {notices.map(notice => (
+      <div key={notice.turnId} role="status" data-testid="assistant-recovery-notice" className="rounded-md border p-3 text-sm text-muted-foreground">
+        <p className="font-medium">{copy.label}</p>
+        <p>{copy[notice.classification]}</p>
+      </div>
+    ))}
+    {blocked && <p role="status">{copy.blocked}</p>}
+  </>;
 }
 
 function AssistantStreamingTurn({

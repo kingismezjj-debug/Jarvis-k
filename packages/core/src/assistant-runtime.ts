@@ -1,3 +1,5 @@
+import { AssistantJournalEventSchema, type AssistantJournalEvent } from "@jarvis-k/contracts";
+import type { AssistantTurnRepository } from "./assistant-turn-repository";
 import { LocalAppOpenArgumentsSchema } from "@jarvis-k/contracts";
 import {
   ASSISTANT_LOOP_CONTRACT_VERSION,
@@ -48,14 +50,17 @@ export interface AssistantRuntimeScheduler {
 }
 
 export interface AssistantRuntimeOptions {
+  repository?: AssistantTurnRepository;
+  canStart?: () => boolean;
   readonly executeTool?: (proposal: ToolProposal, executionId: ToolExecutionRequest["executionId"], signal: AbortSignal,
-    publish: (event: { type: "tool.decided"; decision: ToolDecision } | { type: "execution.started"; request: ToolExecutionRequest } | { type: "approval.resolved"; approval: import("@jarvis-k/contracts").AssistantApprovalResolution }) => void,
+    publish: (event: { type: "tool.decided"; decision: ToolDecision } | { type: "execution.started"; request: ToolExecutionRequest } | { type: "approval.resolved"; approval: import("@jarvis-k/contracts").AssistantApprovalResolution }) => Promise<void>,
   ) => Promise<ToolResult>;
   readonly getProviderId: () => string;
   readonly getModelAdapter: () => AssistantTextModelAdapter | undefined;
   readonly persistFinalMessage: (
     text: string,
     conversationId: string,
+    messageId?: string,
   ) => Promise<Message>;
   readonly publishProjection: (
     projection: AssistantTurnProjection,
@@ -78,7 +83,8 @@ export type AssistantStartResult =
       code:
         | "ASSISTANT_PROVIDER_UNAVAILABLE"
         | "ASSISTANT_TURN_ALREADY_ACTIVE"
-        | "ASSISTANT_INPUT_INVALID";
+        | "ASSISTANT_INPUT_INVALID"
+        | "ASSISTANT_STORAGE_UNAVAILABLE";
       message: string;
     };
 
@@ -125,6 +131,13 @@ export class AssistantRuntime {
   private projection: AssistantTurnProjection | undefined;
   private active: ActiveAssistantTurn | undefined;
   private nextRunId = 0;
+  private durability: Promise<void> = Promise.resolve();
+  private persistenceUnavailable = false;
+  private durableSequence = 0;
+  private finalMessageId = "";
+
+  public async settledPersistence(): Promise<void> { await this.durability; }
+
   private pendingFlush: unknown;
   private firstDeltaFlushedForTurnId: AssistantTurnId | undefined;
   private readonly scheduler: AssistantRuntimeScheduler;
@@ -158,6 +171,9 @@ export class AssistantRuntime {
     correlationId: string;
     preferenceProjection: ChatAnswerPreferenceProjection;
   }): AssistantStartResult {
+    if (this.persistenceUnavailable || this.options.canStart?.() === false) return {
+      ok: false, code: "ASSISTANT_STORAGE_UNAVAILABLE", message: "Conversation recovery requires attention.",
+    };
     const adapter = this.options.getModelAdapter();
     if (!adapter) {
       return {
@@ -166,7 +182,7 @@ export class AssistantRuntime {
         message: "Assistant streaming provider is unavailable.",
       };
     }
-    if (this.active && !isTerminal(this.projection)) {
+    if (this.active && (this.active.finalizing || !isTerminal(this.projection))) {
       return {
         ok: false,
         code: "ASSISTANT_TURN_ALREADY_ACTIVE",
@@ -186,6 +202,8 @@ export class AssistantRuntime {
     const runId = this.nextRunId + 1;
     this.nextRunId = runId;
     this.firstDeltaFlushedForTurnId = undefined;
+    this.durableSequence = 0;
+    this.finalMessageId = this.options.createId("msg");
     this.projection = AssistantTurnProjectionSchema.parse({
       contractVersion: ASSISTANT_LOOP_CONTRACT_VERSION,
       turnId,
@@ -319,6 +337,8 @@ export class AssistantRuntime {
       flush: "batched",
     });
     try {
+      if (this.options.repository) await this.durability;
+      if (!this.isCurrentRun(input.runId, input.turnId)) return;
       const proposalId = ToolProposalIdSchema.parse(this.options.createId("tprop"));
       const events = input.continuation && input.adapter.continueTextTurn
         ? input.adapter.continueTextTurn(input.continuation, active.controller.signal)
@@ -351,13 +371,14 @@ export class AssistantRuntime {
             this.failTurn(input, "unsupported_tool_call", "Multiple operations are unsupported.", false);
             return;
           }
-          this.requireEvent({ type: "tool.proposed", payload: { proposal }, correlationId: input.correlationId, flush: "immediate" });
+          await this.requireEvent({ type: "tool.proposed", payload: { proposal }, correlationId: input.correlationId, flush: "immediate" });
           const executionId = ToolExecutionIdSchema.parse(this.options.createId("texec"));
-          const result = ToolResultSchema.parse(await this.waitForTool(this.options.executeTool(proposal, executionId, active.controller.signal, update => {
-            if (!this.isCurrentRun(input.runId, input.turnId)) return;
-            this.requireEvent({ type: update.type,
+          const result = ToolResultSchema.parse(await this.waitForTool(this.options.executeTool(proposal, executionId, active.controller.signal, async update => {
+            if (!this.isCurrentRun(input.runId, input.turnId)) throw new Error("CANCELLED");
+            await this.requireEvent({ type: update.type,
               payload: update.type === "tool.decided" ? { decision: update.decision } : update.type === "approval.resolved" ? { approval: update.approval } : { request: update.request },
               correlationId: input.correlationId, flush: "immediate" });
+            if (!this.isCurrentRun(input.runId, input.turnId)) throw new Error("CANCELLED");
           }), active.controller, proposal.toolId === "localApp.open" ? 130000 : 1000));
           if (!this.isCurrentRun(input.runId, input.turnId)) return;
           const continuation = AssistantToolContinuationSchema.parse({ turnId: input.turnId, proposal, result });
@@ -365,8 +386,8 @@ export class AssistantRuntime {
             result.taskId !== this.projection?.proposals.find(item => item.proposalId === proposal.proposalId)?.taskId) {
             throw new Error("RESULT_CORRELATION");
           }
-          this.requireEvent({ type: "tool.resulted", payload: { result }, correlationId: input.correlationId, flush: "immediate" });
-          this.requireEvent({ type: "provider.continued", payload: { adapterId: input.request.providerId,
+          await this.requireEvent({ type: "tool.resulted", payload: { result }, correlationId: input.correlationId, flush: "immediate" });
+          await this.requireEvent({ type: "provider.continued", payload: { adapterId: input.request.providerId,
             toolResultExecutionIds: [executionId] }, correlationId: input.correlationId, flush: "immediate" });
           await this.runProvider({ ...input, continuation });
           return;
@@ -410,6 +431,7 @@ export class AssistantRuntime {
         true,
       );
     } catch (error) {
+      if (this.persistenceUnavailable) return;
       if (!this.isCurrentRun(input.runId, input.turnId)) {
         return;
       }
@@ -459,14 +481,16 @@ export class AssistantRuntime {
       // Completion wins before persistence starts. A later cancel must not report
       // success while a canonical message is already being committed.
       if (this.active) this.active.finalizing = true;
+      await this.durability;
       const message = await this.options.persistFinalMessage(
         finalText,
         input.conversationId,
+        this.finalMessageId,
       );
       if (!this.isCurrentRun(input.runId, input.turnId)) {
         return;
       }
-      this.applyEvent({
+      await this.requireEvent({
         type: "turn.completed",
         payload: {
           finalAnswer: AssistantFinalAnswerSchema.parse({
@@ -483,6 +507,12 @@ export class AssistantRuntime {
         flush: "immediate",
       });
     } catch {
+      if (this.options.repository) {
+        // A canonical Message may already be durable. Leave the journal open for
+        // startup reconciliation instead of falsely committing a failed terminal.
+        this.stopForStorageFailure();
+        return;
+      }
       this.failTurn(
         input,
         "unknown_provider_failure",
@@ -581,6 +611,7 @@ export class AssistantRuntime {
     if (!reduced.ok) {
       return { ok: false, message: reduced.message };
     }
+    this.queueJournal(event);
     this.projection = reduced.projection;
     if (input.flush === "immediate") {
       this.flush(input.correlationId);
@@ -590,8 +621,58 @@ export class AssistantRuntime {
     return { ok: true, projection: reduced.projection };
   }
 
-  private requireEvent(input: Parameters<AssistantRuntime["applyEvent"]>[0]): void {
+  private async requireEvent(input: Parameters<AssistantRuntime["applyEvent"]>[0]): Promise<void> {
     if (!this.applyEvent(input).ok) throw new Error("ASSISTANT_EVENT_REJECTED");
+    await this.durability;
+  }
+
+  private queueJournal(event: AssistantEvent): void {
+    const repository = this.options.repository;
+    if (!repository) return;
+    let data: unknown;
+    switch (event.type) {
+      case "turn.accepted": data = { conversationId: this.projection!.conversationId,
+        correlationId: this.active!.correlationId, finalMessageId: this.finalMessageId }; break;
+      case "tool.proposed": data = { proposalId: event.payload.proposal.proposalId, toolId: event.payload.proposal.toolId }; break;
+      case "tool.decided": {
+        const { proposalId, taskId, decision, approvalRequestId } = event.payload.decision;
+        data = { proposalId, taskId, decision, approvalRequestId }; break;
+      }
+      case "approval.resolved": {
+        const { proposalId, approvalRequestId, resolution } = event.payload.approval;
+        data = { proposalId, approvalRequestId, resolution }; break;
+      }
+      case "execution.started": {
+        const { proposalId, executionId, taskId } = event.payload.request;
+        data = { proposalId, executionId, taskId }; break;
+      }
+      case "tool.resulted": {
+        const { proposalId, executionId, taskId, status, toolId, structuredResult } = event.payload.result;
+        data = { proposalId, executionId, taskId, status, verification: toolId !== "localApp.open" ? "not_applicable" :
+          status === "completed" && structuredResult?.verified === true ? "verified" : "not_verified" }; break;
+      }
+      case "turn.completed": data = { messageId: event.payload.finalAnswer.messageId }; break;
+      case "turn.cancelled": case "turn.failed": case "provider.continued": data = {}; break;
+      default: return; // In particular, never persist input/deltas/provider envelopes.
+    }
+    const raw = { schemaVersion: 1, turnId: event.turnId, sequence: this.durableSequence++,
+      occurredAt: event.occurredAt, type: event.type, data };
+    this.durability = this.durability.then(async () => {
+      const safe: AssistantJournalEvent = AssistantJournalEventSchema.parse(raw);
+      await repository.append(safe);
+    });
+    void this.durability.catch(() => this.stopForStorageFailure());
+  }
+
+  private stopForStorageFailure(): void {
+    this.persistenceUnavailable = true;
+    this.active?.controller.abort();
+    this.active = undefined;
+    if (this.projection) {
+      this.projection = AssistantTurnProjectionSchema.parse({ ...this.projection, status: "interrupted", streamText: "",
+        failure: undefined, finalAnswer: undefined });
+      this.flush("assistant-storage-unavailable");
+    }
   }
 
   private scheduleFlush(correlationId: string): void {

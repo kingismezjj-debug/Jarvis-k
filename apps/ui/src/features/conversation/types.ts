@@ -35,6 +35,8 @@ export type ConversationViewModel = {
   alphaCopy: ConversationAlphaCopy;
   brainResult: BrainCommandResult | null;
   assistantTurn: AssistantTurnProjection | null;
+  assistantRecoveries?: import("@jarvis-k/contracts").AssistantRecoveryNotice[];
+  assistantRecoveryBlocked?: boolean;
   conversations: Conversation[];
   copy: ConversationCopy;
   error: string | null;

@@ -1688,7 +1688,7 @@ export default function App() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (sending || assistantTurnActive) return;
+    if (sending || assistantTurnActive || snapshot?.assistantRecoveryBlocked) return;
     if (!text) {
       notifyAction(copy.action.typeCommandFirst, "warning");
       return;
@@ -2084,6 +2084,8 @@ export default function App() {
               viewModel={{
                 alphaCopy,
                 assistantTurn,
+                assistantRecoveries: snapshot?.assistantRecoveries?.filter(item => item.conversationId === snapshot?.activeConversationId),
+                assistantRecoveryBlocked: snapshot?.assistantRecoveryBlocked,
                 brainResult,
                 conversations,
                 copy,
@@ -3292,7 +3294,7 @@ export default function App() {
             copy={copy}
             onChange={setDraft}
             onSubmit={handleSubmit}
-            sending={sending}
+            sending={sending || snapshot?.assistantRecoveryBlocked === true}
             value={draft}
           />
     </AppShell>

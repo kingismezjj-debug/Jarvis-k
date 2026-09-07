@@ -5,6 +5,16 @@ import {
 } from "../src/host/core-host-bootstrap";
 
 describe("core-host bootstrap", () => {
+  it("recovers assistant turns after both canonical memory and stale Task approvals, before ready", async () => {
+    let memory = false; let tasks = false; let recovered = false;
+    await hydrateCoreHostAndAnnounceReady({ hydrateMemory: true, runtime: {
+      hydrateMemory: async () => { await Promise.resolve(); memory = true; },
+      hydrateTasks: async () => { await Promise.resolve(); tasks = true; },
+      hydrateCapabilities: async () => undefined,
+      hydrateAssistantTurns: async () => { expect(memory && tasks).toBe(true); recovered = true; },
+      announceReady: () => { expect(recovered).toBe(true); },
+    } });
+  });
   it("announces ready only after hydrate steps settle", async () => {
     const order: string[] = [];
     const runtime = {

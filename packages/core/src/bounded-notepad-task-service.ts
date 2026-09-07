@@ -10,7 +10,7 @@ import type { PlannerApprovalService } from "./planner/planner-approval-service"
 type ExecuteArguments = Parameters<NonNullable<AssistantRuntimeOptions["executeTool"]>>;
 type Work = { controller: AbortController; timer: ReturnType<typeof setTimeout>;
   started: boolean; resolve: (verified: boolean) => void; done: Promise<boolean>;
-  denied?: boolean; onStart?: () => void; };
+  denied?: boolean; onStart?: () => Promise<void>; };
 
 // Coordination only: registry policy, persisted tasks, digest validation and approval
 // remain owned by the existing services used by deterministic/planner commands.
@@ -110,7 +110,8 @@ export class BoundedNotepadTaskService {
           message: "Policy ALLOWED after explicit task approval.", createdAt: this.options.now().toISOString() });
         if (work.controller.signal.aborted) return { ok: false, verificationStatus: "verification_failed" as const,
           summary: "Desktop action was cancelled before execution.", failureReason: "CANCELLED" };
-        work.onStart?.();
+        await work.onStart?.();
+        if (work.controller.signal.aborted) throw new Error("CANCELLED");
         this.options.onExecute();
         const execution = await this.options.executor.openLocalApp({ target: "notepad",
           desktopApproval: { taskId, approvalCommandId, signal: work.controller.signal } });
@@ -137,21 +138,21 @@ export class BoundedNotepadTaskService {
     if (!work || signal.aborted) throw new Error("CANCELLED");
     const approvalRequestId = createId("approval");
     const policy = this.decide(proposal.proposalId, false);
-    publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId, taskId,
-      decision: "requires_approval", approvalRequestId, reasonCode: policy.reasonCode,
-      policyVersion: policy.audit.policyVersion, decidedAt: this.options.now().toISOString() }) });
-    work.onStart = () => {
-      publish({ type: "approval.resolved", approval: { approvalRequestId, proposalId: proposal.proposalId,
+    work.onStart = async () => {
+      await publish({ type: "approval.resolved", approval: { approvalRequestId, proposalId: proposal.proposalId,
         resolution: "approved", resolvedAt: this.options.now().toISOString(), reasonCode: "USER_APPROVED" } });
-      publish({ type: "execution.started", request: ToolExecutionRequestSchema.parse({ taskId, executionId,
+      await publish({ type: "execution.started", request: ToolExecutionRequestSchema.parse({ taskId, executionId,
         proposalId: proposal.proposalId, turnId: proposal.turnId, toolId: "localApp.open", arguments: { app: "notepad" },
         owner: "desktop_host", timeoutMs: 5000, requestedAt: this.options.now().toISOString() }) });
     };
+    await publish({ type: "tool.decided", decision: ToolDecisionSchema.parse({ proposalId: proposal.proposalId, taskId,
+      decision: "requires_approval", approvalRequestId, reasonCode: policy.reasonCode,
+      policyVersion: policy.audit.policyVersion, decidedAt: this.options.now().toISOString() }) });
     await this.options.progress();
     const verified = await work.done;
     if (signal.aborted || work.controller.signal.aborted) throw new Error("CANCELLED");
     if (work.denied) {
-      publish({ type: "approval.resolved", approval: { approvalRequestId, proposalId: proposal.proposalId,
+      await publish({ type: "approval.resolved", approval: { approvalRequestId, proposalId: proposal.proposalId,
         resolution: "denied", resolvedAt: this.options.now().toISOString(), reasonCode: "USER_DENIED" } });
       return ToolResultSchema.parse({ taskId, executionId, turnId: proposal.turnId, proposalId: proposal.proposalId,
         toolId: "localApp.open", resultedAt: this.options.now().toISOString(), status: "blocked", resultClass: "failure",

@@ -1,3 +1,4 @@
+import { AssistantRecoveryNoticeSchema } from "./assistant-turn-journal";
 import { z } from "zod";
 import {
   ToolCleanupStateSchema,
@@ -3895,6 +3896,8 @@ export const CoreSnapshotSchema = z
     voice: VoiceSnapshotSchema,
     textOnlyAcceptance: TextOnlyAcceptanceModeSchema.optional(),
     assistantTurn: AssistantTurnProjectionSchema.optional(),
+    assistantRecoveries: z.array(AssistantRecoveryNoticeSchema).max(100).optional(),
+    assistantRecoveryBlocked: z.boolean().optional(),
     messages: z.array(MessageSchema),
     conversations: z.array(ConversationSchema).default([]),
     activeConversationId: z.string().min(1).max(128).optional(),

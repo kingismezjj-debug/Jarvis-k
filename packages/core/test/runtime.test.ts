@@ -2126,8 +2126,9 @@ function createRuntimeWithChatAnswer(
   userPreferenceMemoryRepository?: UserPreferenceMemoryRepository,
   taskRepository?: TaskRepository,
   brainActionExecutor?: CoreBrainActionExecutorPort,
+  memoryRepository?: MemoryRepository,
 ) {
-  return createRuntime(undefined,
+  return createRuntime(memoryRepository,
     undefined,
     undefined,
     undefined,
@@ -2326,6 +2327,24 @@ function modelOperationPhases(
 }
 
 describe("CoreRuntime", () => {
+  it("does not advertise ready until the startup assistant recovery barrier completes", async () => {
+    const gate = createDeferred<void>();
+    const repository = Object.assign(new InMemoryTaskRepository(), { assistantTurns: {
+      append: async () => undefined,
+      scanUnfinished: async () => { await gate.promise; return []; },
+      listRecoveryNotices: async () => [],
+      hasUnfinishedOrQuarantined: async () => false,
+    } });
+    const memory = Object.assign(new FakeMemoryRepository(), { getMessage: async () => undefined });
+    const { runtime } = createRuntimeWithChatAnswer(undefined, { enabled: false }, undefined, repository, undefined, memory);
+    expect(runtime.getSnapshot()).toMatchObject({ health: "degraded", assistantRecoveryBlocked: true });
+    await runtime.hydrateMemory(); await runtime.hydrateTasks();
+    const recovering = runtime.hydrateAssistantTurns();
+    await Promise.resolve();
+    expect(runtime.getSnapshot()).toMatchObject({ health: "degraded", assistantRecoveryBlocked: true });
+    gate.resolve(); await recovering;
+    expect(runtime.getSnapshot()).toMatchObject({ health: "ready", assistantRecoveryBlocked: false });
+  });
   it("keeps text-only acceptance mode absent by default and projects it when enabled", () => {
     expect(
       createRuntime().runtime.getSnapshot().textOnlyAcceptance,

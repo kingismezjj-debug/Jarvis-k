@@ -1,5 +1,13 @@
 export const uiCopy = {
   en: {
+    assistantRecovery: {
+      label: "Conversation recovery",
+      blocked: "Conversation recovery needs attention. Previous approvals remain inactive.",
+      interrupted_before_execution: "The conversation was interrupted before execution. Nothing will be retried automatically.",
+      interrupted_while_awaiting_approval: "The conversation was interrupted while awaiting approval. That approval has expired.",
+      interrupted_unknown_execution_result: "The execution result is unknown. Please check the current system state. Nothing will be retried automatically.",
+      interrupted_after_tool_result: "The tool result was saved, but the answer was not finished. Nothing will be retried automatically.",
+    },
     assistantProgress: { approvalTitle: "Jarvis wants to open Notepad", approvalDetail: "This only opens the app. It does not read or write content.", allow: "Allow", deny: "Deny", approvalPending: "Awaiting your decision", openingNotepad: "Opening Notepad…", idle: "Ready", thinking: "Thinking…", checking: "Checking…", executing: "Checking model status…",
       synthesizing: "Preparing the answer…", streaming: "Answering…", awaiting_approval: "Confirm in Tasks",
       completed: "Completed", failed: "Could not complete the answer", cancelled: "Cancelled · answer incomplete",
@@ -243,6 +251,14 @@ export const uiCopy = {
     },
   },
   zh: {
+    assistantRecovery: {
+      label: "会话恢复状态",
+      blocked: "会话恢复需要处理，旧审批保持失效。",
+      interrupted_before_execution: "会话在执行前中断，不会自动重试。",
+      interrupted_while_awaiting_approval: "会话在等待审批时中断，原审批已失效。",
+      interrupted_unknown_execution_result: "执行结果未知，请检查当前系统状态。不会自动重试。",
+      interrupted_after_tool_result: "工具结果已保存，但回答尚未完成。不会自动重试。",
+    },
     assistantProgress: { approvalTitle: "Jarvis 想要打开记事本", approvalDetail: "仅打开应用，不读取或写入内容。", allow: "允许", deny: "拒绝", approvalPending: "等待你的选择", openingNotepad: "正在打开记事本…", idle: "就绪", thinking: "正在思考…", checking: "正在检查…", executing: "正在查询模型状态…",
       synthesizing: "正在整理结果…", streaming: "正在回答…", awaiting_approval: "请在任务中确认",
       completed: "已完成", failed: "未能完成回答", cancelled: "已取消 · 回答未完成",

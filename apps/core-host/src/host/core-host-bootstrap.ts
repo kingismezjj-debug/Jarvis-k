@@ -1,6 +1,7 @@
 export interface CoreHostBootstrapRuntimePort {
   hydrateMemory(): Promise<void>;
   hydrateTasks(): Promise<void>;
+  hydrateAssistantTurns?(): Promise<void>;
   hydrateCapabilities(): Promise<void>;
   announceReady(): void;
 }
@@ -19,6 +20,7 @@ export async function hydrateCoreHostAndAnnounceReady(
       input.runtime.hydrateTasks(),
       input.runtime.hydrateCapabilities(),
     ]);
+    await input.runtime.hydrateAssistantTurns?.();
   } finally {
     input.runtime.announceReady();
   }
