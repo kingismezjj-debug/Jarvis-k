@@ -53,10 +53,32 @@ export async function launch(p, phase) {
       assert.equal(await page.getByTestId('assistant-streaming-turn').count(), 0);
       const expected = ['A', 'B', 'C', 'D'].includes(p.scenario) ? 1 : 0;
       await page.waitForFunction(expected => document.querySelectorAll('[data-testid="assistant-recovery-notice"]').length === expected, expected);
-      // Current product blocks submission during recovery, but keeps draft editing
-      // available. Do not turn this into a false claim that the input is disabled.
       await page.waitForFunction(blocked => document.querySelector('[data-testid="send-command"]')?.disabled === blocked, p.scenario === 'F');
-      assert.equal(await page.getByTestId('command-input').isEditable(), true);
+      assert.equal(await page.getByTestId('command-input').isEditable(), p.scenario !== 'F');
+      if (p.scenario === 'F') {
+        assert.equal(await page.getByTestId('command-input').isDisabled(), true);
+        assert.equal(await page.getByTestId('command-input').getAttribute('aria-disabled'), 'true');
+        await page.getByTestId('command-input').evaluate(input => input.focus());
+        assert.equal(await page.getByTestId('command-input').evaluate(input => input === document.activeElement), false);
+        await page.keyboard.type('Synthetic blocked draft'); await page.keyboard.press('Enter'); await page.keyboard.press('Control+Enter');
+        assert.equal(await page.getByTestId('command-input').inputValue(), '');
+        await page.getByTestId('command-input').evaluate(input => input.closest('form').requestSubmit());
+        // Exercise the existing bridge's alternate text and synthetic voice-submit
+        // routes directly, without microphone/ASR, a provider, or any real executor.
+        const result = await page.evaluate(async () => {
+          const before = (await window.jarvis.getSnapshot()).data.messages.length;
+          const commands = [
+            { type: 'agent.sendMessage', payload: { text: 'Synthetic blocked input' } },
+            { type: 'agent.runBrainCommand', payload: { source: 'text', text: 'Synthetic blocked input' } },
+            { type: 'agent.runBrainCommand', payload: { source: 'voice', voiceInputMode: 'dictation', text: 'Synthetic blocked input' } },
+            { type: 'agent.confirmVoiceCommandCorrection', payload: { rawAlias: 'synthetic', normalizedTranscript: 'Synthetic blocked input', intent: 'chat.answer', slots: {} } },
+          ];
+          const results = []; for (const command of commands) results.push(await window.jarvis.sendCommand(command));
+          return { before, after: (await window.jarvis.getSnapshot()).data.messages.length,
+            blocked: results.every(r => !r.ok && r.error.code === 'ASSISTANT_RECOVERY_BLOCKED') };
+        });
+        assert.deepEqual(result, { before: 0, after: 0, blocked: true });
+      }
       if (p.scenario === 'C') {
         const notice = await page.getByTestId('assistant-recovery-notice').innerText();
         assert.match(notice, /执行结果未知|execution result is unknown/i);
@@ -116,9 +138,10 @@ export async function smoke() {
       }
       if (first) assert.deepEqual(result, first); else first = result;
       assert.equal(result.finalMessageCount, scenario === 'E' ? 1 : 0);
+      assert.equal(result.messageCount, scenario === 'E' ? 1 : 0);
       assert.equal(result.quarantineCount, scenario === 'F' ? 1 : 0);
     }
-    output.push({ scenario, classification: scenario === 'F' ? 'quarantined_submission_blocked_input_editable' : first.classification, counts: P.validateZero(p), pass: true });
+    output.push({ scenario, classification: scenario === 'F' ? 'quarantined_editor_and_submission_blocked' : first.classification, counts: P.validateZero(p), pass: true });
     P.remove(p, processes.inactive);
   }
   return output;

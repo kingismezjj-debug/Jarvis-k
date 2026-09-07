@@ -1688,7 +1688,7 @@ export default function App() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (sending || assistantTurnActive || snapshot?.assistantRecoveryBlocked) return;
+    if (sending || assistantTurnActive || !snapshot || snapshot.assistantRecoveryBlocked) return;
     if (!text) {
       notifyAction(copy.action.typeCommandFirst, "warning");
       return;
@@ -3295,6 +3295,7 @@ export default function App() {
             onChange={setDraft}
             onSubmit={handleSubmit}
             sending={sending || snapshot?.assistantRecoveryBlocked === true}
+            recoveryBlocked={!snapshot || snapshot.assistantRecoveryBlocked === true}
             value={draft}
           />
     </AppShell>

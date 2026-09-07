@@ -62,6 +62,7 @@ async function inspect(p) {
     terminalCount: turns.filter(t => t[0] === 'terminal').length, quarantineCount: turns.filter(t => t[0] === 'quarantined').length,
     eventCount: Number(read('task-runtime.sqlite', 'SELECT COUNT(*) FROM assistant_turn_events')[0][0]),
     taskRecoveryCount: Number(read('task-runtime.sqlite', "SELECT COUNT(*) FROM task_events WHERE type='interrupted'")[0][0]),
-    finalMessageCount: Number(read('memory.sqlite', "SELECT COUNT(*) FROM messages WHERE role='assistant'")[0][0]) };
+    finalMessageCount: Number(read('memory.sqlite', "SELECT COUNT(*) FROM messages WHERE role='assistant'")[0][0]),
+    messageCount: Number(read('memory.sqlite', 'SELECT COUNT(*) FROM messages')[0][0]) };
 }
 module.exports = { now, repositories, history, seed, recoverOffline, inspect };

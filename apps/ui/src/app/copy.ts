@@ -2,7 +2,7 @@ export const uiCopy = {
   en: {
     assistantRecovery: {
       label: "Conversation recovery",
-      blocked: "Conversation recovery needs attention. Previous approvals remain inactive.",
+      blocked: "Conversation recovery needs attention. Messages cannot be sent right now.",
       interrupted_before_execution: "The conversation was interrupted before execution. Nothing will be retried automatically.",
       interrupted_while_awaiting_approval: "The conversation was interrupted while awaiting approval. That approval has expired.",
       interrupted_unknown_execution_result: "The execution result is unknown. Please check the current system state. Nothing will be retried automatically.",
@@ -253,7 +253,7 @@ export const uiCopy = {
   zh: {
     assistantRecovery: {
       label: "会话恢复状态",
-      blocked: "会话恢复需要处理，旧审批保持失效。",
+      blocked: "会话恢复需要处理，暂时无法发送消息。",
       interrupted_before_execution: "会话在执行前中断，不会自动重试。",
       interrupted_while_awaiting_approval: "会话在等待审批时中断，原审批已失效。",
       interrupted_unknown_execution_result: "执行结果未知，请检查当前系统状态。不会自动重试。",

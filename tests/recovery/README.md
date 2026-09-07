@@ -61,11 +61,12 @@ endpoint is needed. Counters contain fixed keys and unit increments only.
 Observe A–D's single recovery status, absent streaming/empty/duplicate bubbles, absent
 old approval controls, and safe unknown-result wording for C. E must keep one final
 message without a recovery message. F must retain the damaged history, show safe
-attention and keep submission disabled. Current product behavior keeps the draft
-input editable even while recovery is blocked; the harness reports this distinction
-and does not certify the earlier "input disabled" manual criterion. A–E submission
-becomes available after recovery. Resolving that product criterion needs a separately
-authorized UI change or an explicit acceptance-criterion decision before UI-3K-2E-B.
+attention and keep both the editor and submission disabled. F tests focus, keyboard
+submission, direct form submission and alternate text/synthetic voice commands through
+the existing bridge. No canonical message is created, and provider/executor counts
+stay zero. A–E editing and submission become available after recovery. The UI consumes
+the existing trusted recovery projection; the common Core message ingress also rejects
+submissions before recovery completes or while recovery remains blocked.
 The smoke starts each recovery twice and compares logical journal/task/message counts.
 
 `cleanup` refuses active or uncertain ownership, unresolved launch locks, changed PID

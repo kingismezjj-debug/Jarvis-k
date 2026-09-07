@@ -904,6 +904,20 @@ export class CoreRuntime {
   public async handle(rawEnvelope: unknown): Promise<CommandResult> {
     const envelope = CommandEnvelopeSchema.parse(rawEnvelope);
 
+    // Use the same Core-owned readiness fact as assistantRecoveryBlocked. Guard
+    // before routing, voice correction, or canonical message persistence so alternate
+    // submitters cannot bypass the disabled composer. Recovery policy is unchanged.
+    if (this.taskRepository?.assistantTurns && !this.assistantRecoveryReady &&
+      (envelope.command.type === "agent.runBrainCommand" ||
+        envelope.command.type === "agent.sendMessage" ||
+        envelope.command.type === "agent.confirmVoiceCommandCorrection")) {
+      return this.failure(envelope, {
+        code: "ASSISTANT_RECOVERY_BLOCKED",
+        message: "会话恢复需要处理，暂时无法发送消息。",
+        retryable: false,
+      });
+    }
+
     switch (envelope.command.type) {
       case "agent.ping":
         this.publish(

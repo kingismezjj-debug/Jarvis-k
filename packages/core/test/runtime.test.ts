@@ -2327,6 +2327,31 @@ function modelOperationPhases(
 }
 
 describe("CoreRuntime", () => {
+  it.each([false, true])("blocks all message submission before and during unrecoverable recovery, quarantined=%s", async quarantined => {
+    const memory = Object.assign(new FakeMemoryRepository(), { getMessage: async () => undefined });
+    const repository = Object.assign(new InMemoryTaskRepository(), { assistantTurns: {
+      append: vi.fn(), scanUnfinished: async () => [], listRecoveryNotices: async () => [],
+      hasUnfinishedOrQuarantined: async () => quarantined,
+    } });
+    const { runtime } = createRuntimeWithChatAnswer(undefined, { enabled: false }, undefined, repository, undefined, memory);
+    const inputs = [
+      { type: "agent.sendMessage", payload: { text: "Synthetic blocked input" } },
+      { type: "agent.runBrainCommand", payload: { source: "text", text: "Synthetic blocked input" } },
+      { type: "agent.runBrainCommand", payload: { source: "voice", voiceInputMode: "dictation", text: "Synthetic blocked input" } },
+      { type: "agent.confirmVoiceCommandCorrection", payload: { rawAlias: "synthetic", normalizedTranscript: "Synthetic blocked input", intent: "chat.answer", slots: {} } },
+    ] as const;
+    const check = async () => {
+      const before = memory.messages.slice();
+      for (const command of inputs) expect(await runtime.handle(createCommandEnvelope(command))).toMatchObject({
+        ok: false, error: { code: "ASSISTANT_RECOVERY_BLOCKED", message: "会话恢复需要处理，暂时无法发送消息。" },
+      });
+      expect(memory.messages).toEqual(before); expect(repository.assistantTurns.append).not.toHaveBeenCalled();
+    };
+    await check();
+    await runtime.hydrateMemory(); await runtime.hydrateTasks(); await runtime.hydrateAssistantTurns();
+    if (quarantined) await check();
+    else expect(await runtime.handle(createCommandEnvelope(inputs[0]))).toMatchObject({ ok: true });
+  });
   it("does not advertise ready until the startup assistant recovery barrier completes", async () => {
     const gate = createDeferred<void>();
     const repository = Object.assign(new InMemoryTaskRepository(), { assistantTurns: {
