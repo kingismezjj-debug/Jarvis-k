@@ -43,6 +43,7 @@ export interface TaskEventCreateInput {
 }
 
 export interface TaskRepository {
+  readonly assistantTurns?: import("./assistant-turn-repository").AssistantTurnRepository;
   initialize(): Promise<void>;
   recoverRunningTasksAsInterrupted(now: string): Promise<void>;
   createTask(input: TaskCreateInput): Promise<Task>;

@@ -59,4 +59,5 @@ export type {
   TaskStepCreateInput,
 } from "./task-runtime";
 export * from "./assistant-loop-state-machine";
+export * from "./assistant-turn-repository";
 export * from "./memory-retrieval-routing-approval-gate";

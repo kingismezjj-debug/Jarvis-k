@@ -28,6 +28,7 @@ export interface CoreHostProviderVectorWriteWiring {
 }
 
 interface CoreHostMemoryRepository {
+  getMessage(id: string): ReturnType<SqliteMemoryRepository["getMessage"]>;
   initialize(): ReturnType<SqliteMemoryRepository["initialize"]>;
   checkHealth(): ReturnType<SqliteMemoryRepository["checkHealth"]>;
   upsertConversation(
@@ -167,6 +168,10 @@ class ProviderVectorWriteMemoryRepository implements CoreHostMemoryRepository {
     const accepted = await this.inner.appendMessage(message);
     await this.writeProviderVectorForMessage(accepted).catch(() => undefined);
     return accepted;
+  }
+
+  public getMessage(id: string): ReturnType<SqliteMemoryRepository["getMessage"]> {
+    return this.inner.getMessage(id);
   }
 
   public listMessages(

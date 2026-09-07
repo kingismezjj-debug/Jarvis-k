@@ -89,6 +89,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   private sql: SqlJsStatic | undefined;
   private database: Database | undefined;
   private initialized = false;
+  private durabilityFailed = false;
 
   public constructor(
     private readonly options: SqliteMemoryRepositoryOptions = {}
@@ -268,6 +269,12 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
     await this.flush();
     return cloneMessage(parsed);
+  }
+
+  public async getMessage(id: string): Promise<Message | undefined> {
+    const database = await this.getDatabase();
+    return this.toMessages(database.exec(`SELECT id, conversation_id, role, text, created_at
+      FROM messages WHERE id = ? LIMIT 1`, [id]))[0];
   }
 
   public async listMessages(
@@ -1198,6 +1205,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   private async getDatabase(): Promise<Database> {
+    if (this.durabilityFailed) throw new Error("MEMORY_STORAGE_UNAVAILABLE");
     await this.initialize();
     if (!this.database) {
       throw new Error("SQLite memory repository is not initialized.");
@@ -1326,8 +1334,18 @@ export class SqliteMemoryRepository implements MemoryRepository {
     if (!this.options.filePath || !this.database) {
       return;
     }
-    fs.mkdirSync(path.dirname(this.options.filePath), { recursive: true });
-    fs.writeFileSync(this.options.filePath, this.database.export());
+    if (this.durabilityFailed) throw new Error("MEMORY_STORAGE_UNAVAILABLE");
+    try {
+      fs.mkdirSync(path.dirname(this.options.filePath), { recursive: true });
+      const temporary = `${this.options.filePath}.pending`;
+      const fd = fs.openSync(temporary, "w");
+      try { fs.writeFileSync(fd, this.database.export()); fs.fsyncSync(fd); }
+      finally { fs.closeSync(fd); }
+      fs.renameSync(temporary, this.options.filePath);
+    } catch {
+      this.durabilityFailed = true;
+      throw new Error("MEMORY_STORAGE_WRITE_FAILED");
+    }
   }
 }
 

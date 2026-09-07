@@ -52,6 +52,8 @@ describe("Core Host provider vector write wiring", () => {
     const serializedRecords = JSON.stringify(repository.embeddingRecords);
 
     expect(accepted.id).toBe("msg-provider");
+    expect(await wiring.memoryRepository.getMessage(accepted.id)).toEqual(accepted);
+    expect(await wiring.memoryRepository.getMessage("msg-missing")).toBeUndefined();
     expect(wiring.enabled).toBe(true);
     expect(repository.messages.map((item) => item.id)).toEqual([
       "msg-provider"
@@ -246,6 +248,9 @@ class FakeEmbeddingProvider implements EmbeddingInferenceProvider {
 }
 
 class FakeSqliteMemoryRepository {
+  public async getMessage(id: string): Promise<Message | undefined> {
+    return this.messages.find(message => message.id === id);
+  }
   public messages: Message[] = [];
   public embeddingRecords: EmbeddingMemoryRecord[] = [];
   public writeStatus: "accepted" | "degraded" = "accepted";

@@ -3,6 +3,7 @@ export * from "./protocol";
 export * from "./plugin-protocol";
 export * from "./tool-protocol";
 export * from "./assistant-loop-protocol";
+export * from "./assistant-turn-journal";
 export * from "./bounded-desktop-action";
 export * from "./observability-protocol";
 export * from "./qwen-product-routing-activation";

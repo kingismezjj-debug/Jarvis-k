@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ASSISTANT_JOURNAL_MIGRATION, SqliteAssistantTurnJournal } from "./sqlite-assistant-turn-journal";
 import initSqlJs, {
   type Database,
   type SqlJsStatic
@@ -23,12 +24,14 @@ export interface SqliteTaskRepositoryOptions {
   filePath: string;
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 export class SqliteTaskRepository implements TaskRepository {
   private sql: SqlJsStatic | undefined;
   private database: Database | undefined;
   private initialized = false;
+  private durabilityFailed = false;
+  public readonly assistantTurns = new SqliteAssistantTurnJournal(() => this.getDatabase(), () => this.flush());
 
   public constructor(private readonly options: SqliteTaskRepositoryOptions) {}
 
@@ -373,6 +376,7 @@ export class SqliteTaskRepository implements TaskRepository {
   }
 
   private async getDatabase(): Promise<Database> {
+    if (this.durabilityFailed) throw new Error("TASK_STORAGE_UNAVAILABLE");
     await this.initialize();
     if (!this.database) {
       throw new Error("Task database is unavailable.");
@@ -381,6 +385,8 @@ export class SqliteTaskRepository implements TaskRepository {
   }
 
   private migrate(database: Database): void {
+    const schemaVersion = this.readSchemaVersion(database);
+    if (schemaVersion < 0 || schemaVersion > SCHEMA_VERSION) throw new Error("TASK_SCHEMA_UNSUPPORTED");
     database.run("BEGIN IMMEDIATE TRANSACTION");
     try {
       database.run(`
@@ -449,6 +455,7 @@ export class SqliteTaskRepository implements TaskRepository {
         );
       }
       if (version < SCHEMA_VERSION) {
+        database.run(ASSISTANT_JOURNAL_MIGRATION);
         database.run(`PRAGMA user_version = ${SCHEMA_VERSION}`);
       }
       database.run("COMMIT");
@@ -481,13 +488,23 @@ export class SqliteTaskRepository implements TaskRepository {
     }
   }
 
-  private async flush(): Promise<void> {
+  private flush(): void {
     if (!this.database) {
       return;
     }
-    const directory = path.dirname(this.options.filePath);
-    fs.mkdirSync(directory, { recursive: true });
-    fs.writeFileSync(this.options.filePath, Buffer.from(this.database.export()));
+    if (this.durabilityFailed) throw new Error("TASK_STORAGE_UNAVAILABLE");
+    try {
+      const directory = path.dirname(this.options.filePath);
+      fs.mkdirSync(directory, { recursive: true });
+      const temporary = `${this.options.filePath}.pending`;
+      const fd = fs.openSync(temporary, "w");
+      try { fs.writeFileSync(fd, Buffer.from(this.database.export())); fs.fsyncSync(fd); }
+      finally { fs.closeSync(fd); }
+      fs.renameSync(temporary, this.options.filePath);
+    } catch {
+      this.durabilityFailed = true;
+      throw new Error("TASK_STORAGE_WRITE_FAILED");
+    }
   }
 }
 

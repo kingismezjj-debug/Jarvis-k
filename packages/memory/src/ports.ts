@@ -51,6 +51,7 @@ export interface SummaryWriteInput {
 }
 
 export interface MemoryRepository {
+  getMessage?(id: string): Promise<Message | undefined>;
   initialize(): Promise<void>;
   checkHealth(): Promise<MemoryHealth>;
   upsertConversation(input: ConversationCreateInput): Promise<Conversation>;
