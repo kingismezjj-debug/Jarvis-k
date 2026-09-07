@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Milestone-1",
+  "phase": "UI-3K-2D",
+  "closurePhase": "UI-3K-2D-B",
+  "completionLevel": "L4",
+  "completionClassification": "user_accepted_bounded_desktop_action",
+  "implementationCommits": {
+    "initialBoundedDesktop": "51f7c5b5fb2dae5faf37d6ae923980c2dfa4c3a9",
+    "naturalSelectionAndDenialContinuation": "98fbbfe37c084ff54b8e464008f6b211f4ce527f",
+    "providerNativeApprovalResponsibility": "83b0910d9ef1aa48cd9555d5221db41ba5ec313b"
+  },
+  "userObserved": {
+    "attribution": "userObserved",
+    "deny": {
+      "verdict": "PASS",
+      "nativeApprovalShown": true,
+      "conversationalConfirmationObserved": false,
+      "notepadOpenedBeforeDecision": false,
+      "userDecision": "denied",
+      "notepadOpenedAfterDenial": false,
+      "executionCount": 0,
+      "denialPreventedLaunch": "PASS",
+      "approvalControlsDisabledAfterward": true,
+      "finalNonExecutionExplanationCount": 1,
+      "pendingStatusCleared": true,
+      "internalInformationExposureObserved": false,
+      "additionalWindowsSideEffectsObserved": false
+    },
+    "allow": {
+      "verdict": "PASS",
+      "nativeApprovalShown": true,
+      "notepadOpenedBeforeApproval": false,
+      "userDecision": "allowed",
+      "approvalControlsDisabledAfterward": true,
+      "boundedNotepadLaunchCount": 1,
+      "onlyNotepadOpened": true,
+      "finalMessageCount": 1,
+      "flickerEmptyOrDuplicateBubblesObserved": false,
+      "internalInformationExposureObserved": false,
+      "additionalWindowsSideEffectsObserved": false,
+      "notepadContentReadOrWritten": false,
+      "testInstanceClosedByUser": true
+    },
+    "realWindowsAction": {
+      "attribution": "userObserved",
+      "classification": "one_user_approved_bounded_notepad_launch",
+      "count": 1,
+      "machineObserved": false,
+      "otherWindowsSideEffectsObserved": false
+    },
+    "securityExposureObserved": false
+  },
+  "userProvidedSafeStatus": {
+    "attribution": "userProvidedSafeStatus",
+    "deny": {
+      "providerSelectedToolCall": "PASS",
+      "deniedToolResultReentry": "PASS",
+      "singleFinalMessage": "PASS"
+    },
+    "allow": {
+      "providerSelectedToolCall": "PASS",
+      "launchVerification": "PASS",
+      "successToolResultReentry": "PASS",
+      "singleFinalMessage": "PASS"
+    },
+    "jarvisFullyExited": true,
+    "blankTestInstanceClosed": true,
+    "notAnIndependentNetworkOrProcessTrace": true
+  },
+  "sourceAndTestSupported": {
+    "attribution": "sourceAndTestSupported",
+    "supportedImplementationCommit": "83b0910d9ef1aa48cd9555d5221db41ba5ec313b",
+    "tool": {
+      "identityClassification": "fixed_governed_provider_to_internal_mapping",
+      "internalId": "localApp.open",
+      "providerName": "local_app_open",
+      "onlyAllowedApp": "notepad",
+      "argumentClassification": "strict_single_app_enum_no_additional_properties",
+      "effectClassification": "bounded_mutating_requires_native_approval",
+      "providerToolChoice": "auto",
+      "maxToolsPerTurn": 1,
+      "maxToolIterations": 1,
+      "parallelCallsAllowed": false,
+      "providerCanControlRiskOrApproval": false,
+      "keywordConstructedProposal": false
+    },
+    "governance": {
+      "sharedToolRegistryAndSafety": true,
+      "existingTaskAndApprovalServices": true,
+      "approvalBeforeExecution": true,
+      "nativeApprovalRequired": true,
+      "chatTextCanApprove": false,
+      "approvalConsumedOnce": true,
+      "denialTerminatesEntireTurn": false,
+      "denialExecutionCount": 0
+    },
+    "executionAndVerification": {
+      "owner": "desktop_main",
+      "launchTargetClassification": "fixed_system_application",
+      "emptyLaunchArguments": true,
+      "shellUsed": false,
+      "verificationClassification": "identity_check_of_this_launch_process",
+      "spawnSuccessAloneIsVerification": false,
+      "alreadyRunningInstanceIsNotLaunchProof": true,
+      "notepadContentAccess": false
+    },
+    "resultAndFinalOwnership": {
+      "sameTurnProposalTaskResultCorrelation": true,
+      "deniedResultIsBounded": true,
+      "successResultRequiresVerification": true,
+      "deniedAndSuccessResultReentry": "PASS",
+      "providerContinuationCountPerAcceptedTurn": 1,
+      "finalMessageOwner": "assistant_runtime",
+      "finalMessageCountPerAcceptedTurn": 1,
+      "secondToolProposalAllowed": false
+    },
+    "implementationValidation": {
+      "basis": "prior_fake_transport_and_fake_desktop_validation",
+      "focusedTests": "PASS",
+      "cleanEnvironmentVerify": "PASS",
+      "nativeDenyAllowSmoke": "PASS",
+      "realAcceptanceRepeatedInEvidencePhase": false
+    },
+    "evidencePhaseAutomation": {
+      "realNetworkRequestSent": false,
+      "realWindowsActionPerformed": false,
+      "productLogicChanged": false,
+      "jarvisStarted": false,
+      "realDenyAllowRepeated": false
+    }
+  },
+  "inferred": {
+    "attribution": "inferred",
+    "providerRequests": {
+      "classification": "inferred_not_packet_captured",
+      "scope": "accepted_deny_and_allow_flows_only",
+      "userInitiatedTurns": 2,
+      "approximateCount": 4,
+      "basis": "one_proposal_request_and_one_result_continuation_per_flow",
+      "packetCaptured": false,
+      "machineObservedExactCount": false,
+      "includesEarlierFailedAttemptsOrConnectionTests": false
+    }
+  },
+  "finalMachineAndRepoState": {
+    "attribution": "read_only_closure_checks",
+    "observationPoint": "after_user_exit_before_evidence_edits",
+    "jarvisCoreHostElectronNotepadProcessCount": 0,
+    "runIdentityCounts": {
+      "currentUserNativeView": 0,
+      "localMachineNativeView": 0,
+      "currentUserCompatibilityView": 0,
+      "localMachineCompatibilityView": 0
+    },
+    "branch": "main",
+    "acceptedImplementationHead": "83b0910d9ef1aa48cd9555d5221db41ba5ec313b",
+    "acceptedImplementationOrigin": "83b0910d9ef1aa48cd9555d5221db41ba5ec313b",
+    "headMatchesOrigin": true,
+    "worktreeClean": true
+  },
+  "decision": {
+    "ui3k2dFullyAccepted": true,
+    "acceptedApp": "notepad",
+    "releaseReady": false,
+    "nextPhaseStarted": false,
+    "additionalToolAuthorized": false,
+    "notCompletedByThisAcceptance": [
+      "arbitrary_app_launch",
+      "file_writing",
+      "shell",
+      "browser",
+      "filesystem.search",
+      "wake_word"
+    ],
+    "windowsAutomationExpansionRequiresPerToolGovernance": true
+  }
+}
