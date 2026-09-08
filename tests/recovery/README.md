@@ -55,8 +55,8 @@ records are confined to the scenario's control directory, separate from count lo
 
 Every provider/executor call outside B's single preparation call is rejected and
 counted, with no real fallback. The guards are installed in Main and forked CoreHost
-before product imports. Existing product eligibility is enabled only in the isolated
-test child so native approval can be exercised; both the Core action adapter and
+before product entry imports. Provider eligibility is enabled only during B preparation
+so native approval can be exercised; all recovery starts have no provider. Both the Core action adapter and
 Desktop launch port are replaced with rejecting test functions. No credential or
 endpoint is needed. Counters contain fixed keys and unit increments only.
 
@@ -219,3 +219,79 @@ normally; it never uses retained profiles, opens Notepad, invokes an executor, o
 sends real provider requests. B retains its one synthetic preparation proposal;
 all recovery provider/executor counters remain zero. Production exclusion guards
 continue to check source imports, build roots and packaged file exclusions.
+
+## Explicit provider modes (H4, L2 automated testing)
+
+The launch policy is a fixed allowlist, not a user/profile/CLI provider option:
+
+| Scenario/phase | providerMode |
+|---|---|
+| A/C/D/E/F recovery | absent |
+| B preparation | guarded_fake |
+| B recovery, including both restarts | absent |
+
+`provider-mode.cjs` validates the scenario, phase and explicit mode at the parent
+environment boundary and again in Main/CoreHost bootstrap. Missing, unknown or
+incompatible modes fail closed; there is no default or automatic fallback. The
+external child variable is `JARVIS_RECOVERY_TEST_PROVIDER_MODE`; no production
+`JARVIS_K_*` option is added. The CLI cannot accept an arbitrary mode string.
+
+`absent` does not import/instantiate the fake provider, configure an answer provider,
+enable the online answer service, or write product provider/configuration stores.
+It supplies no endpoint, base URL or credential placeholder. The bootstrap calls
+the existing product recovery implementation without a model dependency. Core's
+provider field is checked before and after recovery; any unexpected configured
+provider or enabled service fails closed. The existing production chat binding
+normally eagerly creates a configurable provider wrapper even when disabled. Only
+inside this external bootstrap, it is replaced by a binding with no provider field
+or factory and which rejects enable/configuration requests. Production source and
+recovery policy remain unchanged.
+
+The test-only provider constructor/transport guards cover the fixture, configurable,
+local smoke, OpenAI-compatible, GLM and DeepSeek answer adapters. Secure answer-store
+mutation methods are blocked before writing. Existing HTTP/HTTPS/fetch/net/TLS and
+Electron network guards remain active and increment a separate network counter.
+Forbidden operations count the attempted boundary, then throw without a real delegate.
+Configuration-attempt violations remain sticky and cannot pass inspection merely
+because no file was written. Inspection also checks that the isolated user/local
+directories contain no provider/credential JSON files, without reading their contents.
+
+`guarded_fake` is exclusively B preparation. One fake factory, one instance, one
+in-memory configuration and exactly one proposal transport call are permitted.
+Continuation, second factories/calls and all networking fail closed. B recovery
+gets a new launch context with `absent` and zero current-launch provider counters;
+the previous preparation counter remains 1 in the separate existing lifetime counts.
+No product provider configuration is persisted to bridge those phases.
+
+Each launch has a private control binding (schemaVersion, owner, scenario, phase,
+mode, kind, generation) tied to the H3 launch generation. Observations are exclusive,
+bounded single-enum records in that generation's audit directory. Inspection checks
+the binding against the trusted mapping and current launch. Changed owner/scenario/
+mode, missing/partial/unknown metadata and stale generations fail closed. Offline
+repository tests explicitly create an `offline` absent context; that context cannot
+be used by a profile already launched in Desktop. Seed inspection uses the explicit
+mapping with zero pre-launch counters and never fabricates a launch observation.
+
+The safe inspection envelope adds `provider` with exactly these fields:
+
+```text
+providerMode: absent | guarded_fake
+providerConfigured: boolean
+providerInstantiated: boolean
+providerFactoryCalls: integer 0..4096
+providerTransportCalls: integer 0..4096
+providerNetworkCalls: integer 0..4096
+providerStatus: unconfigured | unavailable | available
+```
+
+All recovery inspections require absent/false/false/0/0/0/unconfigured. First and
+second exit compare these projections as well as the existing logical counts.
+H1 safe firstFailure and H3 stable-exit consumption are retained; private binding
+data, endpoints, credentials, paths and raw configuration never enter diagnostics.
+Old retained profiles are not migrated, re-inspected, launched or deleted by H4.
+
+Focused H4 tests plus A–F smoke validate the absence of configuration and instances,
+rejected factory/transport calls, B preparation isolation, mode tampering, safe
+output and production import/package exclusion. Smoke profiles are new automated
+test profiles, not C manual acceptance profiles. A new C manual run requires its
+own subsequent authorization and a freshly prepared profile.

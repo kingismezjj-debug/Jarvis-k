@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const P = require('./profile.cjs');
 const ProcessSummary = require('./exit-summary.cjs');
+const ProviderSummary = require('./provider-mode.cjs');
 const CATALOG = Object.freeze([
   'scenario_classification_match', 'recovery_terminal_count', 'terminal_event_count',
   'recovery_event_count', 'task_interruption_count', 'canonical_message_count',
@@ -15,10 +16,13 @@ const CATALOG = Object.freeze([
   'streaming_bubble_count', 'editor_state', 'send_state', 'alternate_submit_blocked',
   'safe_recovery_wording', 'process_identity', 'profile_seed', 'profile_cleanup',
   'inspection_operation', 'tool_result_count', 'continuation_count',
+  'provider_mode','provider_policy','provider_configured','provider_instantiated',
+  'provider_factory_calls','provider_transport_calls','provider_network_calls','provider_status','provider_configuration_files',
 ]);
 const STAGES = Object.freeze(['prepare', 'launch', 'first_recovery', 'first_exit', 'second_recovery', 'second_exit', 'cleanup']);
 const CLASSES = Object.freeze(['assertion_failed', 'inspection_error', 'persistence_unavailable', 'process_state_unavailable']);
 const ENUMS = Object.freeze(['unavailable', 'invalid_value', 'out_of_bounds', 'valid', 'invalid', 'synthetic_invalid',
+  'absent','guarded_fake','unconfigured','available',
   'unfinished', 'terminal', 'invalid_journal', 'none', 'completed', 'preparation_required',
   'interrupted_before_execution', 'interrupted_while_awaiting_approval',
   'interrupted_unknown_execution_result', 'interrupted_after_tool_result']);
@@ -75,10 +79,12 @@ function validateResult(r) {
   const keys = ['schemaVersion', 'scenario', 'stage', 'verdict', 'assertions', 'safeCounters', 'generatedAt'];
   if (r?.verdict === 'FAIL') keys.push('firstFailure');
   if (r?.safeProcessSummary !== undefined) keys.push('safeProcessSummary');
+  if (r?.provider !== undefined) keys.push('provider');
   if (!exact(r, keys) || r.schemaVersion !== 1 || !['A','B','C','D','E','F'].includes(r.scenario) ||
     !STAGES.includes(r.stage) || !['PASS','FAIL'].includes(r.verdict) || !Number.isInteger(r.assertions) || r.assertions < 0 || r.assertions > MAX ||
     !validCounters(r.safeCounters) || r.generatedAt !== 'stage_completed' ||
     (r.safeProcessSummary !== undefined && !ProcessSummary.valid(r.safeProcessSummary)) ||
+    (r.provider !== undefined && !ProviderSummary.valid(r.provider)) ||
     (r.verdict === 'FAIL' && (!validFailure(r.firstFailure) || r.firstFailure.stage !== r.stage))) throw failure('inspection_result_integrity', r?.stage);
   return r;
 }
@@ -87,6 +93,7 @@ function result(scenario, ctx, counters = {}, error) {
   return validateResult({ schemaVersion: 1, scenario, stage: ctx.stage, verdict: error ? 'FAIL' : 'PASS', assertions: ctx.assertions,
     ...(error ? { firstFailure: { ...safeFailure(error, ctx.stage), stage: ctx.stage } } : {}),
     ...(ProcessSummary.valid(error?.safeProcessSummary) ? { safeProcessSummary: error.safeProcessSummary } : {}),
+    ...(ctx.provider === undefined ? {} : {provider: ctx.provider}),
     safeCounters, generatedAt: 'stage_completed' });
 }
 function resultPath(p, stage) {

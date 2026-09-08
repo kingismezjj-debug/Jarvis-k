@@ -150,6 +150,7 @@ describe('one immutable exit result for finish, inspection and cleanup', () => {
   async function setup() {
     const p = make(); await State.seed(p); await State.recoverOffline(p);
     E.beginLaunch(p,'first_exit'); fs.writeFileSync(path.join(p.control,'launch.lock'),p.nonce); fs.writeFileSync(path.join(p.control,'ever-launched'),'yes');
+    require('../../../tests/recovery/provider-mode.cjs').begin(p,'recovery','absent','desktop');
     fs.writeFileSync(path.join(p.control,'processes.json'),JSON.stringify(manifest(p.nonce))); return p;
   }
   const options = () => { const v=virtual([[]]); return {query:v.query,now:v.now,pause:v.pause,launchExitObserved:()=>true}; };

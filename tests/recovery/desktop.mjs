@@ -7,6 +7,7 @@ import state from './state.cjs';
 import D from './diagnostics.cjs';
 import I from './inspection.cjs';
 import Exit from './exit-verifier.cjs';
+import Modes from './provider-mode.cjs';
 
 export async function launch(p, phase) {
   const ctx = D.context('launch');
@@ -30,10 +31,12 @@ async function launchOwned(p, phase, ctx) {
   }
   const exitStage = phase === 'preparation' ? 'launch' : ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit';
   Exit.beginLaunch(p,exitStage);
+  const providerMode = Modes.select(p.scenario,phase);
+  Modes.begin(p,phase,providerMode,'desktop');
   fs.writeFileSync(path.join(p.control, 'launch.lock'), p.nonce, { flag: 'wx' });
   fs.writeFileSync(path.join(p.control, 'ever-launched'), 'yes');
     stage = 'desktop_start';
-    app = await _electron.launch({ cwd: P.REPO, args: ['tests/recovery/bootstrap.cjs', `--jarvis-recovery-nonce=${p.nonce}`], env: P.environment(p, phase), timeout: 30000 });
+    app = await _electron.launch({ cwd: P.REPO, args: ['tests/recovery/bootstrap.cjs', `--jarvis-recovery-nonce=${p.nonce}`], env: P.environment(p, phase, providerMode), timeout: 30000 });
     const launchProcess = app.process();
     let launchExited = launchProcess.exitCode !== null || launchProcess.signalCode !== null;
     const launchExit = launchExited ? Promise.resolve() : new Promise(resolve => launchProcess.once('exit', () => { launchExited = true; resolve(); }));
@@ -123,6 +126,8 @@ async function launchOwned(p, phase, ctx) {
     processes.attestNonce(p, captured.entries);
     const c = await ctx.read('recovery_run_count', 'persistence_unavailable', () => P.counts(p));
     I.checkCounters(ctx, c, p.scenario, true);
+    ctx.provider = Modes.projection(p,phase,providerMode);
+    Modes.check(ctx,ctx.provider,phase==='preparation');
     const inspection = phase === 'preparation' ? D.writeResult(p, D.result(p.scenario, ctx, c)) : I.requirePass(await I.inspect(p, ctx.stage));
     async function finishExit() {
       const exit = D.context(exitStage);
@@ -132,6 +137,7 @@ async function launchOwned(p, phase, ctx) {
         await app.close();
         if (phase !== 'preparation') return I.requirePass(await I.inspect(p, exit.stage));
         const counts = P.counts(p); I.checkCounters(exit, counts, p.scenario, true);
+        exit.provider=Modes.projection(p,phase,providerMode);Modes.check(exit,exit.provider,true);
         return D.writeResult(p, D.result(p.scenario, exit, counts));
       } catch (error) { D.recordFailure(p, exit, error); }
     }

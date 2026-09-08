@@ -45,6 +45,7 @@ async function seed(p) {
 }
 async function recoverOffline(p) {
   const { tasks, memory } = await repositories(p);
+  require('./provider-mode.cjs').begin(p,'recovery','absent','offline');
   P.count(p, 'recoveryRuns'); await tasks.recoverRunningTasksAsInterrupted(now().toISOString());
   return recoverAssistantTurns({ repository: tasks.assistantTurns, now, finalMessageExists: async (id, conversationId) => {
     const m = await memory.getMessage(id); assert.ok(!m || m.conversationId === conversationId && m.role === 'assistant'); return !!m;

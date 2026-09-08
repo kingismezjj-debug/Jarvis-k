@@ -6,6 +6,7 @@ const R = require('./processes.cjs');
 const S = require('./state.cjs');
 const D = require('./diagnostics.cjs');
 const Exit = require('./exit-verifier.cjs');
+const Modes = require('./provider-mode.cjs');
 const RECOVERY = Object.freeze({ A: 'interrupted_before_execution', B: 'interrupted_while_awaiting_approval',
   C: 'interrupted_unknown_execution_result', D: 'interrupted_after_tool_result', E: 'completed', F: 'invalid_journal' });
 const SEED_EVENTS = Object.freeze({ A: 3, B: 0, C: 5, D: 6, E: 7, F: 4 });
@@ -74,6 +75,10 @@ async function inspect(p, stage, dependencies = {}) {
         ['first_exit','second_exit'].includes(stage) ? Exit.consume(p,stage).verdict === 'PASS' :
         stage === 'cleanup' ? Exit.cleanupGuard(p) : closed ? R.inactive(p) : !!R.resolve(p).length);
     ctx.check('process_exit_state', true, processFact);
+    const phase = stage==='prepare' && p.scenario==='B' ? 'preparation' : 'recovery';
+    const mode = Modes.select(p.scenario,phase);
+    ctx.provider = await ctx.read('provider_mode','inspection_error',()=>Modes.projection(p,phase,mode,{seed:stage==='prepare'}));
+    Modes.check(ctx,ctx.provider,false);
     const f = await ctx.read('journal_integrity', 'persistence_unavailable', () => (dependencies.facts || facts)(p));
     const c = await ctx.read('recovery_run_count', 'persistence_unavailable', () => (dependencies.counts || P.counts)(p));
     counters = { ...f, ...c };
@@ -81,6 +86,7 @@ async function inspect(p, stage, dependencies = {}) {
     if (stage === 'second_exit') {
       const first = await ctx.read('inspection_result_integrity', 'persistence_unavailable', () => D.readResult(p, 'first_exit'));
       ctx.check('inspection_result_integrity', true, first.verdict === 'PASS');
+      ctx.check('recovery_idempotency',true,JSON.stringify(first.provider)===JSON.stringify(ctx.provider));
       const current = D.result(p.scenario, ctx, counters);
       ctx.check('recovery_idempotency', true, JSON.stringify(logical(first.safeCounters)) === JSON.stringify(logical(current.safeCounters)));
     }

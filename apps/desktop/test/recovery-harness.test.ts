@@ -10,6 +10,7 @@ const P = require('../../../tests/recovery/profile.cjs');
 const S = require('../../../tests/recovery/state.cjs');
 const Process = require('../../../tests/recovery/processes.cjs');
 const { provider } = require('../../../tests/recovery/provider.cjs');
+const Modes = require('../../../tests/recovery/provider-mode.cjs');
 const profiles: any[] = [];
 const make = (s: string) => { const p = P.create(s); profiles.push(p); return p; };
 afterEach(() => {
@@ -21,7 +22,7 @@ describe('isolated recovery harness boundaries', () => {
     const items = ['A', 'B', 'C', 'D', 'E', 'F'].map(make);
     expect(new Set(items.map(p => p.root)).size).toBe(6);
     for (const p of items) {
-      const env = P.environment(p, 'recovery');
+      const env = P.environment(p, 'recovery', 'absent');
       for (const key of ['JARVIS_K_USER_DATA_PATH', 'JARVIS_K_LOCAL_DATA_PATH', 'TEMP', 'TMP']) {
         expect(P.inside(P.canonical(env[key]), p.root)).toBe(true);
       }
@@ -77,13 +78,15 @@ describe('isolated recovery harness boundaries', () => {
   });
   it('fake provider permits exactly one B preparation proposal and has no continuation/recovery fallback', async () => {
     const p = make('B'); const context = { tool: { turnId: 'synthetic-turn', proposalId: 'synthetic-proposal' } };
-    const fake = provider(p, 'preparation');
+    Modes.begin(p,'preparation','guarded_fake','offline');
+    const fake = provider(p, 'preparation','guarded_fake');
     const proposals = []; for await (const e of fake.startTextTurn({}, context)) proposals.push(e);
     expect(proposals[0].proposal.toolId).toBe('localApp.open'); expect(P.counts(p).preparationFakeProviderCalls).toBe(1);
     await expect(fake.startTextTurn({}, context).next()).rejects.toThrow();
-    await expect(provider(p, 'recovery').startTextTurn({}, context).next()).rejects.toThrow();
-    await expect(provider(p, 'recovery').continueTextTurn().next()).rejects.toThrow();
-    expect(P.counts(p).recoveryProviderCalls).toBe(2);
+    Modes.begin(p,'recovery','absent','offline');
+    expect(()=>provider(p, 'recovery','absent')).toThrow();
+    expect(()=>Modes.transport(p,'recovery','absent')).toThrow();
+    expect(P.counts(p).recoveryProviderCalls).toBe(0);
   });
   it('counter files contain only bounded enum keys and counts, never request/result/identity data', () => {
     const p = make('A'); P.count(p, 'recoveryRuns');
@@ -143,6 +146,7 @@ describe('test-only production exclusion', () => {
       const root = path.join(P.REPO, owner, directory); if (!fs.existsSync(root)) continue;
       for (const file of files(root).filter(f => /\.[cm]?[jt]sx?$/.test(f))) {
         const source = fs.readFileSync(file, 'utf8'); expect(source.includes('JARVIS_RECOVERY_TEST')).toBe(false);
+        expect(source).not.toMatch(/provider-mode\.cjs|provider-runtime\.cjs/);
         for (const ref of ts.preProcessFile(source, true, true).importedFiles) {
           expect(ref.fileName).not.toMatch(/(?:^|\/)(?:tests?|recovery)\//);
           if (ref.fileName.startsWith('.')) expect(path.resolve(path.dirname(file), ref.fileName)).not.toContain(`${path.sep}tests${path.sep}`);

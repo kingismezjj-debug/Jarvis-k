@@ -19,9 +19,13 @@ process.on('uncaughtException', setupFailed);
 process.on('unhandledRejection', setupFailed);
 const phase = process.env.JARVIS_RECOVERY_TEST_PHASE;
 assert.ok(['preparation', 'recovery'].includes(phase));
+const M = require('./provider-mode.cjs');
+const providerMode = M.validate(p.scenario, phase, process.env.JARVIS_RECOVERY_TEST_PROVIDER_MODE);
+M.current(p,phase,providerMode);
 for (const [key, expected] of Object.entries({ JARVIS_K_USER_DATA_PATH: p.userData, JARVIS_K_LOCAL_DATA_PATH: p.localData, TEMP: p.temp, TMP: p.temp })) assert.equal(P.canonical(process.env[key]), expected);
 assert.equal(P.canonical(os.tmpdir()), p.temp);
 function forbidden(kind, port = 'unknown') {
+  if(kind==='provider') M.record(p,phase,providerMode,'network');
   return require('./guards.cjs').rejectCall(p, phase, kind, port, process.type === 'browser' ? 'desktop_main' : 'core_host');
 }
 // No endpoint, authentication material, or network fallback is held by this fixture.
@@ -56,12 +60,15 @@ if (process.type === 'browser') {
     });
   });
   require('../../apps/desktop/dist/bounded-notepad-action.js').launchBoundedNotepad = () => forbidden('executor');
+  require('./provider-runtime.cjs').installStore(p,phase,providerMode);
   setupStage = 'desktop_entry';
   require('../../apps/desktop/dist/main.js');
 } else {
   setupStage = 'core_guards';
   P.atomic(path.join(p.control, 'core-attestation.json'), { pid: process.pid, parent: process.ppid, nonce: p.nonce, phase });
   const { CoreRuntime } = require('@jarvis-k/core');
+  const providerHooks = require('./provider-runtime.cjs');
+  providerHooks.installFactories(p,phase,providerMode);
   // Startup hardware probing normally invokes PowerShell. Supply a synthetic device
   // at that existing provider port instead; no probe process is allowed in this test.
   const { NodeDeviceCapabilityProvider } = require('../../apps/core-host/dist/node-device-capability-provider.js');
@@ -76,17 +83,13 @@ if (process.type === 'browser') {
   for (const name of ['openLocalApp', 'openBrowser', 'searchFilesystem', 'writeNotepadText', 'controlKnownAppWindow']) {
     BrainActionAllowlistAdapter.prototype[name] = () => forbidden('executor');
   }
-  const { provider, input } = require('./provider.cjs');
-  const fake = provider(p, phase);
-  const configure = CoreRuntime.prototype.configureChatAnswerProductMode;
-  CoreRuntime.prototype.configureChatAnswerProductMode = function () {
-    configure.call(this, { provider: fake, options: { enabled: true, providerId: 'chat-answer.recovery-test' } });
-  };
+  const providerBoundary = providerHooks.installCore(CoreRuntime,p,phase,providerMode);
   const recover = CoreRuntime.prototype.hydrateAssistantTurns;
   CoreRuntime.prototype.hydrateAssistantTurns = async function () {
-    this.configureChatAnswerProductMode();
+    providerBoundary.beforeRecovery(this);
     if (phase === 'recovery') P.count(p, 'recoveryRuns');
     await recover.call(this);
+    providerBoundary.afterRecovery(this);
     P.atomic(path.join(p.control, 'recovery-ready.json'), { phase, blocked: this.getSnapshot().assistantRecoveryBlocked });
   };
   const ready = CoreRuntime.prototype.announceReady;
@@ -96,9 +99,8 @@ if (process.type === 'browser') {
     if (phase === 'preparation') {
       assert.equal(p.scenario, 'B'); assert.equal(prepared, false); prepared = true;
       assert.equal(this.getSnapshot().assistantRecoveryBlocked, false);
-      this.configureChatAnswerProductMode();
       // Test calls the existing turn port. Only the fake provider constructs the proposal.
-      this.assistantRuntime.startTextTurn(input());
+      this.assistantRuntime.startTextTurn(require('./provider.cjs').input());
     }
   };
 }

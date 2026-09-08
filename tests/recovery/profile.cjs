@@ -86,8 +86,9 @@ function counts(p) {
   }
   return result;
 }
-function environment(p, phase) {
+function environment(p, phase, providerMode) {
   p = load(p.id); assert.ok(['preparation', 'recovery'].includes(phase));
+  require('./provider-mode.cjs').validate(p.scenario, phase, providerMode);
   const allowed = /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|PROGRAMFILES|PROGRAMFILES\(X86\)|PROGRAMW6432|SYSTEMDRIVE|NUMBER_OF_PROCESSORS|PROCESSOR_ARCHITECTURE|OS)$/i;
   return { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => allowed.test(key))),
     // Standard OS overrides also isolate startup temp cleanup and Electron fallback storage.
@@ -97,6 +98,7 @@ function environment(p, phase) {
     JARVIS_K_ENABLE_LOCAL_PLUGIN_MANIFESTS: '0',
     // Consumed only by the external --require bootstrap, never by production code.
     JARVIS_RECOVERY_TEST_ID: p.id, JARVIS_RECOVERY_TEST_BASE: BASE, JARVIS_RECOVERY_TEST_PHASE: phase,
+    JARVIS_RECOVERY_TEST_PROVIDER_MODE: providerMode,
   };
 }
 function validateTree(p) {
