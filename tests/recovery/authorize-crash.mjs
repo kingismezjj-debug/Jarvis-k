@@ -1,11 +1,10 @@
-// Local terminal entry owns a NEW B preparation; never attaches to a retained profile.
+// Dedicated authorization window entry owns a NEW B preparation; never attaches to a retained profile.
 import fs from 'node:fs';import path from 'node:path';import {performance} from 'node:perf_hooks';
 import P from './profile.cjs';import State from './state.cjs';import I from './inspection.cjs';import D from './diagnostics.cjs';
 import Exit from './exit-verifier.cjs';import Gate from './crash-gate.cjs';import O from './crash-observations.cjs';
 import Controller from './crash-controller.cjs';import Modes from './provider-mode.cjs';
 import Timeline from './crash-timeline.cjs';
-import Input from './authorization-input.cjs';
-import {selftest} from './authorize-input-selftest.mjs';
+import Window from './authorization-window.cjs';
 export async function facts(running,{timeoutMs=2000,signal}={}){
  const at=performance.now();
  const p=running.p;const ui=await running.page.evaluate(async()=>{const r=await window.jarvis.getSnapshot();
@@ -31,18 +30,15 @@ export async function facts(running,{timeoutMs=2000,signal}={}){
 }
 export async function authorizeCrash(args){
  const ctx=D.context('launch');ctx.check('scenario_classification_match',true,args.length===1&&args[0]==='B');
- if(process.stdin.isTTY!==true||process.stdout.isTTY!==true)throw Gate.inputFailure('tty_unavailable');
- // Calibration is mandatory in this same interactive process before profile creation.
- const calibration=await selftest();
- if(calibration.result!=='granted')throw Gate.inputFailure(calibration.result);
  const p=P.create('B');let running,gateEntered=false;
  try{
   await State.seed(p);I.requirePass(await I.inspect(p,'prepare'));O.begin(p);
   running=await (await import('./desktop.mjs')).launch(p,'preparation');
-  let targets;
+  let targets,authorization;
   gateEntered=true;
   const result=await Gate.run({scenario:'B',pendingAt:running.pendingObservedAt,now:()=>performance.now(),
-   facts:options=>facts(running,options),authorize:options=>Input.authorize({...options,foregroundWaitMs:10000}),
+   facts:options=>facts(running,options),authorize:options=>(authorization=Window.authorize({...options,scenario:'B',owner:p.nonce})),
+   finishAuthorization:()=>authorization,
    resolve:async options=>{targets=await Controller.resolveTargets(p,options);return targets;},
    crash:(t,options)=>Controller.terminate(p,t,options),
    verifyExit:async()=>{

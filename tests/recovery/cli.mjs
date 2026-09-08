@@ -14,6 +14,7 @@ export async function main(args) {
     D.STAGES.includes(selectedStage) ? selectedStage : 'launch';
   const ctx = D.context(stage); let p;
   try {
+    if(command==='authorization-window-selftest'&&args.length===1)return (await import('./authorization-window-selftest.mjs')).selftest();
     if(command==='authorize-input-selftest'&&args.length===1)return (await import('./authorize-input-selftest.mjs')).selftest();
     if (command === 'smoke' && args.length === 1) return { pass: true, scenarios: await (await import('./desktop.mjs')).smoke() };
     ctx.check('inspection_stage', true, option === '--scenario' &&

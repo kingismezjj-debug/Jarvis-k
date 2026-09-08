@@ -9,7 +9,7 @@ const facts=()=>({nativeApproval:true,pending:true,pendingAgeMs:1000,taskCancell
  approvalCommandCount:0,approvalResolvedCount:0,harnessCancelCount:0,parsedApprovalDecisionCount:0,appCloseStarted:false,
  providerCalls:1,transportCalls:1,networkCalls:0,executorCalls:0,notepadCount:0});
 function fixture(){let time=0;const f=facts();const o:any={scenario:'B',pendingAt:0,now:()=>time,facts:vi.fn(async()=>({...f})),
- authorize:vi.fn(async()=>{time+=1000;return {result:'granted',challengeMatched:true};}),resolve:vi.fn(async()=>({fake:true})),
+ authorize:vi.fn(async()=>{time+=1000;return {helperIdentityVerified:true,windowOwnerVerified:true,foregroundVerified:true,authorizationReceived:true,pipeConsumedCount:1,result:'granted',durationBucket:'under_15s'};}),resolve:vi.fn(async()=>({fake:true})),
  crash:vi.fn(async(_t:any,guard:any)=>{await guard.guard();guard.markDispatch();return {executed:true};}),verifyExit:vi.fn(async()=>{}),
  close:vi.fn(async()=>{}),checkpoint:vi.fn(async()=>{}),finalCounters:vi.fn(async()=>({...f})),publish:vi.fn(async()=>{})};return {o,f,setTime:(n:number)=>{time=n;}};}
 const redacted=(v:any)=>expect(JSON.stringify(v)).not.toMatch(/"pid"|"nonce"|"path"|timestamp|createdAt|"Authorization"|credential|rawInput|stack|secret|[A-Z]:\\/i);
@@ -23,8 +23,8 @@ describe('H6 bounded local authorization state machine',()=>{
   expect(o.crash).toHaveBeenCalledOnce();expect(o.verifyExit).toHaveBeenCalledOnce();expect(o.close).not.toHaveBeenCalled();expect(o.facts.mock.calls.length).toBeGreaterThanOrEqual(4);redacted(r);
  });
  it.each(['input_mismatch','authorization_timeout','raw-secret'])('does not terminate after %s',async result=>{const {o}=fixture();o.authorize=async()=>({result});const r=await G.run(o);expect(r.crashExecuted).toBe(false);expect(o.close).toHaveBeenCalledOnce();expect(o.resolve).not.toHaveBeenCalled();redacted(r);});
- it('rejects late input at the 45 second boundary',async()=>{const {o,setTime}=fixture();o.authorize=async()=>{setTime(45000);return {result:'granted',challengeMatched:true};};expect((await G.run(o)).localAuthorization).toBe('authorization_timeout');expect(o.crash).not.toHaveBeenCalled();});
- it('rejects pending changing after authorization',async()=>{const {o,f}=fixture();o.authorize=async()=>{f.pending=false;f.taskCancelled=true;return {result:'granted',challengeMatched:true};};const r=await G.run(o);expect(r.cancellationTiming).toBe('during_target_resolution');expect(o.crash).not.toHaveBeenCalled();});
+ it('rejects late input at the 45 second boundary',async()=>{const {o,setTime}=fixture();o.authorize=async()=>{setTime(45000);return {helperIdentityVerified:true,windowOwnerVerified:true,foregroundVerified:true,authorizationReceived:true,pipeConsumedCount:1,result:'granted',durationBucket:'under_15s'};};expect((await G.run(o)).localAuthorization).toBe('authorization_timeout');expect(o.crash).not.toHaveBeenCalled();});
+ it('rejects pending changing after authorization',async()=>{const {o,f}=fixture();o.authorize=async()=>{f.pending=false;f.taskCancelled=true;return {helperIdentityVerified:true,windowOwnerVerified:true,foregroundVerified:true,authorizationReceived:true,pipeConsumedCount:1,result:'granted',durationBucket:'under_15s'};};const r=await G.run(o);expect(r.cancellationTiming).toBe('during_target_resolution');expect(o.crash).not.toHaveBeenCalled();});
  it('rejects pending changing during target resolution',async()=>{const {o,f}=fixture();o.resolve=async()=>{f.pending=false;return {};};expect((await G.run(o)).crashExecuted).toBe(false);expect(o.crash).not.toHaveBeenCalled();});
  it('rejects identity resolution failure without retaining raw exception',async()=>{const {o}=fixture();o.resolve=async()=>{throw Error('secret C:\\private stack');};const r=await G.run(o);expect(r.reason).toBe('target_identity_unavailable');expect(o.crash).not.toHaveBeenCalled();redacted(r);});
  it('bounds hung target resolution and closes without killing',async()=>{vi.useFakeTimers();const {o}=fixture();o.resolve=()=>new Promise(()=>{});const promise=G.run(o);await vi.advanceTimersByTimeAsync(5001);const r=await promise;expect(r.crashExecuted).toBe(false);expect(o.close).toHaveBeenCalledOnce();});
@@ -59,7 +59,7 @@ describe('safe diagnostics and existing product boundaries',()=>{
   expect(T.consume(p)).toEqual(G.INITIAL);const f=path.join(p.control,'crash-timeline.json');fs.writeFileSync(f+'.pending','{');expect(()=>T.consume(p)).toThrow();fs.unlinkSync(f+'.pending');
   fs.writeFileSync(f,JSON.stringify({...G.INITIAL,localAuthorization:'authorization_timeout'}));expect(()=>T.consume(p)).toThrow();
  });
- it('CLI rejects wrong scenarios before creating any profile',async()=>{const {authorizeCrash}=await import('../../../tests/recovery/authorize-crash.mjs');const before=fs.readdirSync(P.BASE).length;await expect(authorizeCrash(['C'])).rejects.toThrow();expect(fs.readdirSync(P.BASE).length).toBe(before);});
+ it('CLI rejects wrong scenarios before creating any profile',async()=>{const {authorizeCrash}=await import('../../../tests/recovery/authorize-crash.mjs');const create=vi.spyOn(P,'create');await expect(authorizeCrash(['C'])).rejects.toThrow();expect(create).not.toHaveBeenCalled();});
  it('product 120/130 second timers are unchanged and observers are external',()=>{
   expect(fs.readFileSync(path.join(P.REPO,'packages/core/src/bounded-notepad-task-service.ts'),'utf8')).toContain('}, 120000)');
   expect(fs.readFileSync(path.join(P.REPO,'packages/core/src/assistant-runtime.ts'),'utf8')).toContain('? 130000 : 1000');

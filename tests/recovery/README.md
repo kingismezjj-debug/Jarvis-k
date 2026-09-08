@@ -2,7 +2,7 @@
 
 This is external test infrastructure. It does not certify manual crash recovery.
 Build the current repository before using the harness. Never use installed Alpha.
-Only the separately authorized H8 local challenge entry can terminate its new isolated B instance.
+Only the separately authorized H10 dedicated-window entry can terminate its new isolated B instance.
 Other commands do not terminate application processes or perform desktop tool actions.
 The exit verifier may cancel its own read-only process-query subprocess on timeout.
 
@@ -14,7 +14,7 @@ npm run recovery:harness -- launch --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename> --stage first_exit
 npm run recovery:harness -- resolve-crash-targets --scenario <returned-profile-basename>
-npm run recovery:harness -- authorize-input-selftest
+npm run recovery:harness -- authorization-window-selftest
 npm run recovery:harness -- authorize-crash --scenario B
 npm run recovery:harness -- cleanup --scenario <returned-profile-basename>
 npm run test:recovery-harness
@@ -432,3 +432,81 @@ and closes normally. Product recovery, schemas, UI, 120/130-second timers and
 packaging configuration are unchanged. Test imports and scripts remain excluded
 from production import roots and packaged file selection. No final acceptance
 evidence is produced, and no preserved profile is cleaned or reused.
+
+
+## H10 dedicated crash authorization window (L2)
+
+H10 supersedes terminal Y/challenge calibration in the active B route. H8 input
+modules remain only for regression/discovery; authorize-crash does not import or
+invoke them and requires no TTY. No production source, Jarvis approval UI or product
+120/130-second timer changes are involved. A separate manual authorization-window
+selftest must PASS before scheduling a new B acceptance. Neither command starts
+recovery automatically. Existing profiles must never be used by this entry.
+
+The helper is Windows PowerShell (STA) loading a test-only C# WinForms implementation.
+It is an independent process, not an Electron/Jarvis Renderer. CompileOnly validates
+C# without constructing or showing a form. All helper sources live under
+`tests/recovery`, outside production imports, build roots and packaged file rules.
+The UI title is exactly “Jarvis 恢复测试授权——不是应用操作审批”. Its body is:
+
+> Jarvis窗口中的‘允许/拒绝’请勿点击。
+> 下面的按钮只授权测试工具关闭当前隔离测试实例，
+> 不会授权打开记事本或执行其他电脑操作。
+
+The only buttons are “授权测试关闭” and “取消测试”. There is no default authorize
+button; initial focus is cancel. Enter/Space authorize only when the authorize
+button is explicitly focused and enabled. Escape and window X select cancel.
+The monotonic deadline selects authorization_timeout, never user_cancelled. The
+helper neither inspects Jarvis windows nor sends any input or IPC to Jarvis.
+
+A fixed private bootstrap frame binds scenario B, profile ownership (fresh ephemeral
+ownership for standalone selftest), random nonce and random helper instance.
+The launcher captures the child process identity. An independent read-only verifier
+checks OS parent relation, exact process creation times, same Windows session,
+current-user token identity, Node executable classification, exact Windows
+PowerShell executable path, and the helper window owner/visibility. Ready-frame
+identity must also match the freshly spawned child. At authorize click the helper
+checks its own visible foreground window; after the pipe decision an independent
+verifier checks again before acknowledging. No identity values are public output.
+
+The native named pipe uses a protected current-user-only DACL, first-instance and
+reject-remote flags, one server instance, no inherited handle and no network port.
+The server verifies the actual kernel-reported pipe client is its captured parent
+Node process in the same session/user. Pipe names are random and never persisted.
+Fixed 96-byte frames carry version, scenario and three bindings; only two decision
+codes exist: authorize and cancel. Reserved bytes must be zero. No JSON, arbitrary
+text or raw payload is forwarded. Handshake/ack frames are separate control frames.
+The parent rejects wrong binding, scenario, unknown decision code, oversized data,
+replay or a second message, including data arriving while the final check is pending.
+A grant is provisional until the helper and pipe exit normally. Pipe close, pipe
+error and helper exit remain distinct safe classifications. Cancelling the pending
+watcher closes helper stdin; its EOF watchdog closes only its own form and pipe.
+There is no process-name termination or forced-kill fallback in window authorization.
+
+H8's 250ms pending checks (500ms maximum complete sample), H3 crash-target checks,
+60-second target and 75-second hard bound are reused. Window wait is capped at
+45 seconds including helper startup and identity verification. Any changed approval,
+execution, executor, Notepad or app-close state aborts the helper and ignores late
+authorization. The original failure/counters remain separate from close results.
+H10 timeline schema 3 removes challenge_match and adds only safe window/foreground
+booleans, authorizationReceived, pipeConsumedCount and bounded pendingChecks. Old
+timelines/profiles are not migrated or changed. No final acceptance evidence is made.
+
+Safe results: granted, user_cancelled, authorization_timeout, helper_identity_failed,
+helper_window_unverified, helper_not_foreground, helper_exit, pipe_closed, pipe_error,
+pipe_replay, nonce_mismatch, scenario_mismatch, pending_state_changed,
+approval_command_observed, execution_started_observed, target_identity_failed, aborted.
+H1 has specific helper identity/lifecycle, window owner/foreground, pipe state,
+single-use and binding assertions; failures never become a false native-approval
+assertion. Safe output contains no window title, raw frame, nonce, process identity,
+handle, path, exact time or mouse coordinates.
+
+`authorization-window-selftest` displays only the helper; it does not create a B
+profile, read SQLite, start Jarvis, invoke a provider/executor or perform a crash.
+Its output is exactly helperIdentityVerified, windowOwnerVerified,
+foregroundVerified, authorizationReceived, pipeConsumedCount, result, durationBucket.
+A shown test authorization window and a user click are recorded separately from
+product Windows tool actions. All automated authorization tests use fake helper and
+pipe transports; only the separately authorized post-push manual selftest displays
+the native authorization window. A–F smoke continues to close normally with isolated
+fake/absent providers and zero executor/network/Notepad activity.

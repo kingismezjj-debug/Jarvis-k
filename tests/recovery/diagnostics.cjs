@@ -4,7 +4,7 @@ const path = require('node:path');
 const P = require('./profile.cjs');
 const ProcessSummary = require('./exit-summary.cjs');
 const ProviderSummary = require('./provider-mode.cjs');
-const CATALOG = Object.freeze([
+const CATALOG = Object.freeze(['authorization_window_result','authorization_helper_identity','authorization_window_owner','authorization_window_foreground','authorization_helper_lifecycle','authorization_pipe_state','authorization_pipe_single_use','authorization_binding','authorization_window_decision',
   'local_authorization_input','local_authorization_channel','local_authorization_deadline','local_authorization_foreground','canonical_approval_state','approval_command_count','execution_started_count','harness_cancel_count','application_close_state','crash_deadline','local_authorization_calibration',
   'scenario_classification_match', 'recovery_terminal_count', 'terminal_event_count',
   'recovery_event_count', 'task_interruption_count', 'canonical_message_count',
@@ -22,7 +22,7 @@ const CATALOG = Object.freeze([
 ]);
 const STAGES = Object.freeze(['prepare', 'launch', 'first_recovery', 'first_exit', 'second_recovery', 'second_exit', 'cleanup']);
 const CLASSES = Object.freeze(['assertion_failed', 'inspection_error', 'persistence_unavailable', 'process_state_unavailable']);
-const ENUMS = Object.freeze(['challenge_match','input_mismatch','open','eof','readable','input_error','within_45s','expired','pending','changed','aborted','tty_unavailable','foreground_unverified','verified','within_75s','granted','unavailable', 'invalid_value', 'out_of_bounds', 'valid', 'invalid', 'synthetic_invalid',
+const ENUMS = Object.freeze([...require('./authorization-window-protocol.cjs').RESULTS,'challenge_match','input_mismatch','open','eof','readable','input_error','within_45s','expired','pending','changed','aborted','tty_unavailable','foreground_unverified','verified','within_75s','granted','unavailable', 'invalid_value', 'out_of_bounds', 'valid', 'invalid', 'synthetic_invalid',
   'absent','guarded_fake','unconfigured','available',
   'unfinished', 'terminal', 'invalid_journal', 'none', 'completed', 'preparation_required',
   'interrupted_before_execution', 'interrupted_while_awaiting_approval',
