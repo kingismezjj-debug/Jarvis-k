@@ -4,13 +4,16 @@ import P from './profile.cjs';import State from './state.cjs';import I from './i
 import Exit from './exit-verifier.cjs';import Gate from './crash-gate.cjs';import O from './crash-observations.cjs';
 import Controller from './crash-controller.cjs';import Modes from './provider-mode.cjs';
 import Timeline from './crash-timeline.cjs';
-export async function facts(running){
+import Input from './authorization-input.cjs';
+import {selftest} from './authorize-input-selftest.mjs';
+export async function facts(running,{timeoutMs=2000,signal}={}){
+ const at=performance.now();
  const p=running.p;const ui=await running.page.evaluate(async()=>{const r=await window.jarvis.getSnapshot();
   if(!r.ok)throw Error();const s=r.data;return {native:s.assistantTurn?.status==='awaiting_approval'&&
    !!document.querySelector('[data-testid="assistant-native-approval"]')&&
    document.querySelector('[data-testid="assistant-tool-allow"]')?.disabled===false&&
-   document.querySelector('[data-testid="assistant-tool-deny"]')?.disabled===false};}).catch(()=>({native:false}));
- const live=await Exit.queryRows({timeoutMs:2000});
+   document.querySelector('[data-testid="assistant-tool-deny"]')?.disabled===false};}).catch(()=>{throw D.failure('native_approval_projection','launch','inspection_error');});
+ const live=await Exit.queryRows({timeoutMs:Math.max(1,Math.min(2000,timeoutMs-(performance.now()-at))),signal});
  const SQL=(await import('sql.js')).default;const db=new (await SQL()).Database(fs.readFileSync(P.canonical(path.join(p.localData,'task-runtime.sqlite'))));
  try{
   const rows=db.exec('SELECT event_json FROM assistant_turn_events ORDER BY sequence')[0]?.values||[];if(rows.length>128)throw Error();
@@ -29,6 +32,9 @@ export async function facts(running){
 export async function authorizeCrash(args){
  const ctx=D.context('launch');ctx.check('scenario_classification_match',true,args.length===1&&args[0]==='B');
  ctx.check('inspection_operation',true,process.stdin.isTTY===true&&process.stdout.isTTY===true);
+ // Calibration is mandatory in this same interactive process before profile creation.
+ const calibration=await selftest();
+ if(calibration.result!=='granted')throw Gate.inputFailure(calibration.result);
  const p=P.create('B');let running,gateEntered=false;
  try{
   await State.seed(p);I.requirePass(await I.inspect(p,'prepare'));O.begin(p);
@@ -36,7 +42,7 @@ export async function authorizeCrash(args){
   let targets;
   gateEntered=true;
   const result=await Gate.run({scenario:'B',pendingAt:running.pendingObservedAt,now:()=>performance.now(),
-   facts:()=>facts(running),authorize:options=>Gate.localY(options),
+   facts:options=>facts(running,options),authorize:options=>Input.authorize({...options,foregroundWaitMs:10000}),
    resolve:async options=>{targets=await Controller.resolveTargets(p,options);return targets;},
    crash:(t,options)=>Controller.terminate(p,t,options),
    verifyExit:async()=>{
@@ -44,9 +50,21 @@ export async function authorizeCrash(args){
     await Gate.bounded(()=>running.waitForLaunchExit(),15000);
     await running.finishExit();Exit.consume(p,'launch');await Controller.checkUnrelated(targets);
     const observed=O.counts(p);if(Object.values(observed).some(Boolean))throw Error();
-   },close:()=>running.close(),publish:t=>Timeline.publish(p,t)});
+   },close:()=>running.close(),checkpoint:t=>Timeline.checkpoint(p,t),
+   finalCounters:()=>finalCounters(p),publish:t=>Timeline.publish(p,t)});
   // Safe output is diagnostic, never final acceptance evidence. Ownership stays in control metadata.
   return {schemaVersion:1,scenario:'B',verdict:result.profileClassification==='eligible_for_recovery'?'PASS':'FAIL',timeline:result,
-   ...(result.profileClassification==='eligible_for_recovery'?{}:{firstFailure:D.failure('native_approval_projection','launch','assertion_failed',true,false).failure})};
+   ...(result.profileClassification==='eligible_for_recovery'?{}:{firstFailure:result.firstFailure})};
  }catch(e){if(running&&!gateEntered){try{await running.close();}catch{}}throw new D.SafeFailure(D.safeFailure(e,'launch'));}
+}
+
+// Final close counts are independent of the first-failure snapshot and do not require a live UI.
+export async function finalCounters(p){
+ const c=P.counts(p),o=O.counts(p),m=Modes.projection(p,'preparation','guarded_fake');
+ const SQL=(await import('sql.js')).default;const db=new (await SQL()).Database(fs.readFileSync(P.canonical(path.join(p.localData,'task-runtime.sqlite'))));
+ try{const rows=db.exec('SELECT event_json FROM assistant_turn_events ORDER BY sequence')[0]?.values||[];if(rows.length>128)throw Error();
+ const events=rows.map(r=>JSON.parse(r[0]));return Gate.counts({approvalCommandCount:o.approval_command,approvalResolvedCount:events.filter(e=>e.type==='approval.resolved').length,
+ harnessCancelCount:o.harness_cancel,parsedApprovalDecisionCount:o.parsed_approval_decision,executionStarted:events.filter(e=>e.type==='execution.started').length,
+ providerCalls:c.preparationFakeProviderCalls,transportCalls:m.providerTransportCalls,networkCalls:m.providerNetworkCalls,
+ executorCalls:c.preparationExecutorCalls+c.recoveryExecutorCalls,notepadCount:c.notepadObservedCount});}finally{db.close();}
 }

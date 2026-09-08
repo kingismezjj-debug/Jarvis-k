@@ -16,4 +16,7 @@ function consume(p){p=P.load(p.id);const t=read(p,'crash-timeline.json'),b=read(
  if(receipt.owner!==p.nonce||receipt.scenario!=='B'||receipt.stage!=='launch'||receipt.generation!==b.generation)throw Error();
  return t;
 }
-module.exports={publish,consume};
+function checkpoint(p,t){p=P.load(p.id);if(p.scenario!=='B'||!G.valid(t)||!t.firstFailure||!t.app_close_started)throw Error();
+ E.publishImmutable(path.join(p.control,'authorization-failure.json'),t);
+}
+module.exports={publish,consume,checkpoint};

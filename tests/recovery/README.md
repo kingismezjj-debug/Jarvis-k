@@ -2,7 +2,7 @@
 
 This is external test infrastructure. It does not certify manual crash recovery.
 Build the current repository before using the harness. Never use installed Alpha.
-Only the separately authorized H6 local Y entry can terminate its new isolated B instance.
+Only the separately authorized H8 local challenge entry can terminate its new isolated B instance.
 Other commands do not terminate application processes or perform desktop tool actions.
 The exit verifier may cancel its own read-only process-query subprocess on timeout.
 
@@ -14,6 +14,7 @@ npm run recovery:harness -- launch --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename> --stage first_exit
 npm run recovery:harness -- resolve-crash-targets --scenario <returned-profile-basename>
+npm run recovery:harness -- authorize-input-selftest
 npm run recovery:harness -- authorize-crash --scenario B
 npm run recovery:harness -- cleanup --scenario <returned-profile-basename>
 npm run test:recovery-harness
@@ -303,10 +304,12 @@ own subsequent authorization and a freshly prepared profile.
 Only a subsequent authorized manual B run may invoke
 `node tests/recovery/cli.mjs authorize-crash --scenario B` in a local interactive
 terminal. This entry creates a NEW B profile; it cannot attach to an old basename.
-Never pipe Y or type it through an automation tool. The human must see the native
-Allow/Reject controls and personally enter Y then Enter in the terminal. Other
-input, EOF, non-TTY input and 45 seconds without authorization deny the operation.
-Keystrokes are not echoed or persisted. No second chat confirmation is needed.
+Never pipe a confirmation or type it through an automation tool. The human must see the native
+Allow/Reject controls, without clicking either button. H8 supersedes the former Y
+protocol: type the complete uppercase one-time challenge and Enter in the verified
+terminal. The console may echo normal line input; the harness never records it.
+EOF, error, timeout and mismatches are distinct results. No second chat confirmation
+is needed.
 
 The existing preparation calls its memory-only fake provider once. Core's parsed
 native approval commands and Desktop before-quit are counted by external bootstrap
@@ -315,7 +318,7 @@ in older profiles. In particular product timer cancellation has no uniquely
 persisted source: the harness reports only the observed timeout window or an
 unknown-source state change, never invents an expired Approval record.
 
-H6 checks native UI plus the canonical Task/journal before prompting, after Y,
+H6 checks native UI plus the canonical Task/journal before prompting, after the matched challenge,
 after identity resolution and immediately before controller dispatch. A monotonic
 clock targets at most 60 seconds and rejects at 75 seconds after native observation.
 Canonical decision age also must be below 75 seconds, retaining at least 45 seconds
@@ -348,9 +351,84 @@ automatically into recovery, repeated acceptance, evidence closure or profile cl
 The fixed timeline source classifications are user_approval_decision_observed,
 harness_cancel_observed, product_timeout_window_reached, app_close_before_crash,
 state_changed_unknown_source and crash_executed_while_pending. Additional gate
-failure enums distinguish authorization denial/timeout, deadline, target identity
+failure enums distinguish input mismatch/EOF/error/timeout, deadline, target identity
 and exit verification. app_close_started records the harness's normal safe closure
 too; its reason does not retroactively replace the first failed pre-crash condition.
 There is no final acceptance evidence produced by H6. New modules, script and
 observers stay under tests/recovery and remain excluded from production imports,
 compiled product roots and electron-builder file selection.
+
+
+## H8 reliable local authorization (L2, test infrastructure)
+
+The standalone `authorize-input-selftest` imports only the input protocol and a
+read-only foreground probe: no profile creation, database, app, provider, executor,
+or termination controller. Its five output fields are ttyAvailable,
+lineInputReceived, challengeMatched, result, durationBucket. The challenge is shown
+only in the interactive terminal, never written to timeline, evidence or files.
+Do not redirect/transcribe this interactive command. The reader uses readline with
+terminal:false, preserving normal console line discipline; it never enables raw
+mode. It reads one newline-terminated line, trims edges, and compares strictly
+uppercase. Y/yes/empty/partial/extra input cannot grant authorization. Unterminated
+EOF is not a line submission. A 256-byte input bound prevents unbounded buffering.
+
+Each gate issues a fresh CRASH-B- plus four cryptographically random decimal digits,
+with collision rejection within the current process; the value is one-use and valid
+only for that invocation. Four digits are an interaction check, not an authentication
+secret. Used values are held in memory only. Cross-process global uniqueness is not
+claimed. No challenge or raw input is returned in diagnostics.
+
+Before any new manual B profile can be created, authorize-crash now performs the
+independent calibration in that SAME terminal process. A previously reported PASS
+from another process cannot bypass this guard. A failed calibration creates no B
+profile. A standalone Windows manual calibration must also have passed before B is
+scheduled; H8 implementation does not perform B acceptance.
+
+Foreground proof is deliberately narrow: a read-only Windows helper verifies a
+visible classic-console HWND equals GetForegroundWindow, and the live console
+process membership contains both the current harness and the helper. No window
+names/titles are used, no handles/identities/titles are output. It checks before
+reading and again after a matching line. ConPTY/Windows Terminal hidden console
+windows cannot satisfy this proof and return foreground_unverified. Use a separately
+launched classic console for calibration; otherwise B remains blocked. Supporting
+other terminal hosts requires a test-only authenticated terminal-host identity
+bridge; user assurances or title matching are insufficient. Queries time out after
+at most one second. B allows up to ten seconds within its 45-second gate budget to
+move foreground to the terminal before showing a challenge; continuous safety
+monitoring remains active during that wait.
+
+Result allowlist: granted, input_mismatch, input_eof, input_error,
+authorization_timeout, aborted, tty_unavailable, foreground_unverified,
+pending_state_changed, approval_command_observed, target_identity_failed.
+Reader rejection remains input_error; it is never converted to timeout. H1 maps
+input mismatch to local_authorization_input (challenge_match/input_mismatch), EOF
+and error to local_authorization_channel (open/eof or readable/input_error), timeout
+to local_authorization_deadline (within_45s/expired), pending change to
+canonical_approval_state (pending/changed). Only an observed missing native UI can
+produce a false native_approval_projection assertion; inspection exceptions remain
+inspection_error. The CLI forwards the gate firstFailure intact.
+
+The watcher starts checks every 250ms, permits at most 500ms for each complete
+check, never overlaps reads, and aborts input on any unsafe canonical/pending,
+approval command, execution, executor, Notepad, close or timeout fact. A completed
+line is followed by another full safety check, identity resolution, then the
+existing pre-dispatch guard. A read that cannot complete within its bound fails
+closed. The gate uses monotonic elapsed time for 45/75-second budgets; canonical
+age must independently preserve the unchanged product 120-second window.
+
+Timeline schema 2 stores only challenge_match, safe enums, H1 firstFailure and
+bounded counter snapshots. firstFailureCounters and finalCloseCounters have
+separate meanings. Prior to normal close, an immutable atomic
+`authorization-failure.json` checkpoint records the original failure and
+app_close_started=true. failureCheckpoint and closeOutcome separately report
+persistence/closure failure, without overwriting the authorization result. The
+final immutable timeline retains both snapshots; timelinePublication separately reports a failed final write without replacing firstFailure. If final counts are unavailable
+that field is null, never fabricated zero. Old retained schema-1 timelines are
+not migrated or edited and cannot authorize a new launch.
+
+H8 tests inject input streams, clocks, foreground proof and fake crash controllers.
+No automated test calls the real termination controller. A–F smoke remains isolated
+and closes normally. Product recovery, schemas, UI, 120/130-second timers and
+packaging configuration are unchanged. Test imports and scripts remain excluded
+from production import roots and packaged file selection. No final acceptance
+evidence is produced, and no preserved profile is cleaned or reused.

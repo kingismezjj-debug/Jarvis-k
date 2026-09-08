@@ -9,22 +9,22 @@ const facts=()=>({nativeApproval:true,pending:true,pendingAgeMs:1000,taskCancell
  approvalCommandCount:0,approvalResolvedCount:0,harnessCancelCount:0,parsedApprovalDecisionCount:0,appCloseStarted:false,
  providerCalls:1,transportCalls:1,networkCalls:0,executorCalls:0,notepadCount:0});
 function fixture(){let time=0;const f=facts();const o:any={scenario:'B',pendingAt:0,now:()=>time,facts:vi.fn(async()=>({...f})),
- authorize:vi.fn(async()=>{time+=1000;return 'granted';}),resolve:vi.fn(async()=>({fake:true})),
+ authorize:vi.fn(async()=>{time+=1000;return {result:'granted',challengeMatched:true};}),resolve:vi.fn(async()=>({fake:true})),
  crash:vi.fn(async(_t:any,guard:any)=>{await guard.guard();guard.markDispatch();return {executed:true};}),verifyExit:vi.fn(async()=>{}),
- close:vi.fn(async()=>{}),publish:vi.fn(async()=>{})};return {o,f,setTime:(n:number)=>{time=n;}};}
+ close:vi.fn(async()=>{}),checkpoint:vi.fn(async()=>{}),finalCounters:vi.fn(async()=>({...f})),publish:vi.fn(async()=>{})};return {o,f,setTime:(n:number)=>{time=n;}};}
 const redacted=(v:any)=>expect(JSON.stringify(v)).not.toMatch(/"pid"|"nonce"|"path"|timestamp|createdAt|"Authorization"|credential|rawInput|stack|secret|[A-Z]:\\/i);
 describe('H6 bounded local authorization state machine',()=>{
  it.each(['A','C','D','E','F','unknown'])('rejects scenario %s',scenario=>{const {o}=fixture();o.scenario=scenario;return G.run(o).then((r:any)=>{expect(r.crashExecuted).toBe(false);expect(o.crash).not.toHaveBeenCalled();});});
  it.each([['nativeApproval',false],['pending',false],['executionStarted',1],['providerCalls',0],['providerCalls',2],['transportCalls',2],['networkCalls',1],['executorCalls',1],['notepadCount',1],['approvalCommandCount',1],['approvalResolvedCount',1],['harnessCancelCount',1],['parsedApprovalDecisionCount',1],['appCloseStarted',true]])('rejects unsafe %s=%s',async(k,v)=>{
   const {o,f}=fixture();(f as any)[k as string]=v;const r=await G.run(o);expect(r.profileClassification).toBe('invalid_for_acceptance');expect(o.authorize).not.toHaveBeenCalled();expect(o.crash).not.toHaveBeenCalled();redacted(r);
  });
- it('Y followed by fresh pending and identity checks invokes only injected fake crash',async()=>{
+ it('Challenge followed by fresh pending and identity checks invokes only injected fake crash',async()=>{
   const {o}=fixture();const r=await G.run(o);expect(r).toMatchObject({localAuthorization:'granted',crashExecuted:true,reason:'crash_executed_while_pending',profileClassification:'eligible_for_recovery'});
   expect(o.crash).toHaveBeenCalledOnce();expect(o.verifyExit).toHaveBeenCalledOnce();expect(o.close).not.toHaveBeenCalled();expect(o.facts.mock.calls.length).toBeGreaterThanOrEqual(4);redacted(r);
  });
- it.each(['denied','timeout','raw-secret'])('does not terminate after %s',async result=>{const {o}=fixture();o.authorize=async()=>result;const r=await G.run(o);expect(r.crashExecuted).toBe(false);expect(o.close).toHaveBeenCalledOnce();expect(o.resolve).not.toHaveBeenCalled();redacted(r);});
- it('rejects a late Y at the 45 second boundary',async()=>{const {o,setTime}=fixture();o.authorize=async()=>{setTime(45000);return 'granted';};expect((await G.run(o)).localAuthorization).toBe('timeout');expect(o.crash).not.toHaveBeenCalled();});
- it('rejects pending changing after authorization',async()=>{const {o,f}=fixture();o.authorize=async()=>{f.pending=false;f.taskCancelled=true;return 'granted';};const r=await G.run(o);expect(r.cancellationTiming).toBe('during_target_resolution');expect(o.crash).not.toHaveBeenCalled();});
+ it.each(['input_mismatch','authorization_timeout','raw-secret'])('does not terminate after %s',async result=>{const {o}=fixture();o.authorize=async()=>({result});const r=await G.run(o);expect(r.crashExecuted).toBe(false);expect(o.close).toHaveBeenCalledOnce();expect(o.resolve).not.toHaveBeenCalled();redacted(r);});
+ it('rejects late input at the 45 second boundary',async()=>{const {o,setTime}=fixture();o.authorize=async()=>{setTime(45000);return {result:'granted',challengeMatched:true};};expect((await G.run(o)).localAuthorization).toBe('authorization_timeout');expect(o.crash).not.toHaveBeenCalled();});
+ it('rejects pending changing after authorization',async()=>{const {o,f}=fixture();o.authorize=async()=>{f.pending=false;f.taskCancelled=true;return {result:'granted',challengeMatched:true};};const r=await G.run(o);expect(r.cancellationTiming).toBe('during_target_resolution');expect(o.crash).not.toHaveBeenCalled();});
  it('rejects pending changing during target resolution',async()=>{const {o,f}=fixture();o.resolve=async()=>{f.pending=false;return {};};expect((await G.run(o)).crashExecuted).toBe(false);expect(o.crash).not.toHaveBeenCalled();});
  it('rejects identity resolution failure without retaining raw exception',async()=>{const {o}=fixture();o.resolve=async()=>{throw Error('secret C:\\private stack');};const r=await G.run(o);expect(r.reason).toBe('target_identity_unavailable');expect(o.crash).not.toHaveBeenCalled();redacted(r);});
  it('bounds hung target resolution and closes without killing',async()=>{vi.useFakeTimers();const {o}=fixture();o.resolve=()=>new Promise(()=>{});const promise=G.run(o);await vi.advanceTimersByTimeAsync(5001);const r=await promise;expect(r.crashExecuted).toBe(false);expect(o.close).toHaveBeenCalledOnce();});
@@ -37,14 +37,6 @@ describe('H6 bounded local authorization state machine',()=>{
  it('known partial termination is recorded as a side effect and never eligible',async()=>{const {o}=fixture();o.crash=async()=>({executed:true,verified:false});const r=await G.run(o);expect(r.crashExecuted).toBe(true);expect(r.profileClassification).toBe('invalid_for_acceptance');expect(o.close).not.toHaveBeenCalled();});
  it('final controller guard rejects a newly resolved decision',async()=>{const {o,f}=fixture();o.crash=async(_t:any,c:any)=>{f.approvalResolvedCount=1;await c.guard();throw Error('unreachable');};const r=await G.run(o);expect(r.crashExecuted).toBe(false);expect(r.reason).toBe('user_approval_decision_observed');expect(o.close).toHaveBeenCalledOnce();});
  it('app close observed during resolution prevents dispatch',async()=>{const {o,f}=fixture();o.resolve=async()=>{f.appCloseStarted=true;return {};};expect((await G.run(o)).reason).toBe('app_close_before_crash');expect(o.crash).not.toHaveBeenCalled();});
-});
-function terminal(){const input:any=new EventEmitter();input.isTTY=true;input.isRaw=false;input.setRawMode=vi.fn();input.pause=vi.fn();input.resume=vi.fn();const output:any={isTTY:true,write:vi.fn()};return {input,output};}
-describe('local terminal input never retains keystrokes',()=>{
- it.each(['Y\r','y\n'])('accepts %s',async text=>{const t=terminal(),p=G.localY(t);t.input.emit('data',Buffer.from(text));expect(await p).toBe('granted');expect(t.output.write).toHaveBeenCalledTimes(1);});
- it.each(['n\n','yes\n','Y \n','\n','secret\n','\u0003','\u0004'])('rejects other input %#',async text=>{const t=terminal(),p=G.localY(t);t.input.emit('data',Buffer.from(text));expect(await p).toBe('denied');expect(JSON.stringify(t.output.write.mock.calls)).not.toContain('secret');});
- it('EOF denies',async()=>{const t=terminal(),p=G.localY(t);t.input.emit('end');expect(await p).toBe('denied');});
- it('45 second timeout restores input and removes listeners',async()=>{vi.useFakeTimers();const t=terminal(),p=G.localY(t);await vi.advanceTimersByTimeAsync(45000);expect(await p).toBe('timeout');expect(t.input.listenerCount('data')).toBe(0);expect(t.input.pause).toHaveBeenCalledOnce();});
- it('noninteractive stdin cannot authorize a pipe',async()=>{const t=terminal();t.input.isTTY=false;expect(await G.localY(t)).toBe('denied');});
 });
 describe('safe diagnostics and existing product boundaries',()=>{
  it.each(['PID','nonce','path','timestamp','rawInput'])('rejects extra %s field',k=>expect(G.valid({...G.INITIAL,[k]:'private'})).toBe(false));
@@ -65,7 +57,7 @@ describe('safe diagnostics and existing product boundaries',()=>{
   const T=require('../../../tests/recovery/crash-timeline.cjs'),p=P.create('B');profiles.push(p);const launch=E.beginLaunch(p,'launch');
   T.publish(p,G.INITIAL);P.atomic(path.join(p.control,'stable-exit-'+launch.generation+'.binding'),{owner:p.nonce,scenario:'B',stage:'launch',generation:launch.generation});
   expect(T.consume(p)).toEqual(G.INITIAL);const f=path.join(p.control,'crash-timeline.json');fs.writeFileSync(f+'.pending','{');expect(()=>T.consume(p)).toThrow();fs.unlinkSync(f+'.pending');
-  fs.writeFileSync(f,JSON.stringify({...G.INITIAL,localAuthorization:'timeout'}));expect(()=>T.consume(p)).toThrow();
+  fs.writeFileSync(f,JSON.stringify({...G.INITIAL,localAuthorization:'authorization_timeout'}));expect(()=>T.consume(p)).toThrow();
  });
  it('CLI rejects wrong scenarios before creating any profile',async()=>{const {authorizeCrash}=await import('../../../tests/recovery/authorize-crash.mjs');const before=fs.readdirSync(P.BASE).length;await expect(authorizeCrash(['C'])).rejects.toThrow();expect(fs.readdirSync(P.BASE).length).toBe(before);});
  it('product 120/130 second timers are unchanged and observers are external',()=>{

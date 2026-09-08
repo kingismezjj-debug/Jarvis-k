@@ -14,6 +14,7 @@ export async function main(args) {
     D.STAGES.includes(selectedStage) ? selectedStage : 'launch';
   const ctx = D.context(stage); let p;
   try {
+    if(command==='authorize-input-selftest'&&args.length===1)return (await import('./authorize-input-selftest.mjs')).selftest();
     if (command === 'smoke' && args.length === 1) return { pass: true, scenarios: await (await import('./desktop.mjs')).smoke() };
     ctx.check('inspection_stage', true, option === '--scenario' &&
       (args.length === 3 || command === 'inspect' && args.length === 5 && stageOption === '--stage' && D.STAGES.includes(selectedStage)));
@@ -57,7 +58,7 @@ export async function main(args) {
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
   main(process.argv.slice(2)).then(result => {
-    console.log(JSON.stringify(result)); if (result.verdict === 'FAIL') process.exitCode = 1;
+    console.log(JSON.stringify(result)); if (result.verdict === 'FAIL'||result.result&&result.result!=='granted') process.exitCode = 1;
   }).catch(error => {
     console.log(JSON.stringify(ProcessSummary.valid(error?.safeProcessSummary) ?
       { firstFailure: D.safeFailure(error,'launch'), safeProcessSummary: error.safeProcessSummary } : D.safeFailure(error, 'launch'))); process.exitCode = 1;
