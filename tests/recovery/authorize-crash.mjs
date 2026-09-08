@@ -31,7 +31,7 @@ export async function facts(running,{timeoutMs=2000,signal}={}){
 }
 export async function authorizeCrash(args){
  const ctx=D.context('launch');ctx.check('scenario_classification_match',true,args.length===1&&args[0]==='B');
- ctx.check('inspection_operation',true,process.stdin.isTTY===true&&process.stdout.isTTY===true);
+ if(process.stdin.isTTY!==true||process.stdout.isTTY!==true)throw Gate.inputFailure('tty_unavailable');
  // Calibration is mandatory in this same interactive process before profile creation.
  const calibration=await selftest();
  if(calibration.result!=='granted')throw Gate.inputFailure(calibration.result);
