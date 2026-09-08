@@ -1,6 +1,8 @@
 import fs from 'node:fs';import path from 'node:path';import {EventEmitter} from 'node:events';import {createRequire} from 'node:module';
 import {afterEach,describe,expect,it,vi} from 'vitest';
 const require=createRequire(import.meta.url),S=require('../../../tests/recovery/authorization-startup.cjs'),P=require('../../../tests/recovery/authorization-window-protocol.cjs'),W=require('../../../tests/recovery/authorization-window.cjs');
+const Q=require('../../../tests/recovery/window-predicates.cjs');
+const predicates=(old:any)=>{const q=Q.proof();q.predicates.processIdentity=old.helper?'passed':'failed';q.predicates.ownerMatches=old.window?'passed':'failed';q.predicates.foreground=old.foreground?'passed':'failed';return q;};
 afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
 const redacted=(r:any)=>{expect(P.valid(r)).toBe(true);expect(JSON.stringify(r)).not.toMatch(/secret|CRASH-B-|nonce|\"pid\"|\"handle\"|\"path\"|stack|Authorization|[A-Z]:\\\\/);};
 function fake(script:(x:any)=>void){
@@ -8,8 +10,8 @@ function fake(script:(x:any)=>void){
  const exit=(code=0)=>{if(ended)return;ended=true;child.emit('exit',code);};
  child.stdin.end=vi.fn(()=>queueMicrotask(()=>exit(0)));
  child.stdin.write=(init:Buffer)=>{c={scenario:'B',nonce:Buffer.from(init.subarray(8,24)),owner:Buffer.from(init.subarray(24,40)),instance:Buffer.from(init.subarray(40,56))};queueMicrotask(()=>{child.emit('spawn');script({child,exit,ctx:c,stage:(n:number,category=0)=>{const b=P.frame('S',c,n);b[7]=category;child.stdout.emit('data',b);},ready:()=>{const b=P.frame('R',c);b.writeUInt32LE(child.pid,56);b.writeUInt32LE(process.pid,80);child.stdout.emit('data',b);}});});};
- socket.destroy=vi.fn();socket.write=(b:Buffer)=>{if(b[3]===72)queueMicrotask(()=>{const d=P.frame('M',c,1);d[7]=7;socket.emit('data',d);});else if(b[3]===65)queueMicrotask(()=>{socket.emit('end');exit();});};
- const dependencies={start:vi.fn(()=>child),verify:vi.fn(async()=>({helper:true,window:true,foreground:true})),connect:vi.fn(()=>{queueMicrotask(()=>socket.emit('connect'));return socket;})};return {child,dependencies,socket};
+ socket.destroy=vi.fn();socket.write=(b:Buffer)=>{if(b[3]===72)queueMicrotask(()=>{const v=P.frame('V',c);v.fill(1,56,63);child.stdout.emit('data',v);const d=P.frame('M',c,1);d[7]=7;socket.emit('data',d);});else if(b[3]===65)queueMicrotask(()=>{socket.emit('end');exit();});};
+ const dependencies={start:vi.fn(()=>child),verify:vi.fn(async()=>Q.proof()),connect:vi.fn(()=>{queueMicrotask(()=>socket.emit('connect'));return socket;})};return {child,dependencies,socket};
 }
 function ready(x:any){for(let n=5;n<=17;n++)x.stage(n);x.ready();}
 describe('H12 bounded startup receipts',()=>{
@@ -29,7 +31,7 @@ describe('H12 bounded startup receipts',()=>{
  it.each(['regression','duplicate','unknown_stage','unknown_category','foreign_binding','raw_field','unknown_frame','half_frame'])('rejects %s receipt',async(kind)=>{const f=fake(x=>{x.stage(5);const b=P.frame('S',x.ctx,6);if(kind==='regression')b[6]=4;if(kind==='duplicate')b[6]=5;if(kind==='unknown_stage')b[6]=255;if(kind==='unknown_category')b[7]=255;if(kind==='foreign_binding')b[8]^=1;if(kind==='raw_field')b[56]=1;if(kind==='unknown_frame')b[3]=255;x.child.stdout.emit('data',kind==='half_frame'?b.subarray(0,20):b);if(kind==='half_frame')x.child.stdout.emit('end');});const r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({result:'helper_exit',failureCategory:'readiness_error'});redacted(r);});
  it('complete fragments are consumed atomically and monotonically',async()=>{const f=fake(x=>{for(let n=5;n<=17;n++){const b=P.frame('S',x.ctx,n);x.child.stdout.emit('data',b.subarray(0,20));x.child.stdout.emit('data',b.subarray(20));}x.ready();});const r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({result:'granted',lastReachedStage:'terminal_exit',stageSequence:22,processCreated:true,readinessReceived:true,safeExitClassification:'success',firstFailure:null});redacted(r);});
  it('readiness cannot bypass missing startup receipts',async()=>{vi.useFakeTimers();const f=fake(x=>x.ready()),p=W.authorize({dependencies:f.dependencies});await vi.advanceTimersByTimeAsync(45000);expect((await p).result).not.toBe('granted');expect(f.dependencies.verify).not.toHaveBeenCalled();});
- it('independent identity rejection has identity category',async()=>{const f=fake(ready);f.dependencies.verify.mockResolvedValue({helper:false,window:false,foreground:false});const r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({failureCategory:'identity_error',lastReachedStage:'identity_verification_started'});});
+ it('independent identity rejection has identity category',async()=>{const f=fake(ready);f.dependencies.verify.mockResolvedValue(predicates({helper:false,window:false,foreground:false}));const r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({failureCategory:'helper_identity_failed',lastReachedStage:'identity_verification_started'});});
  it('pipe connect creation failure has pipe category',async()=>{const f=fake(ready);f.dependencies.connect.mockImplementation(()=>{throw Error('secret');});const r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({failureCategory:'pipe_connect_error',lastReachedStage:'identity_verification_completed'});});
  it.each(Object.entries(S.EXIT_MAP))('raw exit %s maps to a safe enum', (code,classification)=>expect(S.exitClass(Number(code))).toBe(classification));
  it('unknown exit and unsafe output rejected',()=>{expect(S.exitClass(null)).toBe('unknown_exit');expect(S.valid({...S.fields(),failureCategory:'secret'})).toBe(false);expect(P.valid({...P.initial(),...S.fields(),path:'secret'})).toBe(false);});

@@ -1,21 +1,21 @@
 // External harness only: one native helper, one local ACL-restricted pipe, no network listener.
 const cp=require('node:child_process'),net=require('node:net'),path=require('node:path');
 const {performance}=require('node:perf_hooks');
-const P=require('./authorization-window-protocol.cjs'),S=require('./authorization-startup.cjs'),fs=require('node:fs');
+const P=require('./authorization-window-protocol.cjs'),S=require('./authorization-startup.cjs'),Q=require('./window-predicates.cjs'),fs=require('node:fs');
 const ERROR_CODES={2:'authorization_timeout',3:'helper_identity_failed',4:'helper_window_unverified',
- 5:'helper_exit',6:'helper_not_foreground',7:'pipe_closed',8:'pipe_error',9:'nonce_mismatch',10:'scenario_mismatch',16:'aborted'};
+ 5:'helper_exit',6:'helper_not_foreground',7:'pipe_closed',8:'pipe_error',9:'nonce_mismatch',10:'scenario_mismatch',16:'aborted',20:'window_handle_invalid',21:'owner_query_failed',22:'owner_mismatch',23:'window_not_visible',24:'window_query_timeout',25:'window_query_error'};
 function executable(){return path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');}
 function start(){return cp.spawn(executable(),['-NoLogo','-NoProfile','-NonInteractive','-STA','-File',path.join(__dirname,'authorization-window.ps1')],
  {windowsHide:true,stdio:['pipe','pipe','pipe']});}
 function verify(ready,{signal,timeoutMs}){return new Promise(resolve=>{
  const child=cp.execFile(executable(),['-NoLogo','-NoProfile','-NonInteractive','-STA','-File',path.join(__dirname,'authorization-window.ps1'),'-Mode','Verify'],
- {windowsHide:true,encoding:'buffer',maxBuffer:128,timeout:Math.max(1,Math.min(5000,timeoutMs)),signal},
- (error,out)=>resolve(!error&&out.length===1?{helper:!!(out[0]&1),window:!!(out[0]&2),foreground:!!(out[0]&4)}:{helper:false,window:false,foreground:false}));
+ {windowsHide:true,encoding:'buffer',maxBuffer:128,timeout:Math.max(1,Math.floor(Math.min(5000,timeoutMs))),signal},
+ (error,out)=>resolve(error?Q.queryFail(signal?.aborted?'aborted':error.killed?'window_query_timeout':'window_query_error'):Q.decode(out)));
  child.stdin.on('error',()=>{});child.stdin.end(ready);
  });}
 function connect(c){return net.createConnection({path:'\\\\.\\pipe\\jarvis-recovery-auth-'+c.instance.toString('hex')});}
 async function authorize({scenario='B',owner,signal,timeoutMs=45000,onShown,dependencies={}}={}){
- const r={...P.initial(),...S.fields()},trace=S.tracker(r),now=dependencies.now||(()=>performance.now()),at=now();
+ const r={...P.initial(),...S.fields(),...Q.fields()},trace=S.tracker(r),now=dependencies.now||(()=>performance.now()),at=now();
  if(scenario!=='B'){r.result='scenario_mismatch';trace.failure('argument_error',1);trace.complete(false);return r;}
  if(signal?.aborted){trace.failure('aborted');trace.complete(false);return r;}
  const c=P.context(owner),limit=Math.min(45000,timeoutMs),remaining=()=>Math.max(0,limit-(now()-at));
@@ -23,14 +23,14 @@ async function authorize({scenario='B',owner,signal,timeoutMs=45000,onShown,depe
  let child,socket,ready,stdout=Buffer.alloc(0),exited=false,stdioClosed=false,exitCode,closed=false,decided=false,finishing=false,ackSent=false;
  let timer,cleanupTimer,settle,completion,probeController=new AbortController();
  const received=P.receiver(c);
- let pendingReady,stdoutFrames=0;const mark=stage=>trace.mark(stage);
+ let pendingReady,stdoutFrames=0,clickReceipt=false;const mark=stage=>trace.mark(stage);
  const grantComplete=()=>{if(!completion&&!finishing&&exited&&stdioClosed&&closed&&ackSent&&r.result==='granted'&&exitCode===0&&!received.failure){completion=true;publish();}};const stopSignal=()=>finish('aborted');
  const completed=new Promise(resolve=>{settle=resolve;});
  const publish=()=>{clearTimeout(timer);clearTimeout(cleanupTimer);signal?.removeEventListener('abort',stopSignal);probeController.abort();socket?.destroy();r.durationBucket=P.bucket(now()-at);const okay=trace.complete(r.result==='granted');if(r.result==='granted'&&!okay)r.result='helper_exit';if(!P.valid(r))r.result='pipe_error';settle(Object.freeze({...r}));};
  function finish(result,category,priority=5){
   if(completion)return;
-  const causes={authorization_timeout:'timeout',aborted:'aborted',helper_identity_failed:'identity_error',helper_window_unverified:'identity_error',helper_not_foreground:'identity_error',pipe_closed:'eof',pipe_error:'pipe_connect_error',pipe_replay:'pipe_connect_error',nonce_mismatch:'argument_error',scenario_mismatch:'argument_error'};
-  trace.failure(category||causes[result]||'unknown',priority);
+  const causes={authorization_timeout:'timeout',aborted:'aborted',helper_identity_failed:'helper_identity_failed',helper_window_unverified:'identity_error',helper_not_foreground:'helper_not_foreground',pipe_closed:'eof',pipe_error:'pipe_connect_error',pipe_replay:'pipe_connect_error',nonce_mismatch:'argument_error',scenario_mismatch:'argument_error'};
+  trace.failure(category||causes[result]||(Q.ERRORS.includes(result)?result:'unknown'),priority);
   // The first failure wins. A replay or late failure may revoke a provisional grant.
   if(!finishing||r.result==='granted')r.result=result;
   if(finishing)return;finishing=true;probeController.abort();clearTimeout(timer);
@@ -45,14 +45,14 @@ async function authorize({scenario='B',owner,signal,timeoutMs=45000,onShown,depe
   if(signal?.aborted){finish('aborted');return;}
   if(r.stderrObserved){finish('helper_exit','stderr_observed',4);return;}
   if(d.result==='user_cancelled'){socket.write(P.frame('A',c));finish('user_cancelled');return;}
-  if(!d.windowOwnerVerified||!d.visible){finish('helper_window_unverified','identity_error',1);return;}
-  if(!d.foregroundVerified){finish('helper_not_foreground','identity_error',1);return;}
-  const actual=await probe(ready,{signal:probeController.signal,timeoutMs:remaining()});
-  if(finishing)return;
+  if(!clickReceipt){finish('window_query_error','window_query_error',1);return;}
+  if(!d.windowOwnerVerified){finish('owner_mismatch','owner_mismatch',1);return;}
+  if(!d.visible){finish('window_not_visible','window_not_visible',1);return;}
+  if(!d.foregroundVerified){finish('helper_not_foreground','helper_not_foreground',1);return;}
+  const actual=await Q.sample(probe,ready,{signal:probeController.signal,timeoutMs:Math.min(5000,remaining())});
+  if(finishing)return;Q.project(r,actual,'authorization_click_verification');
   if(remaining()<=0){finish('authorization_timeout');return;}
-  if(!actual.helper){finish('helper_identity_failed','identity_error',1);return;}
-  if(!actual.window){finish('helper_window_unverified','identity_error',1);return;}
-  if(!actual.foreground){finish('helper_not_foreground','identity_error',1);return;}
+  const rejected=Q.failure(actual,true);if(rejected){finish(rejected,Q.ERRORS.includes(rejected)||['helper_identity_failed','helper_not_foreground'].includes(rejected)?rejected:'identity_error',1);return;}
   if(received.failure){finish(received.failure);return;}
   r.windowOwnerVerified=true;r.foregroundVerified=true;r.authorizationReceived=true;
   // Keep reading until the helper has acknowledged closure; a second frame revokes this grant.
@@ -63,11 +63,11 @@ async function authorize({scenario='B',owner,signal,timeoutMs=45000,onShown,depe
   const error=P.binding(b,c,'R');if(error){finish(error);return;}
   if(b.readUInt32LE(56)!==child.pid||b.readUInt32LE(80)!==process.pid||b[6]!==0||b[7]!==0||b.subarray(92).some(Boolean)){finish('helper_identity_failed','identity_error',1);return;}
   if(r.stageSequence!==17){finish('helper_exit','readiness_error',1);return;}
-  ready=b;r.readinessReceived=true;mark('identity_verification_started');const actual=await probe(ready,{signal:probeController.signal,timeoutMs:remaining()});
+  ready=b;r.readinessReceived=true;mark('identity_verification_started');
+  const actual=await Q.stable(probe,ready,{signal:probeController.signal,timeoutMs:Math.min(5000,remaining()),onSample:(q,count)=>{Q.project(r,q,'readiness_verification');r.readinessSamples=count;}});
   if(finishing)return;
-  if(!actual.helper){finish('helper_identity_failed','identity_error',1);return;}
-  if(!actual.window){finish('helper_window_unverified','identity_error',1);return;}
-  r.helperIdentityVerified=true;r.windowOwnerVerified=true;mark('identity_verification_completed');onShown?.();
+  if(actual.result!=='passed'){finish(actual.result,Q.ERRORS.includes(actual.result)||actual.result==='helper_identity_failed'?actual.result:'identity_error',1);return;}
+  mark('identity_verification_completed');onShown?.();
   try{socket=open(c);}catch{finish('pipe_error','pipe_connect_error',1);return;}
   socket.on('connect',()=>{if(finishing)return;mark('pipe_client_connected');socket.write(P.frame('H',c));mark('authorization_waiting');});
   socket.on('data',chunk=>{if(finishing||completion)return;const d=received.push(chunk);r.pipeConsumedCount=received.consumed;
@@ -89,7 +89,8 @@ async function authorize({scenario='B',owner,signal,timeoutMs=45000,onShown,depe
    if(stdout.length+chunk.length>P.SIZE*64){finish('helper_exit','readiness_error',1);return;}stdout=Buffer.concat([stdout,chunk]);
    while(stdout.length>=P.SIZE){if(++stdoutFrames>64){finish('helper_exit','readiness_error',1);return;}const b=stdout.subarray(0,P.SIZE);stdout=stdout.subarray(P.SIZE);
     if(b[3]===83){try{if(!trace.receipt(b,c)){finish('helper_exit');continue;}}catch{finish('helper_exit','readiness_error',1);continue;}}
-    else if(b[3]===69){const error=P.binding(b,c,'E');if(error||!ERROR_CODES[b[6]]||b[7]!==0||b.subarray(56).some(Boolean)){finish('helper_exit','readiness_error',1);continue;}finish(ERROR_CODES[b[6]]);}
+    else if(b[3]===86){const q=Q.decode(b.subarray(56,63));if(clickReceipt||r.stageSequence!==21||P.binding(b,c,'V')||b[6]!==0||b[7]!==0||b.subarray(63).some(Boolean)||q.result!=='passed'){finish('window_query_error','window_query_error',1);continue;}clickReceipt=true;Q.project(r,q,'authorization_click_verification');}
+    else if(b[3]===69){const error=P.binding(b,c,'E');if(error||!ERROR_CODES[b[6]]||b[7]!==0||b.subarray(56).some(Boolean)){finish('helper_exit','readiness_error',1);continue;}finish(ERROR_CODES[b[6]],undefined,finishing?5:1);}
     else if(b[3]===82){if(pendingReady||ready||P.binding(b,c,'R')){finish('helper_exit','readiness_error',1);continue;}pendingReady=b;}
     else {finish('helper_exit','readiness_error',1);continue;}
    }

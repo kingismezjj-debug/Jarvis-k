@@ -2,11 +2,13 @@ import fs from 'node:fs';import path from 'node:path';import {EventEmitter} from
 import {afterEach,describe,expect,it,vi} from 'vitest';
 const require=createRequire(import.meta.url),P=require('../../../tests/recovery/authorization-window-protocol.cjs'),W=require('../../../tests/recovery/authorization-window.cjs');
 const G=require('../../../tests/recovery/crash-gate.cjs'),Root=require('../../../tests/recovery/profile.cjs');
+const Q=require('../../../tests/recovery/window-predicates.cjs');
+const predicates=(old:any)=>{const q=Q.proof();q.predicates.processIdentity=old.helper?'passed':'failed';q.predicates.ownerMatches=old.window?'passed':'failed';q.predicates.foreground=old.foreground?'passed':'failed';return q;};
 afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
-const safe=(r:any)=>expect(JSON.stringify(r)).not.toMatch(/CRASH-B-|"pid"|"nonce"|"path"|timestamp|creation|handle|raw|secret|[A-Z]:\\/i);
+const safe=(r:any)=>expect(JSON.stringify(r)).not.toMatch(/CRASH-B-|"pid"|"nonce"|"path"|timestamp|creation|"handle"|raw|secret|[A-Z]:\\/i);
 function fake(){
  const child:any=new EventEmitter();const emit=child.emit.bind(child);child.emit=(event:string,...args:any[])=>{const r=emit(event,...args);if(event==='exit')queueMicrotask(()=>emit('close',...args));return r;};child.pid=91001;child.stdout=new EventEmitter();child.stderr=new EventEmitter();
- const socket:any=new EventEmitter();let ctx:any,ready:any,closed=false;const emitted:any[]=[];
+ const socket:any=new EventEmitter();let ctx:any,ready:any,closed=false;const emitted:any[]=[];let clickSent=false;
  const finish=()=>{if(closed)return;closed=true;queueMicrotask(()=>{socket.emit('end');socket.emit('close');child.emit('exit',0);});};
  const config:any={autoDecision:true,code:1,flags:7,mutate:(_:any)=>{},ack:'normal',handshake:()=>{},late:false};
  child.stdin=new EventEmitter();child.stdin.end=vi.fn(finish);child.stdin.write=(init:Buffer)=>{
@@ -14,10 +16,10 @@ function fake(){
   ready=P.frame('R',ctx);ready.writeUInt32LE(child.pid,56);ready.writeUInt32LE(process.pid,80);
   queueMicrotask(()=>{child.emit('spawn');for(let stage=5;stage<=17;stage++)child.stdout.emit('data',P.frame('S',ctx,stage));child.stdout.emit('data',ready);});
  };
- function send(){const b=P.frame('M',ctx,config.code);b[7]=config.flags;config.mutate(b);socket.emit('data',b);}
+ function send(){if(config.code===1&&!clickSent&&!config.skipReceipt){clickSent=true;const v=P.frame('V',ctx);const values=[1,1,1,config.flags&1?1:2,config.flags&4?1:2,config.flags&2?1:2,1];values.forEach((x,i)=>v[56+i]=x);child.stdout.emit('data',v);}const b=P.frame('M',ctx,config.code);b[7]=config.flags;config.mutate(b);socket.emit('data',b);}
  socket.write=vi.fn((b:Buffer)=>{emitted.push(b[3]);if(b[3]===72){config.handshake();if(config.autoDecision)queueMicrotask(send);}else if(b[3]===65){if(config.ack==='replay')send();else if(config.ack==='exit_first'){closed=true;child.emit('exit',0);queueMicrotask(()=>socket.emit('end'));}else finish();}});
  socket.destroy=vi.fn();
- const dependencies={start:vi.fn(()=>child),connect:vi.fn(()=>{queueMicrotask(()=>socket.emit('connect'));return socket;}),verify:vi.fn(async()=>({helper:true,window:true,foreground:true}))};
+ const dependencies={start:vi.fn(()=>child),connect:vi.fn(()=>{queueMicrotask(()=>socket.emit('connect'));return socket;}),verify:vi.fn(async()=>Q.proof())};
  return {child,socket,config,dependencies,send,emitted,get ready(){return ready;},get ctx(){return ctx;}};
 }
 describe('H10 fixed pipe protocol',()=>{
@@ -29,12 +31,14 @@ describe('H10 fixed pipe protocol',()=>{
  it('safe result schema rejects extra internal identities and incomplete grants',()=>{expect(P.valid({...P.initial(),result:'granted'})).toBe(false);expect(P.valid({...P.initial(),pid:4})).toBe(false);});
 });
 describe('H10 isolated helper lifecycle uses only fake transport',()=>{
- it('authorizes once after independent identity/window/foreground checks and helper/pipe exit',async()=>{const f=fake(),r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({helperIdentityVerified:true,windowOwnerVerified:true,foregroundVerified:true,authorizationReceived:true,pipeConsumedCount:1,result:'granted'});expect(f.dependencies.verify).toHaveBeenCalledTimes(2);expect(f.socket.destroy).toHaveBeenCalled();safe(r);});
+ it('authorizes once after independent identity/window/foreground checks and helper/pipe exit',async()=>{const f=fake(),r=await W.authorize({dependencies:f.dependencies});expect(r).toMatchObject({helperIdentityVerified:true,windowOwnerVerified:true,foregroundVerified:true,authorizationReceived:true,pipeConsumedCount:1,result:'granted'});expect(f.dependencies.verify).toHaveBeenCalledTimes(4);expect(f.socket.destroy).toHaveBeenCalled();safe(r);});
+ it('missing native click receipt cannot authorize',async()=>{const f=fake();f.config.skipReceipt=true;const r=await W.authorize({dependencies:f.dependencies});expect(r.result).toBe('window_query_error');expect(r.authorizationReceived).toBe(false);});
+ it('native failed click keeps separate owner predicate and process proof',async()=>{const f=fake();f.config.flags=0;const r=await W.authorize({dependencies:f.dependencies});expect(r.result).toBe('owner_mismatch');expect(r.helperIdentityVerified).toBe(true);expect(r.authorization_click_verification.ownerMatches).toBe('failed');expect(r.readiness_verification.ownerMatches).toBe('passed');});
  it('pipe end after child exit is not a false helper failure',async()=>{const f=fake();f.config.ack='exit_first';expect((await W.authorize({dependencies:f.dependencies})).result).toBe('granted');});
  it('cancel button is user_cancelled',async()=>{const f=fake();f.config.code=2;f.config.flags=0;expect((await W.authorize({dependencies:f.dependencies})).result).toBe('user_cancelled');});
- it.each([['helper',false,'helper_identity_failed'],['window',false,'helper_window_unverified']])('initial %s mismatch fails before opening pipe',async(key,value,result)=>{const f=fake();f.dependencies.verify.mockResolvedValue({helper:true,window:true,foreground:true,[key as string]:value});const r=await W.authorize({dependencies:f.dependencies});expect(r.result).toBe(result);expect(f.dependencies.connect).not.toHaveBeenCalled();safe(r);});
- it.each([['helper',false,'helper_identity_failed'],['window',false,'helper_window_unverified'],['foreground',false,'helper_not_foreground']])('post-click %s mismatch prevents grant',async(key,value,result)=>{const f=fake();f.dependencies.verify.mockResolvedValueOnce({helper:true,window:true,foreground:true}).mockResolvedValueOnce({helper:true,window:true,foreground:true,[key as string]:value});expect((await W.authorize({dependencies:f.dependencies})).result).toBe(result);});
- it.each([[0,'helper_window_unverified'],[5,'helper_not_foreground']])('click attestation flags %# cannot bypass checks',async(flags,result)=>{const f=fake();f.config.flags=flags;expect((await W.authorize({dependencies:f.dependencies})).result).toBe(result);});
+ it.each([['helper',false,'helper_identity_failed'],['window',false,'owner_mismatch']])('initial %s mismatch fails before opening pipe',async(key,value,result)=>{const f=fake();f.dependencies.verify.mockResolvedValue(predicates({helper:true,window:true,foreground:true,[key as string]:value}));const r=await W.authorize({dependencies:f.dependencies});expect(r.result).toBe(result);expect(f.dependencies.connect).not.toHaveBeenCalled();safe(r);});
+ it.each([['helper',false,'helper_identity_failed'],['window',false,'owner_mismatch'],['foreground',false,'helper_not_foreground']])('post-click %s mismatch prevents grant',async(key,value,result)=>{const f=fake();f.dependencies.verify.mockResolvedValueOnce(Q.proof()).mockResolvedValueOnce(Q.proof()).mockResolvedValueOnce(Q.proof()).mockResolvedValueOnce(predicates({helper:true,window:true,foreground:true,[key as string]:value}));expect((await W.authorize({dependencies:f.dependencies})).result).toBe(result);});
+ it.each([[0,'owner_mismatch'],[5,'helper_not_foreground']])('click attestation flags %# cannot bypass checks',async(flags,result)=>{const f=fake();f.config.flags=flags;expect((await W.authorize({dependencies:f.dependencies})).result).toBe(result);});
  it('foreign helper instance is rejected',async()=>{const f=fake();f.child.pid=123;f.child.stdin.write=((write:any)=>(b:Buffer)=>{write(b);f.ready.writeUInt32LE(987,56);})(f.child.stdin.write);expect((await W.authorize({dependencies:f.dependencies})).result).toBe('helper_identity_failed');});
  it.each([[5,'scenario_mismatch'],[8,'nonce_mismatch']])('bad pipe binding %# is accurately classified',async(offset,result)=>{const f=fake();f.config.mutate=(b:Buffer)=>{b[offset as number]^=1;};expect((await W.authorize({dependencies:f.dependencies})).result).toBe(result);});
  it('replay revokes a provisional grant before returning',async()=>{const f=fake();f.config.ack='replay';expect((await W.authorize({dependencies:f.dependencies})).result).toBe('pipe_replay');});

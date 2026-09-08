@@ -576,3 +576,41 @@ Automated H12 tests inject every startup failure, stderr-before-failure, spawn,
 exit, EOF/abort/timeout, malformed/partial/replayed receipts, readiness/identity/
 pipe failures and safe exit mappings. They use only fake children and transports.
 The existing H1/H3/H4/H6/H8/H10 suites and production exclusion guard remain in force.
+
+
+## H14 stable authorization window verification (test-only)
+
+Readiness and authorization click verification now retain separate seven-field
+snapshots: processIdentity, isWindow, ownerQuerySucceeded, ownerMatches, visible,
+foreground and queryOutcome. Each value is passed/failed/unavailable/not_reached.
+Process success is retained even when a later window predicate fails. Each native
+query returns seven enum bytes, never a handle, process identity or error text.
+The click-time snapshot also uses a bound, single-use stdout V receipt, including
+when the helper rejects the click before emitting an authorization decision.
+
+Readiness uses a monotonic total budget of five seconds (also capped by the outer
+remaining deadline), per-query bounded timeouts, 150ms between samples and three
+consecutive valid owner/handle/visible samples. Transient invalid/hidden windows
+reset the streak; owner mismatch or query failures fail closed immediately.
+Initial readiness does not require foreground. A click requires every predicate,
+including foreground, both in the helper and in the independent post-click probe.
+Only then may the existing pipe acknowledgement and grant completion proceed.
+
+Failures distinguish window_handle_invalid, owner_query_failed, owner_mismatch,
+window_not_visible, window_query_timeout and window_query_error. Foreground failure
+is helper_not_foreground; process failure is helper_identity_failed. The startup
+firstFailure actual field contains this precise safe classification. The original
+H12 wire category indexes are preserved; new categories are appended.
+
+The hidden PowerShell console remains hidden. The Form uses BeginInvoke after its
+message loop starts, explicitly sets Visible, calls native ShowWindow for its own
+handle, then Show/Activate/BringToFront. It is centered and size-clamped within the
+working area of the monitor containing the pointer. Coordinates are never saved.
+Only the cancel button receives initial focus; no default authorization, global
+shortcut, injected input, product UI or product lifecycle change is introduced.
+
+Selftest retains startup receipts and adds windowHandleValid,
+windowOwnerQuerySucceeded, windowVisibleVerified, readinessSamples and the two
+predicate snapshots. No raw identity data is printed. Automated tests use fake
+queries/controllers; a single independent manual selftest is run only after push.
+A manual PASS permits a separately requested new B acceptance, never automatic B.
