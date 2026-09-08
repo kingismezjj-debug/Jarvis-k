@@ -146,7 +146,7 @@ describe('test-only production exclusion', () => {
       const root = path.join(P.REPO, owner, directory); if (!fs.existsSync(root)) continue;
       for (const file of files(root).filter(f => /\.[cm]?[jt]sx?$/.test(f))) {
         const source = fs.readFileSync(file, 'utf8'); expect(source.includes('JARVIS_RECOVERY_TEST')).toBe(false);
-        expect(source).not.toMatch(/provider-mode\.cjs|provider-runtime\.cjs/);
+        expect(source).not.toMatch(/provider-mode\.cjs|provider-runtime\.cjs|crash-gate|crash-controller|crash-observations|crash-timeline|authorize-crash/);
         for (const ref of ts.preProcessFile(source, true, true).importedFiles) {
           expect(ref.fileName).not.toMatch(/(?:^|\/)(?:tests?|recovery)\//);
           if (ref.fileName.startsWith('.')) expect(path.resolve(path.dirname(file), ref.fileName)).not.toContain(`${path.sep}tests${path.sep}`);

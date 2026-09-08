@@ -19,8 +19,15 @@ export async function launch(p, phase) {
 }
 async function launchOwned(p, phase, ctx) {
   let app;
+  let pendingObservedAt;
   let stage = 'profile_ownership';
   try {
+  if (fs.existsSync(path.join(p.control, 'crash-observations')) && phase === 'recovery') {
+    const timeline = (await import('./crash-timeline.cjs')).default.consume(p);
+    ctx.check('profile_seed', true,
+      timeline.profileClassification === 'eligible_for_recovery' && timeline.crashExecuted &&
+      timeline.reason === 'crash_executed_while_pending');
+  }
   ctx.check('process_exit_state', true, await ctx.read('process_exit_state', 'process_state_unavailable', () => Exit.cleanupGuard(p)));
   ctx.check('profile_seed', true, fs.existsSync(path.join(p.control, 'seeded')));
   const initialCounts = await ctx.read('preparation_provider_count', 'persistence_unavailable', () => P.counts(p));
@@ -53,6 +60,7 @@ async function launchOwned(p, phase, ctx) {
     if (phase === 'preparation') {
       stage = 'native_approval_projection';
       await page.getByTestId('assistant-native-approval').waitFor();
+      pendingObservedAt = performance.now();
       ctx.check('native_approval_projection', true, await page.getByTestId('assistant-tool-allow').isEnabled());
       ctx.check('native_approval_projection', true, await page.getByTestId('assistant-tool-deny').isEnabled());
       const native = await page.evaluate(async () => {
@@ -141,7 +149,7 @@ async function launchOwned(p, phase, ctx) {
         return D.writeResult(p, D.result(p.scenario, exit, counts));
       } catch (error) { D.recordFailure(p, exit, error); }
     }
-    return { app, page, p, phase, inspection, finishExit, waitForLaunchExit: () => launchExit, async close() {
+    return { app, page, p, phase, inspection, pendingObservedAt, finishExit, waitForLaunchExit: () => launchExit, async close() {
       try { await app.evaluate(({ app }) => app.quit()); }
       catch { throw D.failure('process_exit_state', ctx.stage === 'first_recovery' ? 'first_exit' : 'second_exit', 'process_state_unavailable'); }
       return finishExit();

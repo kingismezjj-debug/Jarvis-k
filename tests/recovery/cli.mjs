@@ -17,6 +17,7 @@ export async function main(args) {
     if (command === 'smoke' && args.length === 1) return { pass: true, scenarios: await (await import('./desktop.mjs')).smoke() };
     ctx.check('inspection_stage', true, option === '--scenario' &&
       (args.length === 3 || command === 'inspect' && args.length === 5 && stageOption === '--stage' && D.STAGES.includes(selectedStage)));
+    if (command === 'authorize-crash') return (await import('./authorize-crash.mjs')).authorizeCrash([id]);
     if (command === 'prepare') {
       p = await ctx.read('profile_ownership', 'inspection_error', () => P.create(id));
       await ctx.read('notepad_observed_count', 'process_state_unavailable', () => processes.noNotepad(p));

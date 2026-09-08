@@ -2,7 +2,8 @@
 
 This is external test infrastructure. It does not certify manual crash recovery.
 Build the current repository before using the harness. Never use installed Alpha.
-No command here terminates an application process or performs a desktop tool action.
+Only the separately authorized H6 local Y entry can terminate its new isolated B instance.
+Other commands do not terminate application processes or perform desktop tool actions.
 The exit verifier may cancel its own read-only process-query subprocess on timeout.
 
 Commands (run from the repository):
@@ -13,6 +14,7 @@ npm run recovery:harness -- launch --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename>
 npm run recovery:harness -- inspect --scenario <returned-profile-basename> --stage first_exit
 npm run recovery:harness -- resolve-crash-targets --scenario <returned-profile-basename>
+npm run recovery:harness -- authorize-crash --scenario B
 npm run recovery:harness -- cleanup --scenario <returned-profile-basename>
 npm run test:recovery-harness
 npm run smoke:desktop:recovery
@@ -295,3 +297,60 @@ rejected factory/transport calls, B preparation isolation, mode tampering, safe
 output and production import/package exclusion. Smoke profiles are new automated
 test profiles, not C manual acceptance profiles. A new C manual run requires its
 own subsequent authorization and a freshly prepared profile.
+
+## Local crash authorization (H6, L2 automated validation)
+
+Only a subsequent authorized manual B run may invoke
+`node tests/recovery/cli.mjs authorize-crash --scenario B` in a local interactive
+terminal. This entry creates a NEW B profile; it cannot attach to an old basename.
+Never pipe Y or type it through an automation tool. The human must see the native
+Allow/Reject controls and personally enter Y then Enter in the terminal. Other
+input, EOF, non-TTY input and 45 seconds without authorization deny the operation.
+Keystrokes are not echoed or persisted. No second chat confirmation is needed.
+
+The existing preparation calls its memory-only fake provider once. Core's parsed
+native approval commands and Desktop before-quit are counted by external bootstrap
+observers; no production method is edited. Counts do not prove historical causes
+in older profiles. In particular product timer cancellation has no uniquely
+persisted source: the harness reports only the observed timeout window or an
+unknown-source state change, never invents an expired Approval record.
+
+H6 checks native UI plus the canonical Task/journal before prompting, after Y,
+after identity resolution and immediately before controller dispatch. A monotonic
+clock targets at most 60 seconds and rejects at 75 seconds after native observation.
+Canonical decision age also must be below 75 seconds, retaining at least 45 seconds
+of the unchanged 120-second product timer. Individual fact/target operations have
+at most five seconds and the remaining gate budget. Product 120/130-second timers
+are unchanged. Failed gates close normally without a cancel/deny command and mark
+the new profile invalid_for_acceptance; uncertain partial termination is retained
+without a second termination attempt or normal-close fallback.
+
+The actual controller is inert on import. Automated tests inject only a fake crash
+controller, never execute the PowerShell termination script. The manual controller
+reuses H3 manifest validation and complete identity classification, rejects unknown
+children/reuse/missing identities, re-attests Main/CoreHost ownership, and pins each
+validated OS process handle. It terminates Main first, then captured child handles;
+it never kills by name, by wildcard or recursively. A final bounded PowerShell
+identity check occurs before any termination. H3 subsequently observes launch exit
+and three stable zero samples with Notepad zero. Unrelated captured Electron/Node
+identities must remain unchanged; uncertainty invalidates acceptance.
+
+H3's receipt certifies process absence and permits lock release, not normal-exit
+acceptance. The separate immutable crash timeline must say
+crash_executed_while_pending and eligible_for_recovery before this H6 profile may
+start provider-free recovery. Missing, partial, invalid, altered or wrong-owner
+timelines fail closed. Timeline integrity uses a separate private binding to the
+preparation H3 generation; the public timeline contains only the documented
+booleans, bounded counters and enums, with no timestamps, identity values or raw
+input. Product databases and crash residue remain retained. No command here advances
+automatically into recovery, repeated acceptance, evidence closure or profile cleanup.
+
+The fixed timeline source classifications are user_approval_decision_observed,
+harness_cancel_observed, product_timeout_window_reached, app_close_before_crash,
+state_changed_unknown_source and crash_executed_while_pending. Additional gate
+failure enums distinguish authorization denial/timeout, deadline, target identity
+and exit verification. app_close_started records the harness's normal safe closure
+too; its reason does not retroactively replace the first failed pre-crash condition.
+There is no final acceptance evidence produced by H6. New modules, script and
+observers stay under tests/recovery and remain excluded from production imports,
+compiled product roots and electron-builder file selection.

@@ -44,6 +44,9 @@ cp.fork = (entry, args, options) => {
 if (process.type === 'browser') {
   setupStage = 'desktop_guards';
   const electron = require('electron');
+  if (phase === 'preparation' && fs.existsSync(path.join(p.control, 'crash-observations'))) {
+    electron.app.on('before-quit', () => require('./crash-observations.cjs').record(p, 'app_close'));
+  }
   assert.equal(electron.app.isPackaged, false);
   // Windows Known Folder lookup can reject a deliberately synthetic USERPROFILE.
   // Bind Electron's fallback paths explicitly before product storage-profile creation.
@@ -67,6 +70,9 @@ if (process.type === 'browser') {
   setupStage = 'core_guards';
   P.atomic(path.join(p.control, 'core-attestation.json'), { pid: process.pid, parent: process.ppid, nonce: p.nonce, phase });
   const { CoreRuntime } = require('@jarvis-k/core');
+  if (phase === 'preparation' && fs.existsSync(path.join(p.control, 'crash-observations'))) {
+    require('./crash-observations.cjs').installCore(CoreRuntime, p);
+  }
   const providerHooks = require('./provider-runtime.cjs');
   providerHooks.installFactories(p,phase,providerMode);
   // Startup hardware probing normally invokes PowerShell. Supply a synthetic device
