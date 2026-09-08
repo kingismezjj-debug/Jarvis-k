@@ -10,7 +10,7 @@ const BODY='Jarvis窗口中的‘允许/拒绝’请勿点击。\n下面的按�
 const BUTTONS=Object.freeze(['授权测试关闭','取消测试']);
 function context(owner){if(owner!==undefined&&!/^[a-f0-9]{32}$/.test(owner))throw Error('SAFE_OWNER_INVALID');
  return {scenario:'B',nonce:crypto.randomBytes(16),owner:owner?Buffer.from(owner,'hex'):crypto.randomBytes(16),instance:crypto.randomBytes(16)};}
-function frame(kind,c,code=0){if(!['I','R','H','M','A','X','E'].includes(kind)||c.scenario!=='B')throw Error('SAFE_FRAME_INVALID');
+function frame(kind,c,code=0){if(!['I','R','H','M','A','X','E','S'].includes(kind)||c.scenario!=='B')throw Error('SAFE_FRAME_INVALID');
  const b=Buffer.alloc(SIZE);b.write('H10'+kind);b[4]=1;b[5]=66;b[6]=code;
  for(const [key,offset] of [['nonce',8],['owner',24],['instance',40]]){if(!Buffer.isBuffer(c[key])||c[key].length!==16)throw Error('SAFE_FRAME_INVALID');c[key].copy(b,offset);}
  return b;}
@@ -27,7 +27,7 @@ function receiver(c){let buffer=Buffer.alloc(0),consumed=0,failure=null;
    consumed=1;const r={result:buffer[6]===1?'granted':'user_cancelled',windowOwnerVerified:!!(buffer[7]&1),foregroundVerified:!!(buffer[7]&2),visible:!!(buffer[7]&4)};buffer=Buffer.alloc(0);return r;
  },get consumed(){return consumed;},get failure(){return failure;}};}
 function initial(){return {helperIdentityVerified:false,windowOwnerVerified:false,foregroundVerified:false,authorizationReceived:false,pipeConsumedCount:0,result:'aborted',durationBucket:'under_15s'};}
-function valid(r){return r&&Object.keys(r).sort().join()===Object.keys(initial()).sort().join()&&
+function valid(r){const S=require('./authorization-startup.cjs');const keys=r&&Object.keys(r).sort().join();return r&&(keys===Object.keys(initial()).sort().join()||keys===Object.keys({...initial(),...S.fields()}).sort().join()&&S.valid(r))&&
  ['helperIdentityVerified','windowOwnerVerified','foregroundVerified','authorizationReceived'].every(k=>typeof r[k]==='boolean')&&
  [0,1].includes(r.pipeConsumedCount)&&RESULTS.includes(r.result)&&['under_15s','15_to_30s','30_to_45s','over_45s'].includes(r.durationBucket)&&
  (r.result!=='granted'||r.helperIdentityVerified&&r.windowOwnerVerified&&r.foregroundVerified&&r.authorizationReceived&&r.pipeConsumedCount===1);}

@@ -1,0 +1,22 @@
+// Test-only startup receipts. No raw errors, identity values or persistence.
+const STAGES=Object.freeze(['launcher_started','artifact_resolved','spawn_attempted','process_created','bootstrap_started','compiler_started','compiler_completed','helper_entry_started','arguments_validated','parent_validated','pipe_server_created','sta_verified','winforms_initialized','form_created','message_loop_started','window_shown','readiness_published','identity_verification_started','identity_verification_completed','pipe_client_connected','authorization_waiting','terminal_exit']);
+const CATEGORIES=Object.freeze(['spawn_error','bootstrap_error','compiler_error','helper_load_error','argument_error','parent_validation_error','pipe_create_error','sta_error','winforms_error','form_create_error','message_loop_error','readiness_error','identity_error','pipe_connect_error','stderr_observed','unexpected_exit','eof','aborted','timeout','unknown']);
+const EXITS=Object.freeze(['success','user_cancelled','bootstrap_failed','compile_failed','validation_failed','pipe_failed','ui_initialization_failed','helper_load_failed','authorization_timeout','aborted','unexpected_exit','unknown_exit']);
+const EXIT_MAP={0:'success',2:'user_cancelled',3:'authorization_timeout',4:'aborted',20:'bootstrap_failed',21:'compile_failed',22:'validation_failed',23:'pipe_failed',24:'ui_initialization_failed',25:'helper_load_failed'};
+const EXIT_FAILURE={bootstrap_failed:'bootstrap_error',compile_failed:'compiler_error',validation_failed:'argument_error',pipe_failed:'pipe_create_error',ui_initialization_failed:'winforms_error',helper_load_failed:'helper_load_error',unexpected_exit:'unexpected_exit'};
+function exitClass(code){return Number.isInteger(code)?EXIT_MAP[code]||'unexpected_exit':'unknown_exit';}
+function fields(){return {lastReachedStage:'launcher_started',stageSequence:1,processCreated:false,readinessReceived:false,stderrObserved:false,safeExitClassification:'unknown_exit',failureCategory:'unknown',firstFailure:null};}
+function valid(r){return STAGES.includes(r.lastReachedStage)&&r.stageSequence===STAGES.indexOf(r.lastReachedStage)+1&&['processCreated','readinessReceived','stderrObserved'].every(k=>typeof r[k]==='boolean')&&EXITS.includes(r.safeExitClassification)&&CATEGORIES.includes(r.failureCategory)&&(r.result!=='granted'||r.processCreated&&r.readinessReceived&&!r.stderrObserved&&r.safeExitClassification==='success'&&r.lastReachedStage==='terminal_exit'&&r.firstFailure===null)&&(r.firstFailure===null||Object.keys(r.firstFailure).sort().join()==='actual,assertion,classification,expected,stage'&&r.firstFailure.assertion==='authorization_startup'&&r.firstFailure.expected==='completed_without_error'&&r.firstFailure.actual===r.failureCategory&&r.firstFailure.stage===r.lastReachedStage&&r.firstFailure.classification==='inspection_error');}
+function tracker(r){let rank=99,explicitFailure=false,receiptSequence=4,receiptCount=0;
+ function mark(stage){const n=STAGES.indexOf(stage)+1;if(!n||n<=r.stageSequence)throw Error('SAFE_RECEIPT_INVALID');r.lastReachedStage=stage;r.stageSequence=n;}
+ function failure(category,priority=5){if(!CATEGORIES.includes(category))category='unknown';if(priority<rank){rank=priority;r.failureCategory=category;}}
+ function receipt(b,c){const P=require('./authorization-window-protocol.cjs');if(!r.processCreated||++receiptCount>32||P.binding(b,c,'S')||b.subarray(56).some(Boolean)||b[6]<5||b[6]>17||b[7]>CATEGORIES.length||b[6]<receiptSequence||explicitFailure)throw Error('SAFE_RECEIPT_INVALID');
+  const n=b[6];if(b[7]===0&&n===receiptSequence)throw Error('SAFE_RECEIPT_INVALID');
+  if(n>r.stageSequence)mark(STAGES[n-1]);else if(n<r.stageSequence)throw Error('SAFE_RECEIPT_INVALID');receiptSequence=n;
+  if(b[7]){explicitFailure=true;failure(CATEGORIES[b[7]-1],1);return false;}return true;
+ }
+ function exit(code){r.safeExitClassification=exitClass(code);const f=EXIT_FAILURE[r.safeExitClassification];if(f)failure(f,3);}
+ function complete(ok){if(r.stderrObserved)failure('stderr_observed',4);if(ok&&rank===99){mark('terminal_exit');return true;}if(rank===99)failure('unknown');r.firstFailure={assertion:'authorization_startup',expected:'completed_without_error',actual:r.failureCategory,stage:r.lastReachedStage,classification:'inspection_error'};return false;}
+ return {mark,failure,receipt,exit,complete,get hasFailure(){return rank!==99;}};
+}
+module.exports={STAGES,CATEGORIES,EXITS,EXIT_MAP,EXIT_FAILURE,exitClass,fields,valid,tracker};

@@ -510,3 +510,69 @@ product Windows tool actions. All automated authorization tests use fake helper 
 pipe transports; only the separately authorized post-push manual selftest displays
 the native authorization window. A–F smoke continues to close normally with isolated
 fake/absent providers and zero executor/network/Notepad activity.
+
+
+## H12 startup receipts (test-only, L2 until manual calibration)
+
+H12 adds bounded startup diagnostics without changing the authorization text,
+buttons, decision protocol, product timeouts or production sources. The independent
+selftest still starts no Jarvis/profile, reads no SQLite and dispatches no crash,
+provider or Desktop executor. One manual selftest is permitted only after push.
+
+Before compiling C#, the PowerShell bootstrap reads the private parent init frame
+and emits fixed 96-byte stdout S receipts bound to the same scenario, ownership,
+nonce and helper instance. Receipts do not depend on the authorization named pipe.
+Only allowlisted numeric stage/category indexes and zero reserved fields are valid;
+foreign bindings, unknown kinds, regression, duplicate success stages, partial EOF
+and oversized streams fail closed. Fragmented frames are buffered only up to the
+bounded protocol limit; no raw stdout/stderr is logged or persisted. The parent
+records OS process creation only from the spawn event, not from a proposed PID.
+
+The stages (one-based stageSequence, maximum 22) are: launcher_started,
+artifact_resolved, spawn_attempted, process_created, bootstrap_started,
+compiler_started, compiler_completed, helper_entry_started, arguments_validated,
+parent_validated, pipe_server_created, sta_verified, winforms_initialized,
+form_created, message_loop_started, window_shown, readiness_published,
+identity_verification_started, identity_verification_completed,
+pipe_client_connected, authorization_waiting, terminal_exit.
+
+lastReachedStage is the last successfully observed startup stage. A failure keeps
+that stage instead of erasing it with terminal_exit; terminal_exit is recorded only
+for a clean completed authorization. Form/STA/pipe failures have classification
+available before Form construction. UI exception handling and visual style setup
+now precede Form construction; message_loop_started precedes Application.Run.
+Shown emits window_shown, the private ready frame, then readiness_published. The
+parent waits for both the ready frame and its receipt before checking identity.
+
+failureCategory is limited to spawn_error, bootstrap_error, compiler_error,
+helper_load_error, argument_error, parent_validation_error, pipe_create_error,
+sta_error, winforms_error, form_create_error, message_loop_error, readiness_error,
+identity_error, pipe_connect_error, stderr_observed, unexpected_exit, eof, aborted,
+timeout, unknown. On success, unknown means no failure, with firstFailure=null.
+On failure firstFailure repeats the exact safe category and lastReachedStage;
+it never invents a native approval projection failure.
+
+stderr bytes are discarded immediately, setting only stderrObserved. They do not
+close stdin or prevent subsequent receipts. A contaminated run can never PASS.
+Failure selection uses: explicit classified helper/identity/protocol failure;
+spawn error; safe failure exit classification; stderr_observed; EOF/abort/timeout/
+unknown. The first observation at an equal priority wins. Closing the helper via
+EOF does not overwrite the originating failure with a cleanup abort. Collection
+remains bounded by the 45-second authorization/readiness budget and the existing
+5-second graceful helper shutdown budget; no forced termination is added. Final
+publication waits for child stdio closure, not merely OS exit, so late receipts
+and stderr are drained without inventing a partial-frame failure at OS exit.
+
+Safe exit classes: success, user_cancelled, bootstrap_failed, compile_failed,
+validation_failed, pipe_failed, ui_initialization_failed, helper_load_failed,
+authorization_timeout, aborted, unexpected_exit, unknown_exit. Raw numeric exit
+codes remain internal and are never printed. Failure result enums from H10 remain
+unchanged. Selftest adds lastReachedStage, stageSequence, processCreated,
+readinessReceived, stderrObserved, safeExitClassification, failureCategory and
+firstFailure to the existing seven safe output fields. No receipt, diagnostic or
+private frame is included in final acceptance evidence or a retained profile.
+
+Automated H12 tests inject every startup failure, stderr-before-failure, spawn,
+exit, EOF/abort/timeout, malformed/partial/replayed receipts, readiness/identity/
+pipe failures and safe exit mappings. They use only fake children and transports.
+The existing H1/H3/H4/H6/H8/H10 suites and production exclusion guard remain in force.

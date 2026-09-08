@@ -5,14 +5,14 @@ const G=require('../../../tests/recovery/crash-gate.cjs'),Root=require('../../..
 afterEach(()=>{vi.restoreAllMocks();vi.useRealTimers();});
 const safe=(r:any)=>expect(JSON.stringify(r)).not.toMatch(/CRASH-B-|"pid"|"nonce"|"path"|timestamp|creation|handle|raw|secret|[A-Z]:\\/i);
 function fake(){
- const child:any=new EventEmitter();child.pid=91001;child.stdout=new EventEmitter();child.stderr=new EventEmitter();
+ const child:any=new EventEmitter();const emit=child.emit.bind(child);child.emit=(event:string,...args:any[])=>{const r=emit(event,...args);if(event==='exit')queueMicrotask(()=>emit('close',...args));return r;};child.pid=91001;child.stdout=new EventEmitter();child.stderr=new EventEmitter();
  const socket:any=new EventEmitter();let ctx:any,ready:any,closed=false;const emitted:any[]=[];
  const finish=()=>{if(closed)return;closed=true;queueMicrotask(()=>{socket.emit('end');socket.emit('close');child.emit('exit',0);});};
  const config:any={autoDecision:true,code:1,flags:7,mutate:(_:any)=>{},ack:'normal',handshake:()=>{},late:false};
  child.stdin=new EventEmitter();child.stdin.end=vi.fn(finish);child.stdin.write=(init:Buffer)=>{
   ctx={scenario:'B',nonce:Buffer.from(init.subarray(8,24)),owner:Buffer.from(init.subarray(24,40)),instance:Buffer.from(init.subarray(40,56))};
   ready=P.frame('R',ctx);ready.writeUInt32LE(child.pid,56);ready.writeUInt32LE(process.pid,80);
-  queueMicrotask(()=>child.stdout.emit('data',ready));
+  queueMicrotask(()=>{child.emit('spawn');for(let stage=5;stage<=17;stage++)child.stdout.emit('data',P.frame('S',ctx,stage));child.stdout.emit('data',ready);});
  };
  function send(){const b=P.frame('M',ctx,config.code);b[7]=config.flags;config.mutate(b);socket.emit('data',b);}
  socket.write=vi.fn((b:Buffer)=>{emitted.push(b[3]);if(b[3]===72){config.handshake();if(config.autoDecision)queueMicrotask(send);}else if(b[3]===65){if(config.ack==='replay')send();else if(config.ack==='exit_first'){closed=true;child.emit('exit',0);queueMicrotask(()=>socket.emit('end'));}else finish();}});

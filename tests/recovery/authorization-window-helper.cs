@@ -38,7 +38,7 @@ namespace RecoveryAuthorization {
   internal static bool Bound(byte[] b,byte[] init,char kind){if(b.Length!=Size||b[0]!=72||b[1]!=49||b[2]!=48||b[3]!=(byte)kind||b[4]!=1||b[5]!=66)return false;int diff=0;for(int n=8;n<56;n++)diff|=b[n]^init[n];return diff==0;}
   internal static bool Control(byte[] b){if(b[6]!=0||b[7]!=0)return false;for(int n=56;n<Size;n++)if(b[n]!=0)return false;return true;}
   internal static byte[] Frame(byte[] init,char kind,byte code){var b=new byte[Size];Array.Copy(init,b,56);b[3]=(byte)kind;b[6]=code;b[7]=0;return b;}
-  internal static void Output(byte[] b){lock(OutputLock){try{var s=Console.OpenStandardOutput();s.Write(b,0,b.Length);s.Flush();}catch{}}}
+  internal static void Output(byte[] b){lock(OutputLock){var s=Console.OpenStandardOutput();s.Write(b,0,b.Length);s.Flush();}}
   internal static NamedPipeServerStream Pipe(byte[] init){
    var security=new PipeSecurity();security.SetAccessRuleProtection(true,false);
    security.AddAccessRule(new PipeAccessRule(WindowsIdentity.GetCurrent().User,PipeAccessRights.FullControl,AccessControlType.Allow));
@@ -61,20 +61,36 @@ namespace RecoveryAuthorization {
     }
    }catch{}Console.OpenStandardOutput().WriteByte(flags);
   }
-  public static void Run(){
-   var input=Console.OpenStandardInput();var init=Read(input);if(!Bound(init,init,'I')||init[6]!=0||init[7]!=0)throw new Exception();
-   int budget=BitConverter.ToInt32(init,60);if(budget<1||budget>45000)throw new Exception();
-   using(var self=Process.GetCurrentProcess())using(var parent=Process.GetProcessById(BitConverter.ToInt32(init,56))){
-    if(!ParentValid(self,parent))throw new Exception();
-    using(var pipe=Pipe(init))using(var form=new AuthorizationForm(init,self,parent,pipe,budget)){
-     // EOF is a private lifecycle cancellation, not an authorization decision.
-     Task.Run(()=>{try{input.ReadByte();}catch{}form.RequestAbort();});
-     Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-     Application.ThreadException+=(sender,error)=>form.RequestAbort();
-     Application.EnableVisualStyles();Application.Run(form);
+  internal static byte[] Startup; internal static byte LastStage=7,Category=4; internal static bool StartupFailed; internal static int ExitStatus;
+  internal static void Stage(byte value){LastStage=value;var b=Frame(Startup,'S',value);Output(b);}
+  internal static void StartupFailure(byte category){if(StartupFailed)return;StartupFailed=true;var b=Frame(Startup,'S',LastStage);b[7]=category;try{Output(b);}catch{}}
+  public static int Run(byte[] initial){
+   Startup=initial;Category=4;
+   try{
+    Stage(8); Category=5;
+    var init=initial;if(!Bound(init,init,'I')||init[6]!=0||init[7]!=0)throw new Exception();
+    int budget=BitConverter.ToInt32(init,60);if(budget<1||budget>45000)throw new Exception();Stage(9);
+    Category=6;
+    using(var self=Process.GetCurrentProcess())using(var parent=Process.GetProcessById(BitConverter.ToInt32(init,56))){
+     if(!ParentValid(self,parent))throw new Exception();Stage(10);Category=7;
+     using(var pipe=Pipe(init)){
+      Stage(11);Category=8;
+      if(Thread.CurrentThread.GetApartmentState()!=ApartmentState.STA)throw new Exception();Stage(12);Category=9;
+      // Classification exists before parameters/pipe/form; install UI handling before constructing controls.
+      Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+      Application.ThreadException+=(sender,error)=>{StartupFailure(Category);ExitStatus=24;Application.ExitThread();};
+      Application.EnableVisualStyles();Stage(13);Category=10;
+      using(var form=new AuthorizationForm(init,self,parent,pipe,budget)){
+       Stage(14);
+       Task.Run(()=>{try{Console.OpenStandardInput().ReadByte();form.RequestAbort();}catch{form.RequestAbort();}});
+       Category=11;Stage(15);Application.Run(form);
+      }
+     }
     }
-   }
+    return ExitStatus;
+   }catch{StartupFailure(Category);return Category==7?23:Category>=8&&Category<=12?24:Category>=5&&Category<=6?22:25;}
   }
+
  }
  internal sealed class AuthorizationForm:Form {
   const string Title="Jarvis 恢复测试授权——不是应用操作审批";
@@ -91,7 +107,7 @@ namespace RecoveryAuthorization {
    Controls.Add(label);Controls.Add(allow);Controls.Add(cancel);AcceptButton=null;CancelButton=null;
    allow.Click+=(o,e)=>Choose(1);cancel.Click+=(o,e)=>Choose(2);
    FormClosing+=(o,e)=>{if(!finished){e.Cancel=true;Choose(2);}};
-   Shown+=(o,e)=>{cancel.Focus();if(aborted!=0){Fail(16);return;}Ready();Transport();};
+   Shown+=(o,e)=>{Harness.Stage(16);cancel.Focus();if(aborted!=0){Fail(16);return;}Harness.Category=12;Ready();Harness.Stage(17);Harness.Category=11;Transport();};
    timer.Interval=50;timer.Tick+=(o,e)=>{if(aborted!=0)Fail(16);else if(clock.ElapsedMilliseconds>=budget)Fail(2);else if(parent.HasExited)Fail(5);};timer.Start();
   }
   protected override bool ProcessCmdKey(ref Message msg,Keys key){if(key==Keys.Escape){Choose(2);return true;}
@@ -103,7 +119,7 @@ namespace RecoveryAuthorization {
   void Choose(byte value){if(finished||Interlocked.CompareExchange(ref decided,1,0)!=0)return;
    if(clock.ElapsedMilliseconds>=budget){Fail(2);return;}if(aborted!=0){Fail(16);return;}
    if(value==1){byte w=Harness.WindowFlags(Handle,self.Id);if((w&5)!=5){Fail(4);return;}if((w&2)==0){Fail(6);return;}}
-   allow.Enabled=false;cancel.Enabled=false;choice.TrySetResult(value);
+   allow.Enabled=false;cancel.Enabled=false;if(value==2)Harness.ExitStatus=2;choice.TrySetResult(value);
   }
   async void Transport(){try{
    await pipe.WaitForConnectionAsync();if(finished)return;if(!Harness.Peer(pipe,parent)){Fail(3);return;}
@@ -115,7 +131,7 @@ namespace RecoveryAuthorization {
    var ack=await Harness.ReadAsync(pipe);if(!Harness.Bound(ack,init,'A')||!Harness.Control(ack)){Fail(8);return;}
    Finish();
   }catch(EndOfStreamException){Fail(7);}catch{Fail(8);}}
-  void Fail(byte code){if(finished)return;Harness.Output(Harness.Frame(init,'E',code));Finish();}
+  void Fail(byte code){if(finished)return;Harness.ExitStatus=code==2?3:code==16?4:23;Harness.Output(Harness.Frame(init,'E',code));Finish();}
   void Finish(){if(finished)return;finished=true;timer.Stop();pipe.Dispose();choice.TrySetCanceled();Close();}
   protected override void Dispose(bool disposing){if(disposing){timer.Dispose();}base.Dispose(disposing);}
  }
