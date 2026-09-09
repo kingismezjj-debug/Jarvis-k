@@ -689,3 +689,63 @@ work, single-flight process queries, grant races, final complete review, helper
 cleanup and primary failure preservation. Offline worker tests use a new synthetic
 profile. A–F local smoke closes normally and does not perform manual B or crash
 acceptance. Production import/build/package exclusion includes all H15 modules.
+
+
+## H17 verified crash controller (test infrastructure, L2 until independent selftest)
+
+The shared controller-engine uses injected fake handle operations in automated tests.
+The Windows backend opens and pins the complete validated target set once; every
+later state/Kill/WaitForExit operation uses a bounded token into that fixed handle
+array. It cannot add a target, reacquire a PID, or kill by name/tree. Main is signalled
+and waited first, then CoreHost, then Renderer/utility. A natural exit is benign.
+A failed Main wait retains the first failure but continues handling the other pinned
+targets while budget remains. No new descendants are ever targeted for termination.
+
+The monotonic controller limit is 15 seconds, including a reserved 600ms transport
+close/publication margin. Open is bounded to 3s, individual queries to 2s, each wait
+to 2s, and the final pending guard to at most 5s. Every operation is capped by remaining
+budget. The native wait is slightly shorter than its transport timeout. The backend
+is a private hidden PowerShell process; a stuck backend can only cause its own owned
+inspection transport to close, never a broader target kill. Budget exhaustion fails
+closed. The independent pending-to-first-dispatch 75s boundary remains mandatory;
+product 120/130s timeouts are unchanged.
+
+controller-receipt defines the fixed monotonic stages, 4 safe roles and 13 integer
+counters per role (0..16). Early validation/open failures preserve partial role
+counts. Later failures preserve their first category and stage; remaining-handle
+cleanup has a separate outcome. Kill-return and handle-exit are different facts.
+Controller receipts are exclusive, fsynced, atomically renamed files in a new
+standalone test temp directory, never in an existing recovery profile. A private
+binding envelope ties each to scenario, owner, launch generation and digest. Public
+projection contains no identities. Missing, pending, malformed, wrong version,
+wrong owner/generation/scenario or tampered receipts fail closed. Receipt publication
+failure remains distinct even when an earlier primary failure is already frozen.
+Successful publication commits the completed projection; failed operations retain
+their last reached operation stage. These are diagnostics, not acceptance evidence.
+
+A fixed controller-worker sentinel is started outside the target set and protected
+along with the harness parent by full identity checks and held handles. It has no
+provider/app/executor capabilities. It accepts only a normal shutdown lifecycle
+message over its private stdin. Its identity must remain alive after target exits.
+There is no whole-system process equality assertion: unrelated natural exits are
+not failures. Postcheck parent-number matches conservatively fail closed as possible
+descendants; they never enlarge the kill set. Backend/helper processes are excluded
+from target handles. Explicit protected identities are compared before and after.
+
+Timeline schema 5 preserves controllerReceipt, controllerReceiptPublished,
+controllerCleanup and h3Outcome separately. H3 is required AFTER a successful
+controller receipt and proves three zero-identity samples at least 200ms apart;
+it never substitutes for pinned-handle exit verification. H3 failure cannot rewrite
+a controller primary failure. Earlier profiles/timelines are neither read for
+migration nor rewritten by this change.
+
+After verification and push, the explicitly authorized standalone command is:
+`node tests/recovery/controller-selftest.cjs`
+It creates no B profile and starts no Jarvis/Electron/Notepad: exactly four fixed
+sacrificial Node helper children plus one protected sentinel are owned by the
+selftest. It executes the same controller, performs separate three-sample stable
+zero checks, then normally closes the sentinel. Output is bounded and redacted.
+On any failure it does not retry. This command is never invoked by npm test/verify
+or the A-F smoke. All automatic controller tests use fake operations/transports.
+Passing this selftest does not run or complete B acceptance. All controller helpers
+remain excluded from product imports, dist entrypoints and packaged file lists.

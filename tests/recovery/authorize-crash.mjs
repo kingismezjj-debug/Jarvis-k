@@ -41,7 +41,7 @@ export async function authorizeCrash(args){
    verifyExit:async()=>{
     // H3 proves stable process absence; separate classification preserves abnormal-exit meaning.
     await Gate.bounded(()=>running.waitForLaunchExit(),15000);
-    await running.finishExit();Exit.consume(p,'launch');await Controller.checkUnrelated(targets);
+    await running.finishExit();Exit.consume(p,'launch');
     const observed=O.counts(p);if(Object.values(observed).some(Boolean))throw Error();
    },close:()=>running.close(),checkpoint:t=>Timeline.checkpoint(p,t),
    finalCounters:()=>finalCounters(p),publish:t=>Timeline.publish(p,t)});

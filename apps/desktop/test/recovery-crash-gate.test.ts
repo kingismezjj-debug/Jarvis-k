@@ -10,7 +10,7 @@ const facts=()=>({nativeApproval:true,pending:true,pendingAgeMs:1000,taskCancell
  providerCalls:1,transportCalls:1,networkCalls:0,executorCalls:0,notepadCount:0});
 function fixture(){let time=0;const f=facts();const o:any={scenario:'B',pendingAt:0,now:()=>time,facts:vi.fn(async()=>({...f})),
  authorize:vi.fn(async()=>{time+=1000;return {helperIdentityVerified:true,windowOwnerVerified:true,foregroundVerified:true,authorizationReceived:true,pipeConsumedCount:1,result:'granted',durationBucket:'under_15s'};}),resolve:vi.fn(async()=>({fake:true})),
- crash:vi.fn(async(_t:any,guard:any)=>{await guard.guard();guard.markDispatch();return {executed:true};}),verifyExit:vi.fn(async()=>{}),
+ crash:vi.fn(async(_t:any,guard:any)=>{await guard.guard();guard.markDispatch();return require('../../../tests/recovery/controller-fixture.cjs').success();}),verifyExit:vi.fn(async()=>{}),
  close:vi.fn(async()=>{}),checkpoint:vi.fn(async()=>{}),finalCounters:vi.fn(async()=>({...f})),publish:vi.fn(async()=>{})};return {o,f,setTime:(n:number)=>{time=n;}};}
 const redacted=(v:any)=>expect(JSON.stringify(v)).not.toMatch(/"pid"|"nonce"|"path"|timestamp|createdAt|"Authorization"|credential|rawInput|stack|secret|[A-Z]:\\/i);
 describe('H6 bounded local authorization state machine',()=>{
@@ -35,6 +35,7 @@ describe('H6 bounded local authorization state machine',()=>{
  it('records crash but never calls normal close after exit verification failure',async()=>{const {o}=fixture();o.verifyExit=async()=>{throw Error('secret');};const r=await G.run(o);expect(r.crashExecuted).toBe(true);expect(r.reason).toBe('exit_verification_failed');expect(r.profileClassification).toBe('invalid_for_acceptance');expect(o.close).not.toHaveBeenCalled();});
  it('uncertain partial termination cannot retry or fall back to normal close',async()=>{const {o}=fixture();o.crash=async(_t:any,c:any)=>{c.markDispatch();throw Error('secret');};const r=await G.run(o);expect(r.crash_started).toBe(true);expect(r.profileClassification).toBe('invalid_for_acceptance');expect(o.close).not.toHaveBeenCalled();});
  it('known partial termination is recorded as a side effect and never eligible',async()=>{const {o}=fixture();o.crash=async()=>({executed:true,verified:false});const r=await G.run(o);expect(r.crashExecuted).toBe(true);expect(r.profileClassification).toBe('invalid_for_acceptance');expect(o.close).not.toHaveBeenCalled();});
+ it('H17 final pending guard retains its exact H1 failure',async()=>{const {o}=fixture();const D=require('../../../tests/recovery/diagnostics.cjs');o.crash=async()=>({executed:false,verified:false,guardFailure:D.failure('approval_command_count','launch','assertion_failed',0,1).failure});const r=await G.run(o);expect(r.firstFailure.assertion).toBe('approval_command_count');expect(o.verifyExit).not.toHaveBeenCalled();});
  it('final controller guard rejects a newly resolved decision',async()=>{const {o,f}=fixture();o.crash=async(_t:any,c:any)=>{f.approvalResolvedCount=1;await c.guard();throw Error('unreachable');};const r=await G.run(o);expect(r.crashExecuted).toBe(false);expect(r.reason).toBe('user_approval_decision_observed');expect(o.close).toHaveBeenCalledOnce();});
  it('app close observed during resolution prevents dispatch',async()=>{const {o,f}=fixture();o.resolve=async()=>{f.appCloseStarted=true;return {};};expect((await G.run(o)).reason).toBe('app_close_before_crash');expect(o.crash).not.toHaveBeenCalled();});
 });
@@ -70,16 +71,14 @@ describe('safe diagnostics and existing product boundaries',()=>{
 
 describe('controller interfaces use fake process transport only',()=>{
  function setup(){const p=P.create('B');profiles.push(p);const m={nonce:p.nonce,entries:[['desktop_main',10,1],['core_host',11,10],['renderer',12,10]].map(([role,pid,parent])=>({role,pid,parent,nonce:p.nonce,created:'2026-01-01T00:00:00.000Z',executable:role==='core_host'?'node.exe':'electron.exe'}))};P.atomic(path.join(p.control,'processes.json'),m);return {p,m,C:require('../../../tests/recovery/crash-controller.cjs')};}
- it('resolver and final controller validate before sending exact private identities to fake transport',async()=>{
-  const {p,m,C}=setup();vi.spyOn(E,'queryRows').mockResolvedValue(m.entries);const sent:any[]=[];
-  vi.spyOn(cp,'execFile').mockImplementation((...args:any[])=>{const callback=args[3];return {stdin:{on(){},end(s:string){const spec=JSON.parse(s);sent.push(spec);queueMicrotask(()=>callback(null,JSON.stringify({verified:true,executed:spec.terminate})));}}} as any;});
-  const targets=await C.resolveTargets(p,{timeoutMs:1000});const guard=vi.fn(async()=>{});expect(await C.terminate(p,targets,{guard,markDispatch:()=>{},remainingMs:()=>1000})).toEqual({verified:true,executed:true});
-  expect(guard).toHaveBeenCalledOnce();expect(sent.map(s=>s.terminate)).toEqual([false,true]);expect(sent.every(s=>s.entries.length===3&&s.nonce===p.nonce)).toBe(true);
+ it('resolver is read-only and protected session setup is deferred until authorized termination',async()=>{
+  const {p,m,C}=setup();vi.spyOn(E,'queryRows').mockResolvedValue(m.entries);const session=require('../../../tests/recovery/controller-session.cjs');const start=vi.spyOn(session,'setup').mockRejectedValue(Error('unexpected'));
+  const targets=await C.resolveTargets(p,{timeoutMs:1000});expect(targets.manifest).toEqual(m);expect(start).not.toHaveBeenCalled();
  });
  it.each(['reuse','missing','new_child','notepad'])('rejects %s before any process controller',async kind=>{
   const {p,m,C}=setup();const rows=kind==='reuse'?[{...m.entries[0],created:'2026-01-02T00:00:00.000Z'},...m.entries.slice(1)]:kind==='missing'?m.entries.slice(1):kind==='new_child'?[...m.entries,{...m.entries[2],pid:13}]:[...m.entries,{...m.entries[2],pid:99,parent:2,notepad:true}];
   vi.spyOn(E,'queryRows').mockResolvedValue(rows);const exec=vi.spyOn(cp,'execFile').mockImplementation(()=>{throw Error('must not invoke');});await expect(C.resolveTargets(p,{timeoutMs:1000})).rejects.toThrow();expect(exec).not.toHaveBeenCalled();
  });
  it('final guard failure prevents even the fake termination transport',async()=>{const {p,m,C}=setup();const exec=vi.spyOn(cp,'execFile');await expect(C.terminate(p,{manifest:m},{guard:async()=>{throw Error();},remainingMs:()=>1000})).rejects.toThrow();expect(exec).not.toHaveBeenCalled();});
- it('unrelated identity change fails without touching another process',async()=>{const {m,C}=setup();vi.spyOn(E,'queryRows').mockResolvedValue([]);await expect(C.checkUnrelated({unrelated:m.entries})).rejects.toThrow();});
+
 });

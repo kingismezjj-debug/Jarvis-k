@@ -1,32 +1,33 @@
 // H6 external test orchestration. No product imports, timers, or cancellation policy changes.
 const {performance}=require('node:perf_hooks');
 const Monitor=require('./pending-monitor.cjs');
+const ControllerReceipt=require('./controller-receipt.cjs');
 const Window=require('./authorization-window-protocol.cjs'),D=require('./diagnostics.cjs');
 // Legacy diagnostic values remain readable in H8 regression tests; no terminal input dependency.
 const RESULTS=[...Monitor.CAUSES,...Window.RESULTS,'input_mismatch','input_eof','input_error','tty_unavailable','foreground_unverified'];
 const AUTH_MS=45000, TARGET_MS=60000, HARD_MS=75000, PRODUCT_MS=120000;
-const REASONS=Object.freeze(['user_approval_decision_observed','harness_cancel_observed',
+const REASONS=Object.freeze([...ControllerReceipt.FAILURES,'user_approval_decision_observed','harness_cancel_observed',
   'product_timeout_window_reached','app_close_before_crash','state_changed_unknown_source',
   'crash_executed_while_pending',
   'deadline_exceeded','target_identity_unavailable','exit_verification_failed',...RESULTS]);
-const INITIAL={schemaVersion:4,nativeApprovalObserved:false,canonicalPendingObserved:false,
+const INITIAL={schemaVersion:5,controllerReceipt:null,controllerReceiptPublished:false,h3Outcome:'not_started',controllerCleanup:'not_started',nativeApprovalObserved:false,canonicalPendingObserved:false,
   localAuthorization:'aborted',authorizationWindowBucket:'under_15s',pendingToCrashBucket:'not_executed',
   approvalCommandCount:0,approvalResolvedCount:0,taskCancellationObserved:false,cancellationTiming:'not_observed',
   crashExecuted:false,reason:'state_changed_unknown_source',harness_cancel_command_count:0,
   parsed_approval_decision_count:0,user_local_authorization:'aborted',product_timeout_window_reached:false,
   app_close_started:false,crash_started:false,profileClassification:'invalid_for_acceptance',helperIdentityVerified:false,windowOwnerVerified:false,foregroundVerified:false,authorizationReceived:false,pipeConsumedCount:0,pendingChecks:0,firstFailure:null,
   primaryFailure:null,operationSummary:null,helperFinalResult:'not_started',helperFinalDiagnostics:null,cleanupStarted:false,cleanupOutcome:'not_started',finalCounters:null,firstFailureCounters:null,finalCloseCounters:null,closeOutcome:'not_started',failureCheckpoint:'not_attempted',timelinePublication:'not_attempted'};
-const ENUMS={helperFinalResult:['not_started','granted','user_cancelled','authorization_timeout','aborted_by_monitor','helper_identity_failed','helper_window_unverified','helper_not_foreground','helper_exit','pipe_closed','pipe_error','helper_cleanup_timeout',...Window.RESULTS],cleanupOutcome:['not_started','succeeded','failed'],localAuthorization:RESULTS,user_local_authorization:RESULTS,closeOutcome:['not_started','succeeded','failed'],failureCheckpoint:['not_attempted','published','unavailable'],timelinePublication:['not_attempted','published','unavailable'],
+const ENUMS={h3Outcome:['not_started','passed','failed'],controllerCleanup:['not_started','completed','incomplete'],helperFinalResult:['not_started','granted','user_cancelled','authorization_timeout','aborted_by_monitor','helper_identity_failed','helper_window_unverified','helper_not_foreground','helper_exit','pipe_closed','pipe_error','helper_cleanup_timeout',...Window.RESULTS],cleanupOutcome:['not_started','succeeded','failed'],localAuthorization:RESULTS,user_local_authorization:RESULTS,closeOutcome:['not_started','succeeded','failed'],failureCheckpoint:['not_attempted','published','unavailable'],timelinePublication:['not_attempted','published','unavailable'],
  authorizationWindowBucket:['under_15s','15_to_30s','30_to_45s','over_45s'],
  pendingToCrashBucket:['under_30s','30_to_60s','60_to_75s','not_executed'],
  cancellationTiming:['before_authorization','during_target_resolution','after_crash','not_observed'],
  reason:REASONS,profileClassification:['invalid_for_acceptance','eligible_for_recovery']};
 function valid(t){return !!t&&Object.keys(t).sort().join()===Object.keys(INITIAL).sort().join()&&
- Object.entries(INITIAL).every(([k,v])=>k==='schemaVersion'?t[k]===4:k==='operationSummary'?(t[k]===null||Monitor.validSummary(t[k])):k==='helperFinalDiagnostics'?(t[k]===null||Window.valid(t[k])):['firstFailure','primaryFailure'].includes(k)?(t[k]===null||D.validFailure(t[k])):
+ Object.entries(INITIAL).every(([k,v])=>k==='schemaVersion'?t[k]===5:k==='controllerReceipt'?(t[k]===null||ControllerReceipt.valid(t[k])):k==='operationSummary'?(t[k]===null||Monitor.validSummary(t[k])):k==='helperFinalDiagnostics'?(t[k]===null||Window.valid(t[k])):['firstFailure','primaryFailure'].includes(k)?(t[k]===null||D.validFailure(t[k])):
  ['firstFailureCounters','finalCloseCounters','finalCounters'].includes(k)?(t[k]===null||validCounts(t[k])):ENUMS[k]?ENUMS[k].includes(t[k]):
  typeof v==='boolean'?typeof t[k]==='boolean':Number.isInteger(t[k])&&t[k]>=0&&t[k]<=4096)&&
  (t.primaryFailure===null||JSON.stringify(t.primaryFailure)===JSON.stringify(t.firstFailure))&&
- (t.profileClassification!=='eligible_for_recovery'||t.crashExecuted&&t.crash_started&&t.localAuthorization==='granted'&&
+ (t.profileClassification!=='eligible_for_recovery'||ControllerReceipt.passed(t.controllerReceipt)&&t.controllerReceiptPublished&&t.h3Outcome==='passed'&&t.crashExecuted&&t.crash_started&&t.localAuthorization==='granted'&&
   t.user_local_authorization==='granted'&&t.helperIdentityVerified&&t.windowOwnerVerified&&t.foregroundVerified&&t.authorizationReceived&&t.pipeConsumedCount===1&&t.firstFailure===null&&t.nativeApprovalObserved&&t.canonicalPendingObserved&&
   t.reason==='crash_executed_while_pending'&&t.pendingToCrashBucket!=='not_executed'&&t.approvalCommandCount===0&&
   t.approvalResolvedCount===0&&t.parsed_approval_decision_count===0&&t.harness_cancel_command_count===0&&
@@ -128,11 +129,21 @@ async function run(o){
   checkTime();await check();
   const guard=async()=>{checkTime();await check();checkTime();};await guard();
   const receipt=await o.crash(targets,{guard,markDispatch:()=>{checkTime();t.crash_started=true;},remainingMs:()=>HARD_MS-elapsed()});
+  if(ControllerReceipt.valid(receipt?.receipt))t.controllerReceipt=structuredClone(receipt.receipt);
+  t.controllerReceiptPublished=receipt?.receiptPublished===true;
+  t.controllerCleanup=receipt?.controllerCleanup==='completed'?'completed':receipt?.controllerCleanup==='incomplete'?'incomplete':'not_started';
+  if(receipt?.executed===true){t.crash_started=true;t.crashExecuted=true;t.pendingToCrashBucket=crashBucket(elapsed());}
+  if(D.validFailure(receipt?.guardFailure))throw new D.SafeFailure(receipt.guardFailure);
+  if(!t.controllerReceipt){t.reason='result_ownership_failed';throw D.failure('controller_result_ownership_failed','launch','persistence_unavailable',true,false);}
+  if(t.controllerReceipt&&(receipt.verified!==true||!t.controllerReceiptPublished)){
+   const category=t.controllerReceipt.primaryFailure?.category||(t.controllerReceiptPublished?'protected_process_missing':'receipt_write_failed');t.reason=category;
+   throw D.failure('controller_'+category,'launch','assertion_failed',true,false);
+  }
   if(receipt?.executed!==true)throw inputFailure('target_identity_failed');
   t.crash_started=true;t.crashExecuted=true;t.pendingToCrashBucket=crashBucket(elapsed());t.reason='crash_executed_while_pending';phase='after_crash';
   if(receipt.verified===false){t.reason='target_identity_unavailable';throw inputFailure('target_identity_failed');}
   checkTime();
-  try{await o.verifyExit();}catch{t.reason='exit_verification_failed';throw D.failure('process_exit_state','launch','assertion_failed',true,false);}
+  try{await o.verifyExit();t.h3Outcome='passed';}catch{t.h3Outcome='failed';t.reason='exit_verification_failed';throw D.failure('process_exit_state','launch','assertion_failed',true,false);}
   t.profileClassification='eligible_for_recovery';
  }catch(e){
   if(o.monitor?.lastCounts())lastCounts=counts(o.monitor.lastCounts());

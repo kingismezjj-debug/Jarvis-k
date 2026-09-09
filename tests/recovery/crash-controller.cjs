@@ -1,35 +1,24 @@
-// Actual termination is reachable only from the local manual Y gate. Import is inert.
-const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
-const P=require('./profile.cjs'),Exit=require('./exit-verifier.cjs');
-function invoke(p,manifest,terminate,{timeoutMs,signal}){
- return new Promise((resolve,reject)=>{
-  if(p.scenario!=='B'||!(timeoutMs>0)){reject(Error('SAFE_TARGET_REJECTED'));return;}
-  const child=cp.execFile('powershell.exe',['-NoProfile','-NonInteractive','-File',path.join(__dirname,'crash-controller.ps1')],
-   {windowsHide:true,timeout:Math.max(1,Math.floor(timeoutMs)),signal,encoding:'utf8',maxBuffer:2048},(error,out)=>{
-    try{const r=JSON.parse(out);if(Object.keys(r).sort().join()!=='executed,verified'||typeof r.verified!=='boolean'||typeof r.executed!=='boolean')throw Error();
-      if(!terminate&&(error||!r.verified))throw Error();resolve(r);}
-    catch{reject(Error('SAFE_TARGET_REJECTED'));}
-   });
-  child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({nonce:p.nonce,entries:manifest.entries,terminate,budgetMs:Math.min(5000,Math.floor(timeoutMs))}));
- });
-}
+// Manual authorization only. Importing this module starts nothing.
+const fs=require('node:fs'),path=require('node:path');
+const P=require('./profile.cjs'),Exit=require('./exit-verifier.cjs'),Session=require('./controller-session.cjs'),R=require('./controller-receipt.cjs'),D=require('./diagnostics.cjs');
 async function resolveTargets(p,options){
  p=P.validateTree(P.load(p.id));const manifest=JSON.parse(fs.readFileSync(P.canonical(path.join(p.control,'processes.json')),'utf8'));
  Exit.validateManifest(manifest,p.nonce);
  if(manifest.entries.filter(e=>e.role==='core_host').length!==1||!manifest.entries.some(e=>e.role==='renderer'))throw Error('SAFE_TARGET_REJECTED');
- const rows=await Exit.queryRows(options);const classified=Exit.classify(manifest,rows,p.nonce).summary;
- if(classified.identityCounts.matching_identity_active!==manifest.entries.length||classified.identityCounts.identity_unavailable||
-  classified.identityCounts.pid_reused_identity_mismatch||classified.identityCounts.child_of_matching_identity_active||classified.notepadCount)throw Error('SAFE_TARGET_REJECTED');
- await invoke(p,manifest,false,options);
- return {manifest,unrelated:rows.filter(r=>['electron.exe','node.exe'].includes(r.executable)&&!manifest.entries.some(e=>e.pid===r.pid))};
+ const rows=await Exit.queryRows(options);const s=Exit.classify(manifest,rows,p.nonce).summary;
+ if(s.identityCounts.matching_identity_active!==manifest.entries.length||s.identityCounts.identity_unavailable||s.identityCounts.pid_reused_identity_mismatch||s.identityCounts.child_of_matching_identity_active||s.notepadCount)throw Error('SAFE_TARGET_REJECTED');
+ return {manifest};
 }
 async function terminate(p,targets,options){
- await options.guard();const budget=Math.min(5000,options.remainingMs());if(budget<=0)throw Error('SAFE_DEADLINE');
- options.markDispatch();
- return invoke(P.load(p.id),targets.manifest,true,{timeoutMs:budget});
+ await options.guard();p=P.load(p.id);const l=JSON.parse(fs.readFileSync(P.canonical(path.join(p.control,'exit-launch.json')),'utf8'));
+ if(l.owner!==p.nonce||l.stage!=='launch')throw Error('SAFE_TARGET_REJECTED');
+ let session,result,guardFailure;
+ try{session=await Session.setup({mode:'B',owner:p.nonce,launch:l.generation,entries:targets.manifest.entries});
+  // No Kill may be dispatched once the independent 75-second pending boundary expires.
+  result=await session.run({beforeDispatch:async()=>{try{await options.guard();}catch(error){if(D.validFailure(error?.failure))guardFailure=error.failure;throw error;}if(options.remainingMs()<=0)throw {category:'controller_budget_exhausted'};},markDispatch:()=>{if(options.remainingMs()<=0)throw {category:'controller_budget_exhausted'};options.markDispatch();}});
+ }catch{if(!result){const receipt=R.empty();R.fail(receipt,'protected_baseline_failed');result={receipt,receiptPublished:false,executed:false,verified:false};}}
+ finally{if(session){try{await session.close();if(result)result.controllerCleanup='completed';}catch{if(result){result.controllerCleanup='incomplete';result.verified=false;}}}}
+ return {...result,...(guardFailure?{guardFailure}:{} )};
 }
-async function checkUnrelated(targets){
- const rows=await Exit.queryRows({timeoutMs:3000});
- if(!targets.unrelated.every(e=>rows.some(r=>['pid','parent','created','executable'].every(k=>r[k]===e[k]))))throw Error('SAFE_UNRELATED_STATE_CHANGED');
-}
-module.exports={resolveTargets,terminate,checkUnrelated};
+function failureFor(result){const category=result?.receipt?.primaryFailure?.category;return R.FAILURES.includes(category)?category:'unexpected_controller_error';}
+module.exports={resolveTargets,terminate,failureFor};

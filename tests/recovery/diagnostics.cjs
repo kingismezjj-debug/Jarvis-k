@@ -4,7 +4,7 @@ const path = require('node:path');
 const P = require('./profile.cjs');
 const ProcessSummary = require('./exit-summary.cjs');
 const ProviderSummary = require('./provider-mode.cjs');
-const CATALOG = Object.freeze([...require('./pending-monitor.cjs').ASSERTIONS,'authorization_window_result','authorization_helper_identity','authorization_window_owner','authorization_window_foreground','authorization_helper_lifecycle','authorization_pipe_state','authorization_pipe_single_use','authorization_binding','authorization_window_decision',
+const CATALOG = Object.freeze([...require('./controller-receipt.cjs').FAILURES.map(x=>'controller_'+x),...require('./pending-monitor.cjs').ASSERTIONS,'authorization_window_result','authorization_helper_identity','authorization_window_owner','authorization_window_foreground','authorization_helper_lifecycle','authorization_pipe_state','authorization_pipe_single_use','authorization_binding','authorization_window_decision',
   'local_authorization_input','local_authorization_channel','local_authorization_deadline','local_authorization_foreground','canonical_approval_state','approval_command_count','execution_started_count','harness_cancel_count','application_close_state','crash_deadline','local_authorization_calibration',
   'scenario_classification_match', 'recovery_terminal_count', 'terminal_event_count',
   'recovery_event_count', 'task_interruption_count', 'canonical_message_count',
