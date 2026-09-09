@@ -614,3 +614,78 @@ windowOwnerQuerySucceeded, windowVisibleVerified, readinessSamples and the two
 predicate snapshots. No raw identity data is printed. Automated tests use fake
 queries/controllers; a single independent manual selftest is run only after push.
 A manual PASS permits a separately requested new B acceptance, never automatic B.
+
+
+## H15 pending monitor (test infrastructure, L2)
+
+The active dedicated-window B route uses `pending-monitor.cjs` and a private
+`pending-reader.cjs` worker. No product code, store schema, approval controls or
+120/130-second product timeout changes. Existing 45-second authorization and
+75-second pending-to-crash limits remain independent mandatory checks. Preserved
+profiles are not migrated or inspected by this implementation stage.
+
+Fast cycles target 250ms starts, with 500ms per operation and 750ms total. A warm
+worker reads one bounded immutable database byte snapshot, parses validated journal
+events and derives the unresolved requires-approval decision and Task state from
+that same snapshot. This is a read projection of existing facts, not a new Approval
+store; the existing native projection is separately checked. The worker reads
+approval command, provider/network and executor counters with operation receipts.
+SQL initialization is warmed once (2s bound) before launching the test application.
+A worker can be terminated on read timeout without blocking the parent's event loop
+or terminating any application process. Sync SQLite/filesystem work is confined to
+that worker. No query is executed against real development or retained profiles.
+
+Slow cycles target 1s starts, with parallel UI (750ms) and process identity (2s)
+queries and a 2.5s total bound. Notepad is classified from that same process sample
+(500ms bound), never a second PowerShell query. H3's manifest, parent, creation and
+executable identity comparison is reused; missing, reused, unknown or extra child
+identities fail closed. Each lane is single-flight; slow work does not delay fast
+checks. A lane exceeding its cadence finishes or fails before another starts.
+No unavailable process sample authorizes a crash, and no background result is used
+as a substitute for a complete final read after authorization. That final read
+has a 5s total cap and re-reads fast facts AFTER the slow sample, before returning. The existing H3
+crash-target resolver and its immediately-before-dispatch guard remain mandatory.
+Fast change detection is bounded by one pending cycle plus the next read (at most
+1.5s with the current 750ms cycle bound); typical reads target a 250ms cadence.
+
+The bounded summary retains each operation's most recent attempt, frozen at the
+first failure, with a cumulative attempt count; it does not retain an unbounded
+per-cycle history. Every operation records only passed/failed/timeout/error/cancelled/not_run, a fixed
+duration bucket, safe classification and an attempt count up to 4096. Operations:
+ui_projection_read, canonical_approval_read, task_state_read,
+assistant_journal_read, approval_command_count_read, execution_count_read,
+provider_counter_read, executor_counter_read, notepad_check,
+process_identity_query, helper_state_read. The helper-state check reads the local
+pending/settled promise state; waiting is NOT proof of window identity. Grant still
+requires the full H14 window/process/foreground proof and single pipe consumption.
+
+H1 assertions now identify each operation at `authorization_wait`; errors preserve
+UI/process/persistence/counter/helper timeout versus error and monitor cancellation
+or deadline exhaustion. Known safety changes have their own cause enums. The first
+failure is frozen when observed; aborting/closing the helper cannot replace it.
+Timeline schema 4 adds primaryFailure, operationSummary, helperFinalResult,
+helperFinalDiagnostics, cleanupStarted, cleanupOutcome and finalCounters.
+Helper diagnostics are accepted only through the existing strict bounded window
+schema, including both H14 predicate snapshots. If monitoring aborts a helper,
+aborted_by_monitor is distinct from user_cancelled. A 5s helper cleanup bound has
+its own helper_cleanup_timeout classification. Original and final count snapshots
+remain separate; an unavailable final read stays null. The failure checkpoint is
+atomically published before normal application closure. Neither checkpoint nor
+trace is final acceptance evidence. Older timelines stay untouched and cannot be
+used to authorize a fresh launch under the new schema.
+
+`node tests/recovery/pending-calibration.mjs` runs one standalone read-only
+calibration: one live process query plus its Notepad projection; SQLite timings use
+only an in-memory synthetic table. No profile or window is created. UI/helper and
+profile-backed counter operations report error/requires_isolated_live_target,
+explicitly meaning unavailable for this calibration, not a measured product fault.
+Synthetic SQL measurements do not establish live file-read latency. Recommendations
+are bounded classes, not automatic tuning: unavailable or slow live queries still
+fail closed. Output contains only operation, durationBucket, status and
+recommendedTimeoutClass. No identifiers, raw errors, SQL or paths are returned.
+
+Virtual-clock/fake-query tests cover each operation failure, concurrent fast/slow
+work, single-flight process queries, grant races, final complete review, helper
+cleanup and primary failure preservation. Offline worker tests use a new synthetic
+profile. A–F local smoke closes normally and does not perform manual B or crash
+acceptance. Production import/build/package exclusion includes all H15 modules.

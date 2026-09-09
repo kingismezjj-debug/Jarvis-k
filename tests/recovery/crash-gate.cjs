@@ -1,29 +1,31 @@
 // H6 external test orchestration. No product imports, timers, or cancellation policy changes.
 const {performance}=require('node:perf_hooks');
+const Monitor=require('./pending-monitor.cjs');
 const Window=require('./authorization-window-protocol.cjs'),D=require('./diagnostics.cjs');
 // Legacy diagnostic values remain readable in H8 regression tests; no terminal input dependency.
-const RESULTS=[...Window.RESULTS,'input_mismatch','input_eof','input_error','tty_unavailable','foreground_unverified'];
+const RESULTS=[...Monitor.CAUSES,...Window.RESULTS,'input_mismatch','input_eof','input_error','tty_unavailable','foreground_unverified'];
 const AUTH_MS=45000, TARGET_MS=60000, HARD_MS=75000, PRODUCT_MS=120000;
 const REASONS=Object.freeze(['user_approval_decision_observed','harness_cancel_observed',
   'product_timeout_window_reached','app_close_before_crash','state_changed_unknown_source',
   'crash_executed_while_pending',
   'deadline_exceeded','target_identity_unavailable','exit_verification_failed',...RESULTS]);
-const INITIAL={schemaVersion:3,nativeApprovalObserved:false,canonicalPendingObserved:false,
+const INITIAL={schemaVersion:4,nativeApprovalObserved:false,canonicalPendingObserved:false,
   localAuthorization:'aborted',authorizationWindowBucket:'under_15s',pendingToCrashBucket:'not_executed',
   approvalCommandCount:0,approvalResolvedCount:0,taskCancellationObserved:false,cancellationTiming:'not_observed',
   crashExecuted:false,reason:'state_changed_unknown_source',harness_cancel_command_count:0,
   parsed_approval_decision_count:0,user_local_authorization:'aborted',product_timeout_window_reached:false,
   app_close_started:false,crash_started:false,profileClassification:'invalid_for_acceptance',helperIdentityVerified:false,windowOwnerVerified:false,foregroundVerified:false,authorizationReceived:false,pipeConsumedCount:0,pendingChecks:0,firstFailure:null,
-  firstFailureCounters:null,finalCloseCounters:null,closeOutcome:'not_started',failureCheckpoint:'not_attempted',timelinePublication:'not_attempted'};
-const ENUMS={localAuthorization:RESULTS,user_local_authorization:RESULTS,closeOutcome:['not_started','succeeded','failed'],failureCheckpoint:['not_attempted','published','unavailable'],timelinePublication:['not_attempted','published','unavailable'],
+  primaryFailure:null,operationSummary:null,helperFinalResult:'not_started',helperFinalDiagnostics:null,cleanupStarted:false,cleanupOutcome:'not_started',finalCounters:null,firstFailureCounters:null,finalCloseCounters:null,closeOutcome:'not_started',failureCheckpoint:'not_attempted',timelinePublication:'not_attempted'};
+const ENUMS={helperFinalResult:['not_started','granted','user_cancelled','authorization_timeout','aborted_by_monitor','helper_identity_failed','helper_window_unverified','helper_not_foreground','helper_exit','pipe_closed','pipe_error','helper_cleanup_timeout',...Window.RESULTS],cleanupOutcome:['not_started','succeeded','failed'],localAuthorization:RESULTS,user_local_authorization:RESULTS,closeOutcome:['not_started','succeeded','failed'],failureCheckpoint:['not_attempted','published','unavailable'],timelinePublication:['not_attempted','published','unavailable'],
  authorizationWindowBucket:['under_15s','15_to_30s','30_to_45s','over_45s'],
  pendingToCrashBucket:['under_30s','30_to_60s','60_to_75s','not_executed'],
  cancellationTiming:['before_authorization','during_target_resolution','after_crash','not_observed'],
  reason:REASONS,profileClassification:['invalid_for_acceptance','eligible_for_recovery']};
 function valid(t){return !!t&&Object.keys(t).sort().join()===Object.keys(INITIAL).sort().join()&&
- Object.entries(INITIAL).every(([k,v])=>k==='schemaVersion'?t[k]===3:k==='firstFailure'?(t[k]===null||D.validFailure(t[k])):
- ['firstFailureCounters','finalCloseCounters'].includes(k)?(t[k]===null||validCounts(t[k])):ENUMS[k]?ENUMS[k].includes(t[k]):
+ Object.entries(INITIAL).every(([k,v])=>k==='schemaVersion'?t[k]===4:k==='operationSummary'?(t[k]===null||Monitor.validSummary(t[k])):k==='helperFinalDiagnostics'?(t[k]===null||Window.valid(t[k])):['firstFailure','primaryFailure'].includes(k)?(t[k]===null||D.validFailure(t[k])):
+ ['firstFailureCounters','finalCloseCounters','finalCounters'].includes(k)?(t[k]===null||validCounts(t[k])):ENUMS[k]?ENUMS[k].includes(t[k]):
  typeof v==='boolean'?typeof t[k]==='boolean':Number.isInteger(t[k])&&t[k]>=0&&t[k]<=4096)&&
+ (t.primaryFailure===null||JSON.stringify(t.primaryFailure)===JSON.stringify(t.firstFailure))&&
  (t.profileClassification!=='eligible_for_recovery'||t.crashExecuted&&t.crash_started&&t.localAuthorization==='granted'&&
   t.user_local_authorization==='granted'&&t.helperIdentityVerified&&t.windowOwnerVerified&&t.foregroundVerified&&t.authorizationReceived&&t.pipeConsumedCount===1&&t.firstFailure===null&&t.nativeApprovalObserved&&t.canonicalPendingObserved&&
   t.reason==='crash_executed_while_pending'&&t.pendingToCrashBucket!=='not_executed'&&t.approvalCommandCount===0&&
@@ -62,7 +64,7 @@ async function run(o){
  const fail=(a,e,v,result='pending_state_changed')=>{t.localAuthorization=result;throw D.failure(a,'launch','assertion_failed',e,v);};
  const checkTime=()=>{if(!Number.isFinite(elapsed())||elapsed()<0||elapsed()>=HARD_MS){t.reason='deadline_exceeded';fail('crash_deadline','within_75s','expired');}};
  async function check(maxMs=5000){
-  t.pendingChecks++;checkTime();const f=await bounded(o.facts,Math.min(maxMs,budget()));checkTime();lastCounts=counts(f);
+  t.pendingChecks++;checkTime();const f=o.monitor?await o.monitor.complete():await bounded(o.facts,Math.min(maxMs,budget()));checkTime();lastCounts=counts(f);
   t.nativeApprovalObserved=f.nativeApproval===true;t.canonicalPendingObserved=f.pending===true;
   t.approvalCommandCount=f.approvalCommandCount;t.approvalResolvedCount=f.approvalResolvedCount;
   t.harness_cancel_command_count=f.harnessCancelCount;t.parsed_approval_decision_count=f.parsedApprovalDecisionCount;
@@ -89,7 +91,7 @@ async function run(o){
   try {
    input=Promise.resolve().then(()=>o.authorize({timeoutMs:ms,signal:controller.signal})).catch(()=>({result:'pipe_error'}));
    const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve({result:'authorization_timeout'}),ms);});
-   const watch=new Promise((_,reject)=>{
+   const watch=o.monitor?(o.monitor.start(),o.monitor.failure):new Promise((_,reject)=>{
     const tick=async()=>{if(stopped)return;const started=now();try{inflight=check(500);await inflight;}catch(e){reject(e);return;}
      if(!stopped)monitor=setTimeout(tick,Math.max(0,250-(now()-started)));};
     monitor=setTimeout(tick,250);
@@ -100,12 +102,23 @@ async function run(o){
    if(!r||!RESULTS.includes(r.result))return {result:'pipe_error'};
    if(now()-at>=ms)return {result:'authorization_timeout'};
    return r;
-  } finally {stopped=true;clearTimeout(timer);clearTimeout(monitor);controller.abort();if(o.finishAuthorization){try{await bounded(o.finishAuthorization,5000);}catch{}}t.authorizationWindowBucket=authBucket(now()-at);}
+  } finally {
+   stopped=true;clearTimeout(timer);clearTimeout(monitor);
+   if(o.monitor){if(o.monitor.primary())await o.monitor.stop();else await o.monitor.pause();t.operationSummary=o.monitor.summary();const last=o.monitor.lastCounts();if(last)lastCounts=counts(last);}
+   const monitorAborted=!!o.monitor?.primary();controller.abort();
+   if(o.finishAuthorization){try{const final=await bounded(o.finishAuthorization,5000);
+    t.helperFinalDiagnostics=Window.valid(final)?structuredClone(final):null;
+    if(t.helperFinalDiagnostics){for(const key of ['helperIdentityVerified','windowOwnerVerified','foregroundVerified','authorizationReceived'])t[key]=final[key]===true;t.pipeConsumedCount=final.pipeConsumedCount===1?1:0;}
+    t.helperFinalResult=monitorAborted&&final?.result==='aborted'?'aborted_by_monitor':ENUMS.helperFinalResult.includes(final?.result)?final.result:'pipe_error';
+   }catch{t.helperFinalResult='helper_cleanup_timeout';}}
+   t.authorizationWindowBucket=authBucket(now()-at);
+  }
  }
  try{
   if(o.scenario!=='B')throw D.failure('scenario_classification_match','launch','assertion_failed',true,false);
   await check();const authorization=await waitInput();
   t.localAuthorization=t.user_local_authorization=authorization.result;
+  if(!o.finishAuthorization){t.helperFinalResult=ENUMS.helperFinalResult.includes(authorization.result)?authorization.result:'pipe_error';t.helperFinalDiagnostics=Window.valid(authorization)?structuredClone(authorization):null;}
   for(const key of ['helperIdentityVerified','windowOwnerVerified','foregroundVerified','authorizationReceived'])t[key]=authorization[key]===true;
   t.pipeConsumedCount=authorization.pipeConsumedCount===1?1:0;
   if(t.localAuthorization!=='granted'){t.reason=t.localAuthorization;throw inputFailure(t.localAuthorization);}
@@ -122,20 +135,25 @@ async function run(o){
   try{await o.verifyExit();}catch{t.reason='exit_verification_failed';throw D.failure('process_exit_state','launch','assertion_failed',true,false);}
   t.profileClassification='eligible_for_recovery';
  }catch(e){
-  t.firstFailure=D.safeFailure(e,'launch');t.firstFailureCounters=lastCounts;
+  if(o.monitor?.lastCounts())lastCounts=counts(o.monitor.lastCounts());
+  t.firstFailure=Object.freeze(D.safeFailure(e,'launch'));t.primaryFailure=t.firstFailure;t.firstFailureCounters=lastCounts;
+  if(o.monitor){t.operationSummary=o.monitor.summary();if(e?.monitorCause){t.reason=e.monitorCause;t.localAuthorization=t.user_local_authorization=e.monitorCause;}}
+  if(!t.helperFinalDiagnostics&&o.monitor&&t.helperFinalResult==='not_started')t.helperFinalResult='aborted_by_monitor';
   if(!t.crash_started){
    // Immutable failure checkpoint MUST precede close. Close errors never replace the first failure.
-   t.app_close_started=true;
+   t.app_close_started=true;t.cleanupStarted=true;
    try{t.failureCheckpoint='published';await o.checkpoint(Object.freeze({...t}));}catch{t.failureCheckpoint='unavailable';}
    try{await o.close();t.closeOutcome='succeeded';}catch{t.closeOutcome='failed';}
    try{t.finalCloseCounters=counts(await o.finalCounters());}catch{t.finalCloseCounters=null;}
+   t.cleanupOutcome=t.closeOutcome;t.finalCounters=t.finalCloseCounters;
   }
  }
+ if(o.monitor){await o.monitor.stop();t.operationSummary=t.operationSummary||o.monitor.summary();}
  t.timelinePublication='published';
  if(!valid(t))throw Error('SAFE_GATE_RESULT_INVALID');
  try{await o.publish(Object.freeze({...t}));}catch{
   t.timelinePublication='unavailable';t.profileClassification='invalid_for_acceptance';
-  if(!t.firstFailure)t.firstFailure=D.failure('inspection_result_write','launch').failure;
+  if(!t.firstFailure){t.firstFailure=D.failure('inspection_result_write','launch').failure;t.primaryFailure=t.firstFailure;}
  }
  return t;
 }

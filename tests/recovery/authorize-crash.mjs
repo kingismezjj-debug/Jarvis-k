@@ -5,39 +5,36 @@ import Exit from './exit-verifier.cjs';import Gate from './crash-gate.cjs';impor
 import Controller from './crash-controller.cjs';import Modes from './provider-mode.cjs';
 import Timeline from './crash-timeline.cjs';
 import Window from './authorization-window.cjs';
-export async function facts(running,{timeoutMs=2000,signal}={}){
- const at=performance.now();
- const p=running.p;const ui=await running.page.evaluate(async()=>{const r=await window.jarvis.getSnapshot();
-  if(!r.ok)throw Error();const s=r.data;return {native:s.assistantTurn?.status==='awaiting_approval'&&
-   !!document.querySelector('[data-testid="assistant-native-approval"]')&&
-   document.querySelector('[data-testid="assistant-tool-allow"]')?.disabled===false&&
-   document.querySelector('[data-testid="assistant-tool-deny"]')?.disabled===false};}).catch(()=>{throw D.failure('native_approval_projection','launch','inspection_error');});
- const live=await Exit.queryRows({timeoutMs:Math.max(1,Math.min(2000,timeoutMs-(performance.now()-at))),signal});
- const SQL=(await import('sql.js')).default;const db=new (await SQL()).Database(fs.readFileSync(P.canonical(path.join(p.localData,'task-runtime.sqlite'))));
- try{
-  const rows=db.exec('SELECT event_json FROM assistant_turn_events ORDER BY sequence')[0]?.values||[];if(rows.length>128)throw Error();
-  const events=rows.map(r=>JSON.parse(r[0])),tasks=db.exec('SELECT state FROM tasks')[0]?.values||[];
-  const decision=events.find(e=>e.type==='tool.decided');const c=P.counts(p),o=O.counts(p),m=Modes.projection(p,'preparation','guarded_fake');
-  Modes.check(D.context('launch'),m,true);
-  return {nativeApproval:ui.native,pending:events.length===3&&tasks.length===1&&tasks[0][0]==='awaiting_confirmation'&&decision?.data.decision==='requires_approval',
-   pendingAgeMs:Date.now()-Date.parse(decision?.occurredAt),taskCancelled:tasks.some(r=>r[0]==='cancelled'),
-   executionStarted:events.filter(e=>e.type==='execution.started').length,approvalResolvedCount:events.filter(e=>e.type==='approval.resolved').length,
-   approvalCommandCount:o.approval_command,parsedApprovalDecisionCount:o.parsed_approval_decision,harnessCancelCount:o.harness_cancel,
-   appCloseStarted:o.app_close>0,providerCalls:c.preparationFakeProviderCalls,transportCalls:m.providerTransportCalls,
-   networkCalls:m.providerNetworkCalls,executorCalls:c.preparationExecutorCalls+c.recoveryExecutorCalls,
-   notepadCount:Math.max(c.notepadObservedCount,live.filter(r=>r.notepad).length)};
- }finally{db.close();}
+import Monitor from './pending-monitor.cjs';
+import Reader from './pending-reader.cjs';
+function monitoring(running,reader,helperState){
+ const p=running.p;
+ let manifest;try{manifest=JSON.parse(fs.readFileSync(P.canonical(path.join(p.control,'processes.json')),'utf8'));Exit.validateManifest(manifest,p.nonce);}catch{throw Monitor.error('process_identity_query');}
+ return Monitor.create({remaining:()=>Math.min(45000,75000-(performance.now()-running.pendingObservedAt)),
+  fast:options=>reader.read(options),helper:async()=>helperState(),
+  ui:async()=>running.page.evaluate(async()=>{const r=await window.jarvis.getSnapshot();if(!r.ok)throw Error();
+   return r.data.assistantTurn?.status==='awaiting_approval'&&
+    !!document.querySelector('[data-testid="assistant-native-approval"]')&&
+    document.querySelector('[data-testid="assistant-tool-allow"]')?.disabled===false&&
+    document.querySelector('[data-testid="assistant-tool-deny"]')?.disabled===false;}),
+  process:async options=>{const rows=await Exit.queryRows(options);const {summary,knownChildren}=Exit.classify(manifest,rows,p.nonce);
+   const identityValid=summary.identityCounts.matching_identity_active===manifest.entries.length&&knownChildren.length===0&&
+    ['identity_unavailable','pid_reused_identity_mismatch','no_matching_process','child_of_matching_identity_active'].every(k=>summary.identityCounts[k]===0);
+   return {identityValid,notepadCount:summary.notepadCount};}
+ });
 }
 export async function authorizeCrash(args){
  const ctx=D.context('launch');ctx.check('scenario_classification_match',true,args.length===1&&args[0]==='B');
- const p=P.create('B');let running,gateEntered=false;
+ const p=P.create('B');let running,reader,monitor,gateEntered=false;
  try{
   await State.seed(p);I.requirePass(await I.inspect(p,'prepare'));O.begin(p);
+  reader=Reader.create(p.id);await reader.ready;
   running=await (await import('./desktop.mjs')).launch(p,'preparation');
-  let targets,authorization;
+  let targets,authorization,helperStatus='not_started';
+  monitor=monitoring(running,reader,()=>helperStatus);
   gateEntered=true;
   const result=await Gate.run({scenario:'B',pendingAt:running.pendingObservedAt,now:()=>performance.now(),
-   facts:options=>facts(running,options),authorize:options=>(authorization=Window.authorize({...options,scenario:'B',owner:p.nonce})),
+   monitor,authorize:options=>{helperStatus='waiting';authorization=Window.authorize({...options,scenario:'B',owner:p.nonce});authorization.then(r=>{if(r.result==='granted')helperStatus='granted';},()=>{});return authorization;},
    finishAuthorization:()=>authorization,
    resolve:async options=>{targets=await Controller.resolveTargets(p,options);return targets;},
    crash:(t,options)=>Controller.terminate(p,t,options),
@@ -52,6 +49,7 @@ export async function authorizeCrash(args){
   return {schemaVersion:1,scenario:'B',verdict:result.profileClassification==='eligible_for_recovery'?'PASS':'FAIL',timeline:result,
    ...(result.profileClassification==='eligible_for_recovery'?{}:{firstFailure:result.firstFailure})};
  }catch(e){if(running&&!gateEntered){try{await running.close();}catch{}}throw new D.SafeFailure(D.safeFailure(e,'launch'));}
+ finally{await monitor?.stop();await reader?.close();}
 }
 
 // Final close counts are independent of the first-failure snapshot and do not require a live UI.

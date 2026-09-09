@@ -85,10 +85,15 @@ function projection(p, phase, mode, {seed=false}={}) {
   if(c.violation || c.instantiated>1 || c.configured>1)throw failure('provider_policy');
   return {...empty(mode),providerConfigured:c.configured===1,providerInstantiated:c.instantiated===1,providerFactoryCalls:c.factory,providerTransportCalls:c.transport,providerNetworkCalls:c.network,providerStatus:c.configured?'available':'unconfigured'};
 }
+// Read-only monitor preserves observed violations rather than throwing away counters.
+function monitorCounters(p) {
+  const a=current(p,'preparation','guarded_fake');assertNoConfigurationFiles(p);
+  return counts(p,a);
+}
 function check(ctx,s,configured) {
   if(!valid(s))throw failure();
   ctx.check('provider_configured',configured,s.providerConfigured);ctx.check('provider_instantiated',configured,s.providerInstantiated);
   ctx.check('provider_factory_calls',configured?1:0,s.providerFactoryCalls);ctx.check('provider_transport_calls',configured?1:0,s.providerTransportCalls);
   ctx.check('provider_network_calls',0,s.providerNetworkCalls);ctx.check('provider_status',configured?'available':'unconfigured',s.providerStatus);
 }
-module.exports={MODES,FIELDS,select,validate,empty,valid,begin,current,record,forbid,factory,transport,projection,check,assertNoConfigurationFiles};
+module.exports={monitorCounters,MODES,FIELDS,select,validate,empty,valid,begin,current,record,forbid,factory,transport,projection,check,assertNoConfigurationFiles};
