@@ -1,94 +1,78 @@
 # Developer Onboarding
 
-This document is the shortest path from clone to a verified local Jarvis-K
-desktop build.
+[CURRENT_STATUS.md](../CURRENT_STATUS.md) is the only current product summary.
+This page defines a short development baseline, not a completed daily-use trial.
 
-## 1. Install
+## Install and verify
 
-```powershell
-npm install
-```
-
-Jarvis-K requires Node.js `>=22.12.0`.
-
-## 2. Verify
+Use Windows and Node.js >=22.12.0 (Node 22 is the existing CI baseline), npm and Git.
+Windows ARM is a development-validation environment, not a supported release claim.
+From the repository root in PowerShell:
 
 ```powershell
-npm run verify
+npm.cmd ci
+npm.cmd run verify
 ```
 
-`verify` runs type checks, unit and integration tests, dependency-boundary
-checks, and a production build.
+Use `npm.cmd` when PowerShell blocks `npm.ps1`; changing execution policy is not needed.
+`verify` runs typecheck, tests, boundary/sensitive-file checks and the complete build.
+`npm test` now builds Desktop after its existing dependency builds and before Vitest,
+including `dist/secure-chat-answer-provider-store.js`. CI uses that same test entry.
+No manual warm-up build is needed to make a clean checkout pass.
 
-## 3. Launch
+## Standard startup
 
 ```powershell
-npm run start
+npm.cmd start
 ```
 
-Use `npm run dev` to build before launching.
+Equivalent development alias: `npm.cmd run dev`. The `prestart` lifecycle uses the
+existing complete workspace `build`; `dev` delegates to `start`, so it builds once.
+The existing `&&` chain stops at the first compiler/build error and npm does not
+launch Electron when prestart fails. Read that failing workspace's error output.
+Do not use `--ignore-scripts` for startup: it intentionally bypasses npm lifecycle hooks.
 
-## 4. Configure Voice
+Root `main` is `apps/desktop/dist/main.js`; the Desktop package entry is `dist/main.js`.
+Desktop Main also needs CoreHost, UI and bundled preloads. Direct `electron .` and
+workspace-only builds are low-level operations, not complete clean startup commands.
+No provider configuration or model download is required merely to build.
 
-1. Open the voice service settings from the left sidebar settings button.
-2. Save Xunfei RTASR `AppID` and a rotated `APIKey`.
-3. Press and hold the microphone button, speak, then release.
-4. Watch `VOICE FRAMES`, `VOICE RMS`, `VOICE PEAK`, and `VOICE TRANSCRIPT`.
+## Small baseline checklist
 
-If `VOICE FRAMES` stays at `0`, the renderer did not capture microphone audio.
-If frames increase but `RMS` and `PEAK` stay near `0`, the selected microphone
-is silent or too quiet. If audio metrics look healthy but transcript quality is
-poor, check provider language, environment noise, and account/service status.
+1. Record the full `git rev-parse HEAD`, branch, clean worktree, Node and OS architecture.
+2. Install from the lockfile and run verify without inherited provider/acceptance flags.
+3. When interactive use is authorized, start with the standard command; confirm the
+   main window and existing settings work, then explicitly quit through the tray.
+4. An unconfigured provider is a setup state, not an ARM compilation failure. Saving,
+   connection testing and enabling a provider are separate user actions; connection
+   testing and conversation can make real requests and are not part of offline checks.
+5. Do not count historical x64 installer evidence or a passing fake test as a new
+   ARM/x64 product acceptance. Record any new result against its exact revision.
 
-## 5. Optional Desktop Smoke
+UI-3L-0 performs offline baseline verification only. It does not start a five-day
+trial, a real crash, a Windows tool action, voice/wake word, plugin/MCP work or a release.
+
+## Optional existing workflows
+
+Voice setup and provider acceptance remain separate opt-in workflows described by
+the historical guides and existing UI; this baseline does not enable them. Existing
+`smoke:desktop` uses fake media/providers, and `smoke:desktop:fixture-inference` uses
+isolated fixture inference. Neither is proof of real provider or Windows acceptance.
+No optional Desktop smoke is required to fix npm build ordering: the focused tests
+use inert executable shims and cannot launch Electron or a Windows tool.
+
+## Validation commands
 
 ```powershell
-npm run smoke:desktop
+npm.cmd exec -- vitest run apps/desktop/test/development-baseline.test.ts
+npm.cmd test
+npm.cmd run audit:ui-strings
+npm.cmd run check:boundaries
+npm.cmd run check:sensitive-artifacts
+npm.cmd run verify
 ```
 
-The smoke test uses fake media and fake providers. It does not call Xunfei.
-
-## 6. Optional Real Provider Acceptance
-
-```powershell
-$env:JARVIS_K_REAL_PROVIDER_ACCEPTANCE='1'
-npm run acceptance:xunfei
-```
-
-This requires local encrypted credentials saved through the settings window.
-It should be run manually, not in default CI.
-
-## 7. Optional Fixture Inference
-
-```powershell
-$env:JARVIS_K_ENABLE_FIXTURE_INFERENCE='1'
-npm run start
-```
-
-This enables deterministic fixture embedding, intent routing, OCR, and
-reranking execution for development and tests. It does not download models,
-load native runtimes, call provider URLs, or require credentials.
-
-To run the fixture-backed UI execution smoke in an isolated desktop session:
-
-```powershell
-npm run smoke:desktop:fixture-inference
-```
-
-This is an interactive Windows desktop gate. Run it locally or on a Windows
-runner with an interactive desktop session. GitHub-hosted Windows runners do
-not expose a controllable Electron window reliably, so default CI verifies the
-same fixture contracts and execution logic through unit/integration tests and
-keeps this GUI smoke outside the hosted workflow.
-
-## Commit Checklist
-
-- `npm run verify`
-- `npm run smoke:desktop` for desktop-facing changes
-- `npm run smoke:desktop:fixture-inference` for fixture inference UI changes
-- `npm run check:boundaries`
-- `npm run check:sensitive-artifacts`
-- Update `scripts/check-boundaries.mjs` intentionally if a future Phase 5
-  provider introduces a real model runtime dependency.
-- Leak scan when voice-provider code changes
-- No changes to `E:\bailongma` or `C:\Users\Administrator\Jarvis-ui`
+For a clean-child verification, construct an allowlisted OS/Node/npm environment
+without provider credentials, JARVIS flags, NODE_OPTIONS or inherited proxy/acceptance
+configuration. Do not copy user profiles or reset existing recovery profiles.
+Keep logs outside tracked source, and keep boundary/sensitive-artifact checks enabled.

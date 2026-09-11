@@ -1,5 +1,7 @@
 # UI Modernization Roadmap
 
+> Historical architecture/planning record. Phase status, next steps and release claims below describe their recorded milestones, not current completion. [CURRENT_STATUS.md](../../CURRENT_STATUS.md) is the sole current summary; current source defines implementation details.
+
 Date: 2026-08-28
 
 Audit HEAD: `fd4ff9513940c20f218dcdf834599bb597c9402e`

@@ -1,5 +1,7 @@
 # Jarvis-K Product Phase Roadmap For Architecture Review
 
+> Historical architecture/planning record. Phase status, next steps and release claims below describe their recorded milestones, not current completion. [CURRENT_STATUS.md](../CURRENT_STATUS.md) is the sole current summary; current source defines implementation details.
+
 Recorded: 2026-08-11
 
 Revision:

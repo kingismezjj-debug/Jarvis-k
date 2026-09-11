@@ -1,5 +1,7 @@
 # OSS and UI Integration Roadmap
 
+> Historical architecture/planning record. Phase status, next steps and release claims below describe their recorded milestones, not current completion. [CURRENT_STATUS.md](../../CURRENT_STATUS.md) is the sole current summary; current source defines implementation details.
+
 Date: 2026-08-28
 
 Audit HEAD: `8dc7b6db979b8b34f2301e0e12b28a1fbbbcea27`

@@ -1,5 +1,7 @@
 # Current Architecture
 
+> Historical architecture/planning record. Phase status, next steps and release claims below describe their recorded milestones, not current completion. [CURRENT_STATUS.md](../CURRENT_STATUS.md) is the sole current summary; current source defines implementation details.
+
 ```text
 React renderer
     |

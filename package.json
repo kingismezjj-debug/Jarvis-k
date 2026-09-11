@@ -89,7 +89,7 @@
     "recovery:harness": "node tests/recovery/cli.mjs",
     "smoke:desktop:recovery": "node tests/recovery/cli.mjs smoke",
     "start": "electron .",
-    "dev": "npm run build && npm run start",
+    "dev": "npm run start",
     "smoke:desktop": "npm run build && node tests/desktop-smoke.mjs",
     "smoke:desktop:ui-interaction": "npm run build && node tests/desktop-ui-interaction-smoke.mjs",
     "smoke:desktop:ui-surface-mode": "npm run build && node tests/desktop-ui-surface-mode-smoke.mjs",
@@ -189,7 +189,8 @@
     "diagnostic:heavy-planner:glm-standard-compact-health": "npm run build:inference-adapter-glm-runtime && npm run build:desktop && electron tests/glm-standard-paas-v4-compact-health-diagnostic.cjs",
     "smoke:diagnostic:heavy-planner:glm-standard-compact-health": "node tests/glm-standard-paas-v4-compact-health-diagnostic-smoke.mjs",
     "acceptance:xunfei": "npm run build && node tests/real-xunfei-acceptance.mjs",
-    "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:inference-adapter-deepseek-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run build:core-host && vitest run"
+    "test": "npm run build:contracts && npm run build:capabilities && npm run build:inference-adapter-embedding-local && npm run build:inference-runtime-transformers-local && npm run build:inference-adapter-fixture && npm run build:inference-adapter-qwen-router && npm run build:inference-adapter-openai-planner && npm run build:inference-adapter-openai-chat-answer && npm run build:inference-adapter-glm-chat-answer-runtime && npm run build:inference-adapter-glm-planner && npm run build:inference-adapter-glm-runtime && npm run build:inference-adapter-deepseek-runtime && npm run build:plugin-sdk && npm run build:memory && npm run build:memory-sqlite && npm run build:voice && npm run build:voice-adapter-xunfei && npm run build:voice-adapter-volcengine && npm run build:core && npm run build:core-host && npm run build:desktop && vitest run",
+    "prestart": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
