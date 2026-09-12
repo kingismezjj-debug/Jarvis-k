@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-09-11 — UI-3L-0 Development Baseline Repair and Status Reconciliation.
+Updated: 2026-09-12 — UI-3L-2A Reduced-Scope Soak Evidence Closure.
 
 This is the **only current product summary**. Historical records are retained,
 but do not promote current source, another platform, or another artifact to L4/L5.
@@ -71,6 +71,20 @@ the bounded Notepad Assistant acceptance.
   not a claim that the original clean verify passed.
 - UI-3L-0 validation results are recorded in the delivery report. Unit tests use fake/local
   dependencies; no real provider, Windows action or real crash acceptance is implied.
+
+### Reduced-scope soak closure (UI-3L-2A)
+
+- Implementation assessed: `b0d547ba0fefc8e0ab0ac52a25197f7311371c33`.
+- Verdict: **INCOMPLETE_USER_STOPPED**, **0 validated completed days / 5 requested**.
+  Only Day 1 has a log; its reported normal use cannot qualify as a dated soak day
+  because the usage date is absent. Its safe note reports 30 minutes; eligible-day
+  duration is 0 minutes. Day 2-4 logs are missing and are not reconstructed.
+- Day 5: **WAIVED_BY_USER / NOT_TESTED**, not PASS. No issues are reported in the
+  available log (P0/P1/minor: 0/0/0); missing-day safety remains unknown.
+- This closure adds no full UI-3L-2 L4, ARM release support or L5 claim. Historical
+  x64 L4 evidence remains scoped to its original records; recovery stays L3 with
+  real crash B incomplete. No automatic next phase is authorized.
+- [Sanitized closure evidence](artifacts/ui-3l/reduced-scope-soak/reduced-scope-soak-acceptance.json).
 
 ### Release
 

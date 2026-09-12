@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "stageId": "UI-3L-2A",
+  "implementationHead": "b0d547ba0fefc8e0ab0ac52a25197f7311371c33",
+  "platformClassification": "windows_11_arm64_development",
+  "requestedDays": 5,
+  "completedDays": 0,
+  "waivedDays": [
+    5
+  ],
+  "dayResults": [
+    {
+      "day": 1,
+      "status": "NOT_RUN",
+      "tested": true,
+      "logPresent": true,
+      "logValid": false,
+      "countedAsCompleted": false,
+      "reason": "existing_log_missing_usage_date_not_verifiable",
+      "reportedDurationMinutes": 30,
+      "durationSource": "explicit_duration_in_safe_note_not_a_verified_calendar_day",
+      "reportedCapabilities": [
+        "startup",
+        "provider_available",
+        "normal_chat",
+        "streaming",
+        "history_retention",
+        "normal_exit"
+      ],
+      "reportedIssueCounts": {
+        "p0": 0,
+        "unresolvedP1": 0,
+        "minor": 0
+      }
+    },
+    {
+      "day": 2,
+      "status": "NOT_RUN",
+      "tested": false,
+      "logPresent": false,
+      "logValid": false,
+      "countedAsCompleted": false,
+      "reason": "daily_log_missing"
+    },
+    {
+      "day": 3,
+      "status": "NOT_RUN",
+      "tested": false,
+      "logPresent": false,
+      "logValid": false,
+      "countedAsCompleted": false,
+      "reason": "daily_log_missing"
+    },
+    {
+      "day": 4,
+      "status": "NOT_RUN",
+      "tested": false,
+      "logPresent": false,
+      "logValid": false,
+      "countedAsCompleted": false,
+      "reason": "daily_log_missing"
+    },
+    {
+      "day": 5,
+      "status": "WAIVED_BY_USER",
+      "tested": false,
+      "logPresent": false,
+      "logValid": false,
+      "countedAsCompleted": false,
+      "reason": "user_requested_early_closure"
+    }
+  ],
+  "totalObservedDurationMinutes": 30,
+  "validCompletedDayDurationMinutes": 0,
+  "coveredCapabilities": [],
+  "untestedCapabilities": [
+    "dated_daily_startup_and_exit",
+    "continuous_provider_and_history_retention",
+    "normal_chat_and_streaming_across_days",
+    "cancellation",
+    "retry",
+    "model_status",
+    "notepad_deny",
+    "notepad_allow"
+  ],
+  "p0Count": 0,
+  "unresolvedP1Count": 0,
+  "minorIssueCount": 0,
+  "issueCountScope": "reported_in_available_log_only_missing_days_unknown",
+  "overallVerdict": "INCOMPLETE_USER_STOPPED",
+  "claims": {
+    "fullFiveDaySoakPassed": false,
+    "fullUI3L2L4Accepted": false,
+    "formalARMSupport": false,
+    "l5ReleaseReady": false,
+    "nextPhaseStarted": false
+  },
+  "limitations": [
+    "Only day-1.json exists; recognized legacy fields and matching HEAD/platform do not supply its missing usage date.",
+    "Day 1 NOT_RUN means not accepted as a verifiable soak day; it does not deny the partial user-reported use.",
+    "Duration 30 minutes is explicitly recorded in the existing safe note; no date is inferred from file timestamps or conversation.",
+    "Days 2-4 have no logs; Day 5 is waived and not tested.",
+    "Covered capabilities count validated soak evidence only; Day 1 partial reports remain separate.",
+    "No issue reported is not proof that absent days had no issues.",
+    "Historical Windows x64 L4 evidence remains valid within its recorded scope and adds zero soak days.",
+    "UI-3K-2E remains L3; real pending-approval crash scenario B is incomplete.",
+    "Historical signed Alpha.7 does not represent this implementation HEAD."
+  ],
+  "attribution": {
+    "machineObserved": "read-only inventory and safe-field validation of existing daily logs; no logs created or repaired",
+    "userObserved": "existing Day 1 safe result fields only",
+    "inferred": "real chat implies provider use, without packet capture; no precise request total",
+    "sourceLogFingerprint": {
+      "day-1.json": "2a58c70ffbe8bf4ff07f086da9d7bbf798c39ef9798edb5ea98b4abb4936a74b"
+    }
+  },
+  "soakActivity": {
+    "realNetworkRequestSent": {
+      "classification": "inferred_not_packet_captured",
+      "basis": "existing_day_1_normal_chat_report_with_unverified_date",
+      "exactCountKnown": false
+    },
+    "realWindowsActionPerformed": {
+      "classification": "userObserved",
+      "unexpectedActionReported": false,
+      "recordedApprovedNotepadLaunchCount": 0,
+      "coverage": "available_day_1_log_only"
+    }
+  },
+  "realNetworkRequestSent": false,
+  "realWindowsActionPerformed": false
+}
