@@ -1,6 +1,6 @@
 # Jarvis-K Current Status
 
-Updated: 2026-09-12 — UI-3L-2A Reduced-Scope Soak Evidence Closure.
+Updated: 2026-09-13 — UI-3M-2A Filesystem Search Contracts and Scope Authorization.
 
 This is the **only current product summary**. Historical records are retained,
 but do not promote current source, another platform, or another artifact to L4/L5.
@@ -28,8 +28,19 @@ but do not promote current source, another platform, or another artifact to L4/L
 | Read-only Assistant tool | `model.status` with empty arguments and result re-entry | Historical UI-3K-2C L4 |
 | Effectful Assistant tool | `localApp.open`, restricted to Notepad, governed approval, deny/allow and verified result re-entry | Historical UI-3K-2D L4; no arbitrary app execution |
 | Iteration limit | At most one tool / one iteration per turn; one active Assistant turn globally | No general autonomous multi-step loop |
-| Existing rules / Minimal Planner | Existing bounded app/browser/search/task paths retain their separate governance | Their historical acceptance does not add tools to the new Assistant loop |
+| Existing rules / Minimal Planner | Existing app/browser/task paths remain; legacy filesystem search is blocked before execution | Their historical acceptance does not add tools to the new Assistant loop |
 | Settings / desktop | Settings V2 in development/Alpha; Legacy rollback, tray and local Pet foundations exist | No new UI or installed lifecycle acceptance in UI-3L-0 |
+
+UI-3M-2A baseline: `925a81c0e4db8280bdcd7fcdb6b8d1fccc16d908`.
+
+UI-3M-2A (L2 tested / L3 authorization implementation, not L4 search): strict search
+contracts and a Main-only, one-shot, session-bound directory-selection broker now
+resolve the existing Task/Approval lifecycle. Selected paths and capability credentials
+never cross Main IPC or enter persistence. Successful selection records approval and
+ends the task without execution (`filesystem_search_unavailable`). Paths are NOT yet
+canonicalized or verified; that belongs to UI-3M-2B. Legacy direct/Planner/voice search
+cannot invoke the executor or scan default user directories. No provider tool was added.
+Native picker behavior has automated mock integration coverage, not real-user acceptance.
 
 `filesystem.search` is **not integrated into the new Assistant loop**. Shell,
 arbitrary executable paths, browser tools and file writing are not enabled by

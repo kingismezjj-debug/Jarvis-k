@@ -1,7 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import {
   BrainActionAllowlistAdapter,
   createExternalGuiLaunchEnvironment
@@ -459,66 +456,13 @@ describe("BrainActionAllowlistAdapter", () => {
     });
   });
 
-  it("searches only allowed filesystem roots and returns sanitized candidate evidence", async () => {
-    const userProfile = await mkdtemp(path.join(os.tmpdir(), "jarvis-k-fs-test-"));
-    const desktop = path.join(userProfile, "Desktop");
-    const documents = path.join(userProfile, "Documents");
-    const downloads = path.join(userProfile, "Downloads");
-    try {
-      await mkdir(desktop, { recursive: true });
-      await mkdir(documents, { recursive: true });
-      await mkdir(downloads, { recursive: true });
-      await writeFile(path.join(documents, "contract-alpha.txt"), "fixture");
-      await writeFile(path.join(downloads, "notes.txt"), "fixture");
-      const adapter = new BrainActionAllowlistAdapter({
-        env: { USERPROFILE: userProfile },
-        filesystemSearchRoots: [desktop, documents, downloads],
-        exists: (filePath) =>
-          [desktop, documents, downloads].includes(path.resolve(filePath))
-      });
-
-      const result = await adapter.searchFilesystem({ target: "contract" });
-
-      expect(result).toMatchObject({
-        status: "completed",
-        reasonCode: "FILESYSTEM_SEARCH_COMPLETED",
-        label: "filesystem",
-        verificationStatus: "verified",
-        matchCount: 1
-      });
-      expect(result.verificationSummary).toContain("contract-alpha.txt");
-      expect(result.verificationSummary).not.toContain(userProfile);
-    } finally {
-      await rm(userProfile, { force: true, recursive: true });
+  it("does not probe default roots or traverse for any filesystem request", async () => {
+    const exists = vi.fn(() => { throw new Error("must not probe user directories"); });
+    const adapter = new BrainActionAllowlistAdapter({ exists });
+    for (const target of ["contract", "../private", "C:\\private", "*"]) {
+      expect(await adapter.searchFilesystem({ target })).toMatchObject({ status: "blocked", reasonCode: "SCOPE_REQUIRED" });
     }
-  });
-
-  it("blocks filesystem search queries that look like paths or traversal", async () => {
-    const userProfile = await mkdtemp(path.join(os.tmpdir(), "jarvis-k-fs-test-"));
-    const documents = path.join(userProfile, "Documents");
-    try {
-      await mkdir(documents, { recursive: true });
-      const adapter = new BrainActionAllowlistAdapter({
-        env: { USERPROFILE: userProfile },
-        filesystemSearchRoots: [documents],
-        exists: (filePath) => path.resolve(filePath) === documents
-      });
-
-      await expect(
-        adapter.searchFilesystem({ target: "..\\secret" })
-      ).resolves.toMatchObject({
-        status: "blocked",
-        reasonCode: "TARGET_INVALID"
-      });
-      await expect(
-        adapter.searchFilesystem({ target: "C:\\Users\\Administrator" })
-      ).resolves.toMatchObject({
-        status: "blocked",
-        reasonCode: "TARGET_INVALID"
-      });
-    } finally {
-      await rm(userProfile, { force: true, recursive: true });
-    }
+    expect(exists).not.toHaveBeenCalled();
   });
 
   it("fails closed when Brain open actions are disabled", async () => {

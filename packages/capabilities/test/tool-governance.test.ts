@@ -520,3 +520,26 @@ describe("tool governance", () => {
     expectSanitizedResult(sensitiveOutput);
   });
 });
+
+
+describe("filesystem scope-only exact policy", () => {
+  const descriptor: ToolDescriptor = { id: "filesystem.search", version: "1.0.0", description: "Scope only",
+    risk: "read_only", execution: "disabled", requiredPermissions: ["filesystem.read"], requiresConfirmation: true,
+    inputSchemaId: "tool.filesystem.search.input" };
+  const policy = { ...readOnlyPolicy, allowedToolIds: ["filesystem.search"], allowedPermissionScopes: [] };
+  it("requires scope confirmation but never grants execution, even after approval", () => {
+    for (const confirmationGranted of [false, true]) {
+      const decision = decideToolInvocation({ descriptor, policy, confirmationGranted,
+        request: { requestId: "request-search", toolId: "filesystem.search", input: { query: "合同", maxResults: 20 }, dryRun: false },
+        evaluatedAt: "2026-09-13T00:00:00.000Z" });
+      expect(decision.allowed).toBe(false);
+      expect(decision.status).toBe(confirmationGranted ? "denied" : "needs_confirmation");
+    }
+  });
+  it("rejects an expanded descriptor and malformed parameters", () => {
+    const request = { requestId: "request-search", toolId: "filesystem.search", input: { query: "*.txt" }, dryRun: false };
+    expect(decideToolInvocation({ descriptor, policy, request, evaluatedAt: "2026-09-13T00:00:00.000Z" }).status).toBe("denied");
+    expect(decideToolInvocation({ descriptor: { ...descriptor, execution: "fixture" }, policy,
+      request: { ...request, input: { query: "合同" } }, evaluatedAt: "2026-09-13T00:00:00.000Z" }).status).toBe("denied");
+  });
+});

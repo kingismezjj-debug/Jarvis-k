@@ -1,4 +1,5 @@
-import { createId, Task, TaskStep, TaskStepVerificationStatus } from "@jarvis-k/contracts";
+import { AssistantApprovalResolutionSchema, FilesystemSearchArgumentsSchema, FilesystemScopeResponseSchema, filesystemScopeContext,
+  type FilesystemScopeRequest, type FilesystemScopeResponse, createId, Task, TaskStep, TaskStepVerificationStatus } from "@jarvis-k/contracts";
 import { TaskLifecycleService } from "../task-lifecycle-service";
 import type { TaskRepository } from "../task-runtime";
 import { plannerDraftDigestMatches } from "./planner-draft-service";
@@ -45,6 +46,7 @@ export type PlannerApproveResult =
   | PlannerTaskControlFailure;
 
 export class PlannerApprovalService {
+  private readonly scopePending = new Set<string>();
   private readonly lifecycle: TaskLifecycleService | undefined;
 
   public constructor(private readonly options: PlannerApprovalServiceOptions) {
@@ -137,6 +139,40 @@ export class PlannerApprovalService {
     };
   }
 
+  // Uses this service's existing draft digest, cancellation and Task event storage.
+  // A selected folder resolves approval, but never advances a search step to execution in 2A.
+  public async resolveFilesystemScope(input: {
+    taskId: string; approvalCommandId: string;
+    select?: ((request: FilesystemScopeRequest) => Promise<FilesystemScopeResponse>) | undefined;
+  }) {
+    const fail = () => ({ ok: false as const, code: "FILESYSTEM_SEARCH_UNAVAILABLE",
+      message: "文件搜索授权不可用，未读取任何目录。", retryable: false });
+    if (!this.options.repository || !input.select || this.scopePending.has(input.taskId)) return fail();
+    this.scopePending.add(input.taskId);
+    try {
+      const task = await this.findTask(this.options.repository, input.taskId);
+      const args = FilesystemSearchArgumentsSchema.safeParse(task?.steps[0]?.toolInput);
+      if (!task || task.state !== "awaiting_confirmation" || task.steps.length !== 1 ||
+        task.steps[0]?.toolId !== "filesystem.search" || !args.success || !plannerDraftDigestMatches(task)) return fail();
+      const context = filesystemScopeContext(task.id, input.approvalCommandId);
+      const response = FilesystemScopeResponseSchema.parse(await input.select({ kind: "filesystem-scope.request", context, arguments: args.data }));
+      if (JSON.stringify(response.context) !== JSON.stringify(context)) return fail();
+      const current = await this.findTask(this.options.repository, task.id);
+      if (current?.state !== "awaiting_confirmation" || !plannerDraftDigestMatches(current) ||
+        JSON.stringify(current.steps.map(step => step.toolInput)) !== JSON.stringify(task.steps.map(step => step.toolInput))) return fail();
+      const approval = AssistantApprovalResolutionSchema.parse({ approvalRequestId: input.approvalCommandId,
+        proposalId: context.proposalId, resolution: response.resolution, resolvedAt: this.options.now().toISOString(),
+        reasonCode: response.resolution === "approved" ? "USER_APPROVED" : response.reason.toUpperCase() });
+      const cancelled = await this.cancel({ taskId: task.id, reason: approval.resolution === "approved"
+        ? "范围授权已记录；搜索尚不可用，未执行。" : "本次范围授权未获批准，未执行搜索。" });
+      if (!cancelled.ok) return fail();
+      await this.options.repository.createEvent({ id: createId("task-event"), taskId: task.id, type: "state_changed",
+        message: JSON.stringify({ type: "approval.resolved", ...approval }), createdAt: approval.resolvedAt });
+      return { ok: true as const, task: await this.findTask(this.options.repository, task.id), approval };
+    } catch { return fail(); }
+    finally { this.scopePending.delete(input.taskId); }
+  }
+
   public async approve(input: {
     signal?: AbortSignal;
     taskId: string;
@@ -173,6 +209,9 @@ export class PlannerApprovalService {
           "Only awaiting-confirmation planner draft tasks can be approved by this control.",
         retryable: false,
       };
+    }
+    if (task.steps.some(step => step.toolId === "filesystem.search")) {
+      return { ok: false, code: "SCOPE_REQUIRED", message: "文件搜索需要本轮范围授权，当前不可执行。", retryable: false };
     }
     if (task.steps.length === 0) {
       return {

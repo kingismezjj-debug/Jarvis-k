@@ -1,3 +1,4 @@
+import { FilesystemScopePort } from "./filesystem-scope-port";
 import { BoundedDesktopActionPort } from "./bounded-desktop-action-port";
 import path from "node:path";
 import { type CoreOutboundMessage } from "@jarvis-k/contracts";
@@ -351,6 +352,7 @@ const voiceComposition = createCoreHostVoiceComposition({
 });
 const voiceEngine = voiceComposition.voiceEngine;
 const boundedDesktop = new BoundedDesktopActionPort(message => { if (!process.connected || !process.send) throw new Error("DISCONNECTED"); process.send(message); });
+const filesystemScopePort = new FilesystemScopePort(message => { if (!process.connected || !process.send) throw new Error("DISCONNECTED"); process.send(message); });
 const brainActionExecutor = new BrainActionAllowlistAdapter({
   openBoundedNotepad: input => boundedDesktop.open(input),
   disabled: runtimeConfig.brainOpenActionsDisabled,
@@ -449,6 +451,7 @@ runtime = new CoreRuntime(
       storagePaths.voiceRegressionPath,
     ),
   },
+  request => filesystemScopePort.select(request),
 );
 const runtimeConfigurationController = new RuntimeConfigurationController({
   runtime,
@@ -457,7 +460,7 @@ const runtimeConfigurationController = new RuntimeConfigurationController({
   voiceComposition,
 });
 const messageHandler = new CoreHostMessageHandler({
-  handleInternalMessage: message => boundedDesktop.receive(message),
+  handleInternalMessage: message => filesystemScopePort.receive(message) || boundedDesktop.receive(message),
   runtime,
   voiceEngine,
   runtimeConfigurationController,

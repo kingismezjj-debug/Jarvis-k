@@ -5,6 +5,7 @@ export * from "./tool-protocol";
 export * from "./assistant-loop-protocol";
 export * from "./assistant-turn-journal";
 export * from "./bounded-desktop-action";
+export * from "./filesystem-search";
 export * from "./observability-protocol";
 export * from "./qwen-product-routing-activation";
 export * from "./pet-skin-protocol";

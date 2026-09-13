@@ -1,3 +1,4 @@
+import { FilesystemSearchArgumentsSchema } from "@jarvis-k/contracts";
 import {
   ToolAuditRecordSchema,
   ToolDescriptorSchema,
@@ -96,6 +97,15 @@ export function decideToolInvocation(
       confirmationGranted,
       evaluatedAt
     });
+  }
+  if (descriptor.id === "filesystem.search") {
+    const exact = descriptor.execution === "disabled" && descriptor.risk === "read_only" &&
+      descriptor.requiresConfirmation && descriptor.inputSchemaId === "tool.filesystem.search.input" &&
+      descriptor.requiredPermissions.length === 1 && descriptor.requiredPermissions[0] === "filesystem.read" &&
+      FilesystemSearchArgumentsSchema.safeParse(request.input).success;
+    return createDecision({ policy, request, status: exact && !confirmationGranted ? "needs_confirmation" : "denied",
+      allowed: false, confirmationRequired: true, confirmationGranted, evaluatedAt,
+      reasonCode: exact ? (!confirmationGranted ? "CONFIRMATION_REQUIRED" : "EXECUTION_DISABLED") : "INVALID_TOOL_REQUEST" });
   }
   if (
     descriptor.requiredPermissions.some(

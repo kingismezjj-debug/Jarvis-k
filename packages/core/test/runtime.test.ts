@@ -7480,7 +7480,7 @@ describe("CoreRuntime", () => {
       );
       expect(brain.decision.intent).toBe(input.intent);
       expect(brain.dispatchStatus).toBe("blocked");
-      expect(brain.summary).toContain("before");
+      expect(brain.summary).toContain(input.intent === "filesystem.search" ? "SCOPE_REQUIRED" : "before");
       expect(brain.summary.toLowerCase()).not.toContain("verification failed");
       expect(brain.summary.toLowerCase()).not.toContain("verified");
       brainResults.push({ input, summary: brain.summary });
@@ -7506,12 +7506,12 @@ describe("CoreRuntime", () => {
         realWindowsExecutionEnabled: false,
         brainOpenActionsDisabled: true,
         windowsExecutorInvocationCount: 0,
-        effectfulActionBlockedBeforeExecutorCount: routedInputs.length,
-        lastBlockedReason: routedInputs.at(-1)?.reason,
+        effectfulActionBlockedBeforeExecutorCount: routedInputs.filter(input => input.intent !== "filesystem.search").length,
+        lastBlockedReason: routedInputs.filter(input => input.intent !== "filesystem.search").at(-1)?.reason,
       },
     });
     const tasks = runtime.getSnapshot().tasks;
-    const taskInputs = routedInputs.filter(input => input.intent !== "localApp.open");
+    const taskInputs = routedInputs.filter(input => input.intent !== "localApp.open" && input.intent !== "filesystem.search");
     expect(tasks.some(task => task.intent === "localApp.open")).toBe(false);
     expect(tasks).toHaveLength(taskInputs.length);
     for (const [index, task] of tasks.entries()) {
@@ -7835,7 +7835,7 @@ describe("CoreRuntime", () => {
     ).rejects.toThrow();
   });
 
-  it("runs filesystem searches through observe-only Task Runtime", async () => {
+  it.each(["text", "voice"] as const)("blocks %s filesystem searches before Task Runtime", async (source) => {
     const taskRepository = new InMemoryTaskRepository();
     const searchCalls: string[] = [];
     const { runtime } = createRuntimeWithBrainActionExecutorAndTasks(
@@ -7867,8 +7867,8 @@ describe("CoreRuntime", () => {
       createCommandEnvelope({
         type: "agent.runBrainCommand",
         payload: {
-          source: "text",
-          text: "find contract",
+          source,
+          text: "搜索合同",
         },
       }),
     );
@@ -7879,26 +7879,13 @@ describe("CoreRuntime", () => {
         ? (result.data as { brain?: unknown } | undefined)?.brain
         : undefined,
     );
-    expect(searchCalls).toEqual(["contract"]);
+    expect(searchCalls).toEqual([]);
     expect(brain.decision.intent).toBe("filesystem.search");
-    expect(brain.dispatchStatus).toBe("completed");
-    expect(brain.summary).toContain("1 sanitized candidate");
+    expect(brain.dispatchStatus).toBe("blocked");
+    expect(brain.summary).toContain("SCOPE_REQUIRED");
     expect(brain.toolProductLoop?.selectedToolId).toBeUndefined();
 
-    const [task] = runtime.getSnapshot().tasks;
-    expect(task).toMatchObject({
-      title: "Search Filesystem",
-      state: "completed",
-      intent: "filesystem.search",
-      routeSource: "intent-router.deterministic.rules",
-      verificationSummary:
-        "Observe-only filesystem search completed in allowed directories; 1 sanitized candidate(s) found: contract-alpha.txt.",
-    });
-    expect(task?.steps[0]).toMatchObject({
-      title: "Search allowed local files",
-      state: "completed",
-      verificationStatus: "verified",
-    });
+    expect(runtime.getSnapshot().tasks).toEqual([]);
   });
 
   it("records blocked filesystem searches without exposing private paths", async () => {
@@ -7941,23 +7928,12 @@ describe("CoreRuntime", () => {
         ? (result.data as { brain?: unknown } | undefined)?.brain
         : undefined,
     );
-    expect(searchCalls).toBe(1);
+    expect(searchCalls).toBe(0);
     expect(brain.decision.intent).toBe("filesystem.search");
     expect(brain.dispatchStatus).toBe("blocked");
     expect(JSON.stringify(brain)).not.toMatch(/[A-Za-z]:\\|\\\\|secret path/iu);
 
-    const [task] = runtime.getSnapshot().tasks;
-    expect(task).toMatchObject({
-      title: "Search Filesystem",
-      state: "failed",
-      intent: "filesystem.search",
-      routeSource: "intent-router.deterministic.rules",
-    });
-    expect(task?.steps[0]).toMatchObject({
-      state: "failed",
-      verificationStatus: "verification_failed",
-      failureReason: "TARGET_INVALID",
-    });
+    expect(runtime.getSnapshot().tasks).toEqual([]);
   });
 
   it("routes Qwen-selected local app opens through Command Router product safety", async () => {
@@ -8575,7 +8551,7 @@ describe("CoreRuntime", () => {
     expect(runtime.getSnapshot().tasks[0]?.state).toBe("cancelled");
   });
 
-  it("approves Minimal Planner drafts and executes only bounded L3 steps", async () => {
+  it("rejects mixed Minimal Planner search drafts before any step executes", async () => {
     const taskRepository = new InMemoryTaskRepository();
     const searchCalls: string[] = [];
     const { runtime } = createRuntimeWithBrainPlanner(
@@ -8637,31 +8613,11 @@ describe("CoreRuntime", () => {
       }),
     );
 
-    expect(approved.ok).toBe(true);
-    expect(searchCalls).toEqual(["project"]);
+    expect(approved.ok).toBe(false);
+    expect(searchCalls).toEqual([]);
     const [task] = await taskRepository.listTasks();
-    expect(task).toMatchObject({
-      state: "completed",
-      verificationSummary:
-        "Planner draft approval completed 3 bounded step(s) with verified or not-applicable results.",
-    });
-    expect(task?.steps.every((step) => step.state === "completed")).toBe(true);
-    expect(
-      task?.steps.every((step) => step.verificationStatus === "verified"),
-    ).toBe(true);
-    expect(task?.events.map((event) => event.type)).toEqual([
-      "created",
-      "state_changed",
-      "state_changed",
-      "step_started",
-      "verification_completed",
-      "step_started",
-      "verification_completed",
-      "step_started",
-      "verification_completed",
-      "verification_completed",
-    ]);
-    expect(runtime.getSnapshot().tasks[0]?.state).toBe("completed");
+    expect(task?.state).toBe("awaiting_confirmation");
+    expect(task?.events.some(event => event.type === "step_started")).toBe(false);
   });
 
   it("approves Minimal Planner browser.open steps through the existing browser executor", async () => {

@@ -1,7 +1,5 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import type {
   CoreBrainActionExecutorPort,
@@ -15,7 +13,6 @@ export interface BrainActionAllowlistAdapterOptions {
   env?: NodeJS.ProcessEnv;
   exists?: (filePath: string) => boolean;
   verifyLocalApp?: (label: string) => Promise<boolean>;
-  filesystemSearchRoots?: readonly string[];
   writeNotepadText?: (text: string) => Promise<boolean>;
   controlKnownAppWindow?: (
     label: string,
@@ -122,7 +119,6 @@ export class BrainActionAllowlistAdapter
   private readonly disabled: boolean;
   private readonly env: NodeJS.ProcessEnv;
   private readonly exists: (filePath: string) => boolean;
-  private readonly filesystemSearchRoots: readonly string[];
   private readonly verifyLocalApp: (label: string) => Promise<boolean>;
   private readonly writeNotepadTextAutomation: (text: string) => Promise<boolean>;
   private readonly controlKnownAppWindowAutomation: (
@@ -140,9 +136,7 @@ export class BrainActionAllowlistAdapter
     this.disabled = options.disabled ?? false;
     this.env = options.env ?? process.env;
     this.exists = options.exists ?? existsSync;
-    this.filesystemSearchRoots =
-      options.filesystemSearchRoots ??
-      defaultFilesystemSearchRoots(this.env, this.exists);
+
     this.verifyLocalApp = options.verifyLocalApp ?? defaultVerifyLocalApp;
     this.writeNotepadTextAutomation =
       options.writeNotepadText ?? defaultWriteNotepadText;
@@ -217,39 +211,7 @@ export class BrainActionAllowlistAdapter
     if (this.disabled) {
       return blocked("BRAIN_ACTIONS_DISABLED", "filesystem");
     }
-    const query = normalizeFilesystemQuery(request.target);
-    if (query === undefined) {
-      return blocked("TARGET_INVALID", "filesystem");
-    }
-    const roots = this.filesystemSearchRoots
-      .map((root) => path.resolve(root))
-      .filter((root) => isAllowedFilesystemSearchRoot(root, this.env));
-    if (roots.length === 0) {
-      return blocked("TARGET_UNAVAILABLE", "filesystem");
-    }
-    try {
-      const matches = await searchAllowedFilesystemRoots({
-        roots,
-        query,
-        maxMatches: 20,
-        maxDepth: 4,
-        deadlineMs: 1500
-      });
-      const preview = matches.slice(0, 5).join(", ");
-      return {
-        status: "completed",
-        reasonCode: "FILESYSTEM_SEARCH_COMPLETED",
-        label: "filesystem",
-        verificationStatus: "verified",
-        verificationSummary:
-          matches.length === 0
-            ? "Observe-only filesystem search completed in allowed directories; 0 sanitized candidates found."
-            : `Observe-only filesystem search completed in allowed directories; ${matches.length} sanitized candidate(s) found: ${preview}.`,
-        matchCount: matches.length
-      };
-    } catch {
-      return blocked("SEARCH_FAILED", "filesystem");
-    }
+    return blocked("SCOPE_REQUIRED", "filesystem");
   }
 
   public async writeNotepadText(
@@ -324,31 +286,6 @@ export class BrainActionAllowlistAdapter
   }
 }
 
-function defaultFilesystemSearchRoots(
-  env: NodeJS.ProcessEnv,
-  exists: (filePath: string) => boolean
-): readonly string[] {
-  const userProfile = env.USERPROFILE ?? os.homedir();
-  return [
-    joinIfBase(userProfile, "Desktop"),
-    joinIfBase(userProfile, "Documents"),
-    joinIfBase(userProfile, "Downloads")
-  ].filter((root): root is string => root !== undefined && exists(root));
-}
-
-function normalizeFilesystemQuery(query: string): string | undefined {
-  const normalized = query.trim().replace(/\s+/gu, " ");
-  if (
-    normalized.length === 0 ||
-    normalized.length > 120 ||
-    /[\u0000-\u001f\u007f]/u.test(normalized) ||
-    /(?:\.\.|[A-Za-z]:\\|\\\\|[\\/:*?"<>|])/u.test(normalized)
-  ) {
-    return undefined;
-  }
-  return normalized.toLowerCase();
-}
-
 function normalizeNotepadWriteText(text: string): string | undefined {
   const trimmed = text.trim();
   if (/[\u0000-\u001f\u007f]/u.test(trimmed)) {
@@ -389,83 +326,6 @@ function normalizeKnownWindowAction(
     return normalized;
   }
   return undefined;
-}
-
-function isAllowedFilesystemSearchRoot(
-  candidateRoot: string,
-  env: NodeJS.ProcessEnv
-): boolean {
-  const userProfile = path.resolve(env.USERPROFILE ?? os.homedir());
-  const allowedRoots = ["Desktop", "Documents", "Downloads"].map((segment) =>
-    path.resolve(userProfile, segment).toLowerCase()
-  );
-  const normalized = path.resolve(candidateRoot).toLowerCase();
-  return allowedRoots.some((allowedRoot) => normalized === allowedRoot);
-}
-
-async function searchAllowedFilesystemRoots(input: {
-  roots: readonly string[];
-  query: string;
-  maxMatches: number;
-  maxDepth: number;
-  deadlineMs: number;
-}): Promise<string[]> {
-  const deadline = Date.now() + input.deadlineMs;
-  const matches: string[] = [];
-  const seen = new Set<string>();
-  const terms = input.query.split(" ").filter(Boolean);
-  const visit = async (directory: string, depth: number): Promise<void> => {
-    if (
-      depth > input.maxDepth ||
-      Date.now() >= deadline ||
-      matches.length >= input.maxMatches
-    ) {
-      return;
-    }
-    let entries;
-    try {
-      entries = await readdir(directory, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (Date.now() >= deadline || matches.length >= input.maxMatches) {
-        return;
-      }
-      if (entry.isSymbolicLink()) {
-        continue;
-      }
-      const entryPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        await visit(entryPath, depth + 1);
-        continue;
-      }
-      if (!entry.isFile()) {
-        continue;
-      }
-      const normalizedName = entry.name.toLowerCase();
-      if (!terms.every((term) => normalizedName.includes(term))) {
-        continue;
-      }
-      const sanitizedName = sanitizeFilenameForEvidence(entry.name);
-      if (seen.has(sanitizedName)) {
-        continue;
-      }
-      seen.add(sanitizedName);
-      matches.push(sanitizedName);
-    }
-  };
-  for (const root of input.roots) {
-    await visit(root, 0);
-  }
-  return matches;
-}
-
-function sanitizeFilenameForEvidence(filename: string): string {
-  return filename
-    .replace(/[\u0000-\u001f\u007f]/gu, "")
-    .replace(/[\\/:*?"<>|]/gu, "_")
-    .slice(0, 80);
 }
 
 function resolveBrowserUrl(

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   Task,
   TaskEvent,
@@ -8,6 +8,9 @@ import type {
   TaskStepState,
   TaskStepVerificationStatus,
 } from "@jarvis-k/contracts";
+import { FilesystemScopeBroker } from "../../../apps/desktop/src/filesystem-scope-broker";
+import { FilesystemScopePort } from "../../../apps/core-host/src/filesystem-scope-port";
+import { createCommandEnvelope } from "@jarvis-k/contracts";
 import { PlannerApprovalService } from "../src/planner/planner-approval-service";
 import { createPlannerDraftDigestFromTask } from "../src/planner/planner-draft-service";
 import type {
@@ -361,5 +364,48 @@ describe("PlannerApprovalService", () => {
         }),
       }),
     ).rejects.toThrow("repository update failed");
+  });
+});
+
+
+describe("filesystem scope uses the existing Approval lifecycle", () => {
+  async function setupScope() {
+    const h = createService();
+    const task = await createDraft(h.repository, { stepCount: 1 });
+    task.steps[0]!.toolId = "filesystem.search";
+    task.steps[0]!.toolInput = { query: "合同", maxResults: 20 };
+    const digest = createPlannerDraftDigestFromTask(task);
+    await h.repository.updateTask({ id: task.id, state: task.state, updatedAt: task.updatedAt,
+      verificationSummary: `Planner draft v1/${digest} saved from planner.provider.fixture; approval required; no tool execution was attempted.` });
+    return { ...h, task };
+  }
+  it.each([true, false])("resolves native selected=%s through Main/port/Approval without executing", async selected => {
+    const h = await setupScope();
+    const picker = vi.fn(async () => selected ? "Z:\\nonexistent-fixture" : undefined);
+    const broker = new FilesystemScopeBroker(picker);
+    broker.observeTasks(await h.repository.listTasks());
+    const command = createCommandEnvelope({ type: "agent.approveTask", payload: { taskId: h.task.id, confirmation: "explicit_ui_confirmation" } });
+    broker.observeCommand(command);
+    const port = new FilesystemScopePort(message => { void broker.handle(message, response => { port.receive(response); }); });
+    const result = await h.service.resolveFilesystemScope({ taskId: h.task.id, approvalCommandId: command.commandId, select: request => port.select(request) });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.approval.resolution).toBe(selected ? "approved" : "denied");
+    expect((await h.repository.listTasks())[0]?.state).toBe("cancelled");
+    expect(h.repository.events.some(event => event.type === "step_started")).toBe(false);
+    expect(h.repository.events.some(event => event.message.includes('"type":"approval.resolved"'))).toBe(true);
+    expect(JSON.stringify(h.repository.events)).not.toMatch(/scopeToken|nonexistent|Z:|selectedPath/);
+    const again = await h.service.resolveFilesystemScope({ taskId: h.task.id, approvalCommandId: command.commandId, select: request => port.select(request) });
+    expect(again.ok).toBe(false); expect(picker).toHaveBeenCalledTimes(1);
+  });
+  it("blocks generic approval and stale native resolutions", async () => {
+    const h = await setupScope(); const executeStep = vi.fn();
+    expect((await h.service.approve({ taskId: h.task.id, executeStep })).ok).toBe(false);
+    expect(executeStep).not.toHaveBeenCalled();
+    const result = await h.service.resolveFilesystemScope({ taskId: h.task.id, approvalCommandId: "command-scope", select: async request => {
+      await h.service.cancel({ taskId: h.task.id, reason: undefined });
+      return { kind: "filesystem-scope.response", context: request.context, resolution: "approved", reason: "filesystem_search_unavailable" };
+    } });
+    expect(result.ok).toBe(false);
+    expect(h.repository.events.some(event => event.message.includes('"resolution":"approved"'))).toBe(false);
   });
 });

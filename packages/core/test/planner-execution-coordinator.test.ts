@@ -126,7 +126,7 @@ describe("PlannerExecutionCoordinator", () => {
     expect(browserCalls).toBe(0);
   });
 
-  it("executes filesystem.search through the observe-only executor", async () => {
+  it("blocks filesystem.search before the legacy executor", async () => {
     const calls: string[] = [];
     const coordinator = createCoordinator({
       executor: {
@@ -154,11 +154,11 @@ describe("PlannerExecutionCoordinator", () => {
       "filesystem.search",
     );
 
-    expect(calls).toEqual(["project"]);
+    expect(calls).toEqual([]);
     expect(result).toMatchObject({
-      ok: true,
-      verificationStatus: "verified",
-      summary: "Planner draft filesystem.search verified 2 sanitized candidate(s).",
+      ok: false,
+      verificationStatus: "not_applicable",
+      failureReason: "SCOPE_REQUIRED",
     });
   });
 

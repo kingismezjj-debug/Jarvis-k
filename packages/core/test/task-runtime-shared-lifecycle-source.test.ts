@@ -9,7 +9,6 @@ const runtimeSource = readFileSync(
 
 const taskRuntimeDispatchers = [
   "dispatchTaskRuntimePluginInvoke",
-  "dispatchTaskRuntimeFilesystemSearch",
   "dispatchTaskRuntimeNotepadWriteText",
   "dispatchTaskRuntimeWindowControl",
   "dispatchTaskRuntimeBrowserOpen",
@@ -17,6 +16,11 @@ const taskRuntimeDispatchers = [
 ] as const;
 
 describe("Task Runtime shared lifecycle integration", () => {
+  it("keeps unavailable filesystem search outside execution lifecycle", () => {
+    const body = functionBody("dispatchTaskRuntimeFilesystemSearch");
+    expect(body).toContain("SCOPE_REQUIRED");
+    expect(body).not.toMatch(/executor\.|searchFilesystem\(|markRunning/);
+  });
   it("routes Task Runtime dispatchers through the shared lifecycle service facade", () => {
     for (const dispatcher of taskRuntimeDispatchers) {
       const body = functionBody(dispatcher);

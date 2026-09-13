@@ -23,7 +23,8 @@ export interface PlannerActionResult {
     | "OPEN_FAILED"
     | "WRITE_FAILED"
     | "WINDOW_CONTROL_FAILED"
-    | "SEARCH_FAILED";
+    | "SEARCH_FAILED"
+    | "SCOPE_REQUIRED";
   label: string;
   verificationStatus?: TaskStepVerificationStatus;
   verificationSummary?: string;
@@ -127,37 +128,8 @@ export class PlannerExecutionCoordinator {
   private async executeFilesystemSearch(
     step: TaskStep,
   ): Promise<PlannerStepExecutionResult> {
-    if (!this.options.actionExecutor?.searchFilesystem) {
-      return {
-        ok: false,
-        verificationStatus: "verification_failed",
-        summary:
-          "Planner draft filesystem.search could not run because the observe-only executor is unavailable.",
-        failureReason: "FILESYSTEM_SEARCH_EXECUTOR_UNAVAILABLE",
-      };
-    }
-    const query =
-      typeof step.toolInput?.query === "string" && step.toolInput.query.trim()
-        ? step.toolInput.query.trim()
-        : "project";
-    const actionResult = await this.options.actionExecutor.searchFilesystem({
-      target: query,
-    });
-    const verificationStatus =
-      actionResult.status === "completed"
-        ? (actionResult.verificationStatus ?? "verified")
-        : "verification_failed";
-    const ok = verificationStatus === "verified";
-    return {
-      ok,
-      verificationStatus,
-      summary:
-        actionResult.verificationSummary ??
-        (ok
-          ? `Planner draft filesystem.search verified ${actionResult.matchCount ?? 0} sanitized candidate(s).`
-          : `Planner draft filesystem.search failed verification: ${actionResult.reasonCode}.`),
-      ...(ok ? {} : { failureReason: actionResult.reasonCode }),
-    };
+    return { ok: false, verificationStatus: "not_applicable",
+      summary: "文件搜索尚不可用，未读取任何目录。", failureReason: "SCOPE_REQUIRED" };
   }
 
   private async executeBrowserOpen(

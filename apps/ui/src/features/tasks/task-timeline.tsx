@@ -1,4 +1,5 @@
 import { Play, X } from "lucide-react";
+import { FilesystemSearchArgumentsSchema, filesystemScopeDisclosure } from "@jarvis-k/contracts";
 import type { Task } from "@jarvis-k/contracts";
 
 import type { uiCopy } from "@/app/copy";
@@ -16,6 +17,9 @@ import {
 } from "@/components/ui/tooltip";
 
 const isBoundedNotepad = (task: Task) => task.steps.length === 1 && task.steps[0]?.toolId === "localApp.open" && task.steps[0]?.toolInput?.app === "notepad";
+
+const isFilesystemScope = (task: Task) => task.steps.length === 1 && task.steps[0]?.toolId === "filesystem.search";
+const isBoundedTask = (task: Task) => isBoundedNotepad(task) || isFilesystemScope(task);
 
 type Copy = (typeof uiCopy)["en"];
 
@@ -61,11 +65,11 @@ export function TaskTimeline({
             >
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                 <div className="min-w-0">
-                  <div className="truncate font-medium">{task.title}</div>
+                  <div className="truncate font-medium">{isFilesystemScope(task) ? "文件搜索范围授权" : task.title}</div>
                   <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                    {!isBoundedNotepad(task) ? <span>{task.routeSource}</span> : null}
-                    {!isBoundedNotepad(task) && task.intent ? <span>{task.intent}</span> : null}
-                    {!isBoundedNotepad(task) && task.verificationSummary ? (
+                    {!isBoundedTask(task) ? <span>{task.routeSource}</span> : null}
+                    {!isBoundedTask(task) && task.intent ? <span>{task.intent}</span> : null}
+                    {!isBoundedTask(task) && task.verificationSummary ? (
                       <span>{task.verificationSummary}</span>
                     ) : null}
                   </div>
@@ -79,11 +83,17 @@ export function TaskTimeline({
                       {formatEventTime(task.updatedAt)}
                     </time>
                   </div>
+                  {task.steps.length === 1 && task.steps[0]?.toolId === "filesystem.search" &&
+                    FilesystemSearchArgumentsSchema.safeParse(task.steps[0].toolInput).success ? (
+                    <p className="max-w-sm text-xs" data-testid="filesystem-scope-disclosure">
+                      {filesystemScopeDisclosure(FilesystemSearchArgumentsSchema.parse(task.steps[0].toolInput).query)}
+                    </p>
+                  ) : null}
                   {isTaskApprovalEligible(task.state) ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          aria-label={`Approve ${task.title}`}
+                          aria-label={isFilesystemScope(task) ? "选择文件夹并允许本次搜索" : `Approve ${task.title}`}
                           className="size-7 rounded-md"
                           data-testid="task-approve"
                           disabled={sending}
@@ -96,7 +106,7 @@ export function TaskTimeline({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isBoundedNotepad(task) ? copy.assistantProgress.awaiting_approval : "Approve and execute planner draft"}
+                        {task.steps.some(step => step.toolId === "filesystem.search") ? "选择文件夹并允许本次搜索" : isBoundedNotepad(task) ? copy.assistantProgress.awaiting_approval : "Approve and execute planner draft"}
                       </TooltipContent>
                     </Tooltip>
                   ) : null}
@@ -130,7 +140,7 @@ export function TaskTimeline({
                       data-testid="task-step"
                       key={step.id}
                     >
-                      <span className="truncate">{isBoundedNotepad(task) ? task.title : step.title}</span>
+                      <span className="truncate">{isFilesystemScope(task) ? "文件搜索尚不可用" : isBoundedNotepad(task) ? task.title : step.title}</span>
                       <span className="truncate text-muted-foreground">
                         {step.state}
                       </span>
@@ -142,7 +152,7 @@ export function TaskTimeline({
                 </div>
               ) : null}
 
-              {task.events.length > 0 && !isBoundedNotepad(task) ? (
+              {task.events.length > 0 && !isBoundedTask(task) ? (
                 <div className="mt-3 grid gap-1 border-t pt-3">
                   {task.events.slice(-5).map((event) => (
                     <div

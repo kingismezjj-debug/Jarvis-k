@@ -1,3 +1,4 @@
+import { FilesystemSearchArgumentsSchema, type FilesystemScopeRequest, type FilesystemScopeResponse } from "@jarvis-k/contracts";
 import { recoverAssistantTurns } from "./assistant-turn-repository";
 import type { AssistantRecoveryNotice } from "@jarvis-k/contracts";
 import { BoundedNotepadTaskService } from "./bounded-notepad-task-service";
@@ -306,11 +307,11 @@ const BRAIN_TOOL_REGISTRY_DESCRIPTORS = [
   {
     id: "filesystem.search",
     version: BRAIN_TOOL_REGISTRY_VERSION,
-    description: "Project a bounded filesystem search route.",
+    description: "Filesystem scope authorization only; search execution is unavailable.",
     risk: "read_only",
-    execution: "fixture",
+    execution: "disabled",
     requiredPermissions: ["filesystem.read"],
-    requiresConfirmation: false,
+    requiresConfirmation: true,
     inputSchemaId: "tool.filesystem.search.input",
   },
   {
@@ -402,7 +403,8 @@ export interface CoreBrainActionResult {
     | "OPEN_FAILED"
     | "WRITE_FAILED"
     | "WINDOW_CONTROL_FAILED"
-    | "SEARCH_FAILED";
+    | "SEARCH_FAILED"
+    | "SCOPE_REQUIRED";
   label: string;
   verificationStatus?: TaskStepVerificationStatus;
   verificationSummary?: string;
@@ -573,6 +575,7 @@ export class CoreRuntime {
     private readonly voiceRegressionRepository?: VoiceRegressionRepository,
     runtimeSafety?: CoreRuntimeSafetyOptions,
     voicePilot?: CoreVoicePilotOptions,
+    private readonly selectFilesystemScope?: (request: FilesystemScopeRequest) => Promise<FilesystemScopeResponse>,
   ) {
     this.startedAt = this.now().toISOString();
     this.effectfulActionAuditService = new EffectfulActionAuditService(
@@ -5046,81 +5049,8 @@ export class CoreRuntime {
     plan: BrainPlanStep[];
     summary: string;
   }> {
-    const repository = this.taskRepository;
-    const taskDispatch = this.taskDispatchService;
-    const executor = this.brainActionExecutor;
-    if (!repository || !taskDispatch || !executor?.searchFilesystem) {
-      return {
-        dispatchStatus: "blocked",
-        plan: this.blockFinalBrainPlan(input.basePlan),
-        summary:
-          "Task Runtime could not execute filesystem.search because its repository or observe-only executor is unavailable.",
-      };
-    }
-
-    const { taskId, stepId } = await taskDispatch.createQueuedTask({
-      title: "Search Filesystem",
-      source: input.source,
-      intent: input.decision.intent,
-      routeSource: "intent-router.deterministic.rules",
-      stepTitle: "Search allowed local files",
-      createdMessage: "Task created from deterministic rules route.",
-    });
-    await this.refreshTasksFromRepository();
-    this.publishSnapshot(input.envelope.correlationId);
-
-    await taskDispatch.markRunning({
-      taskId,
-      stepId,
-      message: "Desktop Host observe-only filesystem search requested.",
-    });
-    await this.refreshTasksFromRepository();
-    this.publishSnapshot(input.envelope.correlationId);
-
-    if (this.shouldBlockBeforeWindowsExecutor("filesystem.search")) {
-      return this.completeEffectfulActionBlockedBeforeExecutor({
-        action: "filesystem.search",
-        taskDispatch,
-        taskId,
-        stepId,
-        correlationId: input.envelope.correlationId,
-        basePlan: input.basePlan,
-        resultSummary:
-          "Task Runtime blocked filesystem.search before executor invocation because Brain open actions are disabled.",
-      });
-    }
-    const actionResult = await executor.searchFilesystem({
-      target: input.query,
-    });
-    const verificationStatus =
-      actionResult.status === "completed"
-        ? (actionResult.verificationStatus ?? "verified")
-        : "verification_failed";
-    const verified = verificationStatus === "verified";
-    const resultSummary =
-      actionResult.verificationSummary ??
-      (verified
-        ? `${actionResult.matchCount ?? 0} sanitized filesystem candidate(s) found.`
-        : `Filesystem search not verified: ${actionResult.reasonCode}.`);
-
-    await taskDispatch.completeVerification({
-      taskId,
-      stepId,
-      verificationStatus,
-      resultSummary,
-      failureReason: verified ? undefined : actionResult.reasonCode,
-    });
-    await this.refreshTasksFromRepository();
-
-    return {
-      dispatchStatus: verified ? "completed" : "blocked",
-      plan: verified
-        ? this.completeBrainPlan(input.basePlan)
-        : this.blockFinalBrainPlan(input.basePlan),
-      summary: verified
-        ? `Task Runtime searched allowed local files and found ${actionResult.matchCount ?? 0} sanitized candidate(s).`
-        : `Task Runtime blocked filesystem search: ${actionResult.reasonCode}.`,
-    };
+    return { dispatchStatus: "blocked", plan: this.blockFinalBrainPlan(input.basePlan),
+      summary: "SCOPE_REQUIRED：文件搜索尚不可用，未读取任何目录。" };
   }
 
   private async dispatchTaskRuntimeNotepadWriteText(input: {
@@ -5576,6 +5506,26 @@ export class CoreRuntime {
       taskId: string;
       confirmation: "explicit_ui_confirmation";
     };
+    const scopeTask = (await this.taskRepository?.listTasks())?.find(task => task.id === taskId);
+    if (scopeTask?.steps.some(step => step.toolId === "filesystem.search")) {
+      const args = FilesystemSearchArgumentsSchema.safeParse(scopeTask.steps[0]?.toolInput);
+      const descriptor = BRAIN_TOOL_REGISTRY_DESCRIPTORS.find(item => item.id === "filesystem.search");
+      if (!args.success || !descriptor || decideToolInvocation({ descriptor, policy: BRAIN_TOOL_REGISTRY_POLICY,
+        request: { requestId: envelope.commandId, toolId: "filesystem.search", input: args.data, dryRun: false },
+        evaluatedAt: this.now().toISOString() }).status !== "needs_confirmation") {
+        return this.failure(envelope, { code: "SCOPE_REQUIRED", message: "文件搜索范围授权不可用。", retryable: false });
+      }
+      const scopeResult = await this.plannerApprovalService.resolveFilesystemScope({
+        taskId, approvalCommandId: envelope.commandId,
+        select: this.selectFilesystemScope,
+      });
+      await this.refreshTasksFromRepository();
+      this.publishSnapshot(envelope.correlationId);
+      if (!scopeResult.ok) return this.failure(envelope, scopeResult);
+      return this.success(envelope, { task: scopeResult.task, approval: scopeResult.approval,
+        approved: scopeResult.approval.resolution === "approved", executedStepCount: 0,
+        reason: "filesystem_search_unavailable", directActionAttempted: false });
+    }
     const result = this.boundedNotepad.owns(taskId)
       ? await this.boundedNotepad.approve(taskId, envelope.commandId)
       : await this.plannerApprovalService.approve({
